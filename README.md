@@ -1,15 +1,18 @@
 # Keiba AI Mobile
 
-iPhone Safari から netkeiba のHTMLをアップロードし、Keiba AI の予想結果をスマホ向けPNGとして確認・保存するためのWebアプリです。
+iPhone Safari から netkeiba のレースURLまたはHTMLを入力し、Keiba AI の予想結果をスマホ向けPNGとして確認・保存するためのWebアプリです。
 
 現在のバージョンは Phase3 / `APP_VERSION = 0.3.0` です。
 
 ## 現在できること
 
 - 地方／中央の切替
-- HTMLまとめてアップロード
-- HTML自動分類
-- 必須HTMLの不足チェック
+- 地方競馬の出馬表URLから `race_id` を抽出
+- 地方競馬の必要HTML URLを自動生成
+- 地方競馬の必要HTMLを自動取得
+- URL取得失敗時の直接HTMLアップロード
+- 中央競馬のHTMLアップロード
+- 取得失敗ページの表示
 - Notebook Bridge 経由で既存Notebookロジックを実行
 - `PredictionResult` 生成
 - スマホ向け縦長PNG生成
@@ -80,29 +83,47 @@ http://192.168.1.10:8501
 
 1. iPhone Safariでアプリを開く
 2. 地方／中央を選ぶ
-3. 必要HTMLをまとめてアップロードする
-4. 認識結果を確認する
+3. 地方は出馬表URLを入力する
+4. 中央は必要HTMLをアップロードする
 5. 「予想する」を押す
 6. 生成されたPNGを確認する
 7. 「PNGを保存」から保存する
 8. 次のレースは「次のレースを予想」でリセットする
 
-## 必要HTML
+## 入力方法
 
 地方：
 
-- タイム指数HTML
+- 出馬表URLを1つ入力します。
+
+例：
+
+```text
+https://nar.netkeiba.com/race/shutuba.html?race_id=202644072012
+```
+
+入力URLから `race_id` を抽出し、以下を自動取得します。
+
+- 出馬表
+- タイム指数
+- 脚質分析
+
+URL取得に失敗する場合は、「詳細設定：HTMLを直接アップロード」から以下をアップロードできます。
+
 - 出馬表HTML
+- タイム指数HTML
 - 脚質分析HTML
 
 中央：
+
+- 従来どおり、以下のHTMLを直接アップロードします。
 
 - タイム指数HTML
 - 競馬新聞HTML
 - 脚質分析HTML
 - 調教HTMLは任意
 
-HTMLはまとめてアップロードできます。ユーザーが種類を選ぶ必要はなく、ファイル名、title、canonical、og:url、body id、table class/id から自動分類します。
+地方で取得できなかったページがある場合は、ページ名と理由だけを画面に表示します。
 
 ## PNGレイアウト
 
@@ -214,11 +235,13 @@ Cloud用のEntrypointはリポジトリ直下の `streamlit_app.py` です。
 - Notebookファイルをどこに置くか決める
 - Notebook Bridgeがクラウド環境でNotebookへアクセスできるようにする
 - 日本語フォントがクラウド環境に存在するか確認する
-- アップロードHTMLはメモリ上で処理し、永続保存しない
+- 取得したHTMLはメモリ上で処理し、永続保存しない
+- Streamlit Cloudからnetkeibaへアクセスできるか確認する
 
 ## 既知の制限
 
 - 予想ロジックはNotebook構造に依存します。
+- netkeiba側のアクセス制限やページ仕様変更により、HTML取得に失敗する場合があります。
 - PNGは1枚にまとめるため、頭数や文章量が極端に多いと縦長になります。
 - 実オッズHTMLの組み合わせオッズ取得はPhase3では使用しません。
 - PNG生成側では新しい予想判断を行わず、Notebook Bridgeの結果を表示します。

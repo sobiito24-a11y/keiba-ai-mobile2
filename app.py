@@ -3,17 +3,21 @@ from __future__ import annotations
 import html
 import re
 import traceback
+from dataclasses import dataclass
 from datetime import datetime
+from urllib.parse import parse_qs, urlparse
 
+import requests
 import streamlit as st
 
+from core.jra_predictor import predict_jra
 from core.html_classifier import (
     DISPLAY_ORDER,
+    classify_html,
     classify_many,
     kind_label,
     required_kinds,
 )
-from core.jra_predictor import predict_jra
 from core.models import ClassifiedHtml, PredictionResult, RaceMode
 from core.nar_predictor import predict_nar
 from core.version import APP_VERSION
@@ -72,6 +76,30 @@ MOBILE_CSS = """
 """
 
 
+FETCH_TIMEOUT_SECONDS = 20
+REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+        "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    ),
+    "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+}
+
+
+@dataclass(frozen=True)
+class GeneratedHtmlSpec:
+    kind: str
+    label: str
+    url: str
+    required: bool = True
+
+
+class HtmlFetchError(RuntimeError):
+    def __init__(self, failures: list[dict[str, str]]) -> None:
+        super().__init__("必要HTMLを取得できませんでした。")
+        self.failures = failures
+
+
 def main() -> None:
     st.markdown(MOBILE_CSS, unsafe_allow_html=True)
     _init_state()
@@ -91,20 +119,126 @@ def main() -> None:
     )
     mode: RaceMode = "nar" if mode_label == "地方" else "jra"
 
+    if mode == "nar":
+        render_nar_url_flow()
+    else:
+        render_upload_flow("jra")
+
+    if st.session_state.prediction_result is not None and st.session_state.png_bytes is not None:
+        render_result_area(st.session_state.prediction_result, st.session_state.png_bytes)
+
+
+def _init_state() -> None:
+    st.session_state.setdefault("url_input_key", 0)
+    st.session_state.setdefault("uploader_key", 0)
+    st.session_state.setdefault("prediction_result", None)
+    st.session_state.setdefault("png_bytes", None)
+    st.session_state.setdefault("fetch_failures", [])
+    st.session_state.setdefault("fetch_race_id", "")
+    st.session_state.setdefault("input_signature", "")
+
+
+def render_nar_url_flow() -> None:
+    st.subheader("出馬表URL")
+    race_url = st.text_input(
+        "地方競馬の出馬表URL",
+        placeholder="https://nar.netkeiba.com/race/shutuba.html?race_id=202644072012",
+        help="出馬表URLを1つ貼るだけで、出馬表・タイム指数・脚質分析を自動取得します。",
+        key=f"race_url_{st.session_state.url_input_key}",
+    )
+    current_input_signature = f"nar:{race_url.strip()}"
+    if st.session_state.input_signature != current_input_signature:
+        clear_prediction_state()
+        st.session_state.input_signature = current_input_signature
+
+    race_id = extract_race_id(race_url)
+    specs = build_nar_generated_url_specs(race_id) if race_id else []
+
+    st.subheader("認識結果")
+    if not race_url.strip():
+        st.info("出馬表URLを入力してください。")
+    elif not race_id:
+        st.error("URLから race_id を取得できませんでした。netkeiba地方競馬の出馬表URLを入力してください。")
+    else:
+        st.success(f"race_id を取得しました: {race_id}")
+        render_generated_url_cards(specs)
+
+    if (
+        st.session_state.fetch_failures
+        and st.session_state.fetch_race_id == race_id
+    ):
+        render_fetch_failures(st.session_state.fetch_failures)
+
+    fallback_selected: dict[str, ClassifiedHtml] = {}
+    fallback_grouped: dict[str, list[ClassifiedHtml]] = {}
+    fallback_ready = False
+    with st.expander("詳細設定：HTMLを直接アップロード", expanded=False):
+        st.caption("URL自動取得に失敗する場合だけ使用してください。")
+        fallback_selected, fallback_grouped, has_uploads, missing = render_upload_input(
+            "nar",
+            key_prefix="nar_fallback",
+        )
+        fallback_ready = has_uploads and not missing and bool(fallback_selected)
+        if fallback_ready:
+            st.info("直接アップロードHTMLを使用して予想します。")
+
+    st.subheader("予想")
+    can_predict = fallback_ready or bool(race_id)
+    if st.button("予想する", disabled=not can_predict, type="primary", use_container_width=True):
+        clear_prediction_state(keep_input=True)
+        if fallback_ready:
+            result, png_bytes = run_upload_prediction_with_progress(
+                "nar",
+                fallback_selected,
+                fallback_grouped,
+            )
+        else:
+            result, png_bytes = run_nar_url_prediction_with_progress(race_id or "", specs)
+        if result is not None and png_bytes is not None:
+            st.session_state.prediction_result = result
+            st.session_state.png_bytes = png_bytes
+
+
+def render_upload_flow(mode: RaceMode) -> None:
+    current_input_signature = f"{mode}:upload"
+    if st.session_state.input_signature != current_input_signature:
+        clear_prediction_state()
+        st.session_state.input_signature = current_input_signature
+
+    st.subheader("HTML追加")
+    selected, grouped, has_uploads, missing = render_upload_input(mode, key_prefix=mode)
+
+    st.subheader("予想")
+    can_predict = has_uploads and not missing and bool(selected)
+    if st.button("予想する", disabled=not can_predict, type="primary", use_container_width=True):
+        clear_prediction_state(keep_input=True)
+        result, png_bytes = run_upload_prediction_with_progress(mode, selected, grouped)
+        if result is not None and png_bytes is not None:
+            st.session_state.prediction_result = result
+            st.session_state.png_bytes = png_bytes
+
+
+def render_upload_input(
+    mode: RaceMode,
+    key_prefix: str,
+) -> tuple[dict[str, ClassifiedHtml], dict[str, list[ClassifiedHtml]], bool, list[str]]:
+    uploader_label = "HTML追加" if mode == "jra" and key_prefix == "jra" else "HTMLを直接アップロード"
     uploaded_files = st.file_uploader(
-        "HTML追加",
+        uploader_label,
         type=["html", "htm"],
         accept_multiple_files=True,
         help="必要なHTMLをまとめて選択してください。内容から自動判定します。",
-        key=f"html_upload_{st.session_state.uploader_key}",
+        key=f"html_upload_{key_prefix}_{st.session_state.uploader_key}",
     )
 
     grouped: dict[str, list[ClassifiedHtml]] = {}
+    has_uploads = bool(uploaded_files)
     if uploaded_files:
         grouped = classify_many([(file.name, file.getvalue()) for file in uploaded_files], mode)
 
-    st.subheader("認識結果")
-    selected = render_recognition(grouped, mode)
+    st.markdown("#### 認識結果")
+    allow_expanders = "fallback" not in key_prefix
+    selected = render_recognition(grouped, mode, allow_expanders=allow_expanders)
     missing = [kind for kind in required_kinds(mode) if kind not in selected]
 
     if not uploaded_files:
@@ -118,27 +252,15 @@ def main() -> None:
     elif selected:
         st.success("必要なHTMLが揃いました。")
 
-    render_unknown_files(grouped)
-
-    st.subheader("予想")
-    can_predict = not missing and bool(selected)
-    if st.button("予想する", disabled=not can_predict, type="primary", use_container_width=True):
-        result, png_bytes = run_prediction_with_progress(mode, selected, grouped)
-        if result is not None and png_bytes is not None:
-            st.session_state.prediction_result = result
-            st.session_state.png_bytes = png_bytes
-
-    if st.session_state.prediction_result is not None and st.session_state.png_bytes is not None:
-        render_result_area(st.session_state.prediction_result, st.session_state.png_bytes)
+    render_unknown_files(grouped, allow_expander=allow_expanders)
+    return selected, grouped, has_uploads, missing
 
 
-def _init_state() -> None:
-    st.session_state.setdefault("uploader_key", 0)
-    st.session_state.setdefault("prediction_result", None)
-    st.session_state.setdefault("png_bytes", None)
-
-
-def render_recognition(grouped: dict[str, list[ClassifiedHtml]], mode: RaceMode) -> dict[str, ClassifiedHtml]:
+def render_recognition(
+    grouped: dict[str, list[ClassifiedHtml]],
+    mode: RaceMode,
+    allow_expanders: bool = True,
+) -> dict[str, ClassifiedHtml]:
     selected: dict[str, ClassifiedHtml] = {}
     if not grouped:
         return selected
@@ -174,11 +296,16 @@ def render_recognition(grouped: dict[str, list[ClassifiedHtml]], mode: RaceMode)
         for kind in grouped
         if kind not in set(DISPLAY_ORDER[mode]) | {"unknown"}
     ]
-    if extra_kinds:
+    if extra_kinds and allow_expanders:
         with st.expander("任意HTML / 今回は補助として使用", expanded=False):
             for kind in extra_kinds:
                 for item in grouped[kind]:
                     st.write(f"{kind_label(kind)}: {item.file_name}")
+    elif extra_kinds:
+        st.markdown("任意HTML / 今回は補助として使用")
+        for kind in extra_kinds:
+            for item in grouped[kind]:
+                st.write(f"{kind_label(kind)}: {item.file_name}")
 
     return selected
 
@@ -199,17 +326,321 @@ def render_recognized_item(label: str, item: ClassifiedHtml) -> None:
     )
 
 
-def render_unknown_files(grouped: dict[str, list[ClassifiedHtml]]) -> None:
-    with st.expander("判定できなかったHTML", expanded=False):
-        unknowns = grouped.get("unknown", [])
-        if unknowns:
-            for item in unknowns:
-                st.write(item.file_name)
-        else:
-            st.write("なし")
+def render_unknown_files(grouped: dict[str, list[ClassifiedHtml]], allow_expander: bool = True) -> None:
+    unknowns = grouped.get("unknown", [])
+    if allow_expander:
+        with st.expander("判定できなかったHTML", expanded=False):
+            if unknowns:
+                for item in unknowns:
+                    st.write(item.file_name)
+            else:
+                st.write("なし")
+        return
+
+    st.markdown("判定できなかったHTML")
+    if unknowns:
+        for item in unknowns:
+            st.write(item.file_name)
+    else:
+        st.write("なし")
 
 
-def run_prediction_with_progress(
+def clear_prediction_state(keep_input: bool = False) -> None:
+    st.session_state.prediction_result = None
+    st.session_state.png_bytes = None
+    st.session_state.fetch_failures = []
+    st.session_state.fetch_race_id = ""
+    if not keep_input:
+        st.session_state.input_signature = ""
+
+
+def extract_race_id(value: str) -> str:
+    text = str(value or "").strip()
+    if re.fullmatch(r"\d{10,14}", text):
+        return text
+
+    try:
+        parsed = urlparse(text)
+        query_race_ids = parse_qs(parsed.query).get("race_id", [])
+        for candidate in query_race_ids:
+            if re.fullmatch(r"\d{10,14}", candidate):
+                return candidate
+    except ValueError:
+        pass
+
+    match = re.search(r"race_id=(\d{10,14})", text)
+    return match.group(1) if match else ""
+
+
+def build_nar_generated_url_specs(race_id: str) -> list[GeneratedHtmlSpec]:
+    return [
+        GeneratedHtmlSpec(
+            "shutuba",
+            kind_label("shutuba"),
+            f"https://nar.netkeiba.com/race/shutuba.html?race_id={race_id}",
+        ),
+        GeneratedHtmlSpec(
+            "speed",
+            kind_label("speed"),
+            f"https://nar.netkeiba.com/race/speed.html?race_id={race_id}",
+        ),
+        GeneratedHtmlSpec(
+            "style",
+            kind_label("style"),
+            f"https://nar.netkeiba.com/race/data_list.html?race_id={race_id}&mode=courseanalysis&cid=1",
+        ),
+    ]
+
+
+def render_generated_url_cards(specs: list[GeneratedHtmlSpec]) -> None:
+    for spec in specs:
+        label = html.escape(spec.label)
+        url = html.escape(spec.url)
+        required = "必須" if spec.required else "任意"
+        st.markdown(
+            f"""
+            <div class="ka-card">
+              <span class="ka-ok">✓ {label}URLを生成しました</span>
+              <div class="ka-muted">{required}</div>
+              <div class="ka-file">{url}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def render_fetch_failures(failures: list[dict[str, str]]) -> None:
+    st.error("取得できなかったURLがあります。")
+    for failure in failures:
+        label = html.escape(failure.get("label", "HTML"))
+        reason = html.escape(failure.get("reason", "取得失敗"))
+        st.markdown(
+            f"""
+            <div class="ka-card">
+              <span class="ka-ng">× {label}: {reason}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def fetch_generated_html(
+    specs: list[GeneratedHtmlSpec],
+    race_id: str,
+) -> tuple[dict[str, str], dict[str, str]]:
+    html_files: dict[str, str] = {}
+    file_names: dict[str, str] = {}
+    failures: list[dict[str, str]] = []
+
+    for spec in specs:
+        try:
+            response = requests.get(
+                spec.url,
+                headers=REQUEST_HEADERS,
+                timeout=FETCH_TIMEOUT_SECONDS,
+            )
+            if response.status_code != 200:
+                failures.append(
+                    {
+                        "label": spec.label,
+                        "url": spec.url,
+                        "reason": f"HTTP {response.status_code}",
+                    }
+                )
+                continue
+            if response.apparent_encoding:
+                response.encoding = response.apparent_encoding
+            html_text = response.text or ""
+            if not html_text.strip():
+                failures.append(
+                    {
+                        "label": spec.label,
+                        "url": spec.url,
+                        "reason": "HTML本文が空です",
+                    }
+                )
+                continue
+            invalid_reason = validate_fetched_nar_html(spec, html_text, race_id)
+            if invalid_reason:
+                failures.append(
+                    {
+                        "label": spec.label,
+                        "url": spec.url,
+                        "reason": invalid_reason,
+                    }
+                )
+                continue
+            html_files[spec.kind] = html_text
+            file_names[spec.kind] = f"{spec.label}_{race_id}.html"
+        except requests.RequestException as exc:
+            failures.append(
+                {
+                    "label": spec.label,
+                    "url": spec.url,
+                    "reason": str(exc),
+                }
+            )
+
+    required_missing = [failure for failure in failures if _is_required_failure(failure, specs)]
+    if required_missing:
+        raise HtmlFetchError(required_missing)
+    return html_files, file_names
+
+
+def validate_fetched_nar_html(spec: GeneratedHtmlSpec, html_text: str, race_id: str) -> str:
+    text = html_text or ""
+    head = text[:160_000]
+    if not text.strip():
+        return "HTML本文が空です"
+    if looks_like_login_page(head):
+        return "ログインページが返されました"
+    if not fetched_page_matches_race_id(head, race_id):
+        return "入力race_idと取得ページのrace_idが一致しません"
+
+    classified = classify_html(spec.url, text, "nar")
+    if classified.kind == spec.kind:
+        return ""
+    if spec.kind in classified.all_matches:
+        return ""
+    if has_required_nar_page_marker(spec.kind, text):
+        return ""
+    return "必要なテーブルを取得できませんでした"
+
+
+def looks_like_login_page(html_text: str) -> bool:
+    text = html_text or ""
+    lower = text.lower()
+    title = simple_title(text)
+    if "ログイン" in title or "login" in title.lower():
+        return True
+    login_markers = (
+        'id="login',
+        "id='login",
+        "loginform",
+        "login_form",
+        "/account/login",
+        "/login?return_url",
+    )
+    return any(marker in lower for marker in login_markers)
+
+
+def fetched_page_matches_race_id(html_text: str, race_id: str) -> bool:
+    text = html_text or ""
+    head_refs = []
+    for pattern in (
+        r"""<link\b[^>]*rel\s*=\s*['"][^'"]*canonical[^'"]*['"][^>]*>""",
+        r"""<meta\b[^>]*(?:property|name)\s*=\s*['"]og:url['"][^>]*>""",
+    ):
+        head_refs.extend(re.findall(pattern, text, flags=re.I | re.S))
+    ids: list[str] = []
+    for ref in head_refs:
+        ids.extend(re.findall(r"race_id=(\d{10,14})", ref))
+    if ids:
+        return race_id in ids
+    return race_id in text[:300_000]
+
+
+def has_required_nar_page_marker(kind: str, html_text: str) -> bool:
+    text = html_text or ""
+    markers_by_kind = {
+        "shutuba": (
+            "Shutuba_Table",
+            "RaceTable_Shutuba",
+            "NAR_RaceTable",
+            "馬番",
+            "馬名",
+            "斤量",
+        ),
+        "speed": (
+            "Speed_List",
+            "SpeedIndex_Table",
+            "タイム指数",
+            "指数",
+        ),
+        "style": (
+            "mode=courseanalysis",
+            "CourseAnalysis",
+            "RaceData_CourseAnalysis",
+            "有利な脚質",
+            "脚質傾向",
+        ),
+    }
+    markers = markers_by_kind.get(kind, ())
+    return any(marker in text for marker in markers)
+
+
+def simple_title(html_text: str) -> str:
+    match = re.search(r"<title\b[^>]*>(.*?)</title>", html_text or "", flags=re.I | re.S)
+    if not match:
+        return ""
+    title = re.sub(r"<[^>]+>", " ", match.group(1))
+    return re.sub(r"\s+", " ", html.unescape(title)).strip()
+
+
+def _is_required_failure(failure: dict[str, str], specs: list[GeneratedHtmlSpec]) -> bool:
+    failed_url = failure.get("url", "")
+    return any(spec.url == failed_url and spec.required for spec in specs)
+
+
+def render_fetch_success(html_files: dict[str, str]) -> None:
+    with st.expander("取得したHTML", expanded=False):
+        for kind, html_text in html_files.items():
+            st.write(f"{kind_label(kind)}: {len(html_text):,}文字")
+
+
+def run_nar_url_prediction_with_progress(
+    race_id: str,
+    specs: list[GeneratedHtmlSpec],
+) -> tuple[PredictionResult | None, bytes | None]:
+    progress = st.progress(0)
+    status = st.empty()
+
+    def step(percent: int, message: str) -> None:
+        progress.progress(percent)
+        status.write(message)
+
+    try:
+        st.session_state.fetch_failures = []
+        st.session_state.fetch_race_id = race_id
+        step(10, "1. URL確認中")
+        step(25, "2. HTML取得中")
+        html_files, file_names = fetch_generated_html(specs, race_id)
+        render_fetch_success(html_files)
+        step(45, "3. AI予想中")
+        result = run_prediction("nar", html_files, file_names)
+        step(60, "4. 結果整理中")
+        validate_result(result)
+        step(80, "5. PNG生成中")
+        png_bytes = render_mobile_png(result)
+        step(100, "6. 完了")
+        st.success("スマホ用PNGを生成しました。")
+        return result, png_bytes
+    except MobilePngRenderError as exc:
+        progress.empty()
+        status.empty()
+        st.error(f"PNG生成に失敗しました: {exc}")
+        with st.expander("開発者向け詳細", expanded=False):
+            st.code(traceback.format_exc())
+        return None, None
+    except HtmlFetchError as exc:
+        progress.empty()
+        status.empty()
+        st.session_state.fetch_failures = exc.failures
+        st.session_state.fetch_race_id = race_id
+        render_fetch_failures(exc.failures)
+        with st.expander("開発者向け詳細", expanded=False):
+            st.code(traceback.format_exc())
+        return None, None
+    except Exception as exc:
+        progress.empty()
+        status.empty()
+        st.error(f"予想処理に失敗しました: {exc}")
+        with st.expander("開発者向け詳細", expanded=False):
+            st.code(traceback.format_exc())
+        return None, None
+
+
+def run_upload_prediction_with_progress(
     mode: RaceMode,
     selected: dict[str, ClassifiedHtml],
     grouped: dict[str, list[ClassifiedHtml]],
@@ -222,12 +653,17 @@ def run_prediction_with_progress(
         status.write(message)
 
     try:
-        step(10, "1. HTML解析中")
-        step(30, "2. AI予想中")
-        result = run_prediction(mode, selected, grouped)
-        step(60, "3. 結果整理中")
+        step(20, "1. HTML整理中")
+        html_files = {kind: item.html_text for kind, item in selected.items()}
+        file_names = {kind: item.file_name for kind, item in selected.items()}
+        if mode == "jra" and "oikiri" in grouped and grouped["oikiri"]:
+            html_files["oikiri"] = grouped["oikiri"][0].html_text
+            file_names["oikiri"] = grouped["oikiri"][0].file_name
+        step(45, "2. AI予想中")
+        result = run_prediction(mode, html_files, file_names)
+        step(65, "3. 結果整理中")
         validate_result(result)
-        step(80, "4. PNG生成中")
+        step(85, "4. PNG生成中")
         png_bytes = render_mobile_png(result)
         step(100, "5. 完了")
         st.success("スマホ用PNGを生成しました。")
@@ -250,14 +686,9 @@ def run_prediction_with_progress(
 
 def run_prediction(
     mode: RaceMode,
-    selected: dict[str, ClassifiedHtml],
-    grouped: dict[str, list[ClassifiedHtml]],
+    html_files: dict[str, str],
+    file_names: dict[str, str],
 ) -> PredictionResult:
-    html_files = {kind: item.html_text for kind, item in selected.items()}
-    file_names = {kind: item.file_name for kind, item in selected.items()}
-    if mode == "jra" and "oikiri" in grouped and grouped["oikiri"]:
-        html_files["oikiri"] = grouped["oikiri"][0].html_text
-        file_names["oikiri"] = grouped["oikiri"][0].file_name
     if mode == "nar":
         return predict_nar(html_files, file_names)
     return predict_jra(html_files, file_names)
@@ -297,7 +728,9 @@ def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
     if st.button("次のレースを予想", use_container_width=True):
         st.session_state.prediction_result = None
         st.session_state.png_bytes = None
-        st.session_state.uploader_key += 1
+        st.session_state.fetch_failures = []
+        st.session_state.fetch_race_id = ""
+        st.session_state.url_input_key += 1
         st.rerun()
 
 
