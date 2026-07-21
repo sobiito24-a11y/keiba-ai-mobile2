@@ -146,12 +146,12 @@ def _init_state() -> None:
 def render_nar_json_flow() -> None:
     st.subheader("地方データ追加")
     st.caption("iPhoneショートカットで保存した3ファイルをまとめて選択してください。")
-    st.caption("出走表ページ → JSON / タイム指数ページ → JSON / コース分析の脚質ページ → HTML")
+    st.caption("出走表ページ → JSON（または競馬新聞HTML） / タイム指数ページ → JSON / コース分析の脚質ページ → HTMLまたはJSON")
     uploaded_files = st.file_uploader(
         "iPhoneショートカットで保存した地方競馬ファイルを選択",
         type=["json", "html"],
         accept_multiple_files=True,
-        help="ファイル名や拡張子ではなく、中身で自動判定します。.html拡張子でも中身がJSONならentry/speedとして読み込めます。",
+        help="ファイル名や拡張子ではなく、中身で自動判定します。entry JSONが無い場合は地方競馬新聞HTMLから出走表相当データを生成します。",
         key=f"nar_json_upload_{st.session_state.uploader_key}",
     )
 
@@ -167,7 +167,7 @@ def render_nar_json_flow() -> None:
 
     st.subheader("認識結果")
     if not uploaded_files:
-        st.info("出走表JSON、タイム指数JSON、コース脚質HTMLを追加してください。")
+        st.info("出走表JSONまたは競馬新聞HTML、タイム指数JSON、コース脚質HTML/JSONを追加してください。")
     else:
         try:
             package = build_nar_prediction_inputs_from_uploads(
@@ -222,7 +222,8 @@ def render_nar_json_flow() -> None:
 
 def render_nar_json_status(package: NarJsonPredictionInput) -> None:
     st.success(f"{package.race_id} のデータを読み込みました")
-    st.write(f"出走表：{package.entry_count}頭")
+    entry_label = "競馬新聞HTMLから生成" if package.entry_source == "nar_newspaper_html" else "JSON"
+    st.write(f"出走表：{package.entry_count}頭（{entry_label}）")
     st.write(f"タイム指数：{package.speed_count}頭")
     st.write(f"各馬脚質：{package.horse_style_count}頭")
     if package.running_styles:

@@ -4,6 +4,7 @@ import json
 import unittest
 
 from core.nar_courseanalysis_parser import parse_courseanalysis_html
+from core.nar_newspaper_parser import parse_nar_newspaper_html
 from core.nar_json_input import (
     NarJsonDataError,
     build_nar_prediction_inputs_from_uploads,
@@ -132,6 +133,57 @@ def upload(name: str, payload: str | dict) -> tuple[str, bytes]:
     return name, payload.encode("utf-8")
 
 
+def newspaper_html(race_id: str = "202644072106") -> str:
+    return f"""
+    <!doctype html>
+    <html>
+      <head>
+        <title>C2九十 競馬新聞 地方競馬</title>
+        <link rel="canonical" href="https://nar.netkeiba.com/race/newspaper.html?race_id={race_id}">
+        <meta property="og:url" content="https://nar.netkeiba.com/race/newspaper.html?race_id={race_id}">
+      </head>
+      <body>
+        <h1 class="RaceName">C2九十</h1>
+        <div class="RaceData01">17:30発走 / ダ1600m (右)</div>
+        <table class="RaceNewspaper">
+          <tbody>
+            <tr class="HorseList">
+              <td class="Waku">1</td>
+              <td class="Umaban">1</td>
+              <td class="Horse_Info"><a href="https://nar.netkeiba.com/horse/h1">テストホースA</a></td>
+              <td class="SexAge">牡4</td>
+              <td class="Weight">56</td>
+              <td class="Jockey"><a href="/jockey/j1">騎手A</a></td>
+              <td class="Trainer"><a href="/trainer/t1">大井・調教師A</a></td>
+              <td class="DataTitle_Cell">先</td>
+              <td class="HorseWeight">501(+31)</td>
+              <td class="Ninki">1</td>
+              <td class="Odds">3.4</td>
+              <td class="Comment">順調に使えています</td>
+              <td class="Pace">前めで運べる</td>
+              <td class="AiMark">◎</td>
+              <td>前半3F:35.1 後半3F:38.2</td>
+            </tr>
+            <tr class="HorseList">
+              <td class="Waku">2</td>
+              <td class="Umaban">2</td>
+              <td class="Horse_Info"><a href="https://nar.netkeiba.com/horse/h2">テストホースB</a></td>
+              <td class="SexAge">牝5</td>
+              <td class="Weight">54</td>
+              <td class="Jockey"><a href="/jockey/j2">騎手B</a></td>
+              <td class="Trainer"><a href="/trainer/t2">船橋・調教師B</a></td>
+              <td class="DataTitle_Cell">差</td>
+              <td class="HorseWeight">478(0)</td>
+              <td class="Ninki">4</td>
+              <td class="Odds">9.8</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+    </html>
+    """
+
+
 class NarCourseAnalysisInputTest(unittest.TestCase):
     def test_parse_courseanalysis_html_three_labels(self) -> None:
         data = parse_courseanalysis_html(course_html(["先", "差", "追"]))
@@ -182,6 +234,41 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(package.horse_style_count, 2)
         self.assertIn('<td class="DataTitle_Cell">先</td>', package.html_files["style"])
         self.assertIn("<td>15</td><td>28</td><td>38</td>", package.html_files["style"])
+
+    def test_parse_nar_newspaper_html_extracts_entry_fields(self) -> None:
+        data = parse_nar_newspaper_html(newspaper_html())
+        self.assertEqual(data["race_id"], "202644072106")
+        self.assertEqual(len(data["horses"]), 2)
+        first = data["horses"][0]
+        self.assertEqual(first["horse_number"], "1")
+        self.assertEqual(first["horse_name"], "テストホースA")
+        self.assertEqual(first["horse_id"], "h1")
+        self.assertEqual(first["frame_number"], "1")
+        self.assertEqual(first["running_style"], "先")
+        self.assertEqual(first["jockey"], "騎手A")
+        self.assertEqual(first["weight"], "56")
+        self.assertEqual(first["trainer"], "調教師A")
+        self.assertEqual(first["affiliation"], "大井")
+        self.assertEqual(first["horse_weight"], "501(+31)")
+        self.assertEqual(first["popularity"], "1")
+        self.assertEqual(first["odds"], "3.4")
+        self.assertEqual(first["ai_mark"], "◎")
+        self.assertEqual(first["early_3f"], "35.1")
+        self.assertEqual(first["late_3f"], "38.2")
+
+    def test_newspaper_html_can_replace_entry_json(self) -> None:
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("speed.json", base_json("speed")),
+                upload("courseanalysis.html", course_html(["先", "差", "追"])),
+                upload("newspaper.html", newspaper_html()),
+            ]
+        )
+        self.assertEqual(package.entry_source, "nar_newspaper_html")
+        self.assertEqual(package.entry_count, 2)
+        self.assertEqual(package.horse_style_count, 2)
+        self.assertIn("テストホースA", package.html_files["shutuba"])
+        self.assertIn('<td class="DataTitle_Cell">先</td>', package.html_files["style"])
 
     def test_horse_styles_from_courseanalysis_html_are_used_when_json_has_none(self) -> None:
         entry = base_json("entry")

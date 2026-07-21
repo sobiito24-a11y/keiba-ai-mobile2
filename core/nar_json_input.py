@@ -11,6 +11,12 @@ from .nar_courseanalysis_parser import (
     is_courseanalysis_html,
     parse_courseanalysis_html,
 )
+from .nar_newspaper_parser import (
+    NarNewspaperParseError,
+    build_entry_from_nar_newspaper,
+    is_nar_newspaper_html,
+    parse_nar_newspaper_html,
+)
 
 
 REQUIRED_NAR_JSON_TYPES = {"entry", "speed", "courseanalysis"}
@@ -29,12 +35,15 @@ class NarJsonPredictionInput:
     speed_count: int
     running_styles: tuple[str, ...]
     horse_style_count: int = 0
+    entry_source: str = "entry"
 
 
 def build_nar_prediction_inputs_from_uploads(
     uploaded_files: Iterable[tuple[str, bytes]],
 ) -> NarJsonPredictionInput:
     classified = classify_nar_uploaded_files(uploaded_files)
+    if "entry" not in classified and "newspaper" in classified:
+        classified["entry"] = build_entry_from_nar_newspaper(classified["newspaper"])
     validate_nar_uploaded_data(classified)
 
     entry_data = classified["entry"]
@@ -66,6 +75,7 @@ def build_nar_prediction_inputs_from_uploads(
         speed_count=len(speed_data.get("horses", [])),
         running_styles=running_styles,
         horse_style_count=sum(1 for horse in merged_horses if str(horse.get("running_style", "")).strip()),
+        entry_source=str(entry_data.get("source") or "entry"),
     )
 
 
@@ -94,7 +104,16 @@ def classify_nar_uploaded_files(uploaded_files: Iterable[tuple[str, bytes]]) -> 
             _add_classified_data(classified, duplicates, "courseanalysis", courseanalysis_data, file_name)
             continue
 
-        invalid_files.append(f"{file_name}: entry/speed JSON または courseanalysis HTML として判定できません")
+        if is_nar_newspaper_html(text):
+            try:
+                newspaper_data = parse_nar_newspaper_html(text)
+            except NarNewspaperParseError as exc:
+                invalid_files.append(f"{file_name}: 競馬新聞HTMLの解析に失敗しました（{exc}）")
+                continue
+            _add_classified_data(classified, duplicates, "newspaper", newspaper_data, file_name)
+            continue
+
+        invalid_files.append(f"{file_name}: entry/speed JSON、courseanalysis HTML、または競馬新聞HTMLとして判定できません")
 
     if invalid_files:
         raise NarJsonDataError("読み込めないファイルがあります。\n" + "\n".join(invalid_files))

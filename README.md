@@ -95,13 +95,16 @@ streamlit run streamlit_app.py
 | 出走表JSON | `data_type = "entry"` | 馬番、馬名、性齢、斤量、騎手、馬体重、単勝オッズ、人気など |
 | タイム指数JSON | `data_type = "speed"` | 最高指数、5走平均、距離指数、コース指数、近3走指数など |
 | コース脚質分析HTML | HTML本文の `mode=courseanalysis` / `cid=1` / `score1` | コースの脚質傾向 |
+| 競馬新聞HTML | `newspaper.html` / `競馬新聞` / `nar.netkeiba.com` | entry JSONが無い場合に出走表相当データを生成 |
 
 ファイル名や拡張子ではなく、本文の構造で自動分類します。ショートカット側で同じファイル名になったり、拡張子が `.html` になったりしても、中身がJSONであれば `data_type` で読み込めます。旧形式の `courseanalysis` JSONも互換入力として利用できます。
+entry JSONがある場合はentryを優先します。entry JSONが無い場合は、地方競馬新聞HTMLから馬番、馬名、horse_id、枠番、脚質、騎手、斤量、馬体重、人気、オッズ、調教師、所属などを抽出してentry相当データを生成します。
 
 地方JSONでは以下を検証します。
 
 - 必須3種類が揃っている
-- `data_type` が `entry` / `speed` / `courseanalysis` のいずれか、またはコース分析HTMLとして判定できる
+- `entry` または `newspaper HTML`、`speed`、`courseanalysis` が揃っている
+- `data_type` が `entry` / `speed` / `courseanalysis` のいずれか、またはコース分析HTML/競馬新聞HTMLとして判定できる
 - 3ファイルの `race_id` が一致している
 - 出馬表／タイム指数の `horses` が空ではない
 - 出馬表／タイム指数の頭数が一致している
