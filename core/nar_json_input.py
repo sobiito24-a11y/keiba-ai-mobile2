@@ -28,6 +28,7 @@ class NarJsonPredictionInput:
     entry_count: int
     speed_count: int
     running_styles: tuple[str, ...]
+    horse_style_count: int = 0
 
 
 def build_nar_prediction_inputs_from_uploads(
@@ -40,7 +41,7 @@ def build_nar_prediction_inputs_from_uploads(
     speed_data = classified["speed"]
     courseanalysis_data = classified["courseanalysis"]
     race_id = str(entry_data.get("race_id", "")).strip()
-    merged_horses = merge_entry_and_speed(entry_data, speed_data)
+    merged_horses = merge_entry_and_speed(entry_data, speed_data, courseanalysis_data)
     running_styles = tuple(
         str(item.get("style", "")).strip()
         for item in courseanalysis_data.get("running_styles", [])
@@ -64,6 +65,7 @@ def build_nar_prediction_inputs_from_uploads(
         entry_count=len(entry_data.get("horses", [])),
         speed_count=len(speed_data.get("horses", [])),
         running_styles=running_styles,
+        horse_style_count=sum(1 for horse in merged_horses if str(horse.get("running_style", "")).strip()),
     )
 
 
@@ -217,12 +219,17 @@ def validate_nar_json_bundle(classified: dict[str, dict[str, Any]]) -> None:
     validate_nar_uploaded_data(classified)
 
 
-def merge_entry_and_speed(entry_data: dict[str, Any], speed_data: dict[str, Any]) -> list[dict[str, Any]]:
+def merge_entry_and_speed(
+    entry_data: dict[str, Any],
+    speed_data: dict[str, Any],
+    courseanalysis_data: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     speed_by_number = {
         _horse_number(horse): horse
         for horse in speed_data.get("horses", [])
         if _horse_number(horse)
     }
+    course_style_by_number = _horse_running_style_map(courseanalysis_data or {})
     merged_horses: list[dict[str, Any]] = []
     for entry_horse in entry_data.get("horses", []):
         horse_number = _horse_number(entry_horse)
@@ -235,6 +242,15 @@ def merge_entry_and_speed(entry_data: dict[str, Any], speed_data: dict[str, Any]
         for key in ("odds", "popularity", "style", "running_style"):
             if not str(merged.get(key, "")).strip() and str(speed_horse.get(key, "")).strip():
                 merged[key] = speed_horse.get(key)
+        running_style = (
+            course_style_by_number.get(horse_number)
+            or _extract_horse_running_style(entry_horse)
+            or _extract_horse_running_style(speed_horse)
+        )
+        if running_style:
+            merged["running_style"] = running_style
+            if not str(merged.get("style", "")).strip():
+                merged["style"] = running_style
         weight_value, weight_diff = parse_horse_weight(merged.get("horse_weight"))
         merged["horse_weight_value"] = weight_value
         merged["horse_weight_diff"] = weight_diff
@@ -341,19 +357,24 @@ def build_courseanalysis_html(
     race_name = _race_value(race, "race_name") or "地方競馬"
     race_data_1 = _race_value(race, "race_data_1", "race_data", "race_info") or ""
     race_data_2 = _race_value(race, "race_data_2") or ""
+    style_stats = _course_style_stats(courseanalysis_data)
 
     horse_rows = []
     for horse in merged_horses:
         style = str(horse.get("running_style") or horse.get("style") or "").strip()
         if not style:
             continue
+        stats = style_stats.get(_normalize_style(style), {})
         horse_rows.append(
             '<tr class="HorseList">'
             f"<td>{_e(horse.get('horse_number'))}</td>"
             f'<td class="Horse_Info"><a>{_e(horse.get("horse_name"))}</a></td>'
             f'<td class="DataTitle_Cell">{_e(style)}</td>'
             "<td></td><td></td><td></td><td></td><td></td>"
-            "<td></td><td></td><td></td><td></td><td></td>"
+            f"<td>{_e(stats.get('win_rate'))}</td>"
+            f"<td>{_e(stats.get('quinella_rate'))}</td>"
+            f"<td>{_e(stats.get('place_rate'))}</td>"
+            "<td></td><td></td>"
             "</tr>"
         )
 
@@ -455,6 +476,63 @@ def _validate_horse_identity(entry_horses: list[dict[str, Any]], speed_horses: l
             mismatches.append(f"馬番{number}: 馬名 {entry_horse.get('horse_name')} / {speed_horse.get('horse_name')}")
     if mismatches:
         raise NarJsonDataError("出走表とタイム指数で馬情報が一致しません。\n" + "\n".join(mismatches[:8]))
+
+
+def _horse_running_style_map(courseanalysis_data: dict[str, Any]) -> dict[str, str]:
+    style_by_number: dict[str, str] = {}
+    candidates = []
+    for key in ("horse_running_styles", "horses"):
+        value = courseanalysis_data.get(key)
+        if isinstance(value, list):
+            candidates.extend(item for item in value if isinstance(item, dict))
+    for item in candidates:
+        number = _horse_number(item)
+        style = _extract_horse_running_style(item)
+        if number and style:
+            style_by_number[number] = style
+    return style_by_number
+
+
+def _extract_horse_running_style(*sources: dict[str, Any]) -> str:
+    keys = (
+        "running_style",
+        "style",
+        "脚質",
+        "kyakushitsu",
+        "running_style_name",
+        "running_style_label",
+    )
+    for source in sources:
+        for key in keys:
+            value = str(source.get(key, "")).strip()
+            if value:
+                normalized = _normalize_style(value)
+                return normalized or value
+    return ""
+
+
+def _course_style_stats(courseanalysis_data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    stats: dict[str, dict[str, Any]] = {}
+    for item in courseanalysis_data.get("running_styles", []):
+        if not isinstance(item, dict):
+            continue
+        style = _normalize_style(item.get("style"))
+        if style:
+            stats[style] = item
+    return stats
+
+
+def _normalize_style(value: Any) -> str:
+    text = str(value or "").strip()
+    if "逃" in text:
+        return "逃"
+    if "先" in text:
+        return "先"
+    if "差" in text:
+        return "差"
+    if "追" in text:
+        return "追"
+    return ""
 
 
 def _normalize_name(value: Any) -> str:

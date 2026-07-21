@@ -224,6 +224,7 @@ def render_nar_json_status(package: NarJsonPredictionInput) -> None:
     st.success(f"{package.race_id} のデータを読み込みました")
     st.write(f"出走表：{package.entry_count}頭")
     st.write(f"タイム指数：{package.speed_count}頭")
+    st.write(f"各馬脚質：{package.horse_style_count}頭")
     if package.running_styles:
         st.write("コース脚質：" + "・".join(package.running_styles))
     else:

@@ -108,6 +108,8 @@ streamlit run streamlit_app.py
 - 出馬表／タイム指数の馬番セットが一致している
 - コース脚質分析の `running_styles` が空ではない
 - コース脚質HTMLでは `score1` のChart.jsグラフから脚質ラベル、1着率、2着率、3着率、着外率を抽出できる
+- コース全体の脚質成績は `running_styles` として保持し、各馬の脚質は `horse_number` ごとの `running_style` として別管理する
+- 各馬の `running_style` とコース全体の脚質成績を照合し、既存の脚質勝率・連対率・複勝率の評価へ反映する
 
 JSONを作れない場合は「詳細設定：HTMLを直接アップロード」から、以下のHTMLをまとめて追加できます。
 

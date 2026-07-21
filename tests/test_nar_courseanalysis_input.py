@@ -13,12 +13,31 @@ from core.nar_json_input import (
 )
 
 
-def course_html(labels: list[str], race_id: str = "202644072106") -> str:
+def course_html(
+    labels: list[str],
+    race_id: str = "202644072106",
+    horse_styles: dict[str, str] | None = None,
+) -> str:
     label_text = ",".join(json.dumps(label, ensure_ascii=False) for label in labels)
     win = ",".join(str(value) for value in range(15, 15 - len(labels), -1))
     second = ",".join(str(value) for value in range(13, 13 - len(labels), -1))
     third = ",".join(str(value) for value in range(10, 10 - len(labels), -1))
     outside = ",".join(str(value) for value in range(62, 62 + len(labels)))
+    horse_table = ""
+    if horse_styles:
+        rows = []
+        names = {"1": "テストホースA", "2": "テストホースB"}
+        for number, style in horse_styles.items():
+            rows.append(
+                f"""
+                <tr class="HorseList">
+                  <td>{number}</td>
+                  <td class="Horse_Info"><a>{names.get(number, "テストホース")}</a></td>
+                  <td class="DataTitle_Cell">{style}</td>
+                </tr>
+                """
+            )
+        horse_table = f'<table id="table_sort_back" class="Data01_Table"><tbody>{"".join(rows)}</tbody></table>'
     return f"""
     <!doctype html>
     <html>
@@ -33,6 +52,7 @@ def course_html(labels: list[str], race_id: str = "202644072106") -> str:
         <div class="RaceData01">17:30発走 / ダ1600m (右) / 天候:晴 / 馬場:良</div>
         <div class="RaceData02">6回 大井 2日目 サラ系一般 C2</div>
         <div class="DataGraphWrap1"><canvas id="score1"></canvas></div>
+        {horse_table}
         <script>
           var ctx = document.getElementById("score1");
           var myChart = new Chart(ctx, {{
@@ -128,6 +148,14 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(len(data["running_styles"]), 4)
         self.assertEqual(data["running_styles"][3]["style"], "追")
 
+    def test_parse_courseanalysis_html_keeps_horse_styles_separate(self) -> None:
+        data = parse_courseanalysis_html(course_html(["先", "差", "追"], horse_styles={"1": "追", "2": "先"}))
+        self.assertEqual([item["style"] for item in data["running_styles"]], ["先", "差", "追"])
+        self.assertEqual(
+            [(item["horse_number"], item["running_style"]) for item in data["horse_running_styles"]],
+            [("1", "追"), ("2", "先")],
+        )
+
     def test_classify_mixed_json_and_courseanalysis_html(self) -> None:
         classified = classify_nar_uploaded_files(
             [
@@ -151,6 +179,25 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(package.entry_count, 2)
         self.assertEqual(package.speed_count, 2)
         self.assertEqual(package.running_styles, ("先", "差", "追"))
+        self.assertEqual(package.horse_style_count, 2)
+        self.assertIn('<td class="DataTitle_Cell">先</td>', package.html_files["style"])
+        self.assertIn("<td>15</td><td>28</td><td>38</td>", package.html_files["style"])
+
+    def test_horse_styles_from_courseanalysis_html_are_used_when_json_has_none(self) -> None:
+        entry = base_json("entry")
+        for horse in entry["horses"]:
+            horse.pop("style", None)
+            horse.pop("running_style", None)
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("entry.html", entry),
+                upload("speed.json", base_json("speed")),
+                upload("courseanalysis.html", course_html(["先", "差", "追"], horse_styles={"1": "追", "2": "先"})),
+            ]
+        )
+        self.assertEqual(package.horse_style_count, 2)
+        self.assertIn('<td class="DataTitle_Cell">追</td>', package.html_files["style"])
+        self.assertIn("<td>13</td><td>24</td><td>32</td>", package.html_files["style"])
 
     def test_race_id_mismatch_raises(self) -> None:
         with self.assertRaises(NarJsonDataError):

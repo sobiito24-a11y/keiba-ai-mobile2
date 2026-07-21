@@ -91,6 +91,7 @@ def parse_courseanalysis_html(html: str) -> dict[str, Any]:
         "data_type": "courseanalysis",
         "race": _extract_race_info(html),
         "running_styles": running_styles,
+        "horse_running_styles": _extract_horse_running_styles(html),
     }
 
 
@@ -179,6 +180,42 @@ def _extract_race_info(html: str) -> dict[str, str]:
         "race_data_1": race_data_1,
         "race_data_2": race_data_2,
     }
+
+
+def _extract_horse_running_styles(html: str) -> list[dict[str, str]]:
+    source = html_lib.unescape(str(html or ""))
+    table_match = re.search(
+        r"<table\b(?=[^>]*(?:id=['\"]table_sort_back['\"]|class=['\"][^'\"]*Data01_Table))[^>]*>([\s\S]*?)</table>",
+        source,
+        flags=re.I,
+    )
+    if not table_match:
+        return []
+
+    records: list[dict[str, str]] = []
+    for row in re.findall(r"<tr\b[^>]*>([\s\S]*?)</tr>", table_match.group(1), flags=re.I):
+        cells = re.findall(r"<td\b[^>]*>([\s\S]*?)</td>", row, flags=re.I)
+        if len(cells) < 3:
+            continue
+        horse_number_match = re.search(r"\d{1,2}", _clean_text(cells[0]))
+        if not horse_number_match:
+            continue
+        style_match = re.search(
+            r"<td\b[^>]*class=['\"][^'\"]*DataTitle_Cell[^'\"]*['\"][^>]*>([\s\S]*?)</td>",
+            row,
+            flags=re.I,
+        )
+        style = _clean_text(style_match.group(1)) if style_match else _clean_text(cells[2])
+        if not style:
+            continue
+        records.append(
+            {
+                "horse_number": horse_number_match.group(0),
+                "horse_name": _clean_text(cells[1]),
+                "running_style": style,
+            }
+        )
+    return records
 
 
 def _class_text(html: str, class_name: str) -> str:
