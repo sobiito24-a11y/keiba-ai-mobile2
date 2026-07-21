@@ -144,13 +144,14 @@ def _init_state() -> None:
 
 
 def render_nar_json_flow() -> None:
-    st.subheader("JSON追加")
-    st.caption("iPhoneショートカットで保存した entry / speed / courseanalysis の3つのJSONをまとめて選択してください。")
+    st.subheader("地方データ追加")
+    st.caption("iPhoneショートカットで保存した3ファイルをまとめて選択してください。")
+    st.caption("出走表ページ → JSON / タイム指数ページ → JSON / コース分析の脚質ページ → HTML")
     uploaded_files = st.file_uploader(
-        "iPhoneショートカットで保存した3つのJSONを選択",
+        "iPhoneショートカットで保存した地方競馬ファイルを選択",
         type=["json", "html"],
         accept_multiple_files=True,
-        help="拡張子が.htmlでも、中身がJSONであれば読み込めます。ファイル名ではなくdata_typeで自動判定します。",
+        help="ファイル名や拡張子ではなく、中身で自動判定します。.html拡張子でも中身がJSONならentry/speedとして読み込めます。",
         key=f"nar_json_upload_{st.session_state.uploader_key}",
     )
 
@@ -166,7 +167,7 @@ def render_nar_json_flow() -> None:
 
     st.subheader("認識結果")
     if not uploaded_files:
-        st.info("JSONを追加してください。")
+        st.info("出走表JSON、タイム指数JSON、コース脚質HTMLを追加してください。")
     else:
         try:
             package = build_nar_prediction_inputs_from_uploads(
@@ -176,7 +177,7 @@ def render_nar_json_flow() -> None:
         except NarJsonDataError as exc:
             st.error(str(exc))
         except Exception as exc:
-            st.error(f"JSON入力の確認中に失敗しました: {exc}")
+            st.error(f"地方データ入力の確認中に失敗しました: {exc}")
             with st.expander("開発者向け詳細", expanded=False):
                 st.code(traceback.format_exc())
 
@@ -221,12 +222,12 @@ def render_nar_json_flow() -> None:
 
 def render_nar_json_status(package: NarJsonPredictionInput) -> None:
     st.success(f"{package.race_id} のデータを読み込みました")
-    st.write(f"出馬表：{package.entry_count}頭")
+    st.write(f"出走表：{package.entry_count}頭")
     st.write(f"タイム指数：{package.speed_count}頭")
     if package.running_styles:
-        st.write("コース傾向：" + "・".join(package.running_styles))
+        st.write("コース脚質：" + "・".join(package.running_styles))
     else:
-        st.write("コース傾向：未取得")
+        st.write("コース脚質：未取得")
 
 
 def render_nar_legacy_url_flow() -> None:
@@ -296,7 +297,10 @@ def render_upload_flow(mode: RaceMode) -> None:
         clear_prediction_state()
         st.session_state.input_signature = current_input_signature
 
-    st.subheader("HTML追加")
+    st.subheader("中央データ追加" if mode == "jra" else "HTML追加")
+    if mode == "jra":
+        st.caption("iPhone Safariで保存した中央競馬HTMLをまとめて選択してください。")
+        st.caption("タイム指数 / 競馬新聞 / 脚質分析が必須です。調教HTMLは任意で反映します。")
     selected, grouped, has_uploads, missing = render_upload_input(mode, key_prefix=mode)
 
     st.subheader("予想")
@@ -313,7 +317,7 @@ def render_upload_input(
     mode: RaceMode,
     key_prefix: str,
 ) -> tuple[dict[str, ClassifiedHtml], dict[str, list[ClassifiedHtml]], bool, list[str]]:
-    uploader_label = "HTML追加" if mode == "jra" and key_prefix == "jra" else "HTMLを直接アップロード"
+    uploader_label = "iPhoneショートカットで保存した中央競馬ファイルを選択" if mode == "jra" and key_prefix == "jra" else "HTMLを直接アップロード"
     uploaded_files = st.file_uploader(
         uploader_label,
         type=["html", "htm"],

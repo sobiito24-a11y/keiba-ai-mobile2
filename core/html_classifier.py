@@ -25,7 +25,7 @@ REQUIRED_KINDS: dict[RaceMode, tuple[str, ...]] = {
 
 DISPLAY_ORDER: dict[RaceMode, tuple[str, ...]] = {
     "nar": ("speed", "shutuba", "style"),
-    "jra": ("speed", "newspaper", "style"),
+    "jra": ("speed", "newspaper", "style", "oikiri"),
 }
 
 KIND_PRIORITY = ("speed", "style", "shutuba", "newspaper", "oikiri", "odds")
