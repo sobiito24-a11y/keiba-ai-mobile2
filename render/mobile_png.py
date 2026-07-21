@@ -1,0 +1,741 @@
+from __future__ import annotations
+
+import math
+import re
+from datetime import datetime
+from io import BytesIO
+from pathlib import Path
+from typing import Any, Iterable
+
+from PIL import Image, ImageDraw, ImageFont
+
+from core.models import PredictionResult
+from core.version import APP_VERSION, PREDICTION_LOGIC_VERSION
+
+
+CANVAS_WIDTH = 1080
+MAX_CANVAS_HEIGHT = 36000
+MARGIN_X = 46
+MARGIN_TOP = 42
+MARGIN_BOTTOM = 46
+CARD_RADIUS = 8
+
+INK = (23, 30, 42)
+MUTED = (91, 103, 122)
+LIGHT_TEXT = (110, 120, 135)
+RULE = (219, 225, 235)
+SECTION_BG = (238, 243, 248)
+CARD_BG = (255, 255, 255)
+ACCENT = (34, 91, 158)
+SOFT_ACCENT = (229, 239, 250)
+WATCH_BG = (244, 248, 252)
+WATCH_RULE = (117, 158, 198)
+CONCLUSION_BG = (248, 251, 255)
+
+
+class MobilePngRenderError(RuntimeError):
+    """Raised when the mobile PNG cannot be rendered safely."""
+
+
+def render_mobile_png(result: PredictionResult) -> bytes:
+    """Render a PredictionResult into a single mobile-friendly PNG."""
+
+    fonts = _load_fonts()
+    canvas = _Canvas(fonts)
+    canvas.draw_header(result)
+    canvas.draw_today_conclusion(result)
+    canvas.draw_text_section("今回の馬券構成", _strip_section_title(result.betting_structure, "今回の馬券構成"), compact=True)
+    canvas.draw_simple_overall(result)
+    canvas.draw_horse_evaluation(result)
+    canvas.draw_attention_horses(result)
+    canvas.draw_ai_race_review(result)
+    canvas.draw_version(result)
+    return canvas.to_png()
+
+
+def render_dummy_png(result: PredictionResult) -> bytes:
+    """Backward-compatible alias kept for old Phase2 callers."""
+
+    return render_mobile_png(result)
+
+
+class _Canvas:
+    def __init__(self, fonts: dict[str, ImageFont.FreeTypeFont]) -> None:
+        self.fonts = fonts
+        self.image = Image.new("RGB", (CANVAS_WIDTH, MAX_CANVAS_HEIGHT), "white")
+        self.draw = ImageDraw.Draw(self.image)
+        self.y = MARGIN_TOP
+
+    @property
+    def content_width(self) -> int:
+        return CANVAS_WIDTH - MARGIN_X * 2
+
+    def to_png(self) -> bytes:
+        final_height = min(MAX_CANVAS_HEIGHT, max(900, self.y + MARGIN_BOTTOM))
+        if self.y + MARGIN_BOTTOM >= MAX_CANVAS_HEIGHT:
+            raise MobilePngRenderError(
+                "PNGの高さが安全上限を超えました。考察文や表示項目を確認してください。"
+            )
+        cropped = self.image.crop((0, 0, CANVAS_WIDTH, final_height))
+        buffer = BytesIO()
+        cropped.save(buffer, format="PNG", optimize=True)
+        return buffer.getvalue()
+
+    def draw_header(self, result: PredictionResult) -> None:
+        mode_label = "地方競馬" if result.race_mode == "nar" else "中央競馬"
+        race_name = _clean(result.race_name) or "レース名未取得"
+        info_lines = _race_info_lines(result)
+
+        self.text(mode_label, self.fonts["small"], MUTED, gap_after=4)
+        self.text(race_name, self.fonts["title"], INK, gap_after=10)
+        if info_lines:
+            for line in info_lines:
+                self.text(line, self.fonts["body"], INK, gap_after=3)
+        else:
+            self.text("レース情報：未取得", self.fonts["body"], MUTED)
+
+        chip_lines = []
+        confidence = _extract_ai_confidence(result)
+        trend = _extract_pace_trend(result)
+        if confidence:
+            chip_lines.append(f"AI信頼度：{confidence}")
+        if trend:
+            chip_lines.append(f"展開傾向：{trend}")
+        if chip_lines:
+            self.y += 6
+            for line in chip_lines:
+                self.badge(line)
+        self.y += 8
+
+    def draw_today_conclusion(self, result: PredictionResult) -> None:
+        self.section("本日の結論")
+        rows = _conclusion_rows(result)
+        if not rows:
+            self.text("印付き馬は未取得です。", self.fonts["body"], MUTED)
+            return
+
+        x0 = MARGIN_X
+        x1 = CANVAS_WIDTH - MARGIN_X
+        padding = 18
+        line_items: list[tuple[str, bool]] = []
+        for row in rows:
+            mark = str(_pick(row, "最終印", "印") or "").strip()
+            no = str(_pick(row, "馬番", "馬") or "").strip()
+            name = str(_pick(row, "馬名") or "").strip()
+            suffix = "（見逃し注意）" if "✓" in mark else ""
+            line_items.append((_join_nonempty([mark, no, name], sep=" ") + suffix, "✓" in mark))
+
+        wrapped: list[tuple[str, bool]] = []
+        max_width = self.content_width - padding * 2
+        for text, is_watch in line_items:
+            for line in _wrap_text(text, self.fonts["body_bold"], max_width, self.draw):
+                wrapped.append((line, is_watch))
+
+        height = padding * 2 + len(wrapped) * _line_height(self.fonts["body_bold"])
+        self.draw.rounded_rectangle((x0, self.y, x1, self.y + height), radius=CARD_RADIUS, fill=CONCLUSION_BG, outline=RULE)
+        y = self.y + padding
+        for line, is_watch in wrapped:
+            fill = ACCENT if is_watch else INK
+            self.draw.text((x0 + padding, y), line, font=self.fonts["body_bold"], fill=fill)
+            y += _line_height(self.fonts["body_bold"])
+        self.y += height + 10
+
+    def draw_simple_overall(self, result: PredictionResult) -> None:
+        self.section("簡易レース全体表")
+        rows = _records(result.overall_table)
+        if not rows:
+            self.text("レース全体表は未取得です。", self.fonts["body"], MUTED)
+            return
+
+        for row in rows:
+            mark = _pick(row, "最終印", "印")
+            no = _pick(row, "馬番", "馬")
+            name = _pick(row, "馬名")
+            odds = _format_odds(_pick(row, "単勝オッズ", "オッズ", "単勝"))
+            ai = _format_number(_pick(row, "AI点"))
+            total = _format_number(_pick(row, "総合評価", "総合評価点", "補正AI点"))
+            class_shift = _pick(row, "クラス変動") or "-"
+
+            title = _join_nonempty([mark, str(no), str(name), odds], sep="  ")
+            subtitle = _join_nonempty([f"総合{total}" if total else "", f"AI{ai}" if ai else "", str(class_shift)], sep=" / ")
+            self.overall_card(title, subtitle, is_watch="✓" in str(mark))
+
+    def draw_horse_evaluation(self, result: PredictionResult) -> None:
+        self.section("馬評価（全頭）")
+        rows = _records(result.horse_evaluation)
+        if not rows:
+            self.text("馬評価は未取得です。", self.fonts["body"], MUTED)
+            return
+
+        is_nar = result.race_mode == "nar"
+        for row in rows:
+            no = _pick(row, "馬番", "馬")
+            mark = _pick(row, "印", "最終印")
+            name = _pick(row, "馬名")
+            odds = _format_odds(_pick(row, "単勝オッズ", "オッズ", "単勝"))
+            ability = _pick(row, "能力評価")
+            stability = _pick(row, "安定評価")
+            market = _pick(row, "市場評価")
+            ai = _format_number(_pick(row, "AI点"))
+            class_shift = _pick(row, "クラス変動") or "-"
+            material = _pick(row, "評価／検討材料", "評価/検討材料", "評価材料") or "-"
+            material = _limit_materials(material)
+            horse_type = _pick(row, "馬タイプ") or "-"
+            comment = _pick(row, "一言コメント", "コメント") or ""
+            support_label = "対戦" if is_nar else "調教"
+            support_value = (
+                _pick(row, "対戦評価", "対戦材料", "対戦") if is_nar else _pick(row, "調教評価", "調教/評価/検討材料", "状態材料")
+            ) or ("未評価" if is_nar else "未取得")
+
+            title = _join_nonempty([str(no), str(mark), str(name), odds], sep=" ")
+            lines = [
+                _join_nonempty([f"能力{ability}" if ability else "", f"安定{stability}" if stability else "", f"市場{market}" if market else ""], sep="　"),
+                _join_nonempty([f"AI{ai}" if ai else "", f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
+                f"材料：{material}",
+                f"タイプ：{horse_type}",
+            ]
+            if comment:
+                lines.append(f"コメント：{comment}")
+            self.horse_card(title, lines, is_watch="✓" in str(mark))
+
+    def draw_attention_horses(self, result: PredictionResult) -> None:
+        self.section("注目馬")
+        blocks = [str(block).strip() for block in result.attention_horses if str(block).strip()]
+        if not blocks:
+            self.text("注目馬は未取得です。", self.fonts["body"], MUTED)
+            return
+        for block in blocks[:5]:
+            lines = _compact_lines(block, max_lines=4)
+            if not lines:
+                continue
+            title = lines[0]
+            self.attention_card(title, lines[1:] or ["確認材料あり"])
+
+    def draw_ai_race_review(self, result: PredictionResult) -> None:
+        self.section("AIレース考察")
+        review = _strip_section_title(result.ai_race_review, "AIレース考察")
+        summary = _build_review_summary(result, review)
+        if summary:
+            self.subheading("展開要約")
+            for item in summary:
+                self.text(f"・{item}", self.fonts["small_bold"], INK, gap_after=2)
+            self.y += 8
+
+        body = _clean_multiline(review)
+        if not body:
+            self.text("未取得です。", self.fonts["body"], MUTED)
+            return
+        self.text_block(body, self.fonts["body"], INK, paragraph_gap=8)
+        self.y += 2
+
+    def draw_text_section(self, title: str, text: str, *, compact: bool = False) -> None:
+        self.section(title)
+        body = _clean_multiline(text)
+        if not body:
+            self.text("未取得です。", self.fonts["body"], MUTED)
+            return
+        font = self.fonts["body"] if not compact else self.fonts["small"]
+        self.text_block(body, font, INK, paragraph_gap=8 if compact else 10)
+        self.y += 2
+
+    def draw_version(self, result: PredictionResult) -> None:
+        self.y += 14
+        self.rule()
+        created_at = _format_created_at(result.created_at)
+        lines = [
+            "Keiba AI Mobile",
+            f"Version {APP_VERSION}",
+            f"Logic Version {PREDICTION_LOGIC_VERSION}",
+            f"作成日時 {created_at}",
+        ]
+        for line in lines:
+            self.text(line, self.fonts["tiny"], LIGHT_TEXT, gap_after=4)
+
+    def section(self, title: str) -> None:
+        self.y += 8
+        x0 = MARGIN_X
+        x1 = CANVAS_WIDTH - MARGIN_X
+        height = 48
+        self.draw.rounded_rectangle((x0, self.y, x1, self.y + height), radius=8, fill=SECTION_BG)
+        self.draw.text((x0 + 18, self.y + 10), title, font=self.fonts["section"], fill=ACCENT)
+        self.y += height + 12
+
+    def subheading(self, title: str) -> None:
+        self.text(title, self.fonts["body_bold"], ACCENT, gap_after=4)
+
+    def rule(self) -> None:
+        self.draw.line((MARGIN_X, self.y, CANVAS_WIDTH - MARGIN_X, self.y), fill=RULE, width=2)
+        self.y += 14
+
+    def badge(self, text: str) -> None:
+        font = self.fonts["small_bold"]
+        padding_x = 14
+        padding_y = 6
+        width = min(self.content_width, math.ceil(self.draw.textlength(text, font=font)) + padding_x * 2)
+        height = _line_height(font) + padding_y * 2
+        x0 = MARGIN_X
+        self.draw.rounded_rectangle((x0, self.y, x0 + width, self.y + height), radius=8, fill=SOFT_ACCENT)
+        self.draw.text((x0 + padding_x, self.y + padding_y), text, font=font, fill=ACCENT)
+        self.y += height + 6
+
+    def overall_card(self, title: str, subtitle: str, *, is_watch: bool = False) -> None:
+        x0 = MARGIN_X
+        x1 = CANVAS_WIDTH - MARGIN_X
+        padding = 13
+        fill = WATCH_BG if is_watch else CARD_BG
+        outline = WATCH_RULE if is_watch else RULE
+        title_lines = _wrap_text(title, self.fonts["body_bold"], self.content_width - padding * 2, self.draw)
+        subtitle_lines = _wrap_text(subtitle, self.fonts["small_bold"], self.content_width - padding * 2, self.draw) if subtitle else []
+        height = padding * 2 + len(title_lines) * _line_height(self.fonts["body_bold"]) + len(subtitle_lines) * _line_height(self.fonts["small_bold"]) + 2
+        self.draw.rounded_rectangle((x0, self.y, x1, self.y + height), radius=CARD_RADIUS, fill=fill, outline=outline)
+        if is_watch:
+            self.draw.rounded_rectangle((x0, self.y, x0 + 8, self.y + height), radius=4, fill=WATCH_RULE)
+        y = self.y + padding
+        for line in title_lines:
+            self.draw.text((x0 + padding + (6 if is_watch else 0), y), line, font=self.fonts["body_bold"], fill=INK)
+            y += _line_height(self.fonts["body_bold"])
+        y += 1
+        for line in subtitle_lines:
+            self.draw.text((x0 + padding + (6 if is_watch else 0), y), line, font=self.fonts["small_bold"], fill=ACCENT)
+            y += _line_height(self.fonts["small_bold"])
+        self.y += height + 6
+
+    def horse_card(self, title: str, lines: list[str], *, is_watch: bool = False) -> None:
+        x0 = MARGIN_X
+        x1 = CANVAS_WIDTH - MARGIN_X
+        padding = 14
+        max_width = self.content_width - padding * 2 - (8 if is_watch else 0)
+        fill = WATCH_BG if is_watch else CARD_BG
+        outline = WATCH_RULE if is_watch else RULE
+        wrapped_title = _wrap_text(title, self.fonts["body_bold"], max_width, self.draw)
+        wrapped_lines: list[tuple[str, ImageFont.FreeTypeFont, tuple[int, int, int]]] = []
+        for line in lines:
+            font = self.fonts["small_bold"] if line.startswith(("能力", "AI")) else self.fonts["small"]
+            color = INK if font == self.fonts["small_bold"] else MUTED
+            for wrapped in _wrap_text(str(line), font, max_width, self.draw):
+                wrapped_lines.append((wrapped, font, color))
+        height = padding * 2 + len(wrapped_title) * _line_height(self.fonts["body_bold"]) + 3
+        height += sum(_line_height(font) for _, font, _ in wrapped_lines)
+        self.draw.rounded_rectangle((x0, self.y, x1, self.y + height), radius=CARD_RADIUS, fill=fill, outline=outline)
+        if is_watch:
+            self.draw.rounded_rectangle((x0, self.y, x0 + 8, self.y + height), radius=4, fill=WATCH_RULE)
+        y = self.y + padding
+        x_text = x0 + padding + (8 if is_watch else 0)
+        for line in wrapped_title:
+            self.draw.text((x_text, y), line, font=self.fonts["body_bold"], fill=INK)
+            y += _line_height(self.fonts["body_bold"])
+        y += 3
+        for line, font, color in wrapped_lines:
+            self.draw.text((x_text, y), line, font=font, fill=color)
+            y += _line_height(font)
+        self.y += height + 7
+
+    def attention_card(self, title: str, lines: list[str]) -> None:
+        x0 = MARGIN_X
+        x1 = CANVAS_WIDTH - MARGIN_X
+        padding = 15
+        max_width = self.content_width - padding * 2
+        wrapped_title = _wrap_text(title, self.fonts["body_bold"], max_width, self.draw)
+        wrapped_lines: list[str] = []
+        for line in lines:
+            wrapped_lines.extend(_wrap_text(str(line), self.fonts["small_bold"], max_width, self.draw))
+        height = padding * 2 + len(wrapped_title) * _line_height(self.fonts["body_bold"]) + 3
+        height += len(wrapped_lines) * _line_height(self.fonts["small_bold"])
+        self.draw.rounded_rectangle((x0, self.y, x1, self.y + height), radius=CARD_RADIUS, fill=CARD_BG, outline=RULE)
+        y = self.y + padding
+        for line in wrapped_title:
+            self.draw.text((x0 + padding, y), line, font=self.fonts["body_bold"], fill=INK)
+            y += _line_height(self.fonts["body_bold"])
+        y += 3
+        for line in wrapped_lines:
+            self.draw.text((x0 + padding, y), line, font=self.fonts["small_bold"], fill=MUTED)
+            y += _line_height(self.fonts["small_bold"])
+        self.y += height + 8
+
+    def text(self, text: str, font: ImageFont.FreeTypeFont, fill: tuple[int, int, int], gap_after: int = 7) -> None:
+        for line in _wrap_text(str(text), font, self.content_width, self.draw):
+            self.draw.text((MARGIN_X, self.y), line, font=font, fill=fill)
+            self.y += _line_height(font)
+        self.y += gap_after
+
+    def text_block(
+        self,
+        text: str,
+        font: ImageFont.FreeTypeFont,
+        fill: tuple[int, int, int],
+        paragraph_gap: int = 8,
+    ) -> None:
+        for paragraph in text.splitlines():
+            paragraph = paragraph.strip()
+            if not paragraph:
+                self.y += paragraph_gap
+                continue
+            for line in _wrap_text(paragraph, font, self.content_width, self.draw):
+                self.draw.text((MARGIN_X, self.y), line, font=font, fill=fill)
+                self.y += _line_height(font)
+            self.y += paragraph_gap
+
+
+def _load_fonts() -> dict[str, ImageFont.FreeTypeFont]:
+    font_path = _find_japanese_font()
+    if not font_path:
+        raise MobilePngRenderError(
+            "日本語フォントが見つかりません。Noto Sans JP、Yu Gothic、Meiryo のいずれかを利用できる環境で実行してください。"
+        )
+    try:
+        return {
+            "title": ImageFont.truetype(font_path, 38),
+            "section": ImageFont.truetype(font_path, 27),
+            "body": ImageFont.truetype(font_path, 25),
+            "body_bold": ImageFont.truetype(font_path, 26),
+            "small": ImageFont.truetype(font_path, 21),
+            "small_bold": ImageFont.truetype(font_path, 22),
+            "tiny": ImageFont.truetype(font_path, 18),
+        }
+    except OSError as exc:
+        raise MobilePngRenderError(f"日本語フォントの読み込みに失敗しました: {font_path}") from exc
+
+
+def _find_japanese_font() -> str:
+    candidates = [
+        "C:/Windows/Fonts/meiryo.ttc",
+        "C:/Windows/Fonts/meiryob.ttc",
+        "C:/Windows/Fonts/YuGothM.ttc",
+        "C:/Windows/Fonts/YuGothR.ttc",
+        "C:/Windows/Fonts/msgothic.ttc",
+        "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+        "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKjp-Regular.otf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
+    ]
+    for candidate in candidates:
+        if Path(candidate).exists():
+            return candidate
+    assets_dir = Path(__file__).resolve().parents[1] / "assets"
+    for pattern in ("*.ttf", "*.otf", "*.ttc"):
+        for path in assets_dir.glob(pattern):
+            return str(path)
+    return ""
+
+
+def _conclusion_rows(result: PredictionResult) -> list[dict[str, Any]]:
+    rows = _records(result.overall_table)
+    if not rows:
+        rows = _records(result.horse_evaluation)
+    selected: list[dict[str, Any]] = []
+    for row in rows:
+        mark = str(_pick(row, "最終印", "印") or "").strip()
+        if mark:
+            selected.append(row)
+    return selected[:7]
+
+
+def _race_info_lines(result: PredictionResult) -> list[str]:
+    info = result.race_info or {}
+    lines: list[str] = []
+    venue = _first_value(info, "venue", "place", "track_name", "会場")
+    race_no = _first_value(info, "race_no", "race_number", "R")
+    race_class = _first_value(info, "class", "race_class", "クラス")
+    if venue or race_no or race_class:
+        lines.append(_join_nonempty([venue, f"{race_no}R" if race_no and not str(race_no).endswith("R") else race_no, race_class], sep="　"))
+
+    race_data = _first_value(info, "race_data", "race_info", "条件")
+    if race_data:
+        lines.append(str(race_data))
+    else:
+        start = _first_value(info, "start_time", "発走")
+        distance = _first_value(info, "distance", "距離")
+        course = _first_value(info, "course", "コース")
+        weather = _first_value(info, "weather", "天候")
+        going = _first_value(info, "ground_state", "馬場", "going")
+        line1 = _join_nonempty([f"{start}発走" if start and "発走" not in str(start) else start, distance, course], sep="　")
+        line2 = _join_nonempty([f"天候：{weather}" if weather else "", f"馬場：{going}" if going else ""], sep="　")
+        if line1:
+            lines.append(line1)
+        if line2:
+            lines.append(line2)
+    return [_clean(line) for line in lines if _clean(line)]
+
+
+def _extract_ai_confidence(result: PredictionResult) -> str:
+    info = result.race_info or {}
+    for key in ("AI信頼度", "ai_confidence", "confidence"):
+        value = info.get(key)
+        if value:
+            return str(value)
+    text = "\n".join([result.raw_output or "", result.ai_race_review or "", result.betting_structure or ""])
+    match = re.search(r"AI信頼度\s*[:：]?\s*([★☆]{5})", text)
+    return match.group(1) if match else ""
+
+
+def _extract_pace_trend(result: PredictionResult) -> str:
+    text = "\n".join([result.raw_output or "", result.ai_race_review or ""])
+    for pattern in (r"展開傾向\s*[:：]\s*(.+)", r"脚質構成\s*[:：]\s*(.+)"):
+        match = re.search(pattern, text)
+        if match:
+            return _shorten(match.group(1).strip(), 34)
+
+    rows = _records(result.overall_table)
+    if not rows:
+        return ""
+    style_counts = {"逃": 0, "先": 0, "差": 0, "追": 0}
+    for row in rows:
+        style = str(_pick(row, "脚質") or "")
+        for key in style_counts:
+            if key in style:
+                style_counts[key] += 1
+                break
+    if sum(style_counts.values()) == 0:
+        return ""
+    return f"逃{style_counts['逃']} 先{style_counts['先']} 差{style_counts['差']} 追{style_counts['追']}"
+
+
+def _build_review_summary(result: PredictionResult, review: str) -> list[str]:
+    text = _clean_multiline(review)
+    rows = _conclusion_rows(result)
+    top_rows = rows[:3]
+    watch_rows = [row for row in rows if "✓" in str(_pick(row, "最終印", "印"))]
+    summary: list[str] = []
+
+    if "先行" in text or "前" in text:
+        summary.append("先行勢の位置取りを確認")
+    elif "逃げ" in text:
+        summary.append("逃げ馬のペースが焦点")
+    elif "差し" in text:
+        summary.append("差し届くかが焦点")
+
+    if top_rows:
+        labels = []
+        for row in top_rows[:2]:
+            mark = _pick(row, "最終印", "印")
+            no = _pick(row, "馬番", "馬")
+            labels.append(_join_nonempty([mark, no], sep=""))
+        if labels:
+            summary.append(f"{'・'.join(labels)}を中心に確認")
+
+    if watch_rows:
+        row = watch_rows[0]
+        no = _pick(row, "馬番", "馬")
+        name = _pick(row, "馬名")
+        summary.append(f"✓{no} {name}は見逃し注意")
+
+    if "能力" in text:
+        summary.append("能力上位馬と展開材料を照合")
+    if "BOX" in text or "混戦" in text:
+        summary.append("広げすぎず候補を整理")
+
+    if not summary and text:
+        summary.append(_shorten(text.split("。")[0], 34))
+    return summary[:4]
+
+
+def _records(table: Any) -> list[dict[str, Any]]:
+    if table is None:
+        return []
+    if hasattr(table, "to_dict"):
+        try:
+            return list(table.to_dict("records"))
+        except Exception:
+            return []
+    if isinstance(table, list):
+        return [dict(item) for item in table if isinstance(item, dict)]
+    return []
+
+
+def _pick(row: dict[str, Any], *names: str) -> Any:
+    for name in names:
+        if name in row:
+            value = row.get(name)
+            if value is not None and str(value).strip() not in {"", "nan", "None"}:
+                return value
+    return ""
+
+
+def _first_value(info: dict[str, Any], *names: str) -> str:
+    for name in names:
+        value = info.get(name)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return ""
+
+
+def _format_odds(value: Any) -> str:
+    text = _clean(value)
+    if not text:
+        return ""
+    if "倍" in text:
+        return text
+    number = _to_float(text)
+    if number is None:
+        return text
+    return f"{number:g}倍"
+
+
+def _format_number(value: Any) -> str:
+    number = _to_float(value)
+    if number is None:
+        return _clean(value)
+    return f"{number:.1f}".rstrip("0").rstrip(".")
+
+
+def _to_float(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        text = str(value).replace(",", "").replace("倍", "").strip()
+        if not text or text.lower() == "nan":
+            return None
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _limit_materials(value: Any, limit: int = 4) -> str:
+    text = _clean(value)
+    if not text:
+        return "-"
+    parts = [part.strip() for part in re.split(r"[／/、,]", text) if part.strip()]
+    if not parts:
+        return text
+    unique: list[str] = []
+    for part in parts:
+        if part not in unique:
+            unique.append(part)
+    return "／".join(unique[:limit])
+
+
+def _join_nonempty(parts: Iterable[Any], sep: str = " ") -> str:
+    cleaned = [str(part).strip() for part in parts if str(part or "").strip()]
+    return sep.join(cleaned)
+
+
+def _clean(value: Any) -> str:
+    text = str(value or "")
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def _clean_multiline(value: Any) -> str:
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines()]
+    compact: list[str] = []
+    blank = False
+    for line in lines:
+        if not line:
+            if not blank and compact:
+                compact.append("")
+            blank = True
+            continue
+        compact.append(line)
+        blank = False
+    return "\n".join(compact).strip()
+
+
+def _strip_section_title(text: str, title: str) -> str:
+    cleaned = _clean_multiline(text)
+    patterns = [f"【{title}】", title]
+    for pattern in patterns:
+        if cleaned.startswith(pattern):
+            return cleaned[len(pattern) :].strip()
+    return cleaned
+
+
+def _compact_lines(text: str, max_lines: int) -> list[str]:
+    lines = [line.strip() for line in str(text).splitlines() if line.strip()]
+    if len(lines) <= max_lines:
+        return lines
+    kept = lines[: max_lines - 1]
+    kept.append(_shorten(" ".join(lines[max_lines - 1 :]), 58))
+    return kept
+
+
+def _shorten(text: str, max_len: int) -> str:
+    text = _clean(text)
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 1] + "…"
+
+
+def _format_created_at(value: str) -> str:
+    if not value:
+        return datetime.now().strftime("%Y-%m-%d %H:%M")
+    try:
+        return datetime.fromisoformat(value).strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        return value
+
+
+def _wrap_text(
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    max_width: int,
+    draw: ImageDraw.ImageDraw,
+) -> list[str]:
+    text = str(text or "").strip()
+    if not text:
+        return [""]
+    result: list[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            result.append("")
+            continue
+        result.extend(_wrap_single_line(line, font, max_width, draw))
+    return result
+
+
+def _wrap_single_line(
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    max_width: int,
+    draw: ImageDraw.ImageDraw,
+) -> list[str]:
+    if draw.textlength(text, font=font) <= max_width:
+        return [text]
+
+    tokens = re.findall(r"[A-Za-z0-9_./:%+-]+|\s+|.", text)
+    lines: list[str] = []
+    current = ""
+    for token in tokens:
+        candidate = current + token
+        if not current or draw.textlength(candidate, font=font) <= max_width:
+            current = candidate
+            continue
+        if current.strip():
+            lines.append(current.strip())
+        current = token.strip()
+        if draw.textlength(current, font=font) > max_width:
+            broken = _break_long_token(current, font, max_width, draw)
+            lines.extend(broken[:-1])
+            current = broken[-1] if broken else ""
+    if current.strip():
+        lines.append(current.strip())
+    return lines or [text]
+
+
+def _break_long_token(
+    token: str,
+    font: ImageFont.FreeTypeFont,
+    max_width: int,
+    draw: ImageDraw.ImageDraw,
+) -> list[str]:
+    lines: list[str] = []
+    current = ""
+    for char in token:
+        candidate = current + char
+        if not current or draw.textlength(candidate, font=font) <= max_width:
+            current = candidate
+            continue
+        lines.append(current)
+        current = char
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _line_height(font: ImageFont.FreeTypeFont) -> int:
+    bbox = font.getbbox("あいうえおABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    return max(17, bbox[3] - bbox[1] + 7)
