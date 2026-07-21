@@ -1,25 +1,23 @@
 # Keiba AI Mobile
 
-iPhone Safari から netkeiba のレースURLまたは保存HTMLを入力し、Keiba AI の予想結果をスマホ向けPNGとして確認・保存するStreamlitアプリです。
+iPhone Safari から地方競馬・中央競馬の予想結果を確認し、スマホ向けPNGとして保存する Streamlit アプリです。
 
-現在のアプリは Cloud 対応版です。研究用Notebookは実行せず、Notebook内で使っていた予想処理をPythonモジュールへ移植して呼び出します。
+研究用Notebookは変更せず、Cloudでは `.ipynb` を実行しません。予想処理は Python モジュールへ移植したものを呼び出します。
 
 ## 現在できること
 
 - 地方／中央の切替
-- 地方競馬の出馬表URLから `race_id` を抽出
-- 地方競馬の出馬表・タイム指数・脚質分析HTMLを自動取得
-- URL取得失敗時の直接HTMLアップロード
-- 中央競馬の直接HTMLアップロード
-- HTML自動分類
+- 地方競馬のショートカットJSONアップロード
+- 地方競馬のHTML直接アップロード fallback
+- 地方競馬の旧URL入力モード fallback
+- 中央競馬のHTMLアップロード
+- HTML／JSON自動分類
 - Pythonモジュールによる予想実行
 - `PredictionResult` 生成
 - スマホ向け縦長PNG生成
 - Streamlit上でPNG表示
 - PNG保存
 - 次レース用リセット
-
-研究用Notebook本体は変更しません。
 
 ## フォルダ構成
 
@@ -32,6 +30,7 @@ keiba_ai_mobile/
     jra_notebook_logic.py
     jra_predictor.py
     models.py
+    nar_json_input.py
     nar_notebook_logic.py
     nar_predictor.py
     prediction_runtime.py
@@ -40,6 +39,7 @@ keiba_ai_mobile/
     mobile_png.py
   assets/
   requirements.txt
+  packages.txt
   README.md
   .gitignore
 ```
@@ -66,54 +66,59 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Streamlit Cloud と同じ入口で確認する場合は、以下でも起動できます。
+Streamlit Cloud と同じ入口で確認する場合は以下です。
 
 ```bash
 streamlit run streamlit_app.py
-```
-
-同じWi-Fi上のiPhoneから使う場合は、PCのローカルIPアドレスでStreamlitへアクセスします。
-
-```text
-http://192.168.1.10:8501
 ```
 
 ## スマホからの利用手順
 
 1. iPhone Safariでアプリを開く
 2. 地方／中央を選ぶ
-3. 地方は出馬表URLを1つ入力する
-4. 中央は必要HTMLをアップロードする
-5. 「予想する」を押す
-6. 生成されたPNGを確認する
-7. 「PNGを保存」から保存する
-8. 次のレースは「次のレースを予想」でリセットする
+3. 地方はiPhoneショートカットで保存した3つのJSONをまとめて追加する
+4. 中央は必要HTMLをまとめて追加する
+5. 認識結果を確認する
+6. 「予想する」を押す
+7. 生成されたPNGを確認する
+8. 「PNGを保存」から保存する
+9. 次のレースは「次のレースを予想」でリセットする
 
 ## 入力方法
 
 ### 地方競馬
 
-通常は出馬表URLを1つ入力します。
+通常は、iPhoneショートカットで保存した以下3つのJSONをまとめてアップロードします。
 
-```text
-https://nar.netkeiba.com/race/shutuba.html?race_id=202644072012
-```
+| JSON | `data_type` | 内容 |
+|---|---|---|
+| 出馬表JSON | `entry` | 馬番、馬名、性齢、斤量、騎手、馬体重、単勝オッズ、人気など |
+| タイム指数JSON | `speed` | 距離指数、コース指数、近走指数、平均指数など |
+| コース脚質分析JSON | `courseanalysis` | コースの脚質傾向 |
 
-入力URLから `race_id` を抽出し、以下を自動取得します。
+ファイル名や拡張子ではなく、JSON本文の `data_type` で自動分類します。ショートカット側で同じファイル名になったり、拡張子が `.html` になったりしても、中身がJSONであれば読み込めます。
 
-- 出馬表
-- タイム指数
-- 脚質分析
+地方JSONでは以下を検証します。
 
-URL取得に失敗した場合は、「詳細設定：HTMLを直接アップロード」から以下をアップロードできます。
+- 必須3種類が揃っている
+- `data_type` が `entry` / `speed` / `courseanalysis` のいずれか
+- 3ファイルの `race_id` が一致している
+- 出馬表／タイム指数の `horses` が空ではない
+- 出馬表／タイム指数の頭数が一致している
+- 出馬表／タイム指数の馬番セットが一致している
+- コース脚質分析の `running_styles` が空ではない
+
+JSONを作れない場合は「詳細設定：HTMLを直接アップロード」から、以下のHTMLをまとめて追加できます。
 
 - 出馬表HTML
 - タイム指数HTML
 - 脚質分析HTML
 
+旧URL入力モードも詳細設定内に残しています。ただし、Streamlit Cloudからnetkeibaのログイン済みページへアクセスできない場合があるため、標準運用はJSONアップロード方式です。
+
 ### 中央競馬
 
-現在は直接HTMLアップロード方式です。
+現在はHTMLアップロード方式です。
 
 - タイム指数HTML
 - 競馬新聞HTML
@@ -135,37 +140,7 @@ PNGは幅1080pxを基準にしたスマホ向け縦長画像です。
 7. AIレース考察
 8. バージョン情報
 
-PC版の横長詳細表をそのまま縮小せず、スマホで読みやすいカード形式へ変換します。
-
-## Pythonモジュール化した予想処理
-
-Cloud版では `.ipynb` ファイルを探したり実行したりしません。
-
-予想処理は以下のPythonモジュールから呼び出します。
-
-- 地方：`core/nar_notebook_logic.py`
-- 中央：`core/jra_notebook_logic.py`
-
-これらは研究用NotebookのロジックセルをPython化したものです。`app.py` はNotebookパスや環境変数を参照しません。
-
-主な入口は以下です。
-
-- `predict_nar(html_files, file_names)`
-- `predict_jra(html_files, file_names)`
-
-処理の流れは以下です。
-
-```text
-URL取得またはHTMLアップロード
-↓
-HTML分類
-↓
-PythonモジュールでAI予想
-↓
-PredictionResult
-↓
-PNG生成
-```
+PC版の横長詳細表をそのまま縮小せず、スマホで縦に読めるカード形式へ変換します。
 
 ## PredictionResult
 
@@ -184,11 +159,43 @@ PNG生成
 - `source_files`
 - `raw_output`
 
-PNG生成側はこの `PredictionResult` を表示するだけで、新しい予想判断は行いません。
+PNG生成側は `PredictionResult` を表示するだけで、新しい予想判断は行いません。
+
+## Pythonモジュール化した予想処理
+
+Cloud版ではNotebookを探したり実行したりしません。
+
+- 地方：`core/nar_notebook_logic.py`
+- 中央：`core/jra_notebook_logic.py`
+
+主な入口は以下です。
+
+- `predict_nar(html_files, file_names)`
+- `predict_jra(html_files, file_names)`
+
+地方JSON入力は `core/nar_json_input.py` で既存HTML解析に渡せる最小HTMLへ変換し、既存の `predict_nar()` を呼び出します。
+
+処理の流れは以下です。
+
+```text
+地方JSONアップロード
+↓
+data_typeで自動分類
+↓
+race_id／馬番／頭数を検証
+↓
+既存解析用の最小HTMLへ変換
+↓
+PythonモジュールでAI予想
+↓
+PredictionResult
+↓
+PNG生成
+```
 
 ## 日本語フォント要件
 
-PNG生成には日本語フォントが必要です。以下の順で自動検出します。
+PNG生成には日本語フォントが必要です。以下の順で取得します。
 
 1. `assets/fonts/NotoSansJP-Regular.ttf`
 2. `KEIBA_AI_FONT_PATH` で指定したフォント
@@ -199,10 +206,9 @@ PNG生成には日本語フォントが必要です。以下の順で自動検�
    - Yu Gothic
    - Noto Sans CJK / Noto Sans JP
 
-DejaVu Sansは日本語グリフがないため、PNG描画には使用しません。
-日本語フォントを取得できない場合のみ、PNG生成エラーを表示します。
+DejaVu Sansは日本語グリフが無いため、PNG描画には使用しません。日本語フォントを取得できない場合のみ、PNG生成エラーを表示します。
+
 Streamlit Cloudでは `packages.txt` の `fonts-noto-cjk` も利用します。
-文字化けする場合は、`assets/fonts/NotoSansJP-Regular.ttf` を追加してください。
 
 ## Streamlit Cloud公開方法
 
@@ -216,16 +222,16 @@ Cloud用のEntrypointはリポジトリ直下の `streamlit_app.py` です。ア
 
 ## Cloud公開前の注意
 
-- `.ipynb` ファイルはCloud実行に不要です。
-- `KEIBA_NAR_NOTEBOOK_PATH` / `KEIBA_JRA_NOTEBOOK_PATH` は使用しません。
-- 取得したHTMLはメモリ上で処理し、永続保存しません。
-- Streamlit Cloudからnetkeibaへアクセスできない場合は、直接HTMLアップロードを使います。
-- Cloud環境に日本語フォントがない場合は、初回のみNoto Sans JPの自動取得を試みます。DejaVu Sansでは日本語を描画しません。
+- `.ipynb` ファイルはCloud実行に不要です
+- `KEIBA_NAR_NOTEBOOK_PATH` / `KEIBA_JRA_NOTEBOOK_PATH` は使用しません
+- 取得したHTML／JSONはメモリ上で処理し、永続保存しません
+- Streamlit Cloudからnetkeibaのログイン済みページは取得できないため、地方はJSONアップロード方式を標準にしています
+- 保存オッズHTMLから組み合わせオッズを安定取得する機能は現在非表示です
 
 ## 既知の制限
 
-- 地方のURL自動取得はnetkeiba側のアクセス制限やページ仕様変更で失敗する場合があります。
-- 中央は現在、URL自動取得ではなくHTMLアップロード方式です。
-- PNGは1枚にまとめるため、頭数や文章量が非常に多い場合は縦長になります。
-- 保存オッズHTMLからの組み合わせオッズ解析は現在非表示です。
-- 予想ロジックを研究用Notebookで更新した場合は、対応するPythonモジュールへの再移植が必要です。
+- 地方JSONに含まれない情報は追加推測しません
+- 地方JSONに馬ごとの脚質が無い場合、脚質は既存ロジック側で取得不可扱いになります
+- 中央は現在URL方式ではなくHTMLアップロード方式です
+- PNGは1枚にまとめるため、頭数や文章量が非常に多い場合は縦長になります
+- 研究用Notebookで予想ロジックを更新した場合は、対応するPythonモジュールへの再移植が必要です

@@ -19,6 +19,11 @@ from core.html_classifier import (
     required_kinds,
 )
 from core.models import ClassifiedHtml, PredictionResult, RaceMode
+from core.nar_json_input import (
+    NarJsonDataError,
+    NarJsonPredictionInput,
+    build_nar_prediction_inputs_from_uploads,
+)
 from core.nar_predictor import predict_nar
 from core.version import APP_VERSION
 from render.mobile_png import MobilePngRenderError, render_mobile_png
@@ -120,7 +125,7 @@ def main() -> None:
     mode: RaceMode = "nar" if mode_label == "地方" else "jra"
 
     if mode == "nar":
-        render_nar_url_flow()
+        render_nar_json_flow()
     else:
         render_upload_flow("jra")
 
@@ -138,7 +143,93 @@ def _init_state() -> None:
     st.session_state.setdefault("input_signature", "")
 
 
-def render_nar_url_flow() -> None:
+def render_nar_json_flow() -> None:
+    st.subheader("JSON追加")
+    st.caption("iPhoneショートカットで保存した entry / speed / courseanalysis の3つのJSONをまとめて選択してください。")
+    uploaded_files = st.file_uploader(
+        "iPhoneショートカットで保存した3つのJSONを選択",
+        type=["json", "html"],
+        accept_multiple_files=True,
+        help="拡張子が.htmlでも、中身がJSONであれば読み込めます。ファイル名ではなくdata_typeで自動判定します。",
+        key=f"nar_json_upload_{st.session_state.uploader_key}",
+    )
+
+    package: NarJsonPredictionInput | None = None
+    current_input_signature = "nar:json"
+    if uploaded_files:
+        current_input_signature += ":" + "|".join(
+            f"{file.name}:{getattr(file, 'size', 0)}" for file in uploaded_files
+        )
+    if st.session_state.input_signature != current_input_signature:
+        clear_prediction_state()
+        st.session_state.input_signature = current_input_signature
+
+    st.subheader("認識結果")
+    if not uploaded_files:
+        st.info("JSONを追加してください。")
+    else:
+        try:
+            package = build_nar_prediction_inputs_from_uploads(
+                [(file.name, file.getvalue()) for file in uploaded_files]
+            )
+            render_nar_json_status(package)
+        except NarJsonDataError as exc:
+            st.error(str(exc))
+        except Exception as exc:
+            st.error(f"JSON入力の確認中に失敗しました: {exc}")
+            with st.expander("開発者向け詳細", expanded=False):
+                st.code(traceback.format_exc())
+
+    fallback_selected: dict[str, ClassifiedHtml] = {}
+    fallback_grouped: dict[str, list[ClassifiedHtml]] = {}
+    fallback_ready = False
+    with st.expander("詳細設定：HTMLを直接アップロード", expanded=False):
+        st.caption("JSONを作れない場合だけ使用してください。出馬表HTML、タイム指数HTML、脚質分析HTMLをまとめて選択します。")
+        fallback_selected, fallback_grouped, has_fallback_uploads, fallback_missing = render_upload_input(
+            "nar",
+            key_prefix="nar_json_direct",
+        )
+        fallback_ready = has_fallback_uploads and not fallback_missing and bool(fallback_selected)
+        if fallback_ready:
+            st.info("直接アップロードHTMLを使用して予想できます。JSONが揃っている場合はJSONを優先します。")
+
+    st.subheader("予想")
+    can_predict = package is not None or fallback_ready
+    if st.button("予想する", disabled=not can_predict, type="primary", use_container_width=True, key="predict_nar_json"):
+        clear_prediction_state(keep_input=True)
+        if package is not None:
+            result, png_bytes = run_nar_json_prediction_with_progress(package)
+            if result is not None and png_bytes is not None:
+                st.session_state.prediction_result = result
+                st.session_state.png_bytes = png_bytes
+        elif fallback_ready:
+            result, png_bytes = run_upload_prediction_with_progress(
+                "nar",
+                fallback_selected,
+                fallback_grouped,
+            )
+            if result is not None and png_bytes is not None:
+                st.session_state.prediction_result = result
+                st.session_state.png_bytes = png_bytes
+
+    with st.expander("詳細設定：旧URL入力モード", expanded=False):
+        st.caption("通常はJSONアップロード方式を使用してください。URL方式はCloudからnetkeibaへ取得できる場合のみ使えます。")
+        use_legacy_url = st.checkbox("旧URL入力モードを使う", value=False, key="use_legacy_nar_url")
+        if use_legacy_url:
+            render_nar_legacy_url_flow()
+
+
+def render_nar_json_status(package: NarJsonPredictionInput) -> None:
+    st.success(f"{package.race_id} のデータを読み込みました")
+    st.write(f"出馬表：{package.entry_count}頭")
+    st.write(f"タイム指数：{package.speed_count}頭")
+    if package.running_styles:
+        st.write("コース傾向：" + "・".join(package.running_styles))
+    else:
+        st.write("コース傾向：未取得")
+
+
+def render_nar_legacy_url_flow() -> None:
     st.subheader("出馬表URL")
     race_url = st.text_input(
         "地方競馬の出馬表URL",
@@ -586,6 +677,46 @@ def render_fetch_success(html_files: dict[str, str]) -> None:
     with st.expander("取得したHTML", expanded=False):
         for kind, html_text in html_files.items():
             st.write(f"{kind_label(kind)}: {len(html_text):,}文字")
+
+
+def run_nar_json_prediction_with_progress(
+    package: NarJsonPredictionInput,
+) -> tuple[PredictionResult | None, bytes | None]:
+    progress = st.progress(0)
+    status = st.empty()
+
+    def step(percent: int, message: str) -> None:
+        progress.progress(percent)
+        status.write(message)
+
+    try:
+        step(15, "1. JSON確認中")
+        step(35, "2. AI入力データ整理中")
+        html_files = dict(package.html_files)
+        file_names = dict(package.file_names)
+        step(55, "3. AI予想中")
+        result = run_prediction("nar", html_files, file_names)
+        step(72, "4. 結果整理中")
+        validate_result(result)
+        step(88, "5. PNG生成中")
+        png_bytes = render_mobile_png(result)
+        step(100, "6. 完了")
+        st.success("スマホ用PNGを生成しました。")
+        return result, png_bytes
+    except MobilePngRenderError as exc:
+        progress.empty()
+        status.empty()
+        st.error(f"PNG生成に失敗しました: {exc}")
+        with st.expander("開発者向け詳細", expanded=False):
+            st.code(traceback.format_exc())
+        return None, None
+    except Exception as exc:
+        progress.empty()
+        status.empty()
+        st.error(f"予想処理に失敗しました: {exc}")
+        with st.expander("開発者向け詳細", expanded=False):
+            st.code(traceback.format_exc())
+        return None, None
 
 
 def run_nar_url_prediction_with_progress(
