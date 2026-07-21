@@ -387,24 +387,29 @@ def _load_fonts() -> dict[str, ImageFont.ImageFont]:
         loaded = _try_load_font_family(font_path)
         if loaded:
             return loaded
-    return _load_default_font_family()
+    raise MobilePngRenderError(
+        "日本語フォントを取得できませんでした。assets/fonts/NotoSansJP-Regular.ttf を配置するか、"
+        "Cloud環境からGoogle Fontsへアクセスできるか確認してください。"
+    )
 
 
 def _candidate_font_paths() -> list[str]:
     paths: list[str] = []
+
+    bundled_noto = _bundled_noto_font_path()
+    paths.append(str(bundled_noto))
 
     env_path = os.environ.get("KEIBA_AI_FONT_PATH", "").strip()
     if env_path:
         paths.append(env_path)
 
     paths.extend(_asset_font_paths(prefer_noto=True))
-    paths.extend(_system_noto_font_paths())
     downloaded = _download_noto_sans_jp_once()
     if downloaded:
         paths.append(downloaded)
+    paths.extend(_system_noto_font_paths())
     paths.extend(_asset_font_paths(prefer_noto=False))
     paths.extend(_system_japanese_font_paths())
-    paths.extend(_dejavu_font_paths())
 
     seen: set[str] = set()
     unique_paths: list[str] = []
@@ -418,6 +423,10 @@ def _candidate_font_paths() -> list[str]:
     return unique_paths
 
 
+def _bundled_noto_font_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "assets" / "fonts" / "NotoSansJP-Regular.ttf"
+
+
 def _asset_font_paths(*, prefer_noto: bool) -> list[str]:
     assets_dir = Path(__file__).resolve().parents[1] / "assets"
     if not assets_dir.exists():
@@ -425,6 +434,7 @@ def _asset_font_paths(*, prefer_noto: bool) -> list[str]:
     fonts: list[Path] = []
     for pattern in ("*.ttf", "*.otf", "*.ttc"):
         fonts.extend(assets_dir.glob(pattern))
+        fonts.extend((assets_dir / "fonts").glob(pattern))
     if prefer_noto:
         fonts = [path for path in fonts if "noto" in path.name.lower()]
     else:
@@ -458,30 +468,25 @@ def _system_japanese_font_paths() -> list[str]:
     ]
 
 
-def _dejavu_font_paths() -> list[str]:
-    return [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf",
-        "/usr/local/share/fonts/DejaVuSans.ttf",
-        "C:/Windows/Fonts/DejaVuSans.ttf",
-    ]
-
-
 @lru_cache(maxsize=1)
 def _download_noto_sans_jp_once() -> str:
-    cache_dir = _font_cache_dir()
-    cached = _find_cached_noto_font(cache_dir)
-    if cached:
-        return cached
+    for cache_dir in _font_cache_dirs():
+        cached = _find_cached_noto_font(cache_dir)
+        if cached:
+            return cached
 
-    try:
-        cache_dir.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        cache_dir = Path(tempfile.gettempdir()) / "keiba_ai_mobile_fonts"
+    writable_dirs: list[Path] = []
+    for cache_dir in _font_cache_dirs():
         try:
             cache_dir.mkdir(parents=True, exist_ok=True)
+            test_file = cache_dir / ".write_test"
+            test_file.write_text("ok", encoding="utf-8")
+            test_file.unlink(missing_ok=True)
+            writable_dirs.append(cache_dir)
         except Exception:
-            return ""
+            continue
+    if not writable_dirs:
+        return ""
 
     for url in _noto_sans_jp_download_urls():
         try:
@@ -494,22 +499,34 @@ def _download_noto_sans_jp_once() -> str:
             )
             with urllib.request.urlopen(request, timeout=20) as response:
                 payload = response.read()
-            font_path = _save_downloaded_font(payload, cache_dir, url)
-            if font_path:
-                return font_path
+            for cache_dir in writable_dirs:
+                font_path = _save_downloaded_font(payload, cache_dir, url)
+                if font_path:
+                    return font_path
         except Exception:
             continue
     return ""
 
 
-def _font_cache_dir() -> Path:
+def _font_cache_dirs() -> list[Path]:
+    dirs = [_bundled_noto_font_path().parent]
     configured = os.environ.get("KEIBA_AI_FONT_CACHE_DIR", "").strip()
     if configured:
-        return Path(configured)
+        dirs.append(Path(configured))
     home = Path.home()
     if str(home) and home.exists():
-        return home / ".cache" / "keiba_ai_mobile" / "fonts"
-    return Path(tempfile.gettempdir()) / "keiba_ai_mobile_fonts"
+        dirs.append(home / ".cache" / "keiba_ai_mobile" / "fonts")
+    dirs.append(Path(tempfile.gettempdir()) / "keiba_ai_mobile_fonts")
+
+    seen: set[str] = set()
+    unique_dirs: list[Path] = []
+    for directory in dirs:
+        text = str(directory)
+        if text in seen:
+            continue
+        seen.add(text)
+        unique_dirs.append(directory)
+    return unique_dirs
 
 
 def _find_cached_noto_font(cache_dir: Path) -> str:
@@ -524,7 +541,7 @@ def _find_cached_noto_font(cache_dir: Path) -> str:
     )
     for pattern in patterns:
         for path in sorted(cache_dir.glob(pattern)):
-            if path.is_file() and path.stat().st_size > 10000:
+            if path.is_file() and path.stat().st_size > 10000 and _is_loadable_font_path(path):
                 return str(path)
     return ""
 
@@ -555,7 +572,9 @@ def _save_downloaded_font(payload: bytes, cache_dir: Path, url: str) -> str:
                     continue
                 target = cache_dir / Path(name).name
                 target.write_bytes(data)
-                return str(target)
+                if _is_loadable_font_path(target):
+                    return str(target)
+                target.unlink(missing_ok=True)
         return ""
 
     suffix = ".ttf"
@@ -564,7 +583,9 @@ def _save_downloaded_font(payload: bytes, cache_dir: Path, url: str) -> str:
     target = cache_dir / f"NotoSansJP-Downloaded{suffix}"
     if len(payload) > 10000:
         target.write_bytes(payload)
-        return str(target)
+        if _is_loadable_font_path(target):
+            return str(target)
+        target.unlink(missing_ok=True)
     return ""
 
 
@@ -592,21 +613,12 @@ def _try_load_font_family(font_path: str) -> dict[str, ImageFont.ImageFont] | No
         return None
 
 
-def _load_default_font_family() -> dict[str, ImageFont.ImageFont]:
-    for font_name in ("DejaVuSans.ttf", "Arial.ttf"):
-        loaded = _try_load_font_family(font_name)
-        if loaded:
-            return loaded
-    font = ImageFont.load_default()
-    return {
-        "title": font,
-        "section": font,
-        "body": font,
-        "body_bold": font,
-        "small": font,
-        "small_bold": font,
-        "tiny": font,
-    }
+def _is_loadable_font_path(path: Path) -> bool:
+    try:
+        ImageFont.truetype(str(path), 16)
+        return True
+    except Exception:
+        return False
 
 def _conclusion_rows(result: PredictionResult) -> list[dict[str, Any]]:
     rows = _records(result.overall_table)
