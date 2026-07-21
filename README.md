@@ -23,6 +23,7 @@ iPhone Safari から netkeiba のHTMLをアップロードし、Keiba AI の予�
 
 ```text
 keiba_ai_mobile/
+  streamlit_app.py
   app.py
   core/
     html_classifier.py
@@ -59,6 +60,12 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run app.py
+```
+
+Streamlit Cloud と同じ入口で確認する場合は、以下でも起動できます。
+
+```bash
+streamlit run streamlit_app.py
 ```
 
 同じWi-Fi上のiPhoneから使う場合は、PCのローカルIPアドレスでStreamlitへアクセスします。
@@ -196,8 +203,11 @@ KEIBA_JRA_NOTEBOOK_PATH=/path/to/netkeiba_ai_prediction_pc_html_colab_jra_venue_
 1. このプロジェクトをGitHubへpush
 2. Streamlit Community Cloudで `Create app`
 3. 対象リポジトリとブランチを選択
-4. Main file path に `keiba_ai_mobile/app.py` を指定
+4. Main file path に `streamlit_app.py` を指定
 5. Deploy
+
+Cloud用のEntrypointはリポジトリ直下の `streamlit_app.py` です。
+アプリ一覧に `core/__init__.py` などが表示される場合は、Streamlit CloudのApp settingsからMain file pathを `streamlit_app.py` に変更してください。
 
 公開前の注意：
 
