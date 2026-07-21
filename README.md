@@ -1,19 +1,18 @@
 # Keiba AI Mobile
 
-iPhone Safari から netkeiba のレースURLまたはHTMLを入力し、Keiba AI の予想結果をスマホ向けPNGとして確認・保存するためのWebアプリです。
+iPhone Safari から netkeiba のレースURLまたは保存HTMLを入力し、Keiba AI の予想結果をスマホ向けPNGとして確認・保存するStreamlitアプリです。
 
-現在のバージョンは Phase3 / `APP_VERSION = 0.3.0` です。
+現在のアプリは Cloud 対応版です。研究用Notebookは実行せず、Notebook内で使っていた予想処理をPythonモジュールへ移植して呼び出します。
 
 ## 現在できること
 
 - 地方／中央の切替
 - 地方競馬の出馬表URLから `race_id` を抽出
-- 地方競馬の必要HTML URLを自動生成
-- 地方競馬の必要HTMLを自動取得
+- 地方競馬の出馬表・タイム指数・脚質分析HTMLを自動取得
 - URL取得失敗時の直接HTMLアップロード
-- 中央競馬のHTMLアップロード
-- 取得失敗ページの表示
-- Notebook Bridge 経由で既存Notebookロジックを実行
+- 中央競馬の直接HTMLアップロード
+- HTML自動分類
+- Pythonモジュールによる予想実行
 - `PredictionResult` 生成
 - スマホ向け縦長PNG生成
 - Streamlit上でPNG表示
@@ -30,10 +29,12 @@ keiba_ai_mobile/
   app.py
   core/
     html_classifier.py
+    jra_notebook_logic.py
     jra_predictor.py
     models.py
+    nar_notebook_logic.py
     nar_predictor.py
-    notebook_bridge.py
+    prediction_runtime.py
     version.py
   render/
     mobile_png.py
@@ -55,7 +56,7 @@ pillow
 numpy
 ```
 
-## ローカル起動方法
+## ローカル起動
 
 ```bash
 cd keiba_ai_mobile
@@ -73,8 +74,6 @@ streamlit run streamlit_app.py
 
 同じWi-Fi上のiPhoneから使う場合は、PCのローカルIPアドレスでStreamlitへアクセスします。
 
-例：
-
 ```text
 http://192.168.1.10:8501
 ```
@@ -83,7 +82,7 @@ http://192.168.1.10:8501
 
 1. iPhone Safariでアプリを開く
 2. 地方／中央を選ぶ
-3. 地方は出馬表URLを入力する
+3. 地方は出馬表URLを1つ入力する
 4. 中央は必要HTMLをアップロードする
 5. 「予想する」を押す
 6. 生成されたPNGを確認する
@@ -92,11 +91,9 @@ http://192.168.1.10:8501
 
 ## 入力方法
 
-地方：
+### 地方競馬
 
-- 出馬表URLを1つ入力します。
-
-例：
+通常は出馬表URLを1つ入力します。
 
 ```text
 https://nar.netkeiba.com/race/shutuba.html?race_id=202644072012
@@ -108,55 +105,71 @@ https://nar.netkeiba.com/race/shutuba.html?race_id=202644072012
 - タイム指数
 - 脚質分析
 
-URL取得に失敗する場合は、「詳細設定：HTMLを直接アップロード」から以下をアップロードできます。
+URL取得に失敗した場合は、「詳細設定：HTMLを直接アップロード」から以下をアップロードできます。
 
 - 出馬表HTML
 - タイム指数HTML
 - 脚質分析HTML
 
-中央：
+### 中央競馬
 
-- 従来どおり、以下のHTMLを直接アップロードします。
+現在は直接HTMLアップロード方式です。
 
 - タイム指数HTML
 - 競馬新聞HTML
 - 脚質分析HTML
 - 調教HTMLは任意
 
-地方で取得できなかったページがある場合は、ページ名と理由だけを画面に表示します。
-
 ## PNGレイアウト
 
-PNGは幅1080pxのスマホ縦長画像です。
+PNGは幅1080pxを基準にしたスマホ向け縦長画像です。
 
-表示順：
+表示順は以下です。
 
 1. レース情報
-2. 簡易レース全体表
-3. 馬評価（全頭）
-4. 注目馬
-5. AIレース考察
-6. 今回の馬券構成
-7. バージョン情報
+2. 本日の結論
+3. 今回の馬券構成
+4. 簡易レース全体表
+5. 馬評価（全頭）
+6. 注目馬
+7. AIレース考察
+8. バージョン情報
 
-PC版の横長詳細表はそのまま縮小せず、スマホで読めるカード形式へ変換します。
+PC版の横長詳細表をそのまま縮小せず、スマホで読みやすいカード形式へ変換します。
 
-## 日本語フォント要件
+## Pythonモジュール化した予想処理
 
-PNG生成には日本語フォントが必要です。以下の順で自動検出します。
+Cloud版では `.ipynb` ファイルを探したり実行したりしません。
 
-1. OS上の日本語フォント
-   - Meiryo
-   - Yu Gothic
-   - Noto Sans CJK / Noto Sans JP
-2. `assets/` 内の `.ttf` / `.otf` / `.ttc`
-3. 見つからない場合はPNG生成エラーを表示
+予想処理は以下のPythonモジュールから呼び出します。
 
-フォントの絶対パスをアプリ全体へ直接埋め込まず、`render/mobile_png.py` のフォント検出処理で集中管理しています。
+- 地方：`core/nar_notebook_logic.py`
+- 中央：`core/jra_notebook_logic.py`
+
+これらは研究用NotebookのロジックセルをPython化したものです。`app.py` はNotebookパスや環境変数を参照しません。
+
+主な入口は以下です。
+
+- `predict_nar(html_files, file_names)`
+- `predict_jra(html_files, file_names)`
+
+処理の流れは以下です。
+
+```text
+URL取得またはHTMLアップロード
+↓
+HTML分類
+↓
+PythonモジュールでAI予想
+↓
+PredictionResult
+↓
+PNG生成
+```
 
 ## PredictionResult
 
-Phase2以降、Notebook Bridgeから以下を受け取ります。
+予想モジュールから以下を受け取ります。
 
 - `version`
 - `created_at`
@@ -171,53 +184,20 @@ Phase2以降、Notebook Bridgeから以下を受け取ります。
 - `source_files`
 - `raw_output`
 
-Phase3では、この `PredictionResult` を `render_mobile_png()` へ渡してPNGを生成します。
+PNG生成側はこの `PredictionResult` を表示するだけで、新しい予想判断は行いません。
 
-## Notebook Bridge依存
+## 日本語フォント要件
 
-`core/notebook_bridge.py` は、既存の研究用Notebookを変更せずに読み込みます。
+PNG生成には日本語フォントが必要です。以下の順で自動検出します。
 
-依存Notebook：
+1. OS上の日本語フォント
+   - Meiryo
+   - Yu Gothic
+   - Noto Sans CJK / Noto Sans JP
+2. `assets/` 内の `.ttf` / `.otf` / `.ttc`
+3. 見つからない場合はPNG生成エラーを表示
 
-- 地方：`netkeiba_nar_ai_prediction_pc_html_colab_venue_trial.ipynb`
-- 中央：`netkeiba_ai_prediction_pc_html_colab_jra_venue_trial.ipynb`
-
-読み込むセル：
-
-- セル5：主要ライブラリ、HTML解析、スコア計算、補助関数
-- セル6：会場別試験ロジック、追加表示・評価関数
-- セル7：解析実行セル
-
-Bridgeが取得する主な変数・表示：
-
-- `result_df`
-- `race_info`
-- `running_style_info`
-- `ai_confidence_summary`
-- `display_cols`
-- `print_ver30_all_horse_rating()`
-- `print_ver30_attention_horses()`
-- `print_ver30_ai_race_review()`
-- `print_ver30_betting_structure()`
-
-Notebook更新時に確認する項目：
-
-- セル番号5/6/7が変わっていないか
-- `result_df` の列名が変わっていないか
-- Ver3.0表示関数名が変わっていないか
-- `race_info` のキーが変わっていないか
-- HTML入力用変数名が変わっていないか
-
-Notebook構造が変わった場合は、Mobile側のBridgeも確認が必要です。
-
-## Notebookパス
-
-通常は現在のCodexフォルダ構成から自動検出します。別の場所にNotebookを置く場合は環境変数で指定できます。
-
-```bash
-KEIBA_NAR_NOTEBOOK_PATH=/path/to/netkeiba_nar_ai_prediction_pc_html_colab_venue_trial.ipynb
-KEIBA_JRA_NOTEBOOK_PATH=/path/to/netkeiba_ai_prediction_pc_html_colab_jra_venue_trial.ipynb
-```
+Streamlit Cloudで文字化けする場合は、`assets/` に日本語フォントを追加してください。
 
 ## Streamlit Cloud公開方法
 
@@ -227,22 +207,20 @@ KEIBA_JRA_NOTEBOOK_PATH=/path/to/netkeiba_ai_prediction_pc_html_colab_jra_venue_
 4. Main file path に `streamlit_app.py` を指定
 5. Deploy
 
-Cloud用のEntrypointはリポジトリ直下の `streamlit_app.py` です。
-アプリ一覧に `core/__init__.py` などが表示される場合は、Streamlit CloudのApp settingsからMain file pathを `streamlit_app.py` に変更してください。
+Cloud用のEntrypointはリポジトリ直下の `streamlit_app.py` です。アプリ一覧に `core/__init__.py` などが表示される場合は、Streamlit CloudのApp settingsからMain file pathを `streamlit_app.py` に変更してください。
 
-公開前の注意：
+## Cloud公開前の注意
 
-- Notebookファイルをどこに置くか決める
-- Notebook Bridgeがクラウド環境でNotebookへアクセスできるようにする
-- 日本語フォントがクラウド環境に存在するか確認する
-- 取得したHTMLはメモリ上で処理し、永続保存しない
-- Streamlit Cloudからnetkeibaへアクセスできるか確認する
+- `.ipynb` ファイルはCloud実行に不要です。
+- `KEIBA_NAR_NOTEBOOK_PATH` / `KEIBA_JRA_NOTEBOOK_PATH` は使用しません。
+- 取得したHTMLはメモリ上で処理し、永続保存しません。
+- Streamlit Cloudからnetkeibaへアクセスできない場合は、直接HTMLアップロードを使います。
+- 日本語フォントがCloud環境にない場合は、`assets/` へフォント追加が必要です。
 
 ## 既知の制限
 
-- 予想ロジックはNotebook構造に依存します。
-- netkeiba側のアクセス制限やページ仕様変更により、HTML取得に失敗する場合があります。
-- PNGは1枚にまとめるため、頭数や文章量が極端に多いと縦長になります。
-- 実オッズHTMLの組み合わせオッズ取得はPhase3では使用しません。
-- PNG生成側では新しい予想判断を行わず、Notebook Bridgeの結果を表示します。
-- Streamlit Cloudでは日本語フォントの追加設定が必要になる可能性があります。
+- 地方のURL自動取得はnetkeiba側のアクセス制限やページ仕様変更で失敗する場合があります。
+- 中央は現在、URL自動取得ではなくHTMLアップロード方式です。
+- PNGは1枚にまとめるため、頭数や文章量が非常に多い場合は縦長になります。
+- 保存オッズHTMLからの組み合わせオッズ解析は現在非表示です。
+- 予想ロジックを研究用Notebookで更新した場合は、対応するPythonモジュールへの再移植が必要です。
