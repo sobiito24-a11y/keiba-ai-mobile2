@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import math
+import os
 import re
+import tempfile
+import urllib.request
+import zipfile
 from datetime import datetime
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Iterable
@@ -60,7 +65,7 @@ def render_dummy_png(result: PredictionResult) -> bytes:
 
 
 class _Canvas:
-    def __init__(self, fonts: dict[str, ImageFont.FreeTypeFont]) -> None:
+    def __init__(self, fonts: dict[str, ImageFont.ImageFont]) -> None:
         self.fonts = fonts
         self.image = Image.new("RGB", (CANVAS_WIDTH, MAX_CANVAS_HEIGHT), "white")
         self.draw = ImageDraw.Draw(self.image)
@@ -376,12 +381,203 @@ class _Canvas:
             self.y += paragraph_gap
 
 
-def _load_fonts() -> dict[str, ImageFont.FreeTypeFont]:
-    font_path = _find_japanese_font()
-    if not font_path:
-        raise MobilePngRenderError(
-            "日本語フォントが見つかりません。Noto Sans JP、Yu Gothic、Meiryo のいずれかを利用できる環境で実行してください。"
-        )
+
+def _load_fonts() -> dict[str, ImageFont.ImageFont]:
+    for font_path in _candidate_font_paths():
+        loaded = _try_load_font_family(font_path)
+        if loaded:
+            return loaded
+    return _load_default_font_family()
+
+
+def _candidate_font_paths() -> list[str]:
+    paths: list[str] = []
+
+    env_path = os.environ.get("KEIBA_AI_FONT_PATH", "").strip()
+    if env_path:
+        paths.append(env_path)
+
+    paths.extend(_asset_font_paths(prefer_noto=True))
+    paths.extend(_system_noto_font_paths())
+    downloaded = _download_noto_sans_jp_once()
+    if downloaded:
+        paths.append(downloaded)
+    paths.extend(_asset_font_paths(prefer_noto=False))
+    paths.extend(_system_japanese_font_paths())
+    paths.extend(_dejavu_font_paths())
+
+    seen: set[str] = set()
+    unique_paths: list[str] = []
+    for path in paths:
+        text = str(path or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        if Path(text).exists():
+            unique_paths.append(text)
+    return unique_paths
+
+
+def _asset_font_paths(*, prefer_noto: bool) -> list[str]:
+    assets_dir = Path(__file__).resolve().parents[1] / "assets"
+    if not assets_dir.exists():
+        return []
+    fonts: list[Path] = []
+    for pattern in ("*.ttf", "*.otf", "*.ttc"):
+        fonts.extend(assets_dir.glob(pattern))
+    if prefer_noto:
+        fonts = [path for path in fonts if "noto" in path.name.lower()]
+    else:
+        fonts = [path for path in fonts if "noto" not in path.name.lower()]
+    return [str(path) for path in sorted(fonts)]
+
+
+def _system_noto_font_paths() -> list[str]:
+    return [
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKjp-Regular.otf",
+        "/usr/share/fonts/opentype/noto/NotoSansJP-Regular.otf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansJP-Regular.ttf",
+        "/usr/local/share/fonts/NotoSansJP-Regular.ttf",
+        "/usr/local/share/fonts/NotoSansJP-VariableFont_wght.ttf",
+    ]
+
+
+def _system_japanese_font_paths() -> list[str]:
+    return [
+        "C:/Windows/Fonts/meiryo.ttc",
+        "C:/Windows/Fonts/meiryob.ttc",
+        "C:/Windows/Fonts/YuGothM.ttc",
+        "C:/Windows/Fonts/YuGothR.ttc",
+        "C:/Windows/Fonts/msgothic.ttc",
+        "/System/Library/Fonts/\u30d2\u30e9\u30ae\u30ce\u89d2\u30b4\u30b7\u30c3\u30af W3.ttc",
+        "/System/Library/Fonts/\u30d2\u30e9\u30ae\u30ce\u89d2\u30b4\u30b7\u30c3\u30af W6.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
+    ]
+
+
+def _dejavu_font_paths() -> list[str]:
+    return [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf",
+        "/usr/local/share/fonts/DejaVuSans.ttf",
+        "C:/Windows/Fonts/DejaVuSans.ttf",
+    ]
+
+
+@lru_cache(maxsize=1)
+def _download_noto_sans_jp_once() -> str:
+    cache_dir = _font_cache_dir()
+    cached = _find_cached_noto_font(cache_dir)
+    if cached:
+        return cached
+
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        cache_dir = Path(tempfile.gettempdir()) / "keiba_ai_mobile_fonts"
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            return ""
+
+    for url in _noto_sans_jp_download_urls():
+        try:
+            request = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 KeibaAIMobile/0.3",
+                    "Accept": "*/*",
+                },
+            )
+            with urllib.request.urlopen(request, timeout=20) as response:
+                payload = response.read()
+            font_path = _save_downloaded_font(payload, cache_dir, url)
+            if font_path:
+                return font_path
+        except Exception:
+            continue
+    return ""
+
+
+def _font_cache_dir() -> Path:
+    configured = os.environ.get("KEIBA_AI_FONT_CACHE_DIR", "").strip()
+    if configured:
+        return Path(configured)
+    home = Path.home()
+    if str(home) and home.exists():
+        return home / ".cache" / "keiba_ai_mobile" / "fonts"
+    return Path(tempfile.gettempdir()) / "keiba_ai_mobile_fonts"
+
+
+def _find_cached_noto_font(cache_dir: Path) -> str:
+    if not cache_dir.exists():
+        return ""
+    patterns = (
+        "NotoSansJP*.ttf",
+        "NotoSansJP*.otf",
+        "NotoSansJP*.ttc",
+        "NotoSansCJK*.otf",
+        "NotoSansCJK*.ttc",
+    )
+    for pattern in patterns:
+        for path in sorted(cache_dir.glob(pattern)):
+            if path.is_file() and path.stat().st_size > 10000:
+                return str(path)
+    return ""
+
+
+def _noto_sans_jp_download_urls() -> list[str]:
+    return [
+        "https://fonts.google.com/download?family=Noto%20Sans%20JP",
+        "https://github.com/google/fonts/raw/main/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf",
+    ]
+
+
+def _save_downloaded_font(payload: bytes, cache_dir: Path, url: str) -> str:
+    if not payload:
+        return ""
+    if zipfile.is_zipfile(BytesIO(payload)):
+        with zipfile.ZipFile(BytesIO(payload)) as archive:
+            names = [
+                name
+                for name in archive.namelist()
+                if name.lower().endswith((".ttf", ".otf", ".ttc"))
+                and "notosansjp" in name.replace("_", "").replace("-", "").lower()
+            ]
+            names.sort(key=_font_archive_priority)
+            for name in names:
+                data = archive.read(name)
+                if len(data) <= 10000:
+                    continue
+                target = cache_dir / Path(name).name
+                target.write_bytes(data)
+                return str(target)
+        return ""
+
+    suffix = ".ttf"
+    if ".otf" in url.lower():
+        suffix = ".otf"
+    target = cache_dir / f"NotoSansJP-Downloaded{suffix}"
+    if len(payload) > 10000:
+        target.write_bytes(payload)
+        return str(target)
+    return ""
+
+
+def _font_archive_priority(name: str) -> tuple[int, str]:
+    lower = name.lower()
+    if "regular" in lower:
+        return (0, lower)
+    if "variable" in lower or "wght" in lower:
+        return (1, lower)
+    return (2, lower)
+
+
+def _try_load_font_family(font_path: str) -> dict[str, ImageFont.ImageFont] | None:
     try:
         return {
             "title": ImageFont.truetype(font_path, 38),
@@ -392,34 +588,25 @@ def _load_fonts() -> dict[str, ImageFont.FreeTypeFont]:
             "small_bold": ImageFont.truetype(font_path, 22),
             "tiny": ImageFont.truetype(font_path, 18),
         }
-    except OSError as exc:
-        raise MobilePngRenderError(f"日本語フォントの読み込みに失敗しました: {font_path}") from exc
+    except Exception:
+        return None
 
 
-def _find_japanese_font() -> str:
-    candidates = [
-        "C:/Windows/Fonts/meiryo.ttc",
-        "C:/Windows/Fonts/meiryob.ttc",
-        "C:/Windows/Fonts/YuGothM.ttc",
-        "C:/Windows/Fonts/YuGothR.ttc",
-        "C:/Windows/Fonts/msgothic.ttc",
-        "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
-        "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
-        "/Library/Fonts/Arial Unicode.ttf",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJKjp-Regular.otf",
-        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
-    ]
-    for candidate in candidates:
-        if Path(candidate).exists():
-            return candidate
-    assets_dir = Path(__file__).resolve().parents[1] / "assets"
-    for pattern in ("*.ttf", "*.otf", "*.ttc"):
-        for path in assets_dir.glob(pattern):
-            return str(path)
-    return ""
-
+def _load_default_font_family() -> dict[str, ImageFont.ImageFont]:
+    for font_name in ("DejaVuSans.ttf", "Arial.ttf"):
+        loaded = _try_load_font_family(font_name)
+        if loaded:
+            return loaded
+    font = ImageFont.load_default()
+    return {
+        "title": font,
+        "section": font,
+        "body": font,
+        "body_bold": font,
+        "small": font,
+        "small_bold": font,
+        "tiny": font,
+    }
 
 def _conclusion_rows(result: PredictionResult) -> list[dict[str, Any]]:
     rows = _records(result.overall_table)

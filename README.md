@@ -195,9 +195,11 @@ PNG生成には日本語フォントが必要です。以下の順で自動検�
    - Yu Gothic
    - Noto Sans CJK / Noto Sans JP
 2. `assets/` 内の `.ttf` / `.otf` / `.ttc`
-3. 見つからない場合はPNG生成エラーを表示
+3. Google FontsからNoto Sans JPを初回のみ自動取得
+4. DejaVu Sansへフォールバック
+5. 最後はPillow標準フォントへフォールバック
 
-Streamlit Cloudで文字化けする場合は、`assets/` に日本語フォントを追加してください。
+フォントが見つからないだけで予想処理やPNG生成は止めません。Streamlit Cloudで文字化けする場合は、`assets/` に日本語フォントを追加してください。
 
 ## Streamlit Cloud公開方法
 
@@ -215,7 +217,7 @@ Cloud用のEntrypointはリポジトリ直下の `streamlit_app.py` です。ア
 - `KEIBA_NAR_NOTEBOOK_PATH` / `KEIBA_JRA_NOTEBOOK_PATH` は使用しません。
 - 取得したHTMLはメモリ上で処理し、永続保存しません。
 - Streamlit Cloudからnetkeibaへアクセスできない場合は、直接HTMLアップロードを使います。
-- 日本語フォントがCloud環境にない場合は、`assets/` へフォント追加が必要です。
+- Cloud環境に日本語フォントがない場合は、初回のみNoto Sans JPの自動取得を試み、失敗時もフォールバックフォントでPNG生成を継続します。
 
 ## 既知の制限
 
