@@ -35,6 +35,7 @@ from core.nar_notebook_logic import (  # noqa: E402
     prepare_nar_display_columns,
 )
 import core.nar_notebook_logic as nar_logic  # noqa: E402
+from render import mobile_png  # noqa: E402
 
 
 class NarDataShortageTest(unittest.TestCase):
@@ -91,6 +92,21 @@ class NarDataShortageTest(unittest.TestCase):
         self.assertEqual(prepared.loc[0, "最終印"], "")
         self.assertEqual(prepared.loc[0, "購入判定"], "データ不足")
         self.assertEqual(prepared.loc[0, "騎手"], "木澤奨(替)")
+
+    def test_pd_na_text_helpers_do_not_use_boolean_context(self) -> None:
+        row = {
+            "最終印": pd.NA,
+            "馬名": pd.NA,
+            "騎手": pd.NA,
+            "AI点": pd.NA,
+            "_地方指数データ不足": pd.NA,
+        }
+
+        self.assertEqual(nar_logic._horse_mark_value(pd.Series(row)), "")
+        self.assertEqual(nar_logic._ver30_ai_point_display(pd.Series(row)), "-")
+        self.assertEqual(mobile_png._pick(row, "騎手"), "")
+        self.assertEqual(mobile_png._clean(pd.NA), "")
+        self.assertEqual(mobile_png._join_nonempty([pd.NA, "A", ""], sep="/"), "A")
 
 
 if __name__ == "__main__":

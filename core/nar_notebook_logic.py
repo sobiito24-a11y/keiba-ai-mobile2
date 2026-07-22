@@ -1272,6 +1272,42 @@ def _nar_has_index_value(value):
     return pd.to_numeric(pd.Series([text]), errors="coerce").notna().iloc[0]
 
 
+def _nar_is_missing_scalar(value):
+    if value is None:
+        return True
+    try:
+        missing = pd.isna(value)
+        try:
+            if bool(missing):
+                return True
+        except (TypeError, ValueError):
+            pass
+    except (TypeError, ValueError):
+        pass
+    return str(value).strip() in {"", "None", "none", "nan", "NaN", "<NA>", "NaT"}
+
+
+def _nar_safe_text(value):
+    return "" if _nar_is_missing_scalar(value) else str(value).strip()
+
+
+def _nar_safe_bool(value, default=False):
+    if _nar_is_missing_scalar(value):
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "t"}
+    return bool(value)
+
+
+def _nar_safe_int(value, default=0):
+    if _nar_is_missing_scalar(value):
+        return default
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
 def _nar_local_index_data_shortage_mask(df):
     """True when a NAR horse has no local index material at all.
 
@@ -1401,7 +1437,7 @@ def add_scores_and_comments(df):
     field_recent_high = pd.to_numeric(df["近3走最高"], errors="coerce").mean()
 
     def comment(row):
-        if bool(row.get("_地方指数データ不足", False)):
+        if _nar_safe_bool(row.get("_地方指数データ不足", False)):
             return "データ不足"
         parts = []
         star_high = safe_num(row.get("_star_high"), None)
@@ -1433,11 +1469,11 @@ def add_scores_and_comments(df):
             else:
                 parts.append("他場同条件")
 
-        going_note = str(row.get("同馬場実績") or row.get("馬場適性") or "")
+        going_note = _nar_safe_text(row.get("同馬場実績")) or _nar_safe_text(row.get("馬場適性"))
         if going_note and going_note != "同馬場未知":
             parts.append(going_note)
 
-        class_note = str(row.get("クラス変動") or "")
+        class_note = _nar_safe_text(row.get("クラス変動"))
         if class_note in ("相手弱化", "クラス降級"):
             parts.append("クラス降級")
         elif class_note in ("相手強化", "クラス昇級"):
@@ -1455,8 +1491,8 @@ def add_scores_and_comments(df):
         elif relative_load_weight is not None and relative_load_weight >= 2.5:
             parts.append("軽斤量")
 
-        h2h_latest = row.get("_h2h_latest", "")
-        h2h_label = row.get("_h2h_label", "")
+        h2h_latest = _nar_safe_text(row.get("_h2h_latest"))
+        h2h_label = _nar_safe_text(row.get("_h2h_label"))
         if h2h_latest and "敗戦" in h2h_latest:
             parts.append(h2h_latest)
         elif h2h_label in ("対戦◎", "対戦○"):
@@ -1528,14 +1564,14 @@ def add_scores_and_comments(df):
     top_ai = pd.to_numeric(df["AI点"], errors="coerce").max()
 
     def merit_score(row):
-        if bool(row.get("_地方指数データ不足", False)) or pd.isna(row.get("AI順位")):
+        if _nar_safe_bool(row.get("_地方指数データ不足", False)) or pd.isna(row.get("AI順位")):
             return 0
         return int(row["人気"]) - int(row["AI順位"]) if pd.notna(row.get("人気")) else 0
 
     df["妙味スコア"] = df.apply(merit_score, axis=1)
 
     def recommendation_bonus(row):
-        if bool(row.get("_地方指数データ不足", False)) or pd.isna(row.get("AI点")) or pd.isna(top_ai):
+        if _nar_safe_bool(row.get("_地方指数データ不足", False)) or pd.isna(row.get("AI点")) or pd.isna(top_ai):
             return 0.0
         value = safe_num(row["妙味スコア"], 0)
         bonus = max(min(value, 8), -4) * 0.35
@@ -1546,7 +1582,7 @@ def add_scores_and_comments(df):
             bonus += 1.2
         h2h_score = safe_num(row.get("_h2h_score"), 0)
         bonus += max(min(h2h_score, 2), -2) * 0.6
-        latest_h2h = str(row.get("_h2h_latest", ""))
+        latest_h2h = _nar_safe_text(row.get("_h2h_latest"))
         if "敗戦" in latest_h2h:
             bonus -= 0.5
         elif "先着" in latest_h2h:
@@ -6124,7 +6160,8 @@ def _single_odds_format(value):
 
 
 def _single_odds_role_display(role):
-    return {"△1": "△①", "△2": "△②"}.get(str(role or ""), str(role or ""))
+    role_text = _nar_safe_text(role)
+    return {"△1": "△①", "△2": "△②"}.get(role_text, role_text)
 
 
 def _single_odds_marked_horses(df):
@@ -6151,7 +6188,7 @@ def _single_odds_marked_horses(df):
     delta_count = 0
     circle_count = 0
     for _, row in marked.iterrows():
-        mark_value = str(row.get("_single_odds_mark") or "").strip()
+        mark_value = _nar_safe_text(row.get("_single_odds_mark"))
         if mark_value == "△":
             delta_count += 1
             role = f"△{delta_count}"
@@ -6166,7 +6203,7 @@ def _single_odds_marked_horses(df):
             "role": role,
             "mark": mark_value,
             "no": horse_no_text,
-            "name": str(row.get("馬名") or "").strip(),
+            "name": _nar_safe_text(row.get("馬名")),
             "odds": _single_odds_from_row(row),
         })
     return horses
@@ -6177,8 +6214,8 @@ def _single_odds_horse_text(horse, include_name=True):
         return ""
     role = _single_odds_role_display(horse.get("role"))
     odds = _single_odds_format(horse.get("odds"))
-    no = str(horse.get("no") or "").strip()
-    name = str(horse.get("name") or "").strip()
+    no = _nar_safe_text(horse.get("no"))
+    name = _nar_safe_text(horse.get("name"))
     label = role
     if no:
         label += no
@@ -6298,7 +6335,7 @@ _TICKET_ROLE_BASE_ORDER = {"◎": 0, "○": 1, "▲": 2, "△1": 3, "△2": 4, "
 
 
 def _ticket_role_base(role):
-    role = str(role or "")
+    role = _nar_safe_text(role)
     if role.startswith("○"):
         return "○"
     if role.startswith("△"):
@@ -6307,7 +6344,7 @@ def _ticket_role_base(role):
 
 
 def _ticket_role_text(role):
-    role = str(role or "")
+    role = _nar_safe_text(role)
     return {"○2": "○②", "△1": "△①", "△2": "△②", "穴外1": "無印穴①", "穴外2": "無印穴②"}.get(role, role)
 
 
@@ -6325,7 +6362,7 @@ def _ticket_exacta_label(left, right):
 
 
 def _ticket_division(race_type="nar"):
-    return "中央" if str(race_type).lower() == "jra" else "地方"
+    return "中央" if _nar_safe_text(race_type).lower() == "jra" else "地方"
 
 
 def _ticket_pair_stats_index():
@@ -6473,7 +6510,7 @@ def _horse_rank_value(row, key):
 
 
 def _horse_mark_value(row):
-    mark = str(row.get("最終印", "") or "").strip()
+    mark = _nar_safe_text(row.get("最終印", ""))
     return mark if mark in {"◎", "○", "▲", "△", "✓", "☆"} else ""
 
 
@@ -6484,7 +6521,7 @@ def _horse_market_warning(row):
 
 
 def _horse_type_group(horse_type):
-    text = str(horse_type or "")
+    text = _nar_safe_text(horse_type)
     if "データ不足" in text:
         return "shortage"
     if "軸" in text:
@@ -6563,7 +6600,7 @@ def _horse_evaluation_frame(df, race_type="nar"):
 
 
 def _horse_classify(row, race_type="nar"):
-    race_type = str(race_type or "nar").lower()
+    race_type = _nar_safe_text(race_type).lower() or "nar"
     mark = _horse_mark_value(row)
     odds = _horse_numeric_value(row, "_馬_単勝")
     ai_rank = _horse_rank_value(row, "_馬_AI順位")
@@ -6571,7 +6608,7 @@ def _horse_classify(row, race_type="nar"):
     market_rank = _horse_rank_value(row, "_馬_市場順位")
     market_warning = _horse_market_warning(row)
 
-    if bool(row.get("_地方指数データ不足", False)):
+    if _nar_safe_bool(row.get("_地方指数データ不足", False)):
         return "データ不足"
 
     ai_top = ai_rank <= 3
@@ -6613,7 +6650,7 @@ def _horse_classify(row, race_type="nar"):
 
 def _horse_comment_items(row, horse_type, race_type="nar"):
     comments = []
-    if bool(row.get("_地方指数データ不足", False)):
+    if _nar_safe_bool(row.get("_地方指数データ不足", False)):
         comments.append("地方指数データ不足")
         if _horse_rank_value(row, "_馬_市場順位") <= 4:
             comments.append("市場評価は別途確認")
@@ -6661,11 +6698,11 @@ def _horse_type_map(df, race_type="nar"):
     work = _horse_evaluation_frame(df, race_type)
     mapping = {}
     for _, row in work.iterrows():
-        no = str(row.get("_馬_馬番") or "").strip()
+        no = _nar_safe_text(row.get("_馬_馬番"))
         if no:
             mapping[no] = {
-                "type": row.get("_馬タイプ", ""),
-                "comment": row.get("_馬コメント", ""),
+                "type": _nar_safe_text(row.get("_馬タイプ")),
+                "comment": _nar_safe_text(row.get("_馬コメント")),
                 "ai_rank": row.get("_馬_AI順位", None),
                 "total_rank": row.get("_馬_総合順位", None),
                 "market_rank": row.get("_馬_市場順位", None),
@@ -6686,11 +6723,11 @@ def _horse_unmarked_hole_horses(df, race_type="nar", limit=2):
     for idx, (_, row) in enumerate(holes.iterrows(), start=1):
         result.append({
             "role": f"穴外{idx}",
-            "no": str(row.get("_馬_馬番") or ""),
-            "name": str(row.get("_馬_馬名") or ""),
+            "no": _nar_safe_text(row.get("_馬_馬番")),
+            "name": _nar_safe_text(row.get("_馬_馬名")),
             "odds": row.get("_馬_単勝"),
-            "type": row.get("_馬タイプ", ""),
-            "comment": row.get("_馬コメント", ""),
+            "type": _nar_safe_text(row.get("_馬タイプ")),
+            "comment": _nar_safe_text(row.get("_馬コメント")),
         })
     return result
 
@@ -6720,15 +6757,15 @@ def _horse_attention_display_rows(df, race_type="nar"):
     rows = []
     for _, row in selected.iterrows():
         rows.append({
-            "馬番": row.get("_馬_馬番", ""),
-            "印": row.get("_馬_印", "") or "無印",
-            "馬名": row.get("_馬_馬名", ""),
+            "馬番": _nar_safe_text(row.get("_馬_馬番")),
+            "印": _nar_safe_text(row.get("_馬_印")) or "無印",
+            "馬名": _nar_safe_text(row.get("_馬_馬名")),
             "単勝": _single_odds_format(row.get("_馬_単勝")),
             "AI順位": _horse_format_rank(row.get("_馬_AI順位")),
             "総合順位": _horse_format_rank(row.get("_馬_総合順位")),
             "市場順位": _horse_format_rank(row.get("_馬_市場順位")),
-            "馬タイプ": row.get("_馬タイプ", ""),
-            "一言コメント": row.get("_馬コメント", ""),
+            "馬タイプ": _nar_safe_text(row.get("_馬タイプ")),
+            "一言コメント": _nar_safe_text(row.get("_馬コメント")),
         })
     return rows
 
@@ -6751,15 +6788,15 @@ def print_horse_individual_reference(df, race_type="nar"):
         all_rows = []
         for _, row in work.sort_values(["_馬タイプ優先", "_馬_市場順位", "_馬_AI順位"], na_position="last").iterrows():
             all_rows.append({
-                "馬番": row.get("_馬_馬番", ""),
-                "印": row.get("_馬_印", "") or "無印",
-                "馬名": row.get("_馬_馬名", ""),
+                "馬番": _nar_safe_text(row.get("_馬_馬番")),
+                "印": _nar_safe_text(row.get("_馬_印")) or "無印",
+                "馬名": _nar_safe_text(row.get("_馬_馬名")),
                 "単勝": _single_odds_format(row.get("_馬_単勝")),
                 "AI順位": _horse_format_rank(row.get("_馬_AI順位")),
                 "総合順位": _horse_format_rank(row.get("_馬_総合順位")),
                 "市場順位": _horse_format_rank(row.get("_馬_市場順位")),
-                "馬タイプ": row.get("_馬タイプ", ""),
-                "一言コメント": row.get("_馬コメント", ""),
+                "馬タイプ": _nar_safe_text(row.get("_馬タイプ")),
+                "一言コメント": _nar_safe_text(row.get("_馬コメント")),
             })
         if all_rows:
             _ticket_display_collapsible_table("全馬タイプを表示", pd.DataFrame(all_rows))
@@ -6768,7 +6805,7 @@ def print_horse_individual_reference(df, race_type="nar"):
 
 
 def _ticket_attach_horse_type(horse, horse_type_map):
-    no = str((horse or {}).get("no") or "").strip()
+    no = _nar_safe_text((horse or {}).get("no"))
     data = horse_type_map.get(no, {})
     horse["type"] = data.get("type", horse.get("type", ""))
     horse["type_comment"] = data.get("comment", horse.get("comment", ""))
@@ -6776,8 +6813,8 @@ def _ticket_attach_horse_type(horse, horse_type_map):
 
 
 def _ticket_type_pair_text(left_type, right_type):
-    left = str(left_type or "-")
-    right = str(right_type or "-")
+    left = _nar_safe_text(left_type) or "-"
+    right = _nar_safe_text(right_type) or "-"
     return f"{left}－{right}"
 
 
@@ -7494,13 +7531,8 @@ def _ver30_format_odds(value):
 
 
 def _ver30_text_value(value):
-    if value is None:
+    if _nar_is_missing_scalar(value):
         return ""
-    try:
-        if pd.isna(value):
-            return ""
-    except Exception:
-        pass
     text = str(value).strip()
     if not text or text.lower() == "nan" or text == "-":
         return ""
@@ -7526,7 +7558,7 @@ def _ver30_split_combined_training_material(text):
 
 
 def _ver30_ai_point_display(row):
-    if bool(row.get("_地方指数データ不足", False)):
+    if _nar_safe_bool(row.get("_地方指数データ不足", False)):
         return "データ不足"
     ai_value = _ver30_num(row, "AI点")
     if ai_value is None:
@@ -7663,7 +7695,7 @@ def _ver30_material_tags(row, race_type="nar"):
 
 
 def _ver30_mark_order(mark):
-    return {"◎": 0, "○": 1, "▲": 2, "△": 3, "✓": 5, "☆": 5, "": 9}.get(str(mark or ""), 9)
+    return {"◎": 0, "○": 1, "▲": 2, "△": 3, "✓": 5, "☆": 5, "": 9}.get(_nar_safe_text(mark), 9)
 
 
 def _ver30_prepare_horse_frame(df, race_type="nar"):
@@ -7687,11 +7719,11 @@ def _ver30_prepare_horse_frame(df, race_type="nar"):
         total_r = _ver30_num(row, "_馬_総合順位")
         market_r = _ver30_num(row, "_馬_市場順位")
         odds_v = _ver30_num(row, "_馬_単勝")
-        type_text = str(row.get("_馬タイプ", ""))
+        type_text = _nar_safe_text(row.get("_馬タイプ"))
         type_group = _horse_type_group(type_text)
-        mark_text = str(row.get("_馬_印", ""))
+        mark_text = _nar_safe_text(row.get("_馬_印"))
 
-        if bool(row.get("_地方指数データ不足", False)):
+        if _nar_safe_bool(row.get("_地方指数データ不足", False)):
             ability_level = 1
             stability_level = _ver30_rank_level(market_r, 1)
             value_level = 2 if odds_v is not None and odds_v < 10 else 1
@@ -7711,7 +7743,7 @@ def _ver30_prepare_horse_frame(df, race_type="nar"):
         stability_level = _ver30_rank_level(market_r, 1)
         if ai_r is not None and market_r is not None and abs(ai_r - market_r) <= 1:
             stability_level = min(5, stability_level + 1)
-        if "休み明け" in str(row.get("レース間隔", "")):
+        if "休み明け" in _nar_safe_text(row.get("レース間隔")):
             stability_level = max(1, stability_level - 1)
         if type_group == "axis":
             stability_level = max(stability_level, 4)
@@ -7767,12 +7799,12 @@ def _ver30_prepare_horse_frame(df, race_type="nar"):
 def _ver30_material_notes(row, limit=2):
     text_parts = []
     for key in ["評価/検討材料", "調教/評価/検討材料", "状態材料", "クラス根拠", "馬場実績", "クラス変動"]:
-        value = str(row.get(key, "") or "")
+        value = _nar_safe_text(row.get(key))
         if value and value != "nan":
             text_parts.append(value)
     text = " / ".join(text_parts)
     notes = []
-    if "クラス降級" in text or str(row.get("クラス変動", "")) == "クラス降級":
+    if "クラス降級" in text or _nar_safe_text(row.get("クラス変動")) == "クラス降級":
         notes.append("クラス降級")
     if "距離" in text or _ver30_num(row, "距離指数") is not None:
         notes.append("距離適性")
@@ -7782,7 +7814,7 @@ def _ver30_material_notes(row, limit=2):
         notes.append("復調気配")
     if any(word in text for word in ["高指数", "最高指数", "能力上位", "指数上位"]):
         notes.append("高指数")
-    if "展開向く" in text or str(row.get("展開印", "")):
+    if "展開向く" in text or _nar_safe_text(row.get("展開印")):
         notes.append("展開向き")
     if "対戦" in text:
         notes.append("対戦材料")
@@ -7801,7 +7833,7 @@ def _ver30_material_phrase(row):
 
 
 def _ver30_horse_comment(row, ability_level, stability_level, value_level, market_level):
-    if bool(row.get("_地方指数データ不足", False)):
+    if _nar_safe_bool(row.get("_地方指数データ不足", False)):
         return "地方指数データ不足のため、AI点は算出していません。市場評価や脚質は参考情報として確認してください。"
     ai_r = _ver30_num(row, "_馬_AI順位")
     market_r = _ver30_num(row, "_馬_市場順位")
@@ -7854,8 +7886,8 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
     for _, row in work.sort_values(["_Ver30印順", "_Ver30能力Lv", "_Ver30市場Lv"], ascending=[True, False, False]).iterrows():
         base = {
             "馬番": row.get("_馬_馬番", ""),
-            "印": row.get("_馬_印", "") or "無印",
-            "馬名": row.get("_馬_馬名", ""),
+            "印": _nar_safe_text(row.get("_馬_印")) or "無印",
+            "馬名": _nar_safe_text(row.get("_馬_馬名")),
             "騎手": _ver30_text_value(row.get("騎手", "")) or "―",
             "単勝オッズ": _ver30_format_odds(row.get("_馬_単勝")),
             "能力評価": row.get("_Ver30能力評価", ""),
@@ -7870,8 +7902,8 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
             base["対戦評価"] = _ver30_matchup_eval_short(row)
         base.update({
             "評価／検討材料": _ver30_material_tags(row, race_type),
-            "馬タイプ": row.get("_馬タイプ", ""),
-            "一言コメント": row.get("_Ver30コメント", ""),
+            "馬タイプ": _nar_safe_text(row.get("_馬タイプ")),
+            "一言コメント": _nar_safe_text(row.get("_Ver30コメント")),
         })
         rows.append(base)
     rating_df = pd.DataFrame(rows)
@@ -7882,8 +7914,8 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
 
 
 def _ver30_horse_label(row):
-    no = str(row.get("_馬_馬番", "") or "").strip()
-    name = str(row.get("_馬_馬名", "") or "").strip()
+    no = _nar_safe_text(row.get("_馬_馬番"))
+    name = _nar_safe_text(row.get("_馬_馬名"))
     return f"{no}番 {name}".strip()
 
 
@@ -7911,7 +7943,7 @@ def print_ver30_attention_horses(df, race_type="nar"):
         print("明確な注目馬は絞り込めませんでした。")
         return
     for _, row in selected.iterrows():
-        mark = row.get("_馬_印", "") or "無印"
+        mark = _nar_safe_text(row.get("_馬_印")) or "無印"
         print("")
         print(_ver30_horse_label(row))
         print(f"印：{mark}")
@@ -7919,10 +7951,10 @@ def print_ver30_attention_horses(df, race_type="nar"):
 
 
 def _ver30_attention_comment(row):
-    horse_type = str(row.get("_馬タイプ", ""))
-    value_level = int(row.get("_Ver30妙味Lv", 1) or 1)
-    ability_level = int(row.get("_Ver30能力Lv", 1) or 1)
-    market_level = int(row.get("_Ver30市場Lv", 1) or 1)
+    horse_type = _nar_safe_text(row.get("_馬タイプ"))
+    value_level = _nar_safe_int(row.get("_Ver30妙味Lv"), 1)
+    ability_level = _nar_safe_int(row.get("_Ver30能力Lv"), 1)
+    market_level = _nar_safe_int(row.get("_Ver30市場Lv"), 1)
     odds_v = _ver30_num(row, "_馬_単勝")
     odds_text = _ver30_format_odds(odds_v) if odds_v is not None else "-"
     material = _ver30_material_phrase(row)

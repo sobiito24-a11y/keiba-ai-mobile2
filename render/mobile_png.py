@@ -12,6 +12,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Iterable
 
+import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
 from core.models import PredictionResult
@@ -804,7 +805,7 @@ def _pick(row: dict[str, Any], *names: str) -> Any:
     for name in names:
         if name in row:
             value = row.get(name)
-            if value is not None and str(value).strip() not in {"", "nan", "None"}:
+            if not _is_missing(value):
                 return value
     return ""
 
@@ -812,8 +813,9 @@ def _pick(row: dict[str, Any], *names: str) -> Any:
 def _first_value(info: dict[str, Any], *names: str) -> str:
     for name in names:
         value = info.get(name)
-        if value is not None and str(value).strip():
-            return str(value).strip()
+        text = _clean(value)
+        if text:
+            return text
     return ""
 
 
@@ -838,7 +840,7 @@ def _format_number(value: Any) -> str:
 
 def _to_float(value: Any) -> float | None:
     try:
-        if value is None:
+        if _is_missing(value):
             return None
         text = str(value).replace(",", "").replace("倍", "").strip()
         if not text or text.lower() == "nan":
@@ -863,18 +865,22 @@ def _limit_materials(value: Any, limit: int = 4) -> str:
 
 
 def _join_nonempty(parts: Iterable[Any], sep: str = " ") -> str:
-    cleaned = [str(part).strip() for part in parts if str(part or "").strip()]
+    cleaned = [_clean(part) for part in parts if _clean(part)]
     return sep.join(cleaned)
 
 
 def _clean(value: Any) -> str:
-    text = str(value or "")
+    if _is_missing(value):
+        return ""
+    text = str(value)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
 
 def _clean_multiline(value: Any) -> str:
-    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    if _is_missing(value):
+        return ""
+    text = str(value).replace("\r\n", "\n").replace("\r", "\n")
     lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines()]
     compact: list[str] = []
     blank = False
@@ -944,7 +950,7 @@ def _wrap_text(
     max_width: int,
     draw: ImageDraw.ImageDraw,
 ) -> list[str]:
-    text = str(text or "").strip()
+    text = _clean(text)
     if not text:
         return [""]
     result: list[str] = []
@@ -984,6 +990,21 @@ def _wrap_single_line(
     if current.strip():
         lines.append(current.strip())
     return lines or [text]
+
+
+def _is_missing(value: Any) -> bool:
+    if value is None:
+        return True
+    try:
+        missing = pd.isna(value)
+        try:
+            if bool(missing):
+                return True
+        except (TypeError, ValueError):
+            pass
+    except (TypeError, ValueError):
+        pass
+    return str(value).strip() in {"", "None", "none", "nan", "NaN", "<NA>", "NaT"}
 
 
 def _break_long_token(

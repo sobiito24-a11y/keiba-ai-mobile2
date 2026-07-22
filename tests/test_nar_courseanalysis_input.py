@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import unittest
 
+import pandas as pd
+
 from core.nar_courseanalysis_parser import parse_courseanalysis_html
 from core.nar_newspaper_parser import parse_nar_newspaper_html
 from core.nar_json_input import (
@@ -396,8 +398,10 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertIsNone(parse_index(""))
         self.assertIsNone(parse_speed_index("100"))
         self.assertEqual(parse_speed_index("-5"), -5)
+        self.assertIsNone(parse_speed_index(pd.NA))
         self.assertEqual(parse_horse_weight("501(+31)"), (501, 31))
         self.assertEqual(parse_horse_weight("478(0)"), (478, 0))
+        self.assertEqual(parse_horse_weight(pd.NA), (None, None))
 
 
 if __name__ == "__main__":

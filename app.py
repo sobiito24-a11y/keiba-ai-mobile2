@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+import pandas as pd
 import requests
 import streamlit as st
 
@@ -489,7 +490,7 @@ def clear_prediction_state(keep_input: bool = False) -> None:
 
 
 def extract_race_id(value: str) -> str:
-    text = str(value or "").strip()
+    text = clean_text(value)
     if re.fullmatch(r"\d{10,14}", text):
         return text
 
@@ -1133,7 +1134,7 @@ def pick(row: dict[str, Any], *names: str) -> Any:
         if name not in row:
             continue
         value = row.get(name)
-        if value is not None and str(value).strip() not in {"", "nan", "None"}:
+        if not is_missing_value(value):
             return value
     return ""
 
@@ -1157,7 +1158,9 @@ def format_number(value: Any) -> str:
 
 def to_float(value: Any) -> float | None:
     try:
-        text = str(value or "").replace(",", "").replace("倍", "").strip()
+        if is_missing_value(value):
+            return None
+        text = str(value).replace(",", "").replace("倍", "").strip()
         if not text or text.lower() == "nan":
             return None
         return float(text)
@@ -1166,11 +1169,15 @@ def to_float(value: Any) -> float | None:
 
 
 def clean_text(value: Any) -> str:
-    return re.sub(r"\s+", " ", str(value or "")).strip()
+    if is_missing_value(value):
+        return ""
+    return re.sub(r"\s+", " ", str(value)).strip()
 
 
 def clean_multiline(value: Any) -> str:
-    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    if is_missing_value(value):
+        return ""
+    text = str(value).replace("\r\n", "\n").replace("\r", "\n")
     lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines()]
     compact: list[str] = []
     blank = False
@@ -1186,11 +1193,28 @@ def clean_multiline(value: Any) -> str:
 
 
 def plain_text_to_html(value: Any) -> str:
-    return html.escape(str(value or "")).replace("\n", "<br>")
+    if is_missing_value(value):
+        return ""
+    return html.escape(str(value)).replace("\n", "<br>")
 
 
 def join_nonempty(parts: list[Any], sep: str = " ") -> str:
-    return sep.join(str(part).strip() for part in parts if str(part or "").strip())
+    return sep.join(clean_text(part) for part in parts if clean_text(part))
+
+
+def is_missing_value(value: Any) -> bool:
+    if value is None:
+        return True
+    try:
+        missing = pd.isna(value)
+        try:
+            if bool(missing):
+                return True
+        except (TypeError, ValueError):
+            pass
+    except (TypeError, ValueError):
+        pass
+    return str(value).strip() in {"", "None", "none", "nan", "NaN", "<NA>", "NaT"}
 
 
 def make_download_file_name(result: PredictionResult) -> str:
@@ -1201,7 +1225,7 @@ def make_download_file_name(result: PredictionResult) -> str:
 
 
 def sanitize_ascii(value: str) -> str:
-    text = re.sub(r"[^A-Za-z0-9_-]+", "_", value or "")
+    text = re.sub(r"[^A-Za-z0-9_-]+", "_", clean_text(value))
     text = re.sub(r"_+", "_", text).strip("_")
     return text[:36]
 

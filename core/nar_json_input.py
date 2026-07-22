@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from html import escape
 from typing import Any, Iterable
 
+import pandas as pd
+
 from .nar_courseanalysis_parser import (
     NarCourseAnalysisParseError,
     is_courseanalysis_html,
@@ -54,9 +56,9 @@ def build_nar_prediction_inputs_from_uploads(
     race_id = str(entry_data.get("race_id", "")).strip()
     merged_horses = merge_entry_and_speed(entry_data, speed_data, courseanalysis_data)
     running_styles = tuple(
-        str(item.get("style", "")).strip()
+        _safe_text(item.get("style"))
         for item in courseanalysis_data.get("running_styles", [])
-        if str(item.get("style", "")).strip()
+        if _safe_text(item.get("style"))
     )
 
     html_files = {
@@ -76,8 +78,8 @@ def build_nar_prediction_inputs_from_uploads(
         entry_count=len(entry_data.get("horses", [])),
         speed_count=len(speed_data.get("horses", [])),
         running_styles=running_styles,
-        horse_style_count=sum(1 for horse in merged_horses if str(horse.get("running_style", "")).strip()),
-        entry_source=str(entry_data.get("source") or "entry"),
+        horse_style_count=sum(1 for horse in merged_horses if _safe_text(horse.get("running_style"))),
+        entry_source=_safe_text(entry_data.get("source")) or "entry",
     )
 
 
@@ -111,7 +113,7 @@ def apply_newspaper_jockey_priority(entry_data: dict[str, Any], newspaper_data: 
             or by_id.get(str(horse.get("horse_id", "")).strip())
             or by_name.get(_normalize_name(horse.get("horse_name")))
         )
-        jockey = str((newspaper_horse or {}).get("jockey", "")).strip()
+        jockey = _safe_text((newspaper_horse or {}).get("jockey"))
         if jockey:
             horse["jockey"] = jockey
             horse["_jockey_source"] = "newspaper"
@@ -301,7 +303,7 @@ def merge_entry_and_speed(
         for key in ("max", "avg5", "distance", "course", "race3", "race2", "race1"):
             merged[key] = parse_speed_index(speed_horse.get(key))
         for key in ("odds", "popularity", "style", "running_style", "jockey"):
-            if not str(merged.get(key, "")).strip() and str(speed_horse.get(key, "")).strip():
+            if not _safe_text(merged.get(key)) and _safe_text(speed_horse.get(key)):
                 merged[key] = speed_horse.get(key)
         running_style = (
             course_style_by_number.get(horse_number)
@@ -310,7 +312,7 @@ def merge_entry_and_speed(
         )
         if running_style:
             merged["running_style"] = running_style
-            if not str(merged.get("style", "")).strip():
+            if not _safe_text(merged.get("style")):
                 merged["style"] = running_style
         weight_value, weight_diff = parse_horse_weight(merged.get("horse_weight"))
         merged["horse_weight_value"] = weight_value
@@ -321,10 +323,10 @@ def merge_entry_and_speed(
 
 
 def parse_index(value: Any) -> int | None:
-    if value is None:
+    if _is_missing(value):
         return None
     text = str(value).strip().replace("*", "")
-    if text in {"", "-", "未", "未取得", "None", "nan"}:
+    if text in {"", "-", "未", "未取得", "None", "none", "nan", "<NA>", "NaT"}:
         return None
     try:
         return int(float(text))
@@ -334,7 +336,7 @@ def parse_index(value: Any) -> int | None:
 
 def parse_speed_index(value: Any) -> int | None:
     parsed = parse_index(value)
-    text = str(value or "").strip().replace("*", "")
+    text = _safe_text(value).replace("*", "")
     # netkeiba's saved HTML uses hidden sort value 100 for missing speed cells.
     # Some Shortcut JSON captures that hidden value instead of the displayed "-"/"未".
     if parsed == 100 and text in {"100", "100.0"}:
@@ -343,7 +345,7 @@ def parse_speed_index(value: Any) -> int | None:
 
 
 def parse_horse_weight(value: Any) -> tuple[int | None, int | None]:
-    text = str(value or "").strip()
+    text = _safe_text(value)
     match = re.search(r"(\d+)\s*\(([+-]?\d+)\)", text)
     if not match:
         return None, None
@@ -434,7 +436,7 @@ def build_courseanalysis_html(
 
     horse_rows = []
     for horse in merged_horses:
-        style = str(horse.get("running_style") or horse.get("style") or "").strip()
+        style = _safe_text(horse.get("running_style")) or _safe_text(horse.get("style"))
         if not style:
             continue
         stats = style_stats.get(_normalize_style(style), {})
@@ -500,7 +502,11 @@ def _html_document(
 
 
 def _suggested_name(data: dict[str, Any], race_id: str, fallback_type: str) -> str:
-    return str(data.get("suggested_file_name") or data.get("_uploaded_file_name") or f"{race_id}_{fallback_type}.html")
+    return (
+        _safe_text(data.get("suggested_file_name"))
+        or _safe_text(data.get("_uploaded_file_name"))
+        or f"{race_id}_{fallback_type}.html"
+    )
 
 
 def _race_dict(*sources: dict[str, Any]) -> dict[str, Any]:
@@ -513,14 +519,14 @@ def _race_dict(*sources: dict[str, Any]) -> dict[str, Any]:
 
 def _race_value(race: dict[str, Any], *keys: str) -> str:
     for key in keys:
-        value = race.get(key)
-        if value is not None and str(value).strip():
-            return str(value).strip()
+        value = _safe_text(race.get(key))
+        if value:
+            return value
     return ""
 
 
 def _horse_number(horse: dict[str, Any]) -> str:
-    return str(horse.get("horse_number", "")).strip()
+    return _safe_text(horse.get("horse_number"))
 
 
 def _number_list(horses: list[dict[str, Any]]) -> list[str]:
@@ -539,8 +545,8 @@ def _validate_horse_identity(entry_horses: list[dict[str, Any]], speed_horses: l
     for entry_horse in entry_horses:
         number = _horse_number(entry_horse)
         speed_horse = speed_by_number.get(number, {})
-        entry_id = str(entry_horse.get("horse_id", "")).strip()
-        speed_id = str(speed_horse.get("horse_id", "")).strip()
+        entry_id = _safe_text(entry_horse.get("horse_id"))
+        speed_id = _safe_text(speed_horse.get("horse_id"))
         if entry_id and speed_id and entry_id != speed_id:
             mismatches.append(f"馬番{number}: horse_id {entry_id} / {speed_id}")
         entry_name = _normalize_name(entry_horse.get("horse_name"))
@@ -577,7 +583,7 @@ def _extract_horse_running_style(*sources: dict[str, Any]) -> str:
     )
     for source in sources:
         for key in keys:
-            value = str(source.get(key, "")).strip()
+            value = _safe_text(source.get(key))
             if value:
                 normalized = _normalize_style(value)
                 return normalized or value
@@ -596,7 +602,7 @@ def _course_style_stats(courseanalysis_data: dict[str, Any]) -> dict[str, dict[s
 
 
 def _normalize_style(value: Any) -> str:
-    text = str(value or "").strip()
+    text = _safe_text(value)
     if "逃" in text:
         return "逃"
     if "先" in text:
@@ -609,7 +615,7 @@ def _normalize_style(value: Any) -> str:
 
 
 def _normalize_name(value: Any) -> str:
-    return re.sub(r"\s+", "", str(value or "").strip())
+    return re.sub(r"\s+", "", _safe_text(value))
 
 
 def _number_sort_key(value: str) -> tuple[int, str]:
@@ -633,4 +639,23 @@ def _type_label(data_type: str) -> str:
 
 
 def _e(value: Any) -> str:
-    return escape(str(value or ""), quote=True)
+    return escape(_safe_text(value), quote=True)
+
+
+def _is_missing(value: Any) -> bool:
+    if value is None:
+        return True
+    try:
+        missing = pd.isna(value)
+        try:
+            if bool(missing):
+                return True
+        except (TypeError, ValueError):
+            pass
+    except (TypeError, ValueError):
+        pass
+    return str(value).strip() in {"", "None", "none", "nan", "NaN", "<NA>", "NaT"}
+
+
+def _safe_text(value: Any) -> str:
+    return "" if _is_missing(value) else str(value).strip()
