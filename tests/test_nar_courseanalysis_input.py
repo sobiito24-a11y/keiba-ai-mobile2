@@ -184,6 +184,73 @@ def newspaper_html(race_id: str = "202644072106") -> str:
     """
 
 
+def newspaper_vertical_html(race_id: str = "202644072106") -> str:
+    return f"""
+    <!doctype html>
+    <html>
+      <head>
+        <title>C2九十 競馬新聞 地方競馬</title>
+        <link rel="canonical" href="https://nar.netkeiba.com/race/newspaper.html?race_id={race_id}">
+        <meta property="og:url" content="https://nar.netkeiba.com/race/newspaper.html?race_id={race_id}">
+      </head>
+      <body>
+        <h1 class="RaceName">C2九十</h1>
+        <div class="RaceData01">17:30発走 / ダ1600m (右)</div>
+        <div class="HorseList_Wrapper">
+          <dl class="HorseList" data-index="0" id="past_tr_1">
+            <dt class="Waku1 orderfix">1</dt>
+            <dt class="Waku Waku_Horse orderfix">1</dt>
+            <dt class="HorseName Waku1 HorseListSort orderfix">
+              <span class="Vertical"><a href="https://db.netkeiba.com/horse/h1/">テストホースA</a></span>
+            </dt>
+            <dt class="Horse_Select orderfix"><select id="past_mark_1"><option>--</option></select></dt>
+            <dt class="Horse_Info orderfix">
+              <dl class="fc">
+                <dt class="Horse01 fc">父A</dt>
+                <dt class="Horse02"><a href="https://db.netkeiba.com/horse/h1/">テストホースA</a></dt>
+                <dt class="Horse05"><a href="https://db.netkeiba.com/trainer/result/recent/t1/">大井・調教師A</a></dt>
+                <dt class="Horse06 fc"><div class="Type Type02"><span>先</span></div> 中2週</dt>
+                <dt class="Horse07 fc">
+                  <div class="Weight UpdateOdds"><span>501kg <span>(+31)</span></span></div>
+                  <div class="Popular UpdateOdds"><span class="OddsDataTxt transition-color">3.4</span><virtul>(<span>1</span><span>人気)</span></virtul></div>
+                </dt>
+              </dl>
+            </dt>
+            <dd class="Jockey HorseListSort order2">
+              <span class="Barei">牡4 鹿</span>
+              <a href="https://db.netkeiba.com/jockey/result/recent/j1/"><span><span class="Change">替</span>騎手A</span></a>
+              <br><span>初騎乗</span><br><span> ▲56.0 </span>
+            </dd>
+          </dl>
+          <dl class="HorseList" data-index="1" id="past_tr_2">
+            <dt class="Waku2 orderfix">2</dt>
+            <dt class="Waku Waku_Horse orderfix">2</dt>
+            <dt class="HorseName Waku2 HorseListSort orderfix">
+              <span class="Vertical"><a href="https://db.netkeiba.com/horse/h2/">テストホースB</a></span>
+            </dt>
+            <dt class="Horse_Info orderfix">
+              <dl class="fc">
+                <dt class="Horse02"><a href="https://db.netkeiba.com/horse/h2/">テストホースB</a></dt>
+                <dt class="Horse05"><a href="https://db.netkeiba.com/trainer/result/recent/t2/">船橋・調教師B</a></dt>
+                <dt class="Horse06 fc"><div class="Type Type03"><span>差</span></div> 中5週</dt>
+                <dt class="Horse07 fc">
+                  <div class="Weight UpdateOdds"><span>478kg <span>(0)</span></span></div>
+                  <div class="Popular UpdateOdds"><span class="OddsDataTxt transition-color">9.8</span><virtul>(<span>4</span><span>人気)</span></virtul></div>
+                </dt>
+              </dl>
+            </dt>
+            <dd class="Jockey HorseListSort order2">
+              <span class="Barei">牝5 栗</span>
+              <a href="https://db.netkeiba.com/jockey/result/recent/j2/"><span>騎手B</span></a>
+              <br><span>0-1-0-2</span><br><span> 54.0 </span>
+            </dd>
+          </dl>
+        </div>
+      </body>
+    </html>
+    """
+
+
 class NarCourseAnalysisInputTest(unittest.TestCase):
     def test_parse_courseanalysis_html_three_labels(self) -> None:
         data = parse_courseanalysis_html(course_html(["先", "差", "追"]))
@@ -255,6 +322,29 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(first["ai_mark"], "◎")
         self.assertEqual(first["early_3f"], "35.1")
         self.assertEqual(first["late_3f"], "38.2")
+
+    def test_parse_nar_newspaper_vertical_html_extracts_all_horses(self) -> None:
+        data = parse_nar_newspaper_html(newspaper_vertical_html())
+        self.assertEqual(data["race_id"], "202644072106")
+        self.assertEqual(len(data["horses"]), 2)
+        first = data["horses"][0]
+        self.assertEqual(first["horse_number"], "1")
+        self.assertEqual(first["horse_name"], "テストホースA")
+        self.assertEqual(first["horse_id"], "h1")
+        self.assertEqual(first["frame_number"], "1")
+        self.assertEqual(first["running_style"], "先")
+        self.assertEqual(first["race_interval"], "中2週")
+        self.assertEqual(first["jockey"], "騎手A")
+        self.assertEqual(first["sex_age"], "牡4")
+        self.assertEqual(first["weight"], "56.0")
+        self.assertEqual(first["trainer"], "調教師A")
+        self.assertEqual(first["affiliation"], "大井")
+        self.assertEqual(first["horse_weight"], "501(+31)")
+        self.assertEqual(first["popularity"], "1")
+        self.assertEqual(first["odds"], "3.4")
+        second = data["horses"][1]
+        self.assertEqual(second["running_style"], "差")
+        self.assertEqual(second["horse_weight"], "478(0)")
 
     def test_newspaper_html_can_replace_entry_json(self) -> None:
         package = build_nar_prediction_inputs_from_uploads(

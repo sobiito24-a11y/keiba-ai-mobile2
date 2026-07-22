@@ -70,6 +70,7 @@ def build_entry_from_nar_newspaper(newspaper_data: dict[str, Any]) -> dict[str, 
             "popularity": item.get("popularity", ""),
             "running_style": item.get("running_style", ""),
             "style": item.get("running_style", ""),
+            "race_interval": item.get("race_interval", ""),
             "stable_comment": item.get("stable_comment", ""),
             "pace_prediction": item.get("pace_prediction", ""),
             "ai_mark": item.get("ai_mark", ""),
@@ -90,6 +91,10 @@ def build_entry_from_nar_newspaper(newspaper_data: dict[str, Any]) -> dict[str, 
 
 def _extract_horse_records(html: str) -> list[dict[str, Any]]:
     source = html_lib.unescape(str(html or ""))
+    vertical_records = _extract_horse_records_from_vertical_blocks(source)
+    if vertical_records:
+        return sorted(vertical_records, key=lambda item: _number_sort_key(str(item.get("horse_number", ""))))
+
     records: list[dict[str, Any]] = []
     seen_numbers: set[str] = set()
     for row_html in re.findall(r"<tr\b[^>]*>([\s\S]*?)</tr>", source, flags=re.I):
@@ -103,6 +108,83 @@ def _extract_horse_records(html: str) -> list[dict[str, Any]]:
         seen_numbers.add(number)
         records.append(record)
     return sorted(records, key=lambda item: _number_sort_key(str(item.get("horse_number", ""))))
+
+
+def _extract_horse_records_from_vertical_blocks(source: str) -> list[dict[str, Any]]:
+    starts = []
+    for match in re.finditer(r"<dl\b(?P<attrs>[^>]*)>", source, flags=re.I):
+        attrs = match.group("attrs") or ""
+        if "HorseList" not in attrs or "past_tr_" not in attrs:
+            continue
+        starts.append((match.start(), attrs))
+
+    records: list[dict[str, Any]] = []
+    seen_numbers: set[str] = set()
+    for index, (start, attrs) in enumerate(starts):
+        end = starts[index + 1][0] if index + 1 < len(starts) else len(source)
+        block = source[start:end]
+        record = _record_from_vertical_block(block, attrs)
+        number = str(record.get("horse_number", "")).strip()
+        name = str(record.get("horse_name", "")).strip()
+        if not number or not name or number in seen_numbers:
+            continue
+        seen_numbers.add(number)
+        records.append(record)
+    return records
+
+
+def _record_from_vertical_block(block: str, attrs: str) -> dict[str, Any]:
+    horse_number = _attr_from_text(attrs, "id")
+    match = re.search(r"past_tr_(\d{1,2})", horse_number)
+    horse_number = match.group(1) if match else ""
+    if not horse_number:
+        horse_number = _class_text(block, "Waku_Horse")
+
+    frame_number = _extract_vertical_frame_number(block)
+    horse_link_html = _class_body(block, "HorseName") or _class_body(block, "Horse02")
+    horse_id, horse_name = _extract_horse_link(horse_link_html or block[:2500])
+
+    style_text = _class_text(block, "Horse06")
+    running_style = _normalize_style(style_text)
+    race_interval = _extract_race_interval(style_text)
+
+    horse07_body = _class_body(block, "Horse07")
+    horse07_text = _clean_text(horse07_body)
+    body_weight = _extract_body_weight(horse07_text) or _extract_body_weight(block)
+    body_value, body_diff = _split_body_weight(body_weight)
+
+    jockey_body = _class_body(block, "Jockey")
+    jockey_text = _clean_text(jockey_body)
+    info_end = block.find("Horse06")
+    info_prefix = block[:info_end] if info_end > 0 else block[:3500]
+    raw_trainer = _link_text(info_prefix, "/trainer/")
+    affiliation, trainer = _split_trainer_affiliation(raw_trainer)
+    if not affiliation:
+        affiliation = _extract_affiliation(_clean_text(info_prefix), trainer)
+
+    return {
+        "frame_number": frame_number,
+        "horse_number": horse_number,
+        "horse_id": horse_id,
+        "horse_name": horse_name,
+        "sex_age": _extract_sex_age(jockey_text),
+        "weight": _extract_carried_weight(jockey_text),
+        "jockey": _clean_jockey_name(_link_text(jockey_body, "/jockey/")),
+        "trainer": trainer,
+        "affiliation": affiliation,
+        "horse_weight": body_weight,
+        "horse_weight_value": body_value,
+        "horse_weight_diff": body_diff,
+        "odds": _extract_vertical_odds(horse07_body),
+        "popularity": _extract_vertical_popularity(horse07_text),
+        "running_style": running_style,
+        "race_interval": race_interval,
+        "stable_comment": _extract_comment([], ("Comment", "コメント", "厩舎")),
+        "pace_prediction": _extract_comment([], ("Pace", "展開")),
+        "ai_mark": "",
+        "early_3f": _extract_3f(_clean_text(block), "前半"),
+        "late_3f": _extract_3f(_clean_text(block), "後半"),
+    }
 
 
 def _record_from_row(row_html: str) -> dict[str, Any]:
@@ -164,6 +246,77 @@ def _extract_cells(row_html: str) -> list[tuple[str, str, str]]:
     return cells
 
 
+def _extract_vertical_frame_number(block: str) -> str:
+    for match in re.finditer(r"<dt\b(?P<attrs>[^>]*)>(?P<body>[\s\S]*?)</dt>", block, flags=re.I):
+        attrs = match.group("attrs") or ""
+        if "Waku_Horse" in attrs:
+            continue
+        class_match = re.search(r"\bWaku(\d)\b", attrs)
+        if class_match:
+            text = _clean_text(match.group("body"))
+            number = re.search(r"\d", text)
+            return number.group(0) if number else class_match.group(1)
+    return ""
+
+
+def _extract_horse_link(source: str) -> tuple[str, str]:
+    match = re.search(
+        r"<a\b[^>]*href=['\"][^'\"]*/horse/([^/'\"?]+)[^'\"]*['\"][^>]*>([\s\S]*?)</a>",
+        source,
+        flags=re.I,
+    )
+    if not match:
+        return "", ""
+    return match.group(1).strip(), _clean_text(match.group(2))
+
+
+def _extract_race_interval(text: str) -> str:
+    source = _clean_text(text)
+    match = re.search(r"(中\s*\d+\s*週|休み明け|連闘)", source)
+    return re.sub(r"\s+", "", match.group(1)) if match else ""
+
+
+def _extract_sex_age(text: str) -> str:
+    match = re.search(r"([牡牝セ騙]\s*\d{1,2})", str(text or ""))
+    return match.group(1).replace(" ", "") if match else ""
+
+
+def _extract_carried_weight(text: str) -> str:
+    weights = []
+    for match in re.finditer(r"(?<!\d)(\d{2}(?:\.\d)?)(?!\d)", str(text or "")):
+        value = float(match.group(1))
+        if 45 <= value <= 65:
+            weights.append(match.group(1))
+    return weights[-1] if weights else ""
+
+
+def _clean_jockey_name(value: str) -> str:
+    text = _clean_text(value)
+    text = re.sub(r"^\s*替\s*", "", text)
+    return text.strip()
+
+
+def _extract_vertical_odds(source: str) -> str:
+    match = re.search(
+        r"<span\b[^>]*class=['\"][^'\"]*\bOddsDataTxt\b[^'\"]*['\"][^>]*>([\s\S]*?)</span>",
+        source,
+        flags=re.I,
+    )
+    if match:
+        return _first_float(_clean_text(match.group(1)))
+    text = _clean_text(source)
+    text = re.sub(r"\d{3}\s*\([+-]?\d+\)", " ", text, count=1)
+    return _first_float(text)
+
+
+def _extract_vertical_popularity(text: str) -> str:
+    match = re.search(r"\(\s*(\d{1,2})\s*人気\)", str(text or ""))
+    if match:
+        return match.group(1)
+    match = re.search(r"\(\s*(\d{1,2})\s*人", str(text or ""))
+    return match.group(1) if match else ""
+
+
 def _cell_number(cells: list[tuple[str, str, str]], class_keywords: tuple[str, ...]) -> str:
     for attrs, _, text in cells:
         if any(keyword in attrs for keyword in class_keywords):
@@ -221,7 +374,7 @@ def _extract_weight_and_sex_age(cells: list[tuple[str, str, str]], row_text: str
 
 
 def _extract_body_weight(row_text: str) -> str:
-    match = re.search(r"(\d{3})\s*\(([+-]?\d+)\)", row_text)
+    match = re.search(r"(\d{3})\s*(?:kg)?\s*\(([+-]?\d+)\)", row_text, flags=re.I)
     return f"{match.group(1)}({match.group(2)})" if match else ""
 
 
@@ -346,13 +499,17 @@ def _extract_race_info(html: str) -> dict[str, str]:
 
 
 def _class_text(html: str, class_name: str) -> str:
+    return _clean_text(_class_body(html, class_name))
+
+
+def _class_body(html: str, class_name: str) -> str:
     pattern = (
         r"<(?P<tag>[a-z0-9]+)\b[^>]*class=['\"][^'\"]*\b"
         + re.escape(class_name)
         + r"\b[^'\"]*['\"][^>]*>(?P<body>[\s\S]*?)</(?P=tag)>"
     )
     match = re.search(pattern, html, flags=re.I)
-    return _clean_text(match.group("body")) if match else ""
+    return match.group("body") if match else ""
 
 
 def _title_text(html: str) -> str:
@@ -382,6 +539,10 @@ def _normalize_style(value: Any) -> str:
 def _attr(tag: str, attr_name: str) -> str:
     match = re.search(rf"\b{re.escape(attr_name)}\s*=\s*(['\"])(.*?)\1", tag, flags=re.I)
     return html_lib.unescape(match.group(2)) if match else ""
+
+
+def _attr_from_text(text: str, attr_name: str) -> str:
+    return _attr(str(text or ""), attr_name)
 
 
 def _first_race_id(text: str) -> str:
