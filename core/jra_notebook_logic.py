@@ -972,7 +972,7 @@ def clean_cell_text(value):
 
 
 def parse_jra_newspaper_html(newspaper_html):
-    columns = ["馬番", "新聞コメント", "調教コメント", "調教評価", "_調教評価記号", "_調教評価文", "推定前半3F", "推定後半3F"]
+    columns = ["馬番", "_新聞騎手", "新聞コメント", "調教コメント", "調教評価", "_調教評価記号", "_調教評価文", "推定前半3F", "推定後半3F"]
     if not newspaper_html:
         return pd.DataFrame(columns=columns)
     try:
@@ -1011,6 +1011,19 @@ def parse_jra_newspaper_html(newspaper_html):
                 continue
             record = records.setdefault(horse_no, {"馬番": horse_no})
             record["新聞コメント"] = comment
+
+    for df in tables:
+        horse_col = find_column_by_keywords(df, "馬", "番")
+        jockey_col = find_column_by_keywords(df, "騎手")
+        if horse_col is None or jockey_col is None:
+            continue
+        for _, row in df.iterrows():
+            horse_no = parse_int_from_text(clean_cell_text(row.get(horse_col)))
+            jockey = clean_cell_text(row.get(jockey_col))
+            if horse_no is None or not jockey:
+                continue
+            record = records.setdefault(horse_no, {"馬番": horse_no})
+            record["_新聞騎手"] = jockey
 
     for df in tables:
         horse_col = find_column_by_keywords(df, "馬", "番")
@@ -1191,10 +1204,15 @@ def apply_jra_newspaper_html_features(df, newspaper_html):
         return result
 
     result = result.merge(newspaper_df, on="馬番", how="left")
-    for column in ["新聞コメント", "調教コメント", "調教評価", "_調教評価記号", "_調教評価文", "推定前半3F", "推定後半3F"]:
+    for column in ["_新聞騎手", "新聞コメント", "調教コメント", "調教評価", "_調教評価記号", "_調教評価文", "推定前半3F", "推定後半3F"]:
         if column not in result.columns:
             result[column] = ""
         result[column] = result[column].fillna("").astype(str)
+    if "_新聞騎手" in result.columns:
+        newspaper_jockey = result["_新聞騎手"].fillna("").astype(str).str.strip()
+        if "騎手" not in result.columns:
+            result["騎手"] = ""
+        result.loc[newspaper_jockey.ne(""), "騎手"] = newspaper_jockey[newspaper_jockey.ne("")]
 
     material_rows = result.apply(build_jra_newspaper_materials, axis=1)
     late3f_materials, late3f_scores = build_jra_late3f_materials(result)
@@ -1617,6 +1635,11 @@ def prepare_jra_display_columns(df):
     prepared = df.copy()
     if "馬年齢" not in prepared.columns and "性齢" in prepared.columns:
         prepared["馬年齢"] = prepared["性齢"].fillna("").astype(str).map(clean_cell_text)
+    if "騎手" not in prepared.columns:
+        prepared["騎手"] = "―"
+    else:
+        jockey = prepared["騎手"].fillna("").astype(str).map(clean_cell_text)
+        prepared["騎手"] = jockey.mask(jockey.eq(""), "―")
     if "オッズ" not in prepared.columns and "単勝オッズ" in prepared.columns:
         prepared["オッズ"] = pd.to_numeric(prepared["単勝オッズ"], errors="coerce")
     if "総合評価" not in prepared.columns and "総合評価点" in prepared.columns:
@@ -8461,6 +8484,7 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
             "馬番": row.get("_馬_馬番", ""),
             "印": row.get("_馬_印", "") or "無印",
             "馬名": row.get("_馬_馬名", ""),
+            "騎手": _ver30_text_value(row.get("騎手", "")) or "―",
             "単勝オッズ": _ver30_format_odds(row.get("_馬_単勝")),
             "能力評価": row.get("_Ver30能力評価", ""),
             "安定評価": row.get("_Ver30安定評価", ""),

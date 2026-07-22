@@ -169,7 +169,7 @@ class _Canvas:
             class_shift = _pick(row, "クラス変動") or "-"
             age = _pick(row, "馬年齢", "性齢", "馬齢")
             weight = _pick(row, "斤量")
-            jockey = _pick(row, "騎手")
+            jockey = _pick(row, "騎手") or "―"
             interval = _pick(row, "レース間隔", "間隔")
             going = _pick(row, "馬場実績")
             distance = _format_number(_pick(row, "距離指数"))
@@ -237,6 +237,7 @@ class _Canvas:
             no = _pick(row, "馬番", "馬")
             mark = _pick(row, "印", "最終印")
             name = _pick(row, "馬名")
+            jockey = _pick(row, "騎手", "jockey") or "―"
             odds = _format_odds(_pick(row, "単勝オッズ", "オッズ", "単勝"))
             ability = _pick(row, "能力評価")
             stability = _pick(row, "安定評価")
@@ -252,10 +253,12 @@ class _Canvas:
                 _pick(row, "対戦評価", "対戦材料", "対戦") if is_nar else _pick(row, "調教評価", "調教/評価/検討材料", "状態材料")
             ) or ("未評価" if is_nar else "未取得")
 
-            title = _join_nonempty([str(no), str(mark), str(name), odds], sep=" ")
+            title = _join_nonempty([str(mark), str(no), str(name)], sep=" ")
             lines = [
+                f"騎手：{jockey}",
+                _join_nonempty([f"単勝：{odds}" if odds else "単勝：―", f"AI点：{ai}" if ai else ""], sep="　"),
                 _join_nonempty([f"能力{ability}" if ability else "", f"安定{stability}" if stability else "", f"市場{market}" if market else ""], sep="　"),
-                _join_nonempty([f"AI{ai}" if ai else "", f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
+                _join_nonempty([f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
                 f"材料：{material}",
                 f"タイプ：{horse_type}",
             ]

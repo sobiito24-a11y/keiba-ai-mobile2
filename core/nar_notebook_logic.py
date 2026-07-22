@@ -1240,6 +1240,46 @@ def add_head_to_head_features(df):
     return df
 
 
+def _nar_has_any_prev_index(values):
+    if not isinstance(values, list):
+        return False
+    return any(value is not None and pd.notna(value) for value in values)
+
+
+def _nar_local_index_data_shortage_mask(df):
+    """True when a NAR horse has no local index material at all.
+
+    Central transfers and other first-start-in-NAR horses can have odds/style
+    information while every local speed-index source is missing.  Those horses
+    must stay visible, but they should not be normalized into an AI score.
+    """
+
+    if df is None or len(df) == 0:
+        return pd.Series([], dtype=bool)
+
+    valid = pd.Series(False, index=df.index)
+    for column in [
+        "最高指数",
+        "平均指数",
+        "距離指数",
+        "コース指数",
+        "近3走最高",
+        "3走平均",
+        "★最高",
+        "★最高指数",
+        "_star_high",
+        "_same_distance_high",
+        "_similar_condition_high",
+    ]:
+        if column in df.columns:
+            valid = valid | pd.to_numeric(df[column], errors="coerce").notna()
+
+    if "_prev_values" in df.columns:
+        valid = valid | df["_prev_values"].map(_nar_has_any_prev_index).fillna(False).astype(bool)
+
+    return ~valid
+
+
 def add_scores_and_comments(df):
     df = df.copy()
     for col in ["距離指数", "コース指数", "3走平均"]:
@@ -1264,9 +1304,13 @@ def add_scores_and_comments(df):
     df["近3走最高"] = df["_prev_values"].apply(
         lambda values: max([v for v in values if v is not None]) if isinstance(values, list) and any(v is not None for v in values) else None
     )
+    df["_地方指数データ不足"] = _nar_local_index_data_shortage_mask(df)
 
     raw_scores = []
-    for _, row in df.iterrows():
+    for idx, row in df.iterrows():
+        if bool(df.at[idx, "_地方指数データ不足"]):
+            raw_scores.append(pd.NA)
+            continue
         avg3 = safe_num(row["3走平均"], field_avg3)
         dist = safe_num(row["距離指数"], avg3)
         course = safe_num(row["コース指数"], avg3)
@@ -1298,16 +1342,24 @@ def add_scores_and_comments(df):
         raw_scores.append(raw)
 
     df["_raw_score"] = raw_scores
-    min_raw = df["_raw_score"].min()
-    max_raw = df["_raw_score"].max()
-    if max_raw == min_raw:
-        df["AI点"] = 80.0
+    raw_numeric = pd.to_numeric(df["_raw_score"], errors="coerce")
+    valid_score_mask = (~df["_地方指数データ不足"]) & raw_numeric.notna()
+    min_raw = raw_numeric.loc[valid_score_mask].min()
+    max_raw = raw_numeric.loc[valid_score_mask].max()
+    df["AI点"] = pd.NA
+    if not bool(valid_score_mask.any()):
+        df["AI点"] = pd.NA
+    elif max_raw == min_raw:
+        df.loc[valid_score_mask, "AI点"] = 80.0
     else:
-        df["AI点"] = (60 + 40 * (df["_raw_score"] - min_raw) / (max_raw - min_raw)).round(1)
+        df.loc[valid_score_mask, "AI点"] = (
+            60 + 40 * (raw_numeric.loc[valid_score_mask] - min_raw) / (max_raw - min_raw)
+        ).round(1)
     df["★最高"] = df["_star_high"]
 
     df = df.sort_values(["AI点", "3走平均", "距離指数"], ascending=[False, False, False]).reset_index(drop=True)
-    df.insert(0, "AI順位", range(1, len(df) + 1))
+    ai_rank = pd.to_numeric(df["AI点"], errors="coerce").rank(method="min", ascending=False)
+    df.insert(0, "AI順位", ai_rank.astype("Int64"))
     top_avg3 = df["3走平均"].max()
     top_dist = df["距離指数"].max()
     top_course = df["コース指数"].max()
@@ -1316,6 +1368,8 @@ def add_scores_and_comments(df):
     field_recent_high = pd.to_numeric(df["近3走最高"], errors="coerce").mean()
 
     def comment(row):
+        if bool(row.get("_地方指数データ不足", False)):
+            return "データ不足"
         parts = []
         star_high = safe_num(row.get("_star_high"), None)
         star_count_value = safe_num(row.get("_star_count"), 0)
@@ -1438,18 +1492,24 @@ def add_scores_and_comments(df):
 
     df["コメント"] = df.apply(comment, axis=1)
 
-    top_ai = df["AI点"].max()
-    df["妙味スコア"] = df.apply(
-        lambda row: int(row["人気"]) - int(row["AI順位"]) if pd.notna(row.get("人気")) else 0,
-        axis=1,
-    )
+    top_ai = pd.to_numeric(df["AI点"], errors="coerce").max()
+
+    def merit_score(row):
+        if bool(row.get("_地方指数データ不足", False)) or pd.isna(row.get("AI順位")):
+            return 0
+        return int(row["人気"]) - int(row["AI順位"]) if pd.notna(row.get("人気")) else 0
+
+    df["妙味スコア"] = df.apply(merit_score, axis=1)
 
     def recommendation_bonus(row):
+        if bool(row.get("_地方指数データ不足", False)) or pd.isna(row.get("AI点")) or pd.isna(top_ai):
+            return 0.0
         value = safe_num(row["妙味スコア"], 0)
         bonus = max(min(value, 8), -4) * 0.35
         if pd.notna(row.get("人気")) and int(row["人気"]) == 1:
             bonus += 1.0
-        if row["AI点"] >= top_ai - 8 and value >= 4:
+        ai_value = safe_num(row.get("AI点"), None)
+        if ai_value is not None and ai_value >= top_ai - 8 and value >= 4:
             bonus += 1.2
         h2h_score = safe_num(row.get("_h2h_score"), 0)
         bonus += max(min(h2h_score, 2), -2) * 0.6
@@ -1460,7 +1520,7 @@ def add_scores_and_comments(df):
             bonus += 0.3
         return bonus
 
-    df["推奨点"] = (df["AI点"] + df.apply(recommendation_bonus, axis=1)).round(1)
+    df["推奨点"] = (pd.to_numeric(df["AI点"], errors="coerce") + df.apply(recommendation_bonus, axis=1)).round(1)
 
     def age_recommendation_bonus(row):
         age = extract_age_from_sex_age(row.get("性齢"))
@@ -3931,6 +3991,11 @@ def prepare_nar_display_columns(df):
     prepared = df.copy()
     if "馬年齢" not in prepared.columns and "性齢" in prepared.columns:
         prepared["馬年齢"] = prepared["性齢"].map(lambda value: "" if pd.isna(value) else str(value).strip())
+    if "騎手" not in prepared.columns:
+        prepared["騎手"] = "―"
+    else:
+        jockey = prepared["騎手"].fillna("").astype(str).map(clean_cell_text)
+        prepared["騎手"] = jockey.mask(jockey.eq(""), "―")
     if "オッズ" not in prepared.columns and "単勝オッズ" in prepared.columns:
         prepared["オッズ"] = pd.to_numeric(prepared["単勝オッズ"], errors="coerce")
     if "総合評価" not in prepared.columns and "総合評価点" in prepared.columns:
@@ -3951,6 +4016,20 @@ def prepare_nar_display_columns(df):
     prepared["間隔"] = prepared["レース間隔"]
     if "評価/検討材料" not in prepared.columns:
         prepared["評価/検討材料"] = prepared.apply(build_nar_evaluation_material, axis=1)
+    if "_地方指数データ不足" in prepared.columns:
+        shortage = prepared["_地方指数データ不足"].fillna(False).astype(bool)
+        for column in ["AI点", "総合評価", "総合評価点", "補正AI点", "市場反映勝率", "推定勝率", "単勝期待値", "勝率順位"]:
+            if column in prepared.columns:
+                prepared.loc[shortage, column] = "データ不足"
+        if "評価/検討材料" in prepared.columns:
+            current = prepared.loc[shortage, "評価/検討材料"].fillna("").astype(str)
+            prepared.loc[shortage, "評価/検討材料"] = current.mask(
+                current.eq(""),
+                "データ不足",
+            ).where(
+                current.str.contains("データ不足", na=False),
+                (current + " / データ不足").str.strip(" /"),
+            )
     return prepared
 
 def make_result_cell_styles(df):
@@ -4153,7 +4232,14 @@ def add_final_marks_v1_legacy(df, running_info=None):
             return pd.to_numeric(df[column], errors="coerce")
         return pd.Series(default, index=df.index, dtype="float64")
 
-    ai = numeric("AI点", 0).fillna(0)
+    data_shortage = (
+        df.get("_地方指数データ不足", _nar_local_index_data_shortage_mask(df))
+        .fillna(False)
+        .astype(bool)
+    )
+    df["_地方指数データ不足"] = data_shortage
+
+    ai = numeric("AI点")
     if "AI順位" not in df.columns or pd.to_numeric(df.get("AI順位"), errors="coerce").isna().all():
         df["AI順位"] = ai.rank(method="min", ascending=False).astype("Int64")
     ai_rank = pd.to_numeric(df.get("AI順位"), errors="coerce")
@@ -4892,7 +4978,6 @@ def add_final_marks(df, running_info=None):
         return basis
 
     for idx, row in df.iterrows():
-        base_ai_value = float(ai.loc[idx]) if pd.notna(ai.loc[idx]) else 0.0
         reasons = []
 
         # ===== Ver1.0 legacy notes =====
@@ -4903,6 +4988,32 @@ def add_final_marks(df, running_info=None):
         # Ver2.0では上記を総合評価から除外し、AI点に含まれる能力評価として扱う。
 
         class_shift = class_shift_for(row)
+        if bool(data_shortage.loc[idx]):
+            class_adjustments.append(pd.NA)
+            condition_adjustments.append(pd.NA)
+            pace_adjustments.append(pd.NA)
+            matchup_adjustments.append(pd.NA)
+            total_adjustments.append(pd.NA)
+            total_scores.append(pd.NA)
+            major_negative_counts.append(0)
+            reason_texts.append("データ不足")
+            class_shift_texts.append(class_shift)
+            try:
+                row_for_class_basis = row.copy()
+                row_for_class_basis["クラス変動"] = class_shift
+                row_for_class_basis["_class_shift"] = class_shift
+                class_basis = final_mark_class_basis(row_for_class_basis)
+            except Exception:
+                class_basis = ""
+            if class_shift and class_shift not in str(class_basis):
+                class_basis = (str(class_basis) + " / " + class_shift).strip(" /")
+            class_basis_texts.append(class_basis)
+            course_hole_flags.append(False)
+            condition_axis_scores.append(0.0)
+            hole_scores.append(pd.NA)
+            continue
+
+        base_ai_value = float(ai.loc[idx]) if pd.notna(ai.loc[idx]) else 0.0
         class_adj = 0.0
         if class_shift in ("クラス降級", "相手弱化"):
             class_adj = 1.5
@@ -5034,16 +5145,17 @@ def add_final_marks(df, running_info=None):
         if pd.notna(value)
     )
     if pace_numbers:
-        pace_candidates = df[df["馬番"].astype(int).isin(pace_numbers)].copy()
+        pace_candidates = df[(~data_shortage) & df["馬番"].astype(int).isin(pace_numbers)].copy()
     else:
-        pace_candidates = df[df["印理由"].astype(str).str.contains("展開向く", na=False)].copy()
+        pace_candidates = df[(~data_shortage) & df["印理由"].astype(str).str.contains("展開向く", na=False)].copy()
     if not pace_candidates.empty:
         pace_idx = pace_candidates.sort_values(["_最終印点", "AI点"], ascending=[False, False]).index[0]
         df.at[pace_idx, "展開印"] = "展"
 
     df["最終印"] = ""
     df["_最終印順"] = pd.NA
-    ordered_indices = df.sort_values(["_最終印点", "AI点"], ascending=[False, False]).index.tolist()
+    mark_eligible = (~data_shortage) & pd.to_numeric(df["_最終印点"], errors="coerce").notna()
+    ordered_indices = df.loc[mark_eligible].sort_values(["_最終印点", "AI点"], ascending=[False, False]).index.tolist()
     assigned = set()
     market_rank_for_mark = compute_market_reflection_rank_for_mark_decision(df)
 
@@ -6332,6 +6444,8 @@ def _horse_market_warning(row):
 
 def _horse_type_group(horse_type):
     text = str(horse_type or "")
+    if "データ不足" in text:
+        return "shortage"
     if "軸" in text:
         return "axis"
     if "安定" in text:
@@ -6346,7 +6460,7 @@ def _horse_type_group(horse_type):
 
 
 def _horse_type_priority(horse_type):
-    return {"axis": 0, "stable": 1, "hole": 2, "opponent": 3, "fade": 9}.get(_horse_type_group(horse_type), 5)
+    return {"axis": 0, "stable": 1, "hole": 2, "opponent": 3, "shortage": 8, "fade": 9}.get(_horse_type_group(horse_type), 5)
 
 
 def _horse_evaluation_frame(df, race_type="nar"):
@@ -6391,6 +6505,13 @@ def _horse_evaluation_frame(df, race_type="nar"):
         work["_馬_市場順位"] = work["_馬_単勝"].rank(method="min", ascending=True, na_option="bottom")
     else:
         work["_馬_市場順位"] = pd.Series([None] * len(work), index=work.index)
+    if "人気" in work.columns:
+        popularity_rank = _horse_to_numeric(work["人気"])
+        if market_score_col and market_score_col in work.columns:
+            market_source = _horse_to_numeric(work[market_score_col])
+            work["_馬_市場順位"] = work["_馬_市場順位"].where(market_source.notna(), popularity_rank)
+        else:
+            work["_馬_市場順位"] = work["_馬_市場順位"].where(work["_馬_市場順位"].notna(), popularity_rank)
 
     work["_馬_印"] = work.apply(_horse_mark_value, axis=1)
     work["_馬_市場警戒"] = work.apply(_horse_market_warning, axis=1)
@@ -6408,6 +6529,9 @@ def _horse_classify(row, race_type="nar"):
     total_rank = _horse_rank_value(row, "_馬_総合順位")
     market_rank = _horse_rank_value(row, "_馬_市場順位")
     market_warning = _horse_market_warning(row)
+
+    if bool(row.get("_地方指数データ不足", False)):
+        return "データ不足"
 
     ai_top = ai_rank <= 3
     total_top = total_rank <= 3
@@ -6448,6 +6572,11 @@ def _horse_classify(row, race_type="nar"):
 
 def _horse_comment_items(row, horse_type, race_type="nar"):
     comments = []
+    if bool(row.get("_地方指数データ不足", False)):
+        comments.append("地方指数データ不足")
+        if _horse_rank_value(row, "_馬_市場順位") <= 4:
+            comments.append("市場評価は別途確認")
+        return comments
     odds = _horse_numeric_value(row, "_馬_単勝")
     ai_rank = _horse_rank_value(row, "_馬_AI順位")
     total_rank = _horse_rank_value(row, "_馬_総合順位")
@@ -7356,6 +7485,8 @@ def _ver30_split_combined_training_material(text):
 
 
 def _ver30_ai_point_display(row):
+    if bool(row.get("_地方指数データ不足", False)):
+        return "データ不足"
     ai_value = _ver30_num(row, "AI点")
     if ai_value is None:
         ai_value = _ver30_num(row, "_馬_AI点")
@@ -7519,6 +7650,18 @@ def _ver30_prepare_horse_frame(df, race_type="nar"):
         type_group = _horse_type_group(type_text)
         mark_text = str(row.get("_馬_印", ""))
 
+        if bool(row.get("_地方指数データ不足", False)):
+            ability_level = 1
+            stability_level = _ver30_rank_level(market_r, 1)
+            value_level = 2 if odds_v is not None and odds_v < 10 else 1
+            market_level = _ver30_rank_level(market_r, 1)
+            ability.append(_ver30_star(ability_level))
+            stability.append(_ver30_star(stability_level))
+            value.append(_ver30_star(value_level))
+            market.append(_ver30_star(market_level))
+            comments.append("地方指数データ不足のため、AI点は算出していません。市場評価や脚質は参考情報として確認してください。")
+            continue
+
         ability_level = max(_ver30_rank_level(ai_r, 1), _ver30_rank_level(total_r, 1))
         if type_group == "fade":
             ability_level = min(ability_level, 2)
@@ -7617,6 +7760,8 @@ def _ver30_material_phrase(row):
 
 
 def _ver30_horse_comment(row, ability_level, stability_level, value_level, market_level):
+    if bool(row.get("_地方指数データ不足", False)):
+        return "地方指数データ不足のため、AI点は算出していません。市場評価や脚質は参考情報として確認してください。"
     ai_r = _ver30_num(row, "_馬_AI順位")
     market_r = _ver30_num(row, "_馬_市場順位")
     odds_v = _ver30_num(row, "_馬_単勝")
@@ -7670,6 +7815,7 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
             "馬番": row.get("_馬_馬番", ""),
             "印": row.get("_馬_印", "") or "無印",
             "馬名": row.get("_馬_馬名", ""),
+            "騎手": _ver30_text_value(row.get("騎手", "")) or "―",
             "単勝オッズ": _ver30_format_odds(row.get("_馬_単勝")),
             "能力評価": row.get("_Ver30能力評価", ""),
             "安定評価": row.get("_Ver30安定評価", ""),
@@ -7977,6 +8123,11 @@ def apply_watch_marks(df, race_type="nar"):
     work = work.reindex(result.index)
     current_mark = result["最終印"].fillna("").astype(str)
     core_mark = current_mark.isin(["◎", "○", "▲", "△"])
+    data_shortage = (
+        result.get("_地方指数データ不足", pd.Series(False, index=result.index))
+        .fillna(False)
+        .astype(bool)
+    )
 
     class_text = _watch_mark_text_series(work, "クラス変動") + " / " + _watch_mark_text_series(work, "クラス根拠")
     material_text = (
@@ -8005,7 +8156,7 @@ def apply_watch_marks(df, race_type="nar"):
         & odds.between(10, 49.9, inclusive="both")
     )
 
-    watch_candidate = (~core_mark) & (class_down | single_or_payout_comment | pace_favorable | high_eval | other_watch)
+    watch_candidate = (~core_mark) & (~data_shortage) & (class_down | single_or_payout_comment | pace_favorable | high_eval | other_watch)
     if bool(watch_candidate.any()):
         result.loc[watch_candidate, "最終印"] = "✓"
         if "_最終印順" in result.columns:
@@ -8218,7 +8369,14 @@ def add_purchase_value_columns(df):
             result[column] = ""
         return result
 
-    score = pd.to_numeric(result.get("_最終印点"), errors="coerce")
+    data_shortage = (
+        result.get("_地方指数データ不足", _nar_local_index_data_shortage_mask(result))
+        .fillna(False)
+        .astype(bool)
+    )
+    result["_地方指数データ不足"] = data_shortage
+
+    score = pd.to_numeric(result.get("_最終印点"), errors="coerce").mask(data_shortage)
     odds = pd.to_numeric(
         result.get("単勝オッズ", result.get("オッズ", pd.Series(index=result.index, dtype="float64"))),
         errors="coerce",
@@ -8230,16 +8388,19 @@ def add_purchase_value_columns(df):
     else:
         normalized = ((score - score_min) / (score_max - score_min)).fillna(0.5)
 
-    model_weight = np.exp((normalized - normalized.max()) * 2.4)
+    valid_score = score.notna() & ~data_shortage
+    model_weight = pd.Series(0.0, index=result.index, dtype="float64")
+    if bool(valid_score.any()):
+        model_weight.loc[valid_score] = np.exp((normalized.loc[valid_score] - normalized.loc[valid_score].max()) * 2.4)
     model_total = float(model_weight.sum())
     model_probability = (
         model_weight / model_total
         if model_total > 0
-        else pd.Series(1.0 / len(result), index=result.index)
+        else pd.Series(0.0, index=result.index)
     )
 
     market_raw = pd.Series(0.0, index=result.index, dtype="float64")
-    valid_odds = odds.notna() & odds.gt(0)
+    valid_odds = odds.notna() & odds.gt(0) & ~data_shortage
     market_raw.loc[valid_odds] = 1.0 / odds.loc[valid_odds]
     market_total = float(market_raw.sum())
     market_probability = (
@@ -8254,6 +8415,7 @@ def add_purchase_value_columns(df):
     probability_cap.loc[odds.gt(35)] = 0.015
     probability_cap.loc[odds.gt(80)] = 0.002
     probability = pd.concat([probability, probability_cap], axis=1).min(axis=1)
+    probability.loc[data_shortage] = np.nan
 
     fair_odds = (1.0 / probability).replace([np.inf, -np.inf], np.nan)
     win_ev = probability * odds
@@ -8263,13 +8425,14 @@ def add_purchase_value_columns(df):
     style = result.get("脚質", pd.Series("", index=result.index)).fillna("").astype(str)
     pace_mark = result.get("展開印", pd.Series("", index=result.index)).fillna("").astype(str)
     mark = result.get("最終印", pd.Series("", index=result.index)).fillna("").astype(str)
-    marked = mark.ne("")
-    honmei = mark.eq("◎")
-    main_partner = mark.isin(["○", "▲"])
-    reserve = mark.eq("△")
-    star = mark.eq("✓")
-    top3_probability = probability_rank.le(3)
-    top5_probability = probability_rank.le(5)
+    eligible = ~data_shortage
+    marked = mark.ne("") & eligible
+    honmei = mark.eq("◎") & eligible
+    main_partner = mark.isin(["○", "▲"]) & eligible
+    reserve = mark.eq("△") & eligible
+    star = mark.eq("✓") & eligible
+    top3_probability = probability_rank.le(3) & eligible
+    top5_probability = probability_rank.le(5) & eligible
     late_closer_without_pace = style.str.contains("追", na=False) & ~pace_mark.eq("展")
 
     material_text = (
@@ -8446,6 +8609,10 @@ def add_purchase_value_columns(df):
         ],
         default="見送り",
     )
+    for column in ["推定勝率", "市場反映勝率", "勝率順位", "適正オッズ", "単勝期待値"]:
+        if column in result.columns:
+            result.loc[data_shortage, column] = pd.NA
+    result.loc[data_shortage, "購入判定"] = "データ不足"
     if "同馬場実績" in result.columns:
         result["馬場実績"] = result["同馬場実績"].fillna("").astype(str)
     elif "馬場適性" in result.columns:

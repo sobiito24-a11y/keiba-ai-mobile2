@@ -44,6 +44,8 @@ def build_nar_prediction_inputs_from_uploads(
     classified = classify_nar_uploaded_files(uploaded_files)
     if "entry" not in classified and "newspaper" in classified:
         classified["entry"] = build_entry_from_nar_newspaper(classified["newspaper"])
+    elif "entry" in classified and "newspaper" in classified:
+        classified["entry"] = apply_newspaper_jockey_priority(classified["entry"], classified["newspaper"])
     validate_nar_uploaded_data(classified)
 
     entry_data = classified["entry"]
@@ -77,6 +79,46 @@ def build_nar_prediction_inputs_from_uploads(
         horse_style_count=sum(1 for horse in merged_horses if str(horse.get("running_style", "")).strip()),
         entry_source=str(entry_data.get("source") or "entry"),
     )
+
+
+def apply_newspaper_jockey_priority(entry_data: dict[str, Any], newspaper_data: dict[str, Any]) -> dict[str, Any]:
+    """Use the latest jockey text from newspaper HTML without changing horse order."""
+
+    result = dict(entry_data)
+    newspaper_horses = [horse for horse in newspaper_data.get("horses", []) if isinstance(horse, dict)]
+
+    by_number = {
+        _horse_number(horse): horse
+        for horse in newspaper_horses
+        if _horse_number(horse)
+    }
+    by_id = {
+        str(horse.get("horse_id", "")).strip(): horse
+        for horse in newspaper_horses
+        if str(horse.get("horse_id", "")).strip()
+    }
+    by_name = {
+        _normalize_name(horse.get("horse_name")): horse
+        for horse in newspaper_horses
+        if _normalize_name(horse.get("horse_name"))
+    }
+
+    merged_horses = []
+    for entry_horse in entry_data.get("horses", []):
+        horse = dict(entry_horse)
+        newspaper_horse = (
+            by_number.get(_horse_number(horse))
+            or by_id.get(str(horse.get("horse_id", "")).strip())
+            or by_name.get(_normalize_name(horse.get("horse_name")))
+        )
+        jockey = str((newspaper_horse or {}).get("jockey", "")).strip()
+        if jockey:
+            horse["jockey"] = jockey
+            horse["_jockey_source"] = "newspaper"
+        merged_horses.append(horse)
+
+    result["horses"] = merged_horses
+    return result
 
 
 def classify_nar_uploaded_files(uploaded_files: Iterable[tuple[str, bytes]]) -> dict[str, dict[str, Any]]:
@@ -258,7 +300,7 @@ def merge_entry_and_speed(
         merged = dict(entry_horse)
         for key in ("max", "avg5", "distance", "course", "race3", "race2", "race1"):
             merged[key] = parse_index(speed_horse.get(key))
-        for key in ("odds", "popularity", "style", "running_style"):
+        for key in ("odds", "popularity", "style", "running_style", "jockey"):
             if not str(merged.get(key, "")).strip() and str(speed_horse.get(key, "")).strip():
                 merged[key] = speed_horse.get(key)
         running_style = (

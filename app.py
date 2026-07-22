@@ -910,6 +910,7 @@ OVERALL_SIMPLE_COLUMNS = [
     "展開印",
     "馬番",
     "馬名",
+    "騎手",
     "オッズ",
     "脚質",
     "AI点",
@@ -921,6 +922,7 @@ HORSE_EVALUATION_COLUMNS = [
     "馬番",
     "印",
     "馬名",
+    "騎手",
     "単勝オッズ",
     "能力評価",
     "安定評価",
@@ -1059,6 +1061,7 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
     mark = pick(row, "印", "最終印")
     no = pick(row, "馬番", "馬")
     name = pick(row, "馬名")
+    jockey = pick(row, "騎手", "jockey") or "―"
     odds = format_odds(pick(row, "単勝オッズ", "オッズ", "単勝"))
     ability = pick(row, "能力評価")
     stability = pick(row, "安定評価")
@@ -1075,10 +1078,12 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
         else pick(row, "調教評価", "調教/評価/検討材料", "状態材料")
     ) or ("未評価" if race_mode == "nar" else "未取得")
     card_class = "ka-horse-card watch" if "✓" in str(mark) else "ka-horse-card"
-    title = join_nonempty([mark, no, name, odds], sep=" ")
+    title = join_nonempty([mark, no, name], sep=" ")
     lines = [
+        f"騎手：{jockey}",
+        join_nonempty([f"単勝：{odds}" if odds else "単勝：―", f"AI点：{ai}" if ai else ""], sep="　"),
         join_nonempty([f"能力 {ability}" if ability else "", f"安定 {stability}" if stability else "", f"市場 {market}" if market else ""], sep="　"),
-        join_nonempty([f"AI点：{ai}" if ai else "", f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
+        join_nonempty([f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
         f"評価材料：{material}",
         f"馬タイプ：{horse_type}",
     ]
