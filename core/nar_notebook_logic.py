@@ -9063,10 +9063,10 @@ def refresh_horse_pace_comments(df, running_info=None):
         elif class_shift == "クラス昇級":
             parts.append("昇級で相手強化")
 
-        if rank_value is not None and rank_value <= 3:
-            parts.append("能力上位")
-        elif rank_value is not None and rank_value <= 6:
-            parts.append("相手圏")
+if not _nar_is_missing_scalar(rank_value) and rank_value <= 3:
+    parts.append("能力上位")
+elif not _nar_is_missing_scalar(rank_value) and rank_value <= 6:
+    parts.append("相手圏")
 
         if h2h_text and h2h_text not in ("対戦不明", "対戦なし"):
             parts.append(h2h_text)
