@@ -1243,7 +1243,21 @@ def add_head_to_head_features(df):
 def _nar_has_any_prev_index(values):
     if not isinstance(values, list):
         return False
-    return any(value is not None and pd.notna(value) for value in values)
+    return any(_nar_has_index_value(value) for value in values)
+
+
+def _nar_has_index_value(value):
+    if value is None:
+        return False
+    try:
+        if pd.isna(value):
+            return False
+    except Exception:
+        pass
+    text = str(value).strip().replace("*", "")
+    if text in {"", "-", "未", "未取得", "None", "none", "nan", "<NA>"}:
+        return False
+    return pd.to_numeric(pd.Series([text]), errors="coerce").notna().iloc[0]
 
 
 def _nar_local_index_data_shortage_mask(df):
@@ -1270,9 +1284,16 @@ def _nar_local_index_data_shortage_mask(df):
         "_star_high",
         "_same_distance_high",
         "_similar_condition_high",
+        "max",
+        "avg5",
+        "distance",
+        "course",
+        "race3",
+        "race2",
+        "race1",
     ]:
         if column in df.columns:
-            valid = valid | pd.to_numeric(df[column], errors="coerce").notna()
+            valid = valid | df[column].map(_nar_has_index_value).fillna(False).astype(bool)
 
     if "_prev_values" in df.columns:
         valid = valid | df["_prev_values"].map(_nar_has_any_prev_index).fillna(False).astype(bool)
@@ -3994,7 +4015,7 @@ def prepare_nar_display_columns(df):
     if "騎手" not in prepared.columns:
         prepared["騎手"] = "―"
     else:
-        jockey = prepared["騎手"].fillna("").astype(str).map(clean_cell_text)
+        jockey = prepared["騎手"].map(lambda value: "" if pd.isna(value) else str(value).strip())
         prepared["騎手"] = jockey.mask(jockey.eq(""), "―")
     if "オッズ" not in prepared.columns and "単勝オッズ" in prepared.columns:
         prepared["オッズ"] = pd.to_numeric(prepared["単勝オッズ"], errors="coerce")
@@ -4020,6 +4041,7 @@ def prepare_nar_display_columns(df):
         shortage = prepared["_地方指数データ不足"].fillna(False).astype(bool)
         for column in ["AI点", "総合評価", "総合評価点", "補正AI点", "市場反映勝率", "推定勝率", "単勝期待値", "勝率順位"]:
             if column in prepared.columns:
+                prepared[column] = prepared[column].astype("object")
                 prepared.loc[shortage, column] = "データ不足"
         if "評価/検討材料" in prepared.columns:
             current = prepared.loc[shortage, "評価/検討材料"].fillna("").astype(str)
@@ -4878,7 +4900,14 @@ def add_final_marks(df, running_info=None):
             return pd.to_numeric(df[column], errors="coerce")
         return pd.Series(default, index=df.index, dtype="float64")
 
-    ai = numeric("AI点", 0).fillna(0)
+    data_shortage = (
+        df.get("_地方指数データ不足", _nar_local_index_data_shortage_mask(df))
+        .fillna(False)
+        .astype(bool)
+    )
+    df["_地方指数データ不足"] = data_shortage
+
+    ai = numeric("AI点").mask(data_shortage)
     if "AI順位" not in df.columns or pd.to_numeric(df.get("AI順位"), errors="coerce").isna().all():
         df["AI順位"] = ai.rank(method="min", ascending=False).astype("Int64")
 
