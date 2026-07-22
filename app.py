@@ -5,6 +5,7 @@ import re
 import traceback
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import requests
@@ -73,6 +74,42 @@ MOBILE_CSS = """
     color: #344054;
     font-size: 0.9rem;
     overflow-wrap: anywhere;
+  }
+  .ka-section {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.8rem 0.85rem;
+    margin: 0.55rem 0 1rem;
+    background: #ffffff;
+    white-space: pre-wrap;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .ka-horse-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.75rem 0.8rem;
+    margin: 0.55rem 0;
+    background: #ffffff;
+    line-height: 1.55;
+  }
+  .ka-horse-card.watch {
+    border-left: 4px solid #6f98c5;
+    background: #f8fbff;
+  }
+  .ka-horse-title {
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    color: #172033;
+  }
+  .ka-horse-meta {
+    color: #344054;
+    font-size: 0.92rem;
+  }
+  .ka-note {
+    color: #344054;
+    font-size: 0.92rem;
+    line-height: 1.55;
   }
   div[data-testid="stRadio"] label {
     align-items: flex-start;
@@ -840,7 +877,68 @@ def validate_result(result: PredictionResult) -> None:
         raise RuntimeError("馬評価が取得できませんでした。")
 
 
+OVERALL_DETAIL_COLUMNS = [
+    "最終印",
+    "展開印",
+    "馬番",
+    "馬名",
+    "馬年齢",
+    "斤量",
+    "騎手",
+    "オッズ",
+    "脚質",
+    "レース間隔",
+    "AI点",
+    "総合評価",
+    "市場反映勝率",
+    "単勝期待値",
+    "クラス変動",
+    "クラス根拠",
+    "馬場実績",
+    "距離指数",
+    "コース指数",
+    "3走前",
+    "2走前",
+    "前走",
+    "平均指数",
+    "★最高指数",
+    "評価／検討材料",
+]
+
+OVERALL_SIMPLE_COLUMNS = [
+    "最終印",
+    "展開印",
+    "馬番",
+    "馬名",
+    "オッズ",
+    "脚質",
+    "AI点",
+    "総合評価",
+    "評価／検討材料",
+]
+
+HORSE_EVALUATION_COLUMNS = [
+    "馬番",
+    "印",
+    "馬名",
+    "単勝オッズ",
+    "能力評価",
+    "安定評価",
+    "市場評価",
+    "AI点",
+    "クラス変動",
+    "対戦評価",
+    "調教評価",
+    "評価／検討材料",
+    "馬タイプ",
+    "一言コメント",
+]
+
+
 def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
+    render_colab_style_result(result)
+
+    st.divider()
     st.subheader("スマホ用PNG")
     st.image(png_bytes, use_container_width=True)
     st.download_button(
@@ -869,6 +967,225 @@ def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
         st.session_state.fetch_race_id = ""
         st.session_state.url_input_key += 1
         st.rerun()
+
+
+def render_colab_style_result(result: PredictionResult) -> None:
+    render_raw_text_section(
+        "会場別試験評価",
+        extract_raw_section(result, ["会場別試験評価", "JRA会場別試験評価"]),
+    )
+    render_raw_text_section(
+        "展開予想",
+        extract_raw_section(result, ["展開予想"]),
+    )
+    render_overall_table(result)
+    render_horse_evaluation(result)
+    render_attention_horses(result)
+    render_raw_text_section(
+        "AIレース考察",
+        strip_section_title(result.ai_race_review, "AIレース考察"),
+    )
+    render_raw_text_section(
+        "今回の馬券構成",
+        strip_section_title(result.betting_structure, "今回の馬券構成"),
+    )
+
+
+def render_raw_text_section(title: str, text: str) -> None:
+    st.subheader(title)
+    body = clean_multiline(text)
+    if not body:
+        st.markdown('<div class="ka-section ka-muted">未取得です。</div>', unsafe_allow_html=True)
+        return
+    st.markdown(f'<div class="ka-section">{plain_text_to_html(body)}</div>', unsafe_allow_html=True)
+
+
+def render_overall_table(result: PredictionResult) -> None:
+    st.subheader("レース全体表")
+    table = result.overall_table
+    if table is None or getattr(table, "empty", False):
+        st.info("レース全体表は未取得です。")
+        return
+
+    mode = st.radio(
+        "レース全体表の表示",
+        ["簡易表示", "詳細表示"],
+        horizontal=True,
+        key="overall_table_mode",
+        label_visibility="collapsed",
+    )
+    columns = OVERALL_SIMPLE_COLUMNS if mode == "簡易表示" else ordered_existing_columns(table, OVERALL_DETAIL_COLUMNS)
+    if mode == "簡易表示":
+        columns = existing_columns(table, columns)
+    if not columns:
+        columns = list(table.columns)
+    st.dataframe(table.loc[:, columns], use_container_width=True, hide_index=True)
+
+
+def render_horse_evaluation(result: PredictionResult) -> None:
+    st.subheader("馬評価（全頭）")
+    table = result.horse_evaluation
+    if table is None or getattr(table, "empty", False):
+        st.info("馬評価は未取得です。")
+        return
+
+    mode = st.radio(
+        "馬評価の表示",
+        ["カード表示", "一覧表"],
+        horizontal=True,
+        key="horse_evaluation_mode",
+        label_visibility="collapsed",
+    )
+    if mode == "一覧表":
+        columns = ordered_existing_columns(table, HORSE_EVALUATION_COLUMNS)
+        st.dataframe(table.loc[:, columns or list(table.columns)], use_container_width=True, hide_index=True)
+        return
+
+    for row in table.to_dict("records"):
+        st.markdown(horse_evaluation_card_html(row, result.race_mode), unsafe_allow_html=True)
+
+
+def render_attention_horses(result: PredictionResult) -> None:
+    st.subheader("注目馬")
+    blocks = [clean_multiline(block) for block in result.attention_horses if clean_multiline(block)]
+    if not blocks:
+        st.markdown('<div class="ka-section ka-muted">未取得です。</div>', unsafe_allow_html=True)
+        return
+    for block in blocks:
+        st.markdown(f'<div class="ka-section">{plain_text_to_html(block)}</div>', unsafe_allow_html=True)
+
+
+def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
+    mark = pick(row, "印", "最終印")
+    no = pick(row, "馬番", "馬")
+    name = pick(row, "馬名")
+    odds = format_odds(pick(row, "単勝オッズ", "オッズ", "単勝"))
+    ability = pick(row, "能力評価")
+    stability = pick(row, "安定評価")
+    market = pick(row, "市場評価")
+    ai = format_number(pick(row, "AI点"))
+    class_shift = pick(row, "クラス変動") or "-"
+    material = pick(row, "評価／検討材料", "評価/検討材料", "評価材料") or "-"
+    horse_type = pick(row, "馬タイプ") or "-"
+    comment = pick(row, "一言コメント", "コメント")
+    support_label = "対戦評価" if race_mode == "nar" else "調教評価"
+    support_value = (
+        pick(row, "対戦評価", "対戦材料", "対戦")
+        if race_mode == "nar"
+        else pick(row, "調教評価", "調教/評価/検討材料", "状態材料")
+    ) or ("未評価" if race_mode == "nar" else "未取得")
+    card_class = "ka-horse-card watch" if "✓" in str(mark) else "ka-horse-card"
+    title = join_nonempty([mark, no, name, odds], sep=" ")
+    lines = [
+        join_nonempty([f"能力 {ability}" if ability else "", f"安定 {stability}" if stability else "", f"市場 {market}" if market else ""], sep="　"),
+        join_nonempty([f"AI点：{ai}" if ai else "", f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
+        f"評価材料：{material}",
+        f"馬タイプ：{horse_type}",
+    ]
+    if comment:
+        lines.append(f"コメント：{comment}")
+    content = "<br>".join(plain_text_to_html(line) for line in lines if clean_text(line))
+    return f'<div class="{card_class}"><div class="ka-horse-title">{plain_text_to_html(title)}</div><div class="ka-horse-meta">{content}</div></div>'
+
+
+def extract_raw_section(result: PredictionResult, titles: list[str]) -> str:
+    raw = clean_multiline(result.raw_output)
+    if not raw:
+        return ""
+    escaped_titles = "|".join(re.escape(title) for title in titles)
+    pattern = re.compile(
+        rf"【(?P<title>{escaped_titles})】\s*\n?(?P<body>.*?)(?=\n【[^】]+】|\Z)",
+        re.DOTALL,
+    )
+    match = pattern.search(raw)
+    if not match:
+        return ""
+    return clean_multiline(match.group("body"))
+
+
+def strip_section_title(text: str, title: str) -> str:
+    cleaned = clean_multiline(text)
+    for candidate in (f"【{title}】", title):
+        if cleaned.startswith(candidate):
+            return cleaned[len(candidate) :].strip()
+    return cleaned
+
+
+def ordered_existing_columns(table: Any, preferred: list[str]) -> list[str]:
+    columns = list(getattr(table, "columns", []))
+    selected = [column for column in preferred if column in columns]
+    selected.extend(column for column in columns if column not in selected)
+    return selected
+
+
+def existing_columns(table: Any, preferred: list[str]) -> list[str]:
+    columns = set(getattr(table, "columns", []))
+    return [column for column in preferred if column in columns]
+
+
+def pick(row: dict[str, Any], *names: str) -> Any:
+    for name in names:
+        if name not in row:
+            continue
+        value = row.get(name)
+        if value is not None and str(value).strip() not in {"", "nan", "None"}:
+            return value
+    return ""
+
+
+def format_odds(value: Any) -> str:
+    text = clean_text(value)
+    if not text:
+        return ""
+    if "倍" in text:
+        return text
+    number = to_float(text)
+    return f"{number:g}倍" if number is not None else text
+
+
+def format_number(value: Any) -> str:
+    number = to_float(value)
+    if number is None:
+        return clean_text(value)
+    return f"{number:.1f}".rstrip("0").rstrip(".")
+
+
+def to_float(value: Any) -> float | None:
+    try:
+        text = str(value or "").replace(",", "").replace("倍", "").strip()
+        if not text or text.lower() == "nan":
+            return None
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def clean_text(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def clean_multiline(value: Any) -> str:
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines()]
+    compact: list[str] = []
+    blank = False
+    for line in lines:
+        if not line:
+            if not blank and compact:
+                compact.append("")
+            blank = True
+            continue
+        compact.append(line)
+        blank = False
+    return "\n".join(compact).strip()
+
+
+def plain_text_to_html(value: Any) -> str:
+    return html.escape(str(value or "")).replace("\n", "<br>")
+
+
+def join_nonempty(parts: list[Any], sep: str = " ") -> str:
+    return sep.join(str(part).strip() for part in parts if str(part or "").strip())
 
 
 def make_download_file_name(result: PredictionResult) -> str:

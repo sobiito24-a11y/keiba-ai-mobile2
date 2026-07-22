@@ -47,13 +47,16 @@ def render_mobile_png(result: PredictionResult) -> bytes:
 
     fonts = _load_fonts()
     canvas = _Canvas(fonts)
-    canvas.draw_header(result)
-    canvas.draw_today_conclusion(result)
-    canvas.draw_text_section("今回の馬券構成", _strip_section_title(result.betting_structure, "今回の馬券構成"), compact=True)
+    canvas.draw_text_section(
+        "会場別試験評価",
+        _extract_raw_section(result, ["会場別試験評価", "JRA会場別試験評価"]),
+    )
+    canvas.draw_text_section("展開予想", _extract_raw_section(result, ["展開予想"]))
     canvas.draw_simple_overall(result)
     canvas.draw_horse_evaluation(result)
     canvas.draw_attention_horses(result)
     canvas.draw_ai_race_review(result)
+    canvas.draw_text_section("今回の馬券構成", _strip_section_title(result.betting_structure, "今回の馬券構成"), compact=True)
     canvas.draw_version(result)
     return canvas.to_png()
 
@@ -146,7 +149,7 @@ class _Canvas:
         self.y += height + 10
 
     def draw_simple_overall(self, result: PredictionResult) -> None:
-        self.section("簡易レース全体表")
+        self.section("レース全体表")
         rows = _records(result.overall_table)
         if not rows:
             self.text("レース全体表は未取得です。", self.fonts["body"], MUTED)
@@ -154,16 +157,73 @@ class _Canvas:
 
         for row in rows:
             mark = _pick(row, "最終印", "印")
+            pace_mark = _pick(row, "展開印")
             no = _pick(row, "馬番", "馬")
             name = _pick(row, "馬名")
             odds = _format_odds(_pick(row, "単勝オッズ", "オッズ", "単勝"))
+            style = _pick(row, "脚質")
             ai = _format_number(_pick(row, "AI点"))
             total = _format_number(_pick(row, "総合評価", "総合評価点", "補正AI点"))
+            market = _format_number(_pick(row, "市場反映勝率", "推定勝率"))
+            win_expect = _format_number(_pick(row, "単勝期待値"))
             class_shift = _pick(row, "クラス変動") or "-"
+            age = _pick(row, "馬年齢", "性齢", "馬齢")
+            weight = _pick(row, "斤量")
+            jockey = _pick(row, "騎手")
+            interval = _pick(row, "レース間隔", "間隔")
+            going = _pick(row, "馬場実績")
+            distance = _format_number(_pick(row, "距離指数"))
+            course = _format_number(_pick(row, "コース指数"))
+            avg = _format_number(_pick(row, "平均指数"))
+            best = _pick(row, "★最高指数")
+            three_back = _pick(row, "3走前")
+            two_back = _pick(row, "2走前")
+            last = _pick(row, "前走")
+            material = _pick(row, "評価／検討材料", "評価/検討材料", "評価材料")
 
-            title = _join_nonempty([mark, str(no), str(name), odds], sep="  ")
-            subtitle = _join_nonempty([f"総合{total}" if total else "", f"AI{ai}" if ai else "", str(class_shift)], sep=" / ")
-            self.overall_card(title, subtitle, is_watch="✓" in str(mark))
+            title = _join_nonempty([mark, pace_mark, str(no), str(name), odds, style], sep="  ")
+            lines = [
+                _join_nonempty(
+                    [
+                        f"総合{total}" if total else "",
+                        f"AI{ai}" if ai else "",
+                        f"市場{market}" if market else "",
+                        f"単勝期待{win_expect}" if win_expect else "",
+                    ],
+                    sep=" / ",
+                ),
+                _join_nonempty(
+                    [
+                        str(age) if age else "",
+                        f"斤量{weight}" if weight else "",
+                        str(jockey) if jockey else "",
+                        f"間隔{interval}" if interval else "",
+                        f"クラス{class_shift}",
+                    ],
+                    sep=" / ",
+                ),
+                _join_nonempty(
+                    [
+                        f"馬場{going}" if going else "",
+                        f"距離{distance}" if distance else "",
+                        f"コース{course}" if course else "",
+                        f"平均{avg}" if avg else "",
+                        f"★最高{best}" if best else "",
+                    ],
+                    sep=" / ",
+                ),
+                _join_nonempty(
+                    [
+                        f"3走前 {three_back}" if three_back else "",
+                        f"2走前 {two_back}" if two_back else "",
+                        f"前走 {last}" if last else "",
+                    ],
+                    sep=" / ",
+                ),
+            ]
+            if material:
+                lines.append(f"材料：{material}")
+            self.horse_card(title, [line for line in lines if line], is_watch="✓" in str(mark))
 
     def draw_horse_evaluation(self, result: PredictionResult) -> None:
         self.section("馬評価（全頭）")
@@ -219,13 +279,6 @@ class _Canvas:
     def draw_ai_race_review(self, result: PredictionResult) -> None:
         self.section("AIレース考察")
         review = _strip_section_title(result.ai_race_review, "AIレース考察")
-        summary = _build_review_summary(result, review)
-        if summary:
-            self.subheading("展開要約")
-            for item in summary:
-                self.text(f"・{item}", self.fonts["small_bold"], INK, gap_after=2)
-            self.y += 8
-
         body = _clean_multiline(review)
         if not body:
             self.text("未取得です。", self.fonts["body"], MUTED)
@@ -840,6 +893,21 @@ def _strip_section_title(text: str, title: str) -> str:
         if cleaned.startswith(pattern):
             return cleaned[len(pattern) :].strip()
     return cleaned
+
+
+def _extract_raw_section(result: PredictionResult, titles: list[str]) -> str:
+    raw = _clean_multiline(result.raw_output)
+    if not raw:
+        return ""
+    escaped_titles = "|".join(re.escape(title) for title in titles)
+    pattern = re.compile(
+        rf"【(?P<title>{escaped_titles})】\s*\n?(?P<body>.*?)(?=\n【[^】]+】|\Z)",
+        re.DOTALL,
+    )
+    match = pattern.search(raw)
+    if not match:
+        return ""
+    return _clean_multiline(match.group("body"))
 
 
 def _compact_lines(text: str, max_lines: int) -> list[str]:
