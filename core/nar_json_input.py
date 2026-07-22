@@ -299,7 +299,7 @@ def merge_entry_and_speed(
             raise NarJsonDataError(f"馬番{horse_number}のタイム指数が見つかりません。")
         merged = dict(entry_horse)
         for key in ("max", "avg5", "distance", "course", "race3", "race2", "race1"):
-            merged[key] = parse_index(speed_horse.get(key))
+            merged[key] = parse_speed_index(speed_horse.get(key))
         for key in ("odds", "popularity", "style", "running_style", "jockey"):
             if not str(merged.get(key, "")).strip() and str(speed_horse.get(key, "")).strip():
                 merged[key] = speed_horse.get(key)
@@ -330,6 +330,16 @@ def parse_index(value: Any) -> int | None:
         return int(float(text))
     except ValueError:
         return None
+
+
+def parse_speed_index(value: Any) -> int | None:
+    parsed = parse_index(value)
+    text = str(value or "").strip().replace("*", "")
+    # netkeiba's saved HTML uses hidden sort value 100 for missing speed cells.
+    # Some Shortcut JSON captures that hidden value instead of the displayed "-"/"未".
+    if parsed == 100 and text in {"100", "100.0"}:
+        return None
+    return parsed
 
 
 def parse_horse_weight(value: Any) -> tuple[int | None, int | None]:
@@ -363,6 +373,8 @@ def build_speed_html(
             f'<td><span class="Jockey">{_e(horse.get("jockey"))}</span></td>'
             f'<td class="Speed_List07 Odds">{_e(horse.get("odds"))}</td>'
             f'<td class="Speed_List08 Ninki">{_e(horse.get("popularity"))}</td>'
+            f'<td class="Speed_List03 MaxIndex"><a>{_index_text(horse.get("max"))}</a></td>'
+            f'<td class="Speed_List04 Avg5Index">{_index_text(horse.get("avg5"))}</td>'
             f'<td class="Speed_List05">{_index_text(horse.get("distance"))}</td>'
             f'<td class="Speed_List06">{_index_text(horse.get("course"))}</td>'
             f'<td class="Speed_List09">{_index_text(horse.get("race3"))}</td>'

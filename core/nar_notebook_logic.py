@@ -409,9 +409,17 @@ def parse_current_race_info(html):
 
 
 def parse_index_cell(cell):
-    raw = visible_text(cell)
+    raw = ""
+    if cell is not None:
+        # netkeiba puts a hidden sort value (often 100) in empty index cells.
+        # Colab reads the displayed link text, so prefer the anchor text here too.
+        anchor = cell.find("a")
+        raw = visible_text(anchor) if anchor is not None else visible_text(cell)
     cleaned = raw.replace("*", "").strip()
-    value = parse_int_from_text(cleaned)
+    if cleaned in {"", "-", "未", "未取得", "None", "none", "nan", "<NA>"}:
+        value = None
+    else:
+        value = parse_int_from_text(cleaned)
     link = ""
     if cell is not None:
         a = cell.find("a", href=True)
@@ -962,6 +970,8 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
         jockey = visible_text(first(row, [".Jockey"]))
         odds = parse_float_from_text(visible_text(first(row, [".Speed_List07", ".sk__odds", ".Odds"])))
         popularity = parse_int_from_text(visible_text(first(row, [".Speed_List08", ".sk__ninki", ".Ninki"])))
+        max_index = parse_index_cell(first(row, [".Speed_List03", ".sk__max_index", ".MaxIndex"]))["value"]
+        avg5_index = parse_index_cell(first(row, [".Speed_List04", ".sk__avg5_index", ".Avg5Index"]))["value"]
         distance_index = parse_index_cell(first(row, [".Speed_List05", ".sk__max_distance_index"]))["value"]
         course_index = parse_index_cell(first(row, [".Speed_List06", ".sk__max_course_index"]))["value"]
 
@@ -1057,6 +1067,8 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
             "単勝オッズ": odds,
             "人気": popularity,
             "間隔": format_interval_from_days(days_since_last),
+            "最高指数": max_index,
+            "平均指数": avg5_index,
             "距離指数": distance_index,
             "コース指数": course_index,
             "3走前": prev_display["3走前"],

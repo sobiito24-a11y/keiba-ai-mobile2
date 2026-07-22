@@ -11,6 +11,7 @@ from core.nar_json_input import (
     classify_nar_uploaded_files,
     parse_horse_weight,
     parse_index,
+    parse_speed_index,
 )
 
 
@@ -299,6 +300,8 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(package.speed_count, 2)
         self.assertEqual(package.running_styles, ("先", "差", "追"))
         self.assertEqual(package.horse_style_count, 2)
+        self.assertIn('<td class="Speed_List03 MaxIndex"><a>60</a></td>', package.html_files["speed"])
+        self.assertIn('<td class="Speed_List04 Avg5Index">53</td>', package.html_files["speed"])
         self.assertIn('<td class="DataTitle_Cell">先</td>', package.html_files["style"])
         self.assertIn("<td>15</td><td>28</td><td>38</td>", package.html_files["style"])
 
@@ -391,6 +394,8 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(parse_index("-5"), -5)
         self.assertIsNone(parse_index("未"))
         self.assertIsNone(parse_index(""))
+        self.assertIsNone(parse_speed_index("100"))
+        self.assertEqual(parse_speed_index("-5"), -5)
         self.assertEqual(parse_horse_weight("501(+31)"), (501, 31))
         self.assertEqual(parse_horse_weight("478(0)"), (478, 0))
 

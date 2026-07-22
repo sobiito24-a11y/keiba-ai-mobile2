@@ -31,11 +31,42 @@ _install_optional_dependency_stubs()
 from core.nar_notebook_logic import (  # noqa: E402
     add_final_marks,
     add_purchase_value_columns,
+    parse_index_cell,
     prepare_nar_display_columns,
 )
+import core.nar_notebook_logic as nar_logic  # noqa: E402
 
 
 class NarDataShortageTest(unittest.TestCase):
+    def test_index_cell_ignores_hidden_sort_value_when_display_is_missing(self) -> None:
+        class FakeAnchor:
+            def __init__(self) -> None:
+                self.href = "https://db.netkeiba.com/race//"
+
+            def get(self, key, default=None):
+                return self.href if key == "href" else default
+
+            def __getitem__(self, key):
+                if key == "href":
+                    return self.href
+                raise KeyError(key)
+
+        class FakeCell:
+            def __init__(self) -> None:
+                self.anchor = FakeAnchor()
+
+            def find(self, *args, **kwargs):
+                return self.anchor
+
+        original_visible_text = nar_logic.visible_text
+        try:
+            nar_logic.visible_text = lambda element: "-" if isinstance(element, FakeAnchor) else "100 -"
+            parsed = parse_index_cell(FakeCell())
+        finally:
+            nar_logic.visible_text = original_visible_text
+
+        self.assertIsNone(parsed["value"])
+
     def test_shortage_horse_does_not_receive_mark_or_ai_score(self) -> None:
         frame = pd.DataFrame(
             [
