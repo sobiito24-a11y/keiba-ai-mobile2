@@ -9082,10 +9082,15 @@ def refresh_horse_pace_comments(df, running_info=None):
             parts.append("コース指数上位")
 
         if (
-            pop_value is not None
-            and rank_value is not None
+            not _nar_is_missing_scalar(pop_value)
+            and not _nar_is_missing_scalar(rank_value)
             and pop_value - rank_value >= 3
-        ) or (odds_value is not None and odds_value >= 8 and rank_value is not None and rank_value <= 8):
+        ) or (
+            not _nar_is_missing_scalar(odds_value)
+            and odds_value >= 8
+            and not _nar_is_missing_scalar(rank_value)
+            and rank_value <= 8
+        ):
             parts.append("オッズ妙味")
 
         unique = []
