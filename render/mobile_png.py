@@ -238,6 +238,7 @@ class _Canvas:
             no = _pick(row, "馬番", "馬")
             mark = _pick(row, "印", "最終印")
             name = _pick(row, "馬名")
+            horse_age = _pick(row, "馬年齢", "性齢", "馬齢") or "データなし"
             jockey = _pick(row, "騎手", "jockey") or "―"
             weight_detail = _pick(row, "斤量詳細")
             jockey_detail = _pick(row, "騎手詳細") or jockey
@@ -259,6 +260,7 @@ class _Canvas:
 
             title = _join_nonempty([str(mark), str(no), str(name)], sep=" ")
             lines = [
+                f"馬年齢：{horse_age}",
                 f"斤量：{weight_detail}" if weight_detail else "",
                 f"騎手：{jockey_detail}",
                 _join_nonempty([f"単勝：{odds}" if odds else "単勝：―", f"AI点：{ai}" if ai else ""], sep="　"),

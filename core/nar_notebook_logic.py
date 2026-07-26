@@ -7965,6 +7965,7 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
             "馬番": row.get("_馬_馬番", ""),
             "印": _nar_safe_text(row.get("_馬_印")) or "無印",
             "馬名": _nar_safe_text(row.get("_馬_馬名")),
+            "馬年齢": _ver30_text_value(row.get("馬年齢", "")) or _ver30_text_value(row.get("性齢", "")) or "データなし",
             "騎手": _ver30_text_value(row.get("騎手", "")) or "―",
             "単勝オッズ": _ver30_format_odds(row.get("_馬_単勝")),
             "斤量詳細": _ver30_load_weight_detail(row),

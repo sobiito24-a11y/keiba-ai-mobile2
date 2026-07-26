@@ -923,6 +923,7 @@ HORSE_EVALUATION_COLUMNS = [
     "馬番",
     "印",
     "馬名",
+    "馬年齢",
     "騎手",
     "単勝オッズ",
     "斤量詳細",
@@ -1065,6 +1066,7 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
     mark = pick(row, "印", "最終印")
     no = pick(row, "馬番", "馬")
     name = pick(row, "馬名")
+    horse_age = pick(row, "馬年齢", "性齢", "馬齢") or "データなし"
     jockey = pick(row, "騎手", "jockey") or "―"
     weight_detail = pick(row, "斤量詳細")
     jockey_detail = pick(row, "騎手詳細") or jockey
@@ -1087,6 +1089,7 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
     card_class = "ka-horse-card watch" if "✓" in str(mark) else "ka-horse-card"
     title = join_nonempty([mark, no, name], sep=" ")
     lines = [
+        f"馬年齢：{horse_age}",
         f"斤量：{weight_detail}" if weight_detail else "",
         f"騎手：{jockey_detail}",
         join_nonempty([f"単勝：{odds}" if odds else "単勝：―", f"AI点：{ai}" if ai else ""], sep="　"),
