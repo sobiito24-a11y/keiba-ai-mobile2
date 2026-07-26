@@ -8232,6 +8232,95 @@ def _ver30_training_eval_short(row):
     return training_text[:8]
 
 
+def _ver30_float_value(value):
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    try:
+        return float(value)
+    except Exception:
+        return parse_float_from_text(str(value))
+
+
+def _ver30_format_kg(value):
+    number = _ver30_float_value(value)
+    if number is None:
+        return ""
+    return f"{number:.1f}kg"
+
+
+def _ver30_signed_kg(value):
+    number = _ver30_float_value(value)
+    if number is None:
+        return ""
+    if abs(number) < 0.05:
+        return "±0.0kg"
+    sign = "＋" if number > 0 else "－"
+    return f"{sign}{abs(number):.1f}kg"
+
+
+def _ver30_bool_value(value):
+    if value is None:
+        return False
+    try:
+        if pd.isna(value):
+            return False
+    except Exception:
+        pass
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes", "y"}
+    return bool(value)
+
+
+def _ver30_load_weight_detail(row):
+    current = _ver30_float_value(row.get("_current_load_weight"))
+    if current is None:
+        current = _ver30_float_value(row.get("斤量"))
+    if current is None:
+        return "データなし"
+
+    previous = _ver30_float_value(row.get("_previous_load_weight"))
+    change = _ver30_float_value(row.get("_load_weight_change"))
+    if change is None and previous is not None:
+        change = current - previous
+
+    current_text = _ver30_format_kg(current)
+    if previous is None or change is None:
+        return f"{current_text}（前走データなし）"
+    return f"{current_text}（前走比{_ver30_signed_kg(change)}）"
+
+
+def _ver30_jockey_detail(row):
+    current = _ver30_text_value(row.get("_current_jockey")) or _ver30_text_value(row.get("騎手"))
+    previous = _ver30_text_value(row.get("_previous_jockey"))
+    if not current:
+        return "データなし"
+    if not previous:
+        return f"{current}【前走データなし】"
+    if _ver30_bool_value(row.get("_jockey_changed")):
+        return f"{previous} → {current}【乗り替わり】"
+    return f"{current}【継続】"
+
+
+def _ver30_short_text(value, max_len=72):
+    text = _ver30_text_value(value)
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 1] + "…"
+
+
+def _ver30_stable_comment_short(row):
+    for key in ["厩舎コメント", "新聞コメント", "馬コメント"]:
+        text = _ver30_short_text(row.get(key, ""), max_len=72)
+        if text:
+            return text
+    return "データなし"
+
+
 def _ver30_material_tags(row, race_type="nar"):
     source_texts = []
     for key in [
@@ -8486,6 +8575,8 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
             "馬名": row.get("_馬_馬名", ""),
             "騎手": _ver30_text_value(row.get("騎手", "")) or "―",
             "単勝オッズ": _ver30_format_odds(row.get("_馬_単勝")),
+            "斤量詳細": _ver30_load_weight_detail(row),
+            "騎手詳細": _ver30_jockey_detail(row),
             "能力評価": row.get("_Ver30能力評価", ""),
             "安定評価": row.get("_Ver30安定評価", ""),
             "市場評価": row.get("_Ver30市場評価", ""),
@@ -8494,6 +8585,7 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
         }
         if str(race_type).lower() == "jra":
             base["調教評価"] = _ver30_training_eval_short(row)
+            base["厩舎コメント"] = _ver30_stable_comment_short(row)
         else:
             base["対戦評価"] = _ver30_matchup_eval_short(row)
         base.update({

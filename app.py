@@ -925,6 +925,8 @@ HORSE_EVALUATION_COLUMNS = [
     "馬名",
     "騎手",
     "単勝オッズ",
+    "斤量詳細",
+    "騎手詳細",
     "能力評価",
     "安定評価",
     "市場評価",
@@ -932,6 +934,7 @@ HORSE_EVALUATION_COLUMNS = [
     "クラス変動",
     "対戦評価",
     "調教評価",
+    "厩舎コメント",
     "評価／検討材料",
     "馬タイプ",
     "一言コメント",
@@ -1063,6 +1066,8 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
     no = pick(row, "馬番", "馬")
     name = pick(row, "馬名")
     jockey = pick(row, "騎手", "jockey") or "―"
+    weight_detail = pick(row, "斤量詳細")
+    jockey_detail = pick(row, "騎手詳細") or jockey
     odds = format_odds(pick(row, "単勝オッズ", "オッズ", "単勝"))
     ability = pick(row, "能力評価")
     stability = pick(row, "安定評価")
@@ -1078,20 +1083,31 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
         if race_mode == "nar"
         else pick(row, "調教評価", "調教/評価/検討材料", "状態材料")
     ) or ("未評価" if race_mode == "nar" else "未取得")
+    stable_comment = pick(row, "厩舎コメント", "新聞コメント") if race_mode == "jra" else ""
     card_class = "ka-horse-card watch" if "✓" in str(mark) else "ka-horse-card"
     title = join_nonempty([mark, no, name], sep=" ")
     lines = [
-        f"騎手：{jockey}",
+        f"斤量：{weight_detail}" if weight_detail else "",
+        f"騎手：{jockey_detail}",
         join_nonempty([f"単勝：{odds}" if odds else "単勝：―", f"AI点：{ai}" if ai else ""], sep="　"),
         join_nonempty([f"能力 {ability}" if ability else "", f"安定 {stability}" if stability else "", f"市場 {market}" if market else ""], sep="　"),
         join_nonempty([f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
         f"評価材料：{material}",
         f"馬タイプ：{horse_type}",
     ]
+    if stable_comment:
+        lines.append(f"厩舎コメント：{shorten_text(stable_comment, 84)}")
     if comment:
         lines.append(f"コメント：{comment}")
     content = "<br>".join(plain_text_to_html(line) for line in lines if clean_text(line))
     return f'<div class="{card_class}"><div class="ka-horse-title">{plain_text_to_html(title)}</div><div class="ka-horse-meta">{content}</div></div>'
+
+
+def shorten_text(value: Any, max_len: int) -> str:
+    text = clean_text(value)
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 1] + "…"
 
 
 def extract_raw_section(result: PredictionResult, titles: list[str]) -> str:

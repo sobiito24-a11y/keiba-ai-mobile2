@@ -239,6 +239,8 @@ class _Canvas:
             mark = _pick(row, "印", "最終印")
             name = _pick(row, "馬名")
             jockey = _pick(row, "騎手", "jockey") or "―"
+            weight_detail = _pick(row, "斤量詳細")
+            jockey_detail = _pick(row, "騎手詳細") or jockey
             odds = _format_odds(_pick(row, "単勝オッズ", "オッズ", "単勝"))
             ability = _pick(row, "能力評価")
             stability = _pick(row, "安定評価")
@@ -253,16 +255,20 @@ class _Canvas:
             support_value = (
                 _pick(row, "対戦評価", "対戦材料", "対戦") if is_nar else _pick(row, "調教評価", "調教/評価/検討材料", "状態材料")
             ) or ("未評価" if is_nar else "未取得")
+            stable_comment = _pick(row, "厩舎コメント", "新聞コメント") if not is_nar else ""
 
             title = _join_nonempty([str(mark), str(no), str(name)], sep=" ")
             lines = [
-                f"騎手：{jockey}",
+                f"斤量：{weight_detail}" if weight_detail else "",
+                f"騎手：{jockey_detail}",
                 _join_nonempty([f"単勝：{odds}" if odds else "単勝：―", f"AI点：{ai}" if ai else ""], sep="　"),
                 _join_nonempty([f"能力{ability}" if ability else "", f"安定{stability}" if stability else "", f"市場{market}" if market else ""], sep="　"),
                 _join_nonempty([f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
                 f"材料：{material}",
                 f"タイプ：{horse_type}",
             ]
+            if stable_comment:
+                lines.append(f"厩舎コメント：{_shorten(stable_comment, 58)}")
             if comment:
                 lines.append(f"コメント：{comment}")
             self.horse_card(title, lines, is_watch="✓" in str(mark))
