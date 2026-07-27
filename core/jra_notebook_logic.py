@@ -8619,6 +8619,10 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
             "AI順位": _ver30_audit_rank_display(row),
             "軸信頼度": _ver30_text_value(row.get("axis_confidence", "")) or "-",
             "軸信頼度理由": _ver30_text_value(row.get("axis_confidence_reason", "")) or "-",
+            "能力帯": _ver30_text_value(row.get("ability_band", "")) or "-",
+            "能力差": _ver30_text_value(row.get("ability_gap_level", "")) or "-",
+            "レース難易度": _ver30_text_value(row.get("race_difficulty", "")) or "-",
+            "レース難易度理由": _ver30_text_value(row.get("race_difficulty_reason", "")) or "-",
             "AI点": _ver30_ai_point_display(row),
             "クラス変動": _ver30_class_shift_short(row),
         }
@@ -8632,7 +8636,8 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
             "馬タイプ": row.get("_馬タイプ", ""),
             "穴候補": _ver30_audit_bool_label(row.get("hole_candidate")),
             "注意馬": _ver30_audit_bool_label(row.get("watch_horse")),
-            "一言コメント": row.get("_Ver30コメント", ""),
+            "表示コメント": _ver30_text_value(row.get("display_comment", "")),
+            "一言コメント": _ver30_text_value(row.get("display_comment", "")) or row.get("_Ver30コメント", ""),
         })
         rows.append(base)
     rating_df = pd.DataFrame(rows)
@@ -10085,7 +10090,7 @@ def _run_jra_notebook_body(
     result_df = prepare_jra_display_columns(result_df)
 
 
-    display_cols = ["最終印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "★最高指数", "調教/評価/検討材料", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "axis_confidence", "axis_confidence_reason", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
+    display_cols = ["最終印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "★最高指数", "調教/評価/検討材料", "能力評価値", "能力帯", "能力差", "レース難易度", "レース難易度理由", "表示コメント", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "axis_confidence", "axis_confidence_reason", "ability_band", "ability_gap_level", "race_difficulty", "race_difficulty_reason", "display_comment", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
     print(f"レース: {race_info.get('race_name', '')} / {race_info.get('race_data', '')}")
     print(f"抽出頭数: {len(result_df)}")
     print_jra_venue_profile(detected_venue, venue_profile, bool(style_html_input))

@@ -19,6 +19,18 @@ AXIS_CONFIDENCE_CONFIG = {
     "market_gap_warn": 4.0,
 }
 
+ABILITY_BAND_CONFIG = {
+    "top_band_gap": 5.0,
+    "middle_band_gap": 12.0,
+    "middle_rank_ratio": 0.55,
+    "gap_large_top2": 5.0,
+    "gap_large_top3": 8.0,
+    "gap_large_top5": 12.0,
+    "gap_middle_top2": 2.5,
+    "gap_middle_top3": 5.0,
+    "gap_middle_top5": 8.0,
+}
+
 
 AUDIT_OUTPUT_COLUMNS = [
     "old_ai_score",
@@ -31,6 +43,11 @@ AUDIT_OUTPUT_COLUMNS = [
     "market_score",
     "axis_confidence",
     "axis_confidence_reason",
+    "ability_band",
+    "ability_gap_level",
+    "race_difficulty",
+    "race_difficulty_reason",
+    "display_comment",
     "old_watch_mark",
     "hole_candidate",
     "watch_horse",
@@ -49,6 +66,11 @@ AUDIT_EXPORT_COLUMNS = [
     "market_score",
     "axis_confidence",
     "axis_confidence_reason",
+    "ability_band",
+    "ability_gap_level",
+    "race_difficulty",
+    "race_difficulty_reason",
+    "display_comment",
     "old_watch_mark",
     "hole_candidate",
     "watch_horse",
@@ -61,6 +83,11 @@ AUDIT_EXPORT_COLUMNS = [
     "市場評価点",
     "軸信頼度",
     "軸信頼度理由",
+    "能力帯",
+    "能力差",
+    "レース難易度",
+    "レース難易度理由",
+    "表示コメント",
     "旧✓",
     "穴候補",
     "注意馬",
@@ -72,6 +99,13 @@ class AxisContext:
     top_raw: float | None
     second_raw: float | None
     top_gap: float | None
+
+
+@dataclass(frozen=True)
+class AbilityRaceContext:
+    gap_level: str
+    difficulty: str
+    reason: str
 
 
 def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "nar") -> pd.DataFrame | None:
@@ -112,6 +146,13 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["hole_candidate"] = split["hole_candidate"]
     result["watch_horse"] = split["watch_horse"]
 
+    ability_context, ability_band = _ability_band_context(result["raw_score"])
+    result["ability_band"] = ability_band
+    result["ability_gap_level"] = ability_context.gap_level
+    result["race_difficulty"] = ability_context.difficulty
+    result["race_difficulty_reason"] = ability_context.reason
+    result["display_comment"] = result.apply(_display_comment_for_row, axis=1)
+
     # Japanese aliases are kept for normal UI/CSV readability. They mirror the
     # snake_case audit columns and do not feed back into prediction logic.
     result["旧AI点"] = result["old_ai_score"]
@@ -122,6 +163,11 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["市場評価点"] = result["market_score"]
     result["軸信頼度"] = result["axis_confidence"]
     result["軸信頼度理由"] = result["axis_confidence_reason"]
+    result["能力帯"] = result["ability_band"]
+    result["能力差"] = result["ability_gap_level"]
+    result["レース難易度"] = result["race_difficulty"]
+    result["レース難易度理由"] = result["race_difficulty_reason"]
+    result["表示コメント"] = result["display_comment"]
     result["旧✓"] = result["old_watch_mark"].map(_bool_label)
     result["穴候補"] = result["hole_candidate"].map(_bool_label)
     result["注意馬"] = result["watch_horse"].map(_bool_label)
@@ -169,6 +215,84 @@ def _axis_context(raw: pd.Series) -> AxisContext:
     second = float(values.iloc[1]) if len(values) >= 2 else None
     gap = (top - second) if second is not None else None
     return AxisContext(top, second, gap)
+
+
+def _ability_band_context(raw: pd.Series) -> tuple[AbilityRaceContext, pd.Series]:
+    values = pd.to_numeric(raw, errors="coerce")
+    band = pd.Series("未評価", index=raw.index, dtype="object")
+    valid = values.dropna().sort_values(ascending=False)
+    if valid.empty:
+        context = AbilityRaceContext("不明", "未判定", "能力評価値が不足しています")
+        return context, band
+
+    config = ABILITY_BAND_CONFIG
+    top = float(valid.iloc[0])
+    second = float(valid.iloc[1]) if len(valid) >= 2 else None
+    third = float(valid.iloc[2]) if len(valid) >= 3 else None
+    fifth_pos = min(4, len(valid) - 1)
+    fifth_or_last = float(valid.iloc[fifth_pos])
+    top2_gap = (top - second) if second is not None else None
+    top3_gap = (top - third) if third is not None else None
+    top5_range = top - fifth_or_last
+
+    gap_level = _ability_gap_level(top2_gap, top3_gap, top5_range)
+    difficulty = {"大": "絞りやすい", "中": "やや混戦", "小": "混戦"}.get(gap_level, "未判定")
+    reason = {
+        "大": "上位馬と他馬の能力評価値に差があります",
+        "中": "上位数頭に差はありますが逆転余地があります",
+        "小": "上位馬の能力評価値が接近しています",
+    }.get(gap_level, "能力評価値の分布を判定できませんでした")
+
+    ranks = values.rank(method="min", ascending=False)
+    middle_rank_limit = max(3, int(len(valid) * config["middle_rank_ratio"] + 0.999))
+    for idx, value in values.items():
+        number = _safe_float(value)
+        if number is None:
+            continue
+        gap = top - number
+        rank = _safe_float(ranks.get(idx))
+        if gap <= config["top_band_gap"]:
+            band.loc[idx] = "上位帯"
+        elif gap <= config["middle_band_gap"] or (rank is not None and rank <= middle_rank_limit):
+            band.loc[idx] = "中位帯"
+        else:
+            band.loc[idx] = "下位帯"
+
+    return AbilityRaceContext(gap_level, difficulty, reason), band
+
+
+def _ability_gap_level(top2_gap: float | None, top3_gap: float | None, top5_range: float | None) -> str:
+    config = ABILITY_BAND_CONFIG
+    safe_top2 = top2_gap if top2_gap is not None else 999.0
+    safe_top3 = top3_gap if top3_gap is not None else safe_top2
+    safe_top5 = top5_range if top5_range is not None else safe_top3
+    if (
+        safe_top2 >= config["gap_large_top2"]
+        and safe_top3 >= config["gap_large_top3"]
+        and safe_top5 >= config["gap_large_top5"]
+    ):
+        return "大"
+    if (
+        safe_top2 >= config["gap_middle_top2"]
+        or safe_top3 >= config["gap_middle_top3"]
+        or safe_top5 >= config["gap_middle_top5"]
+    ):
+        return "中"
+    return "小"
+
+
+def _display_comment_for_row(row: pd.Series) -> str:
+    gap_level = _text_value(row.get("ability_gap_level"))
+    band = _text_value(row.get("ability_band"))
+    if gap_level == "小":
+        if _truthy(row.get("hole_candidate")) or _truthy(row.get("watch_horse")):
+            return "能力差が小さい混戦で、配当面や展開材料も確認したい馬です。"
+        if band == "上位帯":
+            return "上位帯の一頭。能力差が小さいため、調教・展開・オッズも含めて比較したい馬です。"
+        if band == "中位帯":
+            return "中位帯ですが逆転余地があります。適性・展開・オッズをあわせて確認したい馬です。"
+        return "能力差が小さいため、他馬との比較材料を確認したい馬です。"
+    return ""
 
 
 def _axis_confidence_for_row(row: pd.Series, context: AxisContext, *, race_type: str) -> tuple[str, str]:

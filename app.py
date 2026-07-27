@@ -920,7 +920,8 @@ OVERALL_SIMPLE_COLUMNS = [
     "騎手",
     "オッズ",
     "脚質",
-    "AI点",
+    "能力評価値",
+    "能力帯",
     "総合評価",
     "評価／検討材料",
 ]
@@ -934,13 +935,9 @@ HORSE_EVALUATION_COLUMNS = [
     "単勝オッズ",
     "斤量詳細",
     "騎手詳細",
-    "能力評価",
-    "安定評価",
-    "市場評価",
     "能力評価値",
-    "AI順位",
-    "軸信頼度",
-    "AI点",
+    "能力帯",
+    "市場評価",
     "クラス変動",
     "対戦評価",
     "調教評価",
@@ -974,6 +971,16 @@ AUDIT_EVALUATION_COLUMNS = [
     "axis_confidence",
     "軸信頼度理由",
     "axis_confidence_reason",
+    "能力帯",
+    "ability_band",
+    "能力差",
+    "ability_gap_level",
+    "レース難易度",
+    "race_difficulty",
+    "レース難易度理由",
+    "race_difficulty_reason",
+    "表示コメント",
+    "display_comment",
     "旧✓",
     "old_watch_mark",
     "穴候補",
@@ -1027,6 +1034,7 @@ def render_colab_style_result(result: PredictionResult) -> None:
         "展開予想",
         extract_raw_section(result, ["展開予想"]),
     )
+    render_race_difficulty(result)
     render_overall_table(result)
     render_horse_evaluation(result)
     render_attention_horses(result)
@@ -1071,6 +1079,32 @@ def render_overall_table(result: PredictionResult) -> None:
     st.dataframe(table.loc[:, columns], use_container_width=True, hide_index=True)
 
 
+def render_race_difficulty(result: PredictionResult) -> None:
+    rows = []
+    if result.overall_table is not None and not getattr(result.overall_table, "empty", False):
+        rows = result.overall_table.to_dict("records")
+    if not rows and result.horse_evaluation is not None and not getattr(result.horse_evaluation, "empty", False):
+        rows = result.horse_evaluation.to_dict("records")
+    if not rows:
+        return
+    first = rows[0]
+    gap = clean_text(pick(first, "能力差", "ability_gap_level"))
+    difficulty = clean_text(pick(first, "レース難易度", "race_difficulty"))
+    reason = clean_text(pick(first, "レース難易度理由", "race_difficulty_reason"))
+    if not gap and not difficulty:
+        return
+    st.subheader("レース難易度")
+    body = join_nonempty(
+        [
+            f"能力差：{gap}" if gap else "",
+            f"レース難易度：{difficulty}" if difficulty else "",
+            reason,
+        ],
+        sep="\n",
+    )
+    st.markdown(f'<div class="ka-section">{plain_text_to_html(body)}</div>', unsafe_allow_html=True)
+
+
 def render_horse_evaluation(result: PredictionResult) -> None:
     st.subheader("馬評価（全頭）")
     table = result.horse_evaluation
@@ -1086,7 +1120,7 @@ def render_horse_evaluation(result: PredictionResult) -> None:
         label_visibility="collapsed",
     )
     if mode == "一覧表":
-        columns = ordered_existing_columns(table, HORSE_EVALUATION_COLUMNS)
+        columns = existing_columns(table, HORSE_EVALUATION_COLUMNS)
         st.dataframe(table.loc[:, columns or list(table.columns)], use_container_width=True, hide_index=True)
         return
 
@@ -1149,20 +1183,13 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
     weight_detail = pick(row, "斤量詳細")
     jockey_detail = pick(row, "騎手詳細") or jockey
     odds = format_odds(pick(row, "単勝オッズ", "オッズ", "単勝"))
-    ability = pick(row, "能力評価")
-    stability = pick(row, "安定評価")
     market = pick(row, "市場評価")
     ability_value = format_number(pick(row, "能力評価値", "ability_display_score", "raw_score"))
-    ai_rank = clean_text(pick(row, "AI順位", "ai_rank"))
-    if ai_rank and not ai_rank.endswith("位"):
-        ai_rank = f"{format_number(ai_rank)}位"
-    axis_confidence = clean_text(pick(row, "軸信頼度", "axis_confidence"))
-    axis_reason = clean_text(pick(row, "軸信頼度理由", "axis_confidence_reason"))
-    ai = format_number(pick(row, "AI点"))
+    ability_band = clean_text(pick(row, "能力帯", "ability_band")) or "-"
     class_shift = pick(row, "クラス変動") or "-"
     material = pick(row, "評価／検討材料", "評価/検討材料", "評価材料") or "-"
     horse_type = pick(row, "馬タイプ") or "-"
-    comment = pick(row, "一言コメント", "コメント")
+    comment = pick(row, "表示コメント", "display_comment", "一言コメント", "コメント")
     support_label = "対戦評価" if race_mode == "nar" else "調教評価"
     support_value = (
         pick(row, "対戦評価", "対戦材料", "対戦")
@@ -1172,10 +1199,10 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
     stable_comment = pick(row, "厩舎コメント", "新聞コメント") if race_mode == "jra" else ""
     audit_labels = join_nonempty(
         [
-            "穴候補" if clean_text(pick(row, "穴候補", "hole_candidate")) in ("○", "True", "true", "1") else "",
-            "注意馬" if clean_text(pick(row, "注意馬", "watch_horse")) in ("○", "True", "true", "1") else "",
+            "穴候補：該当" if clean_text(pick(row, "穴候補", "hole_candidate")) in ("○", "True", "true", "1") else "",
+            "注意馬：該当" if clean_text(pick(row, "注意馬", "watch_horse")) in ("○", "True", "true", "1") else "",
         ],
-        sep=" / ",
+        sep="　",
     )
     card_class = "ka-horse-card watch" if "✓" in str(mark) else "ka-horse-card"
     title = join_nonempty([mark, no, name], sep=" ")
@@ -1183,11 +1210,10 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
         f"馬年齢：{horse_age}",
         f"斤量：{weight_detail}" if weight_detail else "",
         f"騎手：{jockey_detail}",
-        join_nonempty([f"単勝：{odds}" if odds else "単勝：―", f"AI点：{ai}" if ai else ""], sep="　"),
-        join_nonempty([f"能力 {ability}" if ability else "", f"安定 {stability}" if stability else "", f"市場 {market}" if market else ""], sep="　"),
-        join_nonempty([f"能力評価値：{ability_value}" if ability_value else "", f"AI順位：{ai_rank}" if ai_rank else "", f"軸信頼度：{axis_confidence}" if axis_confidence else ""], sep="　"),
-        f"軸理由：{axis_reason}" if axis_reason else "",
-        f"分類：{audit_labels}" if audit_labels else "",
+        f"単勝：{odds}" if odds else "単勝：―",
+        join_nonempty([f"能力評価値：{ability_value}" if ability_value else "", f"能力帯：{ability_band}" if ability_band else ""], sep="　"),
+        f"市場評価：{market}" if market else "",
+        audit_labels,
         join_nonempty([f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
         f"評価材料：{material}",
         f"馬タイプ：{horse_type}",
