@@ -13,6 +13,7 @@ from typing import Iterable
 RACE_ID_RE = re.compile(r"(?:race_id=|/race/)?(\d{12})")
 DATE_RE = re.compile(r"^\d{4}-?\d{2}-?\d{2}$")
 COLLECTOR_VERSION = "Collector version 2"
+DEBUG_LINK_LIMIT = 12
 
 
 @dataclass(frozen=True)
@@ -281,6 +282,7 @@ def collect_race_targets_from_list_urls(page, urls: Iterable[str], args: argpars
             if is_login_like(page.url, content) and not args.no_pause_on_login:
                 wait_for_manual_login(page, url, args, timeout_error)
             links = get_visible_race_link_items(page, args.mode)
+            print_visible_link_debug(links)
             found = extract_race_targets_from_links(args.mode, links)
             print(f"  race links: {len(found)}")
             for target in found:
@@ -296,13 +298,20 @@ def get_visible_race_link_items(page, mode: str) -> list[dict[str, str]]:
         'a[href*="race_id="]',
         """
         (anchors, mode) => {
-            const hrefRe = mode === "jra"
-                ? /https?:\\/\\/race\\.netkeiba\\.com\\/race\\/(?:shutuba\\.html|race\\.html)\\?[^#]*race_id=(\\d{12})(?:[&#]|$)/
-                : /https?:\\/\\/nar\\.netkeiba\\.com\\/race\\/(?:shutuba\\.html|race\\.html)\\?[^#]*race_id=(\\d{12})(?:[&#]|$)/;
+            const hrefRe = /(?:[?&]|&amp;)race_id=(\\d{12})(?:[&#]|&amp;|$)/;
+            const domainRe = mode === "jra"
+                ? /^https?:\\/\\/race\\.netkeiba\\.com\\//i
+                : /^https?:\\/\\/nar\\.netkeiba\\.com\\//i;
             const raceNoRe = /(?:^|[^0-9])([1-9]|1[0-2])\\s*R(?:$|[^0-9])/;
             const venueRe = /(札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉|門別|盛岡|水沢|浦和|船橋|大井|川崎|金沢|笠松|名古屋|園田|姫路|高知|佐賀)\\s*(?:\\d+日目)?/;
 
             const cleanText = (value) => (value || "").replace(/\\s+/g, " ").trim();
+
+            const hasVisibleRect = (element) => {
+                const rects = Array.from(element.getClientRects ? element.getClientRects() : []);
+                if (rects.some(rect => rect.width > 0 && rect.height > 0)) return true;
+                return Array.from(element.children || []).some(child => hasVisibleRect(child));
+            };
 
             const isVisible = (element) => {
                 if (!element || !element.isConnected) return false;
@@ -323,8 +332,7 @@ def get_visible_race_link_items(page, mode: str) -> list[dict[str, str]]:
                     node = node.parentElement;
                 }
 
-                const rects = Array.from(element.getClientRects ? element.getClientRects() : []);
-                return rects.some(rect => rect.width > 0 && rect.height > 0);
+                return hasVisibleRect(element);
             };
 
             const contextText = (anchor) => {
@@ -373,12 +381,13 @@ def get_visible_race_link_items(page, mode: str) -> list[dict[str, str]]:
                 if (!isVisible(anchor)) return [];
 
                 const href = anchor.href || anchor.getAttribute("href") || "";
+                if (!domainRe.test(href)) return [];
                 const hrefMatch = href.match(hrefRe);
                 if (!hrefMatch) return [];
+                const raceId = hrefMatch[1];
 
                 const texts = contextText(anchor);
-                const raceNumber = findRaceNumber(texts);
-                if (!raceNumber) return [];
+                const raceNumber = findRaceNumber(texts) || `${Number(raceId.slice(-2))}R`;
 
                 const venue = findVenueInAncestors(texts) || findVenueBeforeAnchor(anchor);
                 const anchorText = cleanText(anchor.innerText || anchor.textContent || "");
@@ -387,7 +396,7 @@ def get_visible_race_link_items(page, mode: str) -> list[dict[str, str]]:
                 return [{
                     href,
                     text: sourceText,
-                    race_id: hrefMatch[1],
+                    race_id: raceId,
                     venue,
                     race_number: raceNumber
                 }];
@@ -436,8 +445,8 @@ def is_race_link_for_mode(mode: str, href: str) -> bool:
     if not re.search(r"race_id=\d{12}(?:[&#]|$)", text):
         return False
     if mode == "jra":
-        return re.search(r"https?://race\.netkeiba\.com/race/(?:shutuba\.html|race\.html)\?", text) is not None
-    return re.search(r"https?://nar\.netkeiba\.com/race/(?:shutuba\.html|race\.html)\?", text) is not None
+        return re.search(r"https?://race\.netkeiba\.com/", text) is not None
+    return re.search(r"https?://nar\.netkeiba\.com/", text) is not None
 
 
 def normalize_race_number(value: str) -> str:
@@ -452,6 +461,19 @@ def format_race_target_for_log(target: RaceTarget) -> str:
     if display:
         return f"{display} {target.race_id}"
     return target.race_id
+
+
+def print_visible_link_debug(links: Iterable[dict[str, str]]) -> None:
+    items = list(links)
+    print(f"  visible race_id href candidates: {len(items)}")
+    for item in items[:DEBUG_LINK_LIMIT]:
+        race_id = str(item.get("race_id") or "")
+        race_number = str(item.get("race_number") or "")
+        venue = str(item.get("venue") or "")
+        href = str(item.get("href") or "")
+        text = safe_title(str(item.get("text") or ""))
+        label = f"{venue}{race_number}".strip()
+        print(f"    candidate: {label or text or '-'} {race_id} {href}")
 
 
 def collect_one_page(page, race_target: RaceTarget, spec: PageSpec, args: argparse.Namespace, timeout_error, done: int, total: int, output_dir: Path) -> dict[str, str]:
