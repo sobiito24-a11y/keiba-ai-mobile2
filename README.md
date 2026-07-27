@@ -72,6 +72,120 @@ Streamlit Cloud と同じ入口で確認する場合は以下です。
 streamlit run streamlit_app.py
 ```
 
+## 検証用HTMLの一括保存
+
+検証データ作成用に、ローカルPCでログイン済みブラウザを使ってnetkeibaのHTMLを一括保存する補助ツールを用意しています。
+
+Streamlit Cloudやアプリ本体から直接取得するものではありません。プレミアムページやログイン済みページを扱うため、必ず自分のPC上で、通常の閲覧に近い速度で実行してください。保存HTMLやブラウザプロファイルは `.gitignore` で除外しています。
+
+### 初回準備
+
+```bash
+cd keiba_ai_mobile
+pip install -r tools/requirements-collector.txt
+python -m playwright install chromium
+```
+
+### 開催日だけで中央全レースの5種HTMLを保存
+
+中央競馬は開催日だけ指定できます。指定日のレース一覧ページへアクセスし、画面に表示されているレースリンクだけを表示順に巡回してHTML収集を開始します。
+
+例：`2026-07-26` を指定すると、その日に開催されている福島・新潟・札幌などの全レースを対象にします。
+
+```bash
+python tools/netkeiba_html_collector.py ^
+  --mode jra ^
+  --date 2026-07-26 ^
+  --out collected_html
+```
+
+中央の既定保存対象は以下5種です。
+
+- 競馬新聞
+- 調教
+- タイム指数
+- 脚質分析
+- レース結果
+
+### race_id一覧から中央5種HTMLを保存
+
+`race_ids.txt` にrace_idまたはrace URLを並べます。
+
+```text
+202610020810
+https://race.netkeiba.com/race/speed.html?race_id=202610020811
+```
+
+以下を実行します。
+
+```bash
+python tools/netkeiba_html_collector.py ^
+  --mode jra ^
+  --race-ids-file race_ids.txt ^
+  --out collected_html
+```
+
+### 地方HTMLを保存
+
+```bash
+python tools/netkeiba_html_collector.py ^
+  --mode nar ^
+  --race-ids-file race_ids.txt ^
+  --out collected_html
+```
+
+地方の既定保存対象は以下4種です。
+
+- 競馬新聞
+- タイム指数
+- 脚質分析
+- レース結果
+
+地方で出馬表も保存したい場合は、`--kinds` で明示します。
+
+```bash
+python tools/netkeiba_html_collector.py ^
+  --mode nar ^
+  --race-ids-file race_ids.txt ^
+  --kinds newspaper,speed,style,result,shutuba ^
+  --out collected_html
+```
+
+### レース一覧ページの表示順で保存
+
+開催日のレース一覧URLを直接指定することもできます。この場合も、HTML本文全体からrace_idを拾うのではなく、一覧ページに表示されているレースリンクだけを表示順に巡回します。
+
+```bash
+python tools/netkeiba_html_collector.py ^
+  --mode jra ^
+  --list-url "https://race.netkeiba.com/top/race_list.html?kaisai_date=20260720" ^
+  --out collected_html
+```
+
+### ログインが必要な場合
+
+初回やセッション切れ時はブラウザがログインページを表示します。ブラウザ上でログインを完了し、ターミナルへ戻ってEnterを押すと続きから保存します。
+
+ログイン状態は `.collector_profile/` に保存されます。このフォルダはcookie等を含む可能性があるため、GitHubへpushしないでください。
+
+### 保存先
+
+既定では以下のように保存されます。
+
+```text
+collected_html/
+  jra/
+    202610020810/
+      202610020810_newspaper.html
+      202610020810_oikiri.html
+      202610020810_speed.html
+      202610020810_style.html
+      202610020810_result.html
+  manifest_YYYYMMDD_HHMMSS.csv
+```
+
+既存ファイルはスキップします。再取得したい場合は `--overwrite` を付けます。
+
 ## スマホからの利用手順
 
 1. iPhone Safariでアプリを開く

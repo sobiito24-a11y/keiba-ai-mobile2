@@ -5,3 +5,9 @@ __pycache__/
 .streamlit/secrets.toml
 .DS_Store
 Thumbs.db
+
+# Local netkeiba verification-data collector output/profile.
+# These may contain saved logged-in HTML or browser cookies.
+collected_html/
+netkeiba_html/
+.collector_profile/
