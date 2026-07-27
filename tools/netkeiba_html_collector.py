@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable
+from urllib.parse import urlparse
 
 
 RACE_ID_RE = re.compile(r"(?:race_id=|/race/)?(\d{12})")
@@ -161,6 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"profile: {profile_dir}")
     print("If a login page appears, log in in the opened browser and press Enter in this terminal.")
     print("Please keep delay settings modest so the collection behaves like normal browsing.")
+    args.login_pause_used = False
 
     rows: list[dict[str, str]] = []
     with sync_playwright() as playwright:
@@ -279,7 +281,8 @@ def collect_race_targets_from_list_urls(page, urls: Iterable[str], args: argpars
             wait_network_idle(page, timeout_error)
             page.wait_for_timeout(int(args.wait_after_load_sec * 1000))
             content = page.content()
-            if is_login_like(page.url, content) and not args.no_pause_on_login:
+            if is_login_like(page.url, content) and should_pause_for_login(args):
+                args.login_pause_used = True
                 wait_for_manual_login(page, url, args, timeout_error)
             links = get_visible_race_link_items(page, args.mode)
             print_visible_link_debug(links)
@@ -501,13 +504,16 @@ def collect_one_page(page, race_target: RaceTarget, spec: PageSpec, args: argpar
         return {**base_row, "status": "skipped", "message": "already exists"}
 
     print(f"{prefix}: open")
+    content = ""
     try:
+        print(f"{prefix}: url {url}")
         page.goto(url, wait_until="domcontentloaded", timeout=args.timeout_ms)
         wait_network_idle(page, timeout_error)
         page.wait_for_timeout(int(args.wait_after_load_sec * 1000))
         content = page.content()
 
-        if is_login_like(page.url, content) and not args.no_pause_on_login:
+        if is_login_like(page.url, content) and should_pause_for_login(args):
+            args.login_pause_used = True
             wait_for_manual_login(page, url, args, timeout_error)
             content = page.content()
 
@@ -519,6 +525,7 @@ def collect_one_page(page, race_target: RaceTarget, spec: PageSpec, args: argpar
         return {**base_row, "title": title, "status": "saved", "message": message}
     except Exception as exc:
         print(f"{prefix}: failed {exc}", file=sys.stderr)
+        print_page_diagnostics(page, content, prefix)
         return {**base_row, "status": "failed", "message": str(exc)}
 
 
@@ -538,6 +545,10 @@ def wait_for_manual_login(page, url: str, args: argparse.Namespace, timeout_erro
     page.wait_for_timeout(int(args.wait_after_load_sec * 1000))
 
 
+def should_pause_for_login(args: argparse.Namespace) -> bool:
+    return not args.no_pause_on_login and not bool(getattr(args, "login_pause_used", False))
+
+
 def validate_saved_html(race_id: str, content: str, current_url: str) -> str:
     messages: list[str] = []
     if len(content.strip()) < 500:
@@ -552,25 +563,53 @@ def validate_saved_html(race_id: str, content: str, current_url: str) -> str:
 
 
 def is_login_like(url: str, content: str) -> bool:
-    lower_url = (url or "").lower()
+    parsed = urlparse(url or "")
+    host = (parsed.netloc or "").lower()
+    path = (parsed.path or "").lower()
+    query = (parsed.query or "").lower()
+    if "regist.netkeiba.com" in host and ("login" in path or "pid=login" in query):
+        return True
+    if "account.netkeiba.com" in host and "login" in path:
+        return True
+    if re.search(r"(^|/)login(?:[/.?]|$)", path):
+        return True
+
     text = content[:200_000]
-    return (
-        "login" in lower_url
-        or (
-            "\u30ed\u30b0\u30a4\u30f3" in text
-            and (
-                "\u30d1\u30b9\u30ef\u30fc\u30c9" in text
-                or "\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9" in text
-                or "\u4f1a\u54e1" in text
-            )
-        )
-        or "login_form" in text
+    lower_text = text.lower()
+    has_password_input = re.search(r"<input[^>]+type=[\"']?password", lower_text) is not None
+    has_login_form = (
+        "login_form" in lower_text
+        or re.search(r"<form[^>]+(?:id|name|action)=[\"'][^\"']*login", lower_text) is not None
     )
+    has_login_submit = re.search(r"<button[^>]*>[^<]*(?:login|\u30ed\u30b0\u30a4\u30f3)", lower_text) is not None
+    return bool(has_password_input or has_login_form or has_login_submit)
 
 
 def is_block_like(content: str) -> bool:
     text = content[:200_000].lower()
     return any(key in text for key in ("captcha", "cloudflare"))
+
+
+def print_page_diagnostics(page, content: str, prefix: str) -> None:
+    try:
+        current_url = page.url
+    except Exception:
+        current_url = ""
+    try:
+        title = safe_title(page.title())
+    except Exception:
+        title = ""
+    preview = text_preview(content)
+    print(f"{prefix}: diagnostic url: {current_url}", file=sys.stderr)
+    print(f"{prefix}: diagnostic title: {title}", file=sys.stderr)
+    print(f"{prefix}: diagnostic body_head: {preview}", file=sys.stderr)
+
+
+def text_preview(content: str, limit: int = 300) -> str:
+    text = re.sub(r"(?is)<(script|style|template)[^>]*>.*?</\1>", " ", content or "")
+    text = re.sub(r"(?s)<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:limit]
 
 
 def selected_specs(mode: str, kinds_text: str) -> list[PageSpec]:

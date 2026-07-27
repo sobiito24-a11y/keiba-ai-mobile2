@@ -2,6 +2,7 @@ import unittest
 
 from tools.netkeiba_html_collector import extract_race_targets_from_links
 from tools.netkeiba_html_collector import format_race_target_for_log
+from tools.netkeiba_html_collector import is_login_like
 
 
 class NetkeibaHtmlCollectorTest(unittest.TestCase):
@@ -50,6 +51,32 @@ class NetkeibaHtmlCollectorTest(unittest.TestCase):
 
         self.assertEqual(1, len(targets))
         self.assertEqual("https://race.netkeiba.com/race/first.html?race_id=202607020201", targets[0].source_url)
+
+    def test_guest_text_alone_is_not_login_like(self):
+        html = """
+        <html>
+          <head><title>レース情報</title></head>
+          <body>
+            <header>ゲストさん ログイン 会員メニュー</header>
+            <main>七夕賞 競馬新聞 タイム指数</main>
+          </body>
+        </html>
+        """
+
+        self.assertFalse(is_login_like("https://race.netkeiba.com/race/newspaper.html?race_id=202610020810", html))
+
+    def test_password_form_is_login_like(self):
+        html = """
+        <html>
+          <body>
+            <form id="login_form" action="/account/login">
+              <input type="password" name="password">
+            </form>
+          </body>
+        </html>
+        """
+
+        self.assertTrue(is_login_like("https://regist.netkeiba.com/account/?pid=login", html))
 
 
 if __name__ == "__main__":
