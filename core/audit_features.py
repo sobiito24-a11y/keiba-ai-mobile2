@@ -1,0 +1,480 @@
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+import pandas as pd
+
+
+AXIS_CONFIDENCE_CONFIG = {
+    "raw_a": 95.0,
+    "raw_b": 85.0,
+    "top_gap_a": 3.0,
+    "top_gap_warn": 1.5,
+    "recent_range_warn": 12.0,
+    "recent_range_stable": 6.0,
+    "last_vs_average_warn": -6.0,
+    "last_vs_average_good": 0.0,
+    "market_gap_warn": 4.0,
+}
+
+
+AUDIT_OUTPUT_COLUMNS = [
+    "old_ai_score",
+    "raw_score",
+    "ability_display_score",
+    "normalized_ai_score",
+    "ai_rank",
+    "old_final_mark",
+    "final_mark_score",
+    "market_score",
+    "axis_confidence",
+    "axis_confidence_reason",
+    "old_watch_mark",
+    "hole_candidate",
+    "watch_horse",
+]
+
+AUDIT_EXPORT_COLUMNS = [
+    "馬番",
+    "馬名",
+    "old_ai_score",
+    "raw_score",
+    "ability_display_score",
+    "normalized_ai_score",
+    "ai_rank",
+    "old_final_mark",
+    "final_mark_score",
+    "market_score",
+    "axis_confidence",
+    "axis_confidence_reason",
+    "old_watch_mark",
+    "hole_candidate",
+    "watch_horse",
+    "旧AI点",
+    "能力評価値",
+    "正規化AI点",
+    "AI順位",
+    "旧印",
+    "総合評価監査点",
+    "市場評価点",
+    "軸信頼度",
+    "軸信頼度理由",
+    "旧✓",
+    "穴候補",
+    "注意馬",
+]
+
+
+@dataclass(frozen=True)
+class AxisContext:
+    top_raw: float | None
+    second_raw: float | None
+    top_gap: float | None
+
+
+def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "nar") -> pd.DataFrame | None:
+    """Add display/audit-only evaluation columns without changing scores or marks."""
+    if df is None:
+        return df
+    result = df.copy()
+    if result.empty:
+        for column in AUDIT_OUTPUT_COLUMNS:
+            if column not in result.columns:
+                result[column] = []
+        return result
+
+    result["old_ai_score"] = _numeric_series(result, "AI点")
+    result["raw_score"] = _numeric_series(result, "_raw_score")
+    result["ability_display_score"] = result["raw_score"].round(1)
+    result["normalized_ai_score"] = _numeric_series(result, "AI点")
+    if "AI順位" in result.columns:
+        result["ai_rank"] = _numeric_series(result, "AI順位")
+    else:
+        result["ai_rank"] = result["normalized_ai_score"].rank(method="min", ascending=False)
+    result["old_final_mark"] = _text_series(result, "最終印")
+    result["final_mark_score"] = _first_numeric_series(result, ["総合評価点", "_最終印点", "総合評価"])
+    result["market_score"] = _first_numeric_series(result, ["市場反映勝率", "推定勝率", "単勝期待値"])
+
+    axis_context = _axis_context(result["raw_score"])
+    axis_values: list[str] = []
+    axis_reasons: list[str] = []
+    for _, row in result.iterrows():
+        confidence, reason = _axis_confidence_for_row(row, axis_context, race_type=race_type)
+        axis_values.append(confidence)
+        axis_reasons.append(reason)
+    result["axis_confidence"] = axis_values
+    result["axis_confidence_reason"] = axis_reasons
+
+    split = _split_watch_and_hole_candidates(result, race_type=race_type)
+    result["old_watch_mark"] = split["old_watch_mark"]
+    result["hole_candidate"] = split["hole_candidate"]
+    result["watch_horse"] = split["watch_horse"]
+
+    # Japanese aliases are kept for normal UI/CSV readability. They mirror the
+    # snake_case audit columns and do not feed back into prediction logic.
+    result["旧AI点"] = result["old_ai_score"]
+    result["能力評価値"] = result["ability_display_score"]
+    result["正規化AI点"] = result["normalized_ai_score"]
+    result["旧印"] = result["old_final_mark"]
+    result["総合評価監査点"] = result["final_mark_score"]
+    result["市場評価点"] = result["market_score"]
+    result["軸信頼度"] = result["axis_confidence"]
+    result["軸信頼度理由"] = result["axis_confidence_reason"]
+    result["旧✓"] = result["old_watch_mark"].map(_bool_label)
+    result["穴候補"] = result["hole_candidate"].map(_bool_label)
+    result["注意馬"] = result["watch_horse"].map(_bool_label)
+    return result
+
+
+def build_audit_export_table(df: pd.DataFrame | None) -> pd.DataFrame:
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return pd.DataFrame()
+    columns = [column for column in AUDIT_EXPORT_COLUMNS if column in df.columns]
+    if not columns:
+        return pd.DataFrame()
+    return df.loc[:, columns].copy()
+
+
+def audit_table_to_csv_bytes(df: pd.DataFrame) -> bytes:
+    frame = _export_clean_frame(df)
+    return frame.to_csv(index=False).encode("utf-8-sig")
+
+
+def audit_table_to_json_bytes(df: pd.DataFrame) -> bytes:
+    frame = _export_clean_frame(df)
+    return frame.to_json(orient="records", force_ascii=False, indent=2).encode("utf-8")
+
+
+def audit_table_to_markdown(df: pd.DataFrame) -> str:
+    frame = _export_clean_frame(df)
+    if frame.empty:
+        return ""
+    headers = [str(column) for column in frame.columns]
+    lines = [
+        "| " + " | ".join(_escape_markdown_cell(header) for header in headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
+    for _, row in frame.iterrows():
+        lines.append("| " + " | ".join(_escape_markdown_cell(row.get(column)) for column in frame.columns) + " |")
+    return "\n".join(lines)
+
+
+def _axis_context(raw: pd.Series) -> AxisContext:
+    values = pd.to_numeric(raw, errors="coerce").dropna().sort_values(ascending=False)
+    if values.empty:
+        return AxisContext(None, None, None)
+    top = float(values.iloc[0])
+    second = float(values.iloc[1]) if len(values) >= 2 else None
+    gap = (top - second) if second is not None else None
+    return AxisContext(top, second, gap)
+
+
+def _axis_confidence_for_row(row: pd.Series, context: AxisContext, *, race_type: str) -> tuple[str, str]:
+    raw = _safe_float(row.get("raw_score"))
+    ai_rank = _safe_float(row.get("ai_rank"))
+    if raw is None:
+        return "C", "raw score欠損"
+
+    points = 0
+    reasons: list[str] = []
+    config = AXIS_CONFIDENCE_CONFIG
+
+    if raw >= config["raw_a"]:
+        points += 2
+        reasons.append("能力水準高め")
+    elif raw >= config["raw_b"]:
+        points += 1
+        reasons.append("能力水準あり")
+    else:
+        points -= 1
+        reasons.append("能力水準控えめ")
+
+    if ai_rank is not None and ai_rank <= 2:
+        points += 1
+        reasons.append("AI順位上位")
+    elif ai_rank is not None and ai_rank >= 7:
+        points -= 1
+
+    if ai_rank == 1 and context.top_gap is not None:
+        if context.top_gap >= config["top_gap_a"]:
+            points += 1
+            reasons.append("2位差あり")
+        elif context.top_gap < config["top_gap_warn"]:
+            points -= 1
+            reasons.append("上位僅差")
+    elif ai_rank is not None and ai_rank <= 2 and context.top_gap is not None and context.top_gap < config["top_gap_warn"]:
+        points -= 1
+        reasons.append("上位僅差")
+
+    recent_range = _recent_index_range(row)
+    if recent_range is not None:
+        if recent_range >= config["recent_range_warn"]:
+            points -= 1
+            reasons.append("近走の振れ幅あり")
+        elif recent_range <= config["recent_range_stable"]:
+            points += 1
+            reasons.append("近走安定")
+
+    last_value = _first_numeric_value(row, ["前走", "race1", "_last"])
+    average_value = _first_numeric_value(row, ["平均指数", "3走平均", "avg5"])
+    if last_value is not None and average_value is not None:
+        diff = last_value - average_value
+        if diff <= config["last_vs_average_warn"]:
+            points -= 1
+            reasons.append("前走が平均より低め")
+        elif diff >= config["last_vs_average_good"]:
+            points += 1
+            reasons.append("前走が平均以上")
+
+    major_negative = _safe_float(row.get("_重大マイナス数"))
+    if major_negative is not None:
+        if major_negative >= 2:
+            points -= 2
+            reasons.append("重大マイナス複数")
+        elif major_negative >= 1:
+            points -= 1
+            reasons.append("マイナス材料あり")
+
+    style = _text_value(row.get("脚質"))
+    pace_mark = _text_value(row.get("展開印"))
+    if style == "追" and pace_mark != "展":
+        points -= 1
+        reasons.append("脚質リスク")
+
+    market_rank = _first_numeric_value(row, ["勝率順位", "市場順位", "人気"])
+    if ai_rank is not None and market_rank is not None:
+        gap = market_rank - ai_rank
+        if gap >= config["market_gap_warn"]:
+            points -= 1
+            reasons.append("市場評価との乖離")
+        elif ai_rank <= 3 and market_rank <= 3:
+            points += 1
+            reasons.append("市場評価と一致")
+
+    if str(race_type).lower() == "jra":
+        grade = _training_grade(row)
+        if grade in {"S", "A"}:
+            points += 1
+            reasons.append("調教評価良好")
+        elif grade in {"C", "D"}:
+            points -= 1
+            reasons.append("調教評価は慎重材料")
+
+    if points >= 3:
+        confidence = "A"
+    elif points >= 1:
+        confidence = "B"
+    else:
+        confidence = "C"
+    return confidence, "、".join(_unique(reasons)[:2]) or "確認材料少なめ"
+
+
+def _split_watch_and_hole_candidates(df: pd.DataFrame, *, race_type: str) -> pd.DataFrame:
+    result = pd.DataFrame(index=df.index)
+    mark = _text_series(df, "最終印")
+    core = mark.isin(["◎", "○", "▲", "△"])
+    old_watch = mark.eq("✓") | mark.eq("☆")
+    data_shortage = _bool_series(df, "_地方指数データ不足") if str(race_type).lower() == "nar" else pd.Series(False, index=df.index)
+
+    odds = _first_numeric_series(df, ["単勝オッズ", "オッズ"])
+    ai_rank = _first_numeric_series(df, ["ai_rank", "AI順位"])
+    final_score = _first_numeric_series(df, ["final_mark_score", "総合評価点", "_最終印点", "総合評価"]).fillna(-9999)
+    ev = _first_numeric_series(df, ["単勝期待値"]).fillna(0)
+    market_score = _first_numeric_series(df, ["market_score", "市場反映勝率", "推定勝率"]).fillna(0)
+    material = (
+        _text_series(df, "評価/検討材料")
+        + " / "
+        + _text_series(df, "評価／検討材料")
+        + " / "
+        + _text_series(df, "調教/評価/検討材料")
+        + " / "
+        + _text_series(df, "印理由")
+        + " / "
+        + _text_series(df, "クラス変動")
+        + " / "
+        + _text_series(df, "展開印")
+        + " / "
+        + _text_series(df, "馬タイプ")
+    )
+
+    has_material = material.str.contains(
+        "高指数|最高指数|距離|コース|クラス降級|相手弱化|展開|対戦|調教|好気配|配当|穴|中穴|大穴|単勝",
+        regex=True,
+        na=False,
+    )
+    odds_band = odds.between(8.0, 60.0, inclusive="both").fillna(False).astype(bool)
+    rank_band = (
+        ai_rank.le(8)
+        | final_score.rank(method="min", ascending=False).le(8)
+        | market_score.rank(method="min", ascending=False).le(6)
+    ).fillna(False).astype(bool)
+    ev_signal = ev.ge(1.10).fillna(False).astype(bool)
+    hole_pool = (~core) & (~data_shortage) & (old_watch | ((odds_band | ev_signal) & has_material & rank_band))
+
+    score = final_score.copy()
+    score += old_watch.astype(float) * 3.0
+    score += has_material.astype(float) * 2.0
+    score += odds.ge(10).fillna(False).astype(float) * 1.0
+    score += odds.ge(20).fillna(False).astype(float) * 0.8
+    score += ev_signal.astype(float) * 2.0
+    score += market_score.rank(method="min", ascending=False).le(6).fillna(False).astype(float) * 0.8
+    score = score.where(hole_pool, -9999)
+
+    hole = pd.Series(False, index=df.index)
+    if bool(hole_pool.any()):
+        selected = score.sort_values(ascending=False).head(2).index
+        selected = [idx for idx in selected if bool(hole_pool.loc[idx])]
+        hole.loc[selected] = True
+
+    watch_signal = old_watch | ((~core) & (~data_shortage) & (has_material | rank_band | odds.ge(10).fillna(False)))
+    watch = watch_signal & ~hole
+    result["old_watch_mark"] = old_watch.fillna(False).astype(bool)
+    result["hole_candidate"] = hole.fillna(False).astype(bool)
+    result["watch_horse"] = watch.fillna(False).astype(bool)
+    return result
+
+
+def _numeric_series(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(pd.NA, index=df.index, dtype="Float64")
+    return pd.to_numeric(df[column], errors="coerce")
+
+
+def _first_numeric_series(df: pd.DataFrame, columns: list[str]) -> pd.Series:
+    result = pd.Series(pd.NA, index=df.index, dtype="Float64")
+    for column in columns:
+        if column not in df.columns:
+            continue
+        values = pd.to_numeric(df[column], errors="coerce")
+        result = result.where(result.notna(), values)
+    return result
+
+
+def _text_series(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series("", index=df.index)
+    return df[column].map(_text_value)
+
+
+def _bool_series(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(False, index=df.index)
+    return df[column].map(_truthy).fillna(False).astype(bool)
+
+
+def _safe_float(value: Any) -> float | None:
+    try:
+        if value is None or pd.isna(value):
+            return None
+    except Exception:
+        if value is None:
+            return None
+    try:
+        number = pd.to_numeric(value, errors="coerce")
+    except Exception:
+        return None
+    try:
+        if pd.isna(number):
+            return None
+    except Exception:
+        return None
+    return float(number)
+
+
+def _first_numeric_value(row: pd.Series, columns: list[str]) -> float | None:
+    for column in columns:
+        if column not in row.index:
+            continue
+        value = _safe_float(row.get(column))
+        if value is not None:
+            return value
+    return None
+
+
+def _recent_index_range(row: pd.Series) -> float | None:
+    values: list[float] = []
+    raw_prev = row.get("_prev_values")
+    if isinstance(raw_prev, list):
+        for value in raw_prev:
+            number = _safe_float(value)
+            if number is not None:
+                values.append(number)
+    for column in ["3走前", "2走前", "前走", "race3", "race2", "race1"]:
+        value = _safe_float(row.get(column))
+        if value is not None:
+            values.append(value)
+    if len(values) < 2:
+        return None
+    return max(values) - min(values)
+
+
+def _training_grade(row: pd.Series) -> str:
+    text = ""
+    for column in ["調教評価", "_oikiri_grade", "追切評価"]:
+        text = _text_value(row.get(column))
+        if text:
+            break
+    if not text:
+        return ""
+    upper = text.upper()
+    for grade in ("S", "A", "B", "C", "D"):
+        if grade in upper:
+            return grade
+    if "◎" in text:
+        return "A"
+    if "○" in text:
+        return "B"
+    if "▲" in text:
+        return "C"
+    return ""
+
+
+def _text_value(value: Any) -> str:
+    try:
+        if value is None or pd.isna(value):
+            return ""
+    except Exception:
+        if value is None:
+            return ""
+    text = str(value).strip()
+    if text.lower() in {"", "nan", "none", "<na>", "nat", "-"}:
+        return ""
+    return text
+
+
+def _truthy(value: Any) -> bool:
+    try:
+        if value is None or pd.isna(value):
+            return False
+    except Exception:
+        if value is None:
+            return False
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    return text in {"true", "1", "yes", "y", "○", "あり"}
+
+
+def _bool_label(value: Any) -> str:
+    return "○" if _truthy(value) else ""
+
+
+def _unique(values: list[str]) -> list[str]:
+    result: list[str] = []
+    for value in values:
+        if value and value not in result:
+            result.append(value)
+    return result
+
+
+def _export_clean_frame(df: pd.DataFrame) -> pd.DataFrame:
+    frame = df.copy()
+    frame = frame.astype("object")
+    return frame.where(pd.notna(frame), "")
+
+
+def _escape_markdown_cell(value: Any) -> str:
+    text = _text_value(value)
+    return text.replace("|", "\\|").replace("\n", "<br>")

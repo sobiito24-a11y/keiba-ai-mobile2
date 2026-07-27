@@ -246,6 +246,12 @@ class _Canvas:
             ability = _pick(row, "能力評価")
             stability = _pick(row, "安定評価")
             market = _pick(row, "市場評価")
+            ability_value = _format_number(_pick(row, "能力評価値", "ability_display_score", "raw_score"))
+            ai_rank = _clean(_pick(row, "AI順位", "ai_rank"))
+            if ai_rank and not ai_rank.endswith("位"):
+                ai_rank = f"{_format_number(ai_rank)}位"
+            axis_confidence = _clean(_pick(row, "軸信頼度", "axis_confidence"))
+            axis_reason = _clean(_pick(row, "軸信頼度理由", "axis_confidence_reason"))
             ai = _format_number(_pick(row, "AI点"))
             class_shift = _pick(row, "クラス変動") or "-"
             material = _pick(row, "評価／検討材料", "評価/検討材料", "評価材料") or "-"
@@ -257,6 +263,13 @@ class _Canvas:
                 _pick(row, "対戦評価", "対戦材料", "対戦") if is_nar else _pick(row, "調教評価", "調教/評価/検討材料", "状態材料")
             ) or ("未評価" if is_nar else "未取得")
             stable_comment = _pick(row, "厩舎コメント", "新聞コメント") if not is_nar else ""
+            audit_labels = _join_nonempty(
+                [
+                    "穴候補" if _truthy_display(_pick(row, "穴候補", "hole_candidate")) else "",
+                    "注意馬" if _truthy_display(_pick(row, "注意馬", "watch_horse")) else "",
+                ],
+                sep=" / ",
+            )
 
             title = _join_nonempty([str(mark), str(no), str(name)], sep=" ")
             lines = [
@@ -265,6 +278,9 @@ class _Canvas:
                 f"騎手：{jockey_detail}",
                 _join_nonempty([f"単勝：{odds}" if odds else "単勝：―", f"AI点：{ai}" if ai else ""], sep="　"),
                 _join_nonempty([f"能力{ability}" if ability else "", f"安定{stability}" if stability else "", f"市場{market}" if market else ""], sep="　"),
+                _join_nonempty([f"能力評価値：{ability_value}" if ability_value else "", f"AI順位：{ai_rank}" if ai_rank else "", f"軸信頼度：{axis_confidence}" if axis_confidence else ""], sep="　"),
+                f"軸理由：{axis_reason}" if axis_reason else "",
+                f"分類：{audit_labels}" if audit_labels else "",
                 _join_nonempty([f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
                 f"材料：{material}",
                 f"タイプ：{horse_type}",
@@ -883,6 +899,15 @@ def _clean(value: Any) -> str:
     text = str(value)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
+
+
+def _truthy_display(value: Any) -> bool:
+    if _is_missing(value):
+        return False
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    return text in {"true", "1", "yes", "y", "○", "あり"}
 
 
 def _clean_multiline(value: Any) -> str:

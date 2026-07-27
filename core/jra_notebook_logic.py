@@ -14,6 +14,8 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
+from .audit_features import add_audit_evaluation_columns
+
 
 USER_AGENT = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
@@ -4985,6 +4987,14 @@ def final_mark_class_score(row):
 
 
 def add_final_marks_v1_legacy(df, running_info=None):
+    """Legacy Ver1.0 final-mark scorer kept for notebook parity checks.
+
+    This function is not used by the normal Keiba AI Mobile prediction path.
+    The active add_final_marks() keeps AI点 as the ability score and adds only
+    class/state/pace/matchup corrections, while this legacy scorer also mixes
+    AI rank, index ranks, market value, venue, newspaper, and oikiri material
+    into the final mark score.
+    """
     df = df.copy()
     df = df.drop(columns=["最終印", "展開印", "印理由", "クラス根拠", "_最終印点", "_最終印順", "_穴評価点", "補正AI点", "_course_hole"], errors="ignore")
     if df.empty:
@@ -8178,6 +8188,30 @@ def _ver30_ai_point_display(row):
     return f"{ai_value:.1f}"
 
 
+def _ver30_audit_score_display(row):
+    value = _ver30_num(row, "ability_display_score", "raw_score", "_raw_score")
+    if value is None:
+        return "-"
+    return f"{value:.1f}"
+
+
+def _ver30_audit_rank_display(row):
+    value = _ver30_num(row, "ai_rank", "AI順位", "_馬_AI順位")
+    if value is None:
+        return "-"
+    return f"{int(value)}位"
+
+
+def _ver30_audit_bool_label(value):
+    try:
+        if value is None or pd.isna(value):
+            return ""
+    except Exception:
+        if value is None:
+            return ""
+    return "○" if bool(value) else ""
+
+
 def _ver30_class_shift_short(row):
     text = _ver30_pick_text(row, ["クラス変動", "クラス判定", "クラス"])
     if not text:
@@ -8581,6 +8615,10 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
             "能力評価": row.get("_Ver30能力評価", ""),
             "安定評価": row.get("_Ver30安定評価", ""),
             "市場評価": row.get("_Ver30市場評価", ""),
+            "能力評価値": _ver30_audit_score_display(row),
+            "AI順位": _ver30_audit_rank_display(row),
+            "軸信頼度": _ver30_text_value(row.get("axis_confidence", "")) or "-",
+            "軸信頼度理由": _ver30_text_value(row.get("axis_confidence_reason", "")) or "-",
             "AI点": _ver30_ai_point_display(row),
             "クラス変動": _ver30_class_shift_short(row),
         }
@@ -8592,6 +8630,8 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
         base.update({
             "評価／検討材料": _ver30_material_tags(row, race_type),
             "馬タイプ": row.get("_馬タイプ", ""),
+            "穴候補": _ver30_audit_bool_label(row.get("hole_candidate")),
+            "注意馬": _ver30_audit_bool_label(row.get("watch_horse")),
             "一言コメント": row.get("_Ver30コメント", ""),
         })
         rows.append(base)
@@ -10041,10 +10081,11 @@ def _run_jra_notebook_body(
     if "_最終印点" in result_df.columns:
         result_df["総合評価点"] = pd.to_numeric(result_df["_最終印点"], errors="coerce").round(1)
     result_df = add_purchase_value_columns(result_df)
+    result_df = add_audit_evaluation_columns(result_df, race_type="jra")
     result_df = prepare_jra_display_columns(result_df)
 
 
-    display_cols = ["最終印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "★最高指数", "調教/評価/検討材料"]
+    display_cols = ["最終印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "★最高指数", "調教/評価/検討材料", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "axis_confidence", "axis_confidence_reason", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
     print(f"レース: {race_info.get('race_name', '')} / {race_info.get('race_data', '')}")
     print(f"抽出頭数: {len(result_df)}")
     print_jra_venue_profile(detected_venue, venue_profile, bool(style_html_input))

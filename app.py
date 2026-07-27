@@ -12,6 +12,12 @@ import pandas as pd
 import requests
 import streamlit as st
 
+from core.audit_features import (
+    audit_table_to_csv_bytes,
+    audit_table_to_json_bytes,
+    audit_table_to_markdown,
+    build_audit_export_table,
+)
 from core.jra_predictor import predict_jra
 from core.html_classifier import (
     DISPLAY_ORDER,
@@ -931,6 +937,9 @@ HORSE_EVALUATION_COLUMNS = [
     "能力評価",
     "安定評価",
     "市場評価",
+    "能力評価値",
+    "AI順位",
+    "軸信頼度",
     "AI点",
     "クラス変動",
     "対戦評価",
@@ -938,12 +947,45 @@ HORSE_EVALUATION_COLUMNS = [
     "厩舎コメント",
     "評価／検討材料",
     "馬タイプ",
+    "穴候補",
+    "注意馬",
     "一言コメント",
+]
+
+AUDIT_EVALUATION_COLUMNS = [
+    "馬番",
+    "馬名",
+    "旧AI点",
+    "old_ai_score",
+    "raw_score",
+    "能力評価値",
+    "ability_display_score",
+    "正規化AI点",
+    "normalized_ai_score",
+    "AI順位",
+    "ai_rank",
+    "旧印",
+    "old_final_mark",
+    "総合評価監査点",
+    "final_mark_score",
+    "市場評価点",
+    "market_score",
+    "軸信頼度",
+    "axis_confidence",
+    "軸信頼度理由",
+    "axis_confidence_reason",
+    "旧✓",
+    "old_watch_mark",
+    "穴候補",
+    "hole_candidate",
+    "注意馬",
+    "watch_horse",
 ]
 
 
 def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
     render_colab_style_result(result)
+    render_audit_details(result)
 
     st.divider()
     st.subheader("スマホ用PNG")
@@ -1052,6 +1094,42 @@ def render_horse_evaluation(result: PredictionResult) -> None:
         st.markdown(horse_evaluation_card_html(row, result.race_mode), unsafe_allow_html=True)
 
 
+def render_audit_details(result: PredictionResult) -> None:
+    table = result.overall_table
+    if table is None or getattr(table, "empty", False) or not existing_columns(table, AUDIT_EVALUATION_COLUMNS):
+        table = result.horse_evaluation
+    if table is None or getattr(table, "empty", False):
+        return
+    audit_table = build_audit_export_table(table)
+    if audit_table.empty:
+        return
+    with st.expander("監査モード：評価値詳細", expanded=False):
+        st.dataframe(audit_table, use_container_width=True, hide_index=True)
+        col1, col2, col3 = st.columns(3)
+        base_name = make_download_file_name(result).replace(".png", "")
+        col1.download_button(
+            "監査CSV",
+            data=audit_table_to_csv_bytes(audit_table),
+            file_name=f"{base_name}_audit.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+        col2.download_button(
+            "監査JSON",
+            data=audit_table_to_json_bytes(audit_table),
+            file_name=f"{base_name}_audit.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+        col3.download_button(
+            "監査MD",
+            data=audit_table_to_markdown(audit_table).encode("utf-8"),
+            file_name=f"{base_name}_audit.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+
+
 def render_attention_horses(result: PredictionResult) -> None:
     st.subheader("注目馬")
     blocks = [clean_multiline(block) for block in result.attention_horses if clean_multiline(block)]
@@ -1074,6 +1152,12 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
     ability = pick(row, "能力評価")
     stability = pick(row, "安定評価")
     market = pick(row, "市場評価")
+    ability_value = format_number(pick(row, "能力評価値", "ability_display_score", "raw_score"))
+    ai_rank = clean_text(pick(row, "AI順位", "ai_rank"))
+    if ai_rank and not ai_rank.endswith("位"):
+        ai_rank = f"{format_number(ai_rank)}位"
+    axis_confidence = clean_text(pick(row, "軸信頼度", "axis_confidence"))
+    axis_reason = clean_text(pick(row, "軸信頼度理由", "axis_confidence_reason"))
     ai = format_number(pick(row, "AI点"))
     class_shift = pick(row, "クラス変動") or "-"
     material = pick(row, "評価／検討材料", "評価/検討材料", "評価材料") or "-"
@@ -1086,6 +1170,13 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
         else pick(row, "調教評価", "調教/評価/検討材料", "状態材料")
     ) or ("未評価" if race_mode == "nar" else "未取得")
     stable_comment = pick(row, "厩舎コメント", "新聞コメント") if race_mode == "jra" else ""
+    audit_labels = join_nonempty(
+        [
+            "穴候補" if clean_text(pick(row, "穴候補", "hole_candidate")) in ("○", "True", "true", "1") else "",
+            "注意馬" if clean_text(pick(row, "注意馬", "watch_horse")) in ("○", "True", "true", "1") else "",
+        ],
+        sep=" / ",
+    )
     card_class = "ka-horse-card watch" if "✓" in str(mark) else "ka-horse-card"
     title = join_nonempty([mark, no, name], sep=" ")
     lines = [
@@ -1094,6 +1185,9 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
         f"騎手：{jockey_detail}",
         join_nonempty([f"単勝：{odds}" if odds else "単勝：―", f"AI点：{ai}" if ai else ""], sep="　"),
         join_nonempty([f"能力 {ability}" if ability else "", f"安定 {stability}" if stability else "", f"市場 {market}" if market else ""], sep="　"),
+        join_nonempty([f"能力評価値：{ability_value}" if ability_value else "", f"AI順位：{ai_rank}" if ai_rank else "", f"軸信頼度：{axis_confidence}" if axis_confidence else ""], sep="　"),
+        f"軸理由：{axis_reason}" if axis_reason else "",
+        f"分類：{audit_labels}" if audit_labels else "",
         join_nonempty([f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
         f"評価材料：{material}",
         f"馬タイプ：{horse_type}",
