@@ -8546,10 +8546,11 @@ def _watch_mark_text_series(df, column):
 
 
 def apply_watch_marks(df, race_type="nar"):
-    """Ver3.0 UI layer: keep old watch marks separate from display ✓ hole marks.
+    """Ver3.0 UI layer: keep old watch materials separate from ✓ hole marks.
 
     This does not change AI点, 総合評価, 補正値, or the top-five mark ordering.
-    ✓ is assigned only to non-core marked horses that still have watch material.
+    ✓ is assigned to at most two non-core horses with stronger buying material.
+    Other watch-material horses remain unmarked and are kept as 注意馬.
     """
     if df is None or len(df) == 0 or "最終印" not in df.columns:
         return df
@@ -8605,14 +8606,47 @@ def apply_watch_marks(df, race_type="nar"):
 
     watch_candidate = (~core_mark) & (~data_shortage) & (class_down | single_or_payout_comment | pace_favorable | high_eval | other_watch)
     if bool(watch_candidate.any()):
-        result.loc[watch_candidate, "最終印"] = "✓"
+        final_score = pd.to_numeric(
+            result.get("_最終印点", result.get("総合評価点", pd.Series(0, index=result.index))),
+            errors="coerce",
+        ).fillna(0)
+        market_score = pd.to_numeric(
+            result.get("市場反映勝率", result.get("推定勝率", pd.Series(0, index=result.index))),
+            errors="coerce",
+        ).fillna(0)
+        expected_value = pd.to_numeric(result.get("単勝期待値", pd.Series(0, index=result.index)), errors="coerce").fillna(0)
+        candidate_score = final_score.copy()
+        candidate_score += ability_level.reindex(result.index).fillna(0) * 2.0
+        candidate_score += stability_level.reindex(result.index).fillna(0) * 1.0
+        candidate_score += market_level.reindex(result.index).fillna(0) * 1.0
+        candidate_score += class_down.reindex(result.index).fillna(False).astype(float) * 3.0
+        candidate_score += single_or_payout_comment.reindex(result.index).fillna(False).astype(float) * 3.0
+        candidate_score += pace_favorable.reindex(result.index).fillna(False).astype(float) * 2.0
+        candidate_score += other_watch.reindex(result.index).fillna(False).astype(float) * 1.5
+        candidate_score += odds.ge(10).reindex(result.index).fillna(False).astype(float) * 1.0
+        candidate_score += odds.ge(20).reindex(result.index).fillna(False).astype(float) * 0.8
+        candidate_score += expected_value.ge(1.10).astype(float) * 2.0
+        candidate_score += market_score.rank(method="min", ascending=False).le(6).fillna(False).astype(float) * 0.8
+        candidate_score = candidate_score.where(watch_candidate, -999999)
+
+        selected_index = candidate_score.sort_values(ascending=False).head(2).index
+        selected_mask = pd.Series(False, index=result.index)
+        selected_mask.loc[[idx for idx in selected_index if bool(watch_candidate.loc[idx])]] = True
+        watch_only = watch_candidate & ~selected_mask
+
+        result.loc[selected_mask, "最終印"] = "✓"
         if "_最終印順" in result.columns:
-            result.loc[watch_candidate, "_最終印順"] = 5
+            result.loc[selected_mask, "_最終印順"] = 5
         if "印理由" in result.columns:
-            reason = result.loc[watch_candidate, "印理由"].fillna("").astype(str)
-            reason = reason.where(reason.eq("") | reason.str.contains("注意馬", na=False), reason + " / 注意馬")
-            reason = reason.mask(reason.eq(""), "注意馬")
-            result.loc[watch_candidate, "印理由"] = reason
+            hole_reason = result.loc[selected_mask, "印理由"].fillna("").astype(str)
+            hole_reason = hole_reason.where(hole_reason.eq("") | hole_reason.str.contains("穴候補", na=False), hole_reason + " / 穴候補")
+            hole_reason = hole_reason.mask(hole_reason.eq(""), "穴候補")
+            result.loc[selected_mask, "印理由"] = hole_reason
+
+            watch_reason = result.loc[watch_only, "印理由"].fillna("").astype(str)
+            watch_reason = watch_reason.where(watch_reason.eq("") | watch_reason.str.contains("注意馬", na=False), watch_reason + " / 注意馬")
+            watch_reason = watch_reason.mask(watch_reason.eq(""), "注意馬")
+            result.loc[watch_only, "印理由"] = watch_reason
     return result
 
 
