@@ -885,7 +885,7 @@ def validate_result(result: PredictionResult) -> None:
 
 
 OVERALL_DETAIL_COLUMNS = [
-    "最終印",
+    "表示印",
     "展開印",
     "馬番",
     "馬名",
@@ -913,7 +913,7 @@ OVERALL_DETAIL_COLUMNS = [
 ]
 
 OVERALL_SIMPLE_COLUMNS = [
-    "最終印",
+    "表示印",
     "展開印",
     "馬番",
     "馬名",
@@ -929,9 +929,11 @@ OVERALL_SIMPLE_COLUMNS = [
 HORSE_EVALUATION_COLUMNS = [
     "馬番",
     "印",
+    "表示印",
     "馬名",
     "馬年齢",
     "騎手",
+    "脚質",
     "単勝オッズ",
     "斤量詳細",
     "騎手詳細",
@@ -981,6 +983,11 @@ AUDIT_EVALUATION_COLUMNS = [
     "race_difficulty_reason",
     "表示コメント",
     "display_comment",
+    "表示印",
+    "display_mark",
+    "脚質",
+    "脚質表示",
+    "running_style_display",
     "旧✓",
     "old_watch_mark",
     "穴候補",
@@ -1175,11 +1182,12 @@ def render_attention_horses(result: PredictionResult) -> None:
 
 
 def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
-    mark = pick(row, "印", "最終印")
+    mark = display_mark_from_row(row)
     no = pick(row, "馬番", "馬")
     name = pick(row, "馬名")
     horse_age = pick(row, "馬年齢", "性齢", "馬齢") or "データなし"
     jockey = pick(row, "騎手", "jockey") or "―"
+    style = display_running_style_from_row(row) or "データなし"
     weight_detail = pick(row, "斤量詳細")
     jockey_detail = pick(row, "騎手詳細") or jockey
     odds = format_odds(pick(row, "単勝オッズ", "オッズ", "単勝"))
@@ -1208,6 +1216,7 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
     title = join_nonempty([mark, no, name], sep=" ")
     lines = [
         f"馬年齢：{horse_age}",
+        f"脚質：{style}",
         f"斤量：{weight_detail}" if weight_detail else "",
         f"騎手：{jockey_detail}",
         f"単勝：{odds}" if odds else "単勝：―",
@@ -1224,6 +1233,29 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
         lines.append(f"コメント：{comment}")
     content = "<br>".join(plain_text_to_html(line) for line in lines if clean_text(line))
     return f'<div class="{card_class}"><div class="ka-horse-title">{plain_text_to_html(title)}</div><div class="ka-horse-meta">{content}</div></div>'
+
+
+def display_mark_from_row(row: dict[str, Any]) -> str:
+    if "表示印" in row:
+        return clean_text(row.get("表示印"))
+    if "display_mark" in row:
+        return clean_text(row.get("display_mark"))
+    return clean_text(pick(row, "印", "最終印"))
+
+
+def display_running_style_from_row(row: dict[str, Any]) -> str:
+    text = clean_text(pick(row, "脚質表示", "running_style_display", "脚質", "running_style", "style"))
+    if not text:
+        return ""
+    if "逃" in text:
+        return "逃げ"
+    if "先" in text:
+        return "先行"
+    if "差" in text:
+        return "差し"
+    if "追" in text:
+        return "追込"
+    return text
 
 
 def shorten_text(value: Any, max_len: int) -> str:

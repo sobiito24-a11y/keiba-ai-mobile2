@@ -108,6 +108,43 @@ class NarDataShortageTest(unittest.TestCase):
         self.assertEqual(mobile_png._clean(pd.NA), "")
         self.assertEqual(mobile_png._join_nonempty([pd.NA, "A", ""], sep="/"), "A")
 
+    def test_nar_display_weight_and_jockey_details_from_display_only_fields(self) -> None:
+        switched = pd.Series(
+            {
+                "_current_load_weight": 57.0,
+                "_display_previous_load_weight": 56.0,
+                "_display_load_weight_change": 1.0,
+                "_current_jockey": "今回騎手",
+                "_display_previous_jockey": "前走騎手",
+                "_display_jockey_changed": True,
+            }
+        )
+        continued = pd.Series(
+            {
+                "_current_load_weight": 56.0,
+                "_display_previous_load_weight": 56.0,
+                "_display_load_weight_change": 0.0,
+                "_current_jockey": "継続騎手",
+                "_display_previous_jockey": "継続騎手",
+                "_display_jockey_changed": False,
+            }
+        )
+        missing_previous = pd.Series({"斤量": "55.0", "騎手": "不明騎手"})
+
+        self.assertEqual(nar_logic._ver30_load_weight_detail(switched), "57.0kg（前走比＋1.0kg）")
+        self.assertEqual(nar_logic._ver30_jockey_detail(switched), "前走騎手 → 今回騎手【乗り替わり】")
+        self.assertEqual(nar_logic._ver30_load_weight_detail(continued), "56.0kg（前走比±0.0kg）")
+        self.assertEqual(nar_logic._ver30_jockey_detail(continued), "継続騎手【継続】")
+        self.assertEqual(nar_logic._ver30_load_weight_detail(missing_previous), "55.0kg（前走データなし）")
+        self.assertEqual(nar_logic._ver30_jockey_detail(missing_previous), "不明騎手【前走データなし】")
+
+    def test_running_style_display_normalization(self) -> None:
+        self.assertEqual(nar_logic._ver30_display_running_style("逃"), "逃げ")
+        self.assertEqual(nar_logic._ver30_display_running_style("先行"), "先行")
+        self.assertEqual(nar_logic._ver30_display_running_style("差し"), "差し")
+        self.assertEqual(nar_logic._ver30_display_running_style("追い込み"), "追込")
+        self.assertEqual(mobile_png._display_running_style({"脚質": "追"}), "追込")
+
 
 if __name__ == "__main__":
     unittest.main()

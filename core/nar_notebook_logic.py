@@ -435,6 +435,21 @@ def parse_float_from_text(text):
     return float(match.group(0)) if match else None
 
 
+def parse_bool_from_text(text):
+    value = str(text or "").strip().lower()
+    return value in {"true", "1", "yes", "y", "○", "あり", "替", "乗り替わり", "乗替"}
+
+
+def display_attr(row, name):
+    if row is None:
+        return ""
+    try:
+        value = row.get(f"data-display-{name}", "")
+    except Exception:
+        return ""
+    return str(value or "").strip()
+
+
 def is_same_racecourse(current, past):
     current_course = current.get("racecourse") or ""
     past_course = past.get("racecourse") or ""
@@ -972,6 +987,13 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
         jockey = visible_text(first(row, [".Jockey"]))
         odds = parse_float_from_text(visible_text(first(row, [".Speed_List07", ".sk__odds", ".Odds"])))
         popularity = parse_int_from_text(visible_text(first(row, [".Speed_List08", ".sk__ninki", ".Ninki"])))
+        display_current_load_weight = parse_float_from_text(display_attr(row, "current-load-weight"))
+        display_previous_load_weight = parse_float_from_text(display_attr(row, "previous-load-weight"))
+        display_load_weight_change = parse_float_from_text(display_attr(row, "load-weight-change"))
+        display_current_jockey = display_attr(row, "current-jockey")
+        display_previous_jockey = display_attr(row, "previous-jockey")
+        display_jockey_changed_text = display_attr(row, "jockey-changed")
+        display_jockey_changed = parse_bool_from_text(display_jockey_changed_text) if display_jockey_changed_text else None
         max_index = parse_index_cell(first(row, [".Speed_List03", ".sk__max_index", ".MaxIndex"]))["value"]
         avg5_index = parse_index_cell(first(row, [".Speed_List04", ".sk__avg5_index", ".Avg5Index"]))["value"]
         distance_index = parse_index_cell(first(row, [".Speed_List05", ".sk__max_distance_index"]))["value"]
@@ -1104,6 +1126,12 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
             "_previous_load_weight": previous_load_weight,
             "_current_load_weight": current_load_weight,
             "_load_weight_change": load_weight_change,
+            "_display_previous_load_weight": display_previous_load_weight,
+            "_display_current_load_weight": display_current_load_weight,
+            "_display_load_weight_change": display_load_weight_change,
+            "_display_previous_jockey": display_previous_jockey,
+            "_display_current_jockey": display_current_jockey,
+            "_display_jockey_changed": display_jockey_changed,
             "_load_weight_adjustment": load_weight_index_adjustment(load_weight_change),
             "_race_distance": current.get("distance"),
             "_days_since_last": days_since_last,
@@ -4213,7 +4241,7 @@ def remove_betting_output_columns(df):
 
 
 FINAL_MARK_SEQUENCE = ["◎", "○", "▲", "△", "△", "✓"]
-FINAL_MARK_LABELS = {"◎": "本命", "○": "対抗", "▲": "単穴", "△": "抑え", "✓": "見逃し注意"}
+FINAL_MARK_LABELS = {"◎": "本命", "○": "対抗", "▲": "単穴", "△": "抑え", "✓": "穴候補"}
 
 
 def final_mark_class_basis(row):
@@ -7684,14 +7712,20 @@ def _ver30_signed_kg(value):
 
 
 def _ver30_load_weight_detail(row):
-    current = _ver30_float_value(row.get("_current_load_weight"))
+    current = _ver30_float_value(row.get("_display_current_load_weight"))
+    if current is None:
+        current = _ver30_float_value(row.get("_current_load_weight"))
     if current is None:
         current = _ver30_float_value(row.get("斤量"))
     if current is None:
         return "データなし"
 
-    previous = _ver30_float_value(row.get("_previous_load_weight"))
-    change = _ver30_float_value(row.get("_load_weight_change"))
+    previous = _ver30_float_value(row.get("_display_previous_load_weight"))
+    if previous is None:
+        previous = _ver30_float_value(row.get("_previous_load_weight"))
+    change = _ver30_float_value(row.get("_display_load_weight_change"))
+    if change is None:
+        change = _ver30_float_value(row.get("_load_weight_change"))
     if change is None and previous is not None:
         change = current - previous
 
@@ -7702,16 +7736,36 @@ def _ver30_load_weight_detail(row):
 
 
 def _ver30_jockey_detail(row):
-    current = _ver30_text_value(row.get("_current_jockey")) or _ver30_text_value(row.get("騎手"))
-    previous = _ver30_text_value(row.get("_previous_jockey"))
+    current = (
+        _ver30_text_value(row.get("_display_current_jockey"))
+        or _ver30_text_value(row.get("_current_jockey"))
+        or _ver30_text_value(row.get("騎手"))
+    )
+    previous = _ver30_text_value(row.get("_display_previous_jockey")) or _ver30_text_value(row.get("_previous_jockey"))
     if not current:
         return "データなし"
     if not previous:
         return f"{current}【前走データなし】"
-    changed = _nar_safe_bool(row.get("_jockey_changed"), False)
+    changed_value = row.get("_display_jockey_changed")
+    if _ver30_text_value(changed_value) == "":
+        changed_value = row.get("_jockey_changed")
+    changed = _nar_safe_bool(changed_value, False)
     if changed:
         return f"{previous} → {current}【乗り替わり】"
     return f"{current}【継続】"
+
+
+def _ver30_display_running_style(value):
+    style = normalize_running_style(value)
+    if style == "逃":
+        return "逃げ"
+    if style == "先":
+        return "先行"
+    if style == "差":
+        return "差し"
+    if style == "追":
+        return "追込"
+    return _ver30_text_value(value) or "データなし"
 
 
 def _ver30_short_text(value, max_len=72):
@@ -7993,10 +8047,12 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
     for _, row in work.sort_values(["_Ver30印順", "_Ver30能力Lv", "_Ver30市場Lv"], ascending=[True, False, False]).iterrows():
         base = {
             "馬番": row.get("_馬_馬番", ""),
-            "印": _nar_safe_text(row.get("_馬_印")) or "無印",
+            "印": _nar_safe_text(row.get("display_mark")) or "無印",
+            "表示印": _nar_safe_text(row.get("display_mark")),
             "馬名": _nar_safe_text(row.get("_馬_馬名")),
             "馬年齢": _ver30_text_value(row.get("馬年齢", "")) or _ver30_text_value(row.get("性齢", "")) or "データなし",
             "騎手": _ver30_text_value(row.get("騎手", "")) or "―",
+            "脚質": _ver30_display_running_style(row.get("脚質", "")),
             "単勝オッズ": _ver30_format_odds(row.get("_馬_単勝")),
             "斤量詳細": _ver30_load_weight_detail(row),
             "騎手詳細": _ver30_jockey_detail(row),
@@ -8065,7 +8121,7 @@ def print_ver30_attention_horses(df, race_type="nar"):
         print("明確な注目馬は絞り込めませんでした。")
         return
     for _, row in selected.iterrows():
-        mark = _nar_safe_text(row.get("_馬_印")) or "無印"
+        mark = _nar_safe_text(row.get("display_mark")) or "無印"
         print("")
         print(_ver30_horse_label(row))
         print(f"印：{mark}")
@@ -8223,10 +8279,10 @@ def print_ver30_ai_race_review(df, race_info=None, running_style_info=None, conf
     else:
         print("ゴール前では上位評価馬の比較を中心に、相手候補の差を確認したいです。")
     if watch_text:
-        print(f"展開有利や見逃し注意では{watch_text}も確認しておきたいです。")
+        print(f"展開有利や注意馬では{watch_text}も確認しておきたいです。")
     if not confidence_summary.get("has_honmei", True):
         print("市場との評価乖離が大きく、本命不在の混戦評価です。印上位を絶対視せず、馬評価を確認したいレースです。")
-    print("全体としては、展開有利・能力上位・見逃し注意の材料をあわせて最終判断したい構成です。")
+    print("全体としては、展開有利・能力上位・注意馬の材料をあわせて最終判断したい構成です。")
 
 
 def _ver30_find_value_horse(work):
@@ -8278,7 +8334,7 @@ def print_ver30_betting_structure(df, confidence_summary=None, race_type="nar"):
         print("中心候補はいますが、相手候補の評価差が小さいため、単勝一本よりも相手との組み合わせを検討したいレースです。")
 
     if value_horse is not None:
-        mark = value_horse.get("_馬_印", "") or "無印"
+        mark = _nar_safe_text(value_horse.get("display_mark")) or "無印"
         label = _ver30_horse_label(value_horse)
         print(f"{mark}・{label}は単勝オッズと能力材料の差を確認できるため、単勝・複勝を少額で検討する選択肢があります。")
 
@@ -8294,7 +8350,7 @@ def _watch_mark_text_series(df, column):
 
 
 def apply_watch_marks(df, race_type="nar"):
-    """Ver3.0 UI layer: replace the old ☆ hole mark with ✓見逃し注意.
+    """Ver3.0 UI layer: keep old watch marks separate from display ✓ hole marks.
 
     This does not change AI点, 総合評価, 補正値, or the top-five mark ordering.
     ✓ is assigned only to non-core marked horses that still have watch material.
@@ -8358,8 +8414,8 @@ def apply_watch_marks(df, race_type="nar"):
             result.loc[watch_candidate, "_最終印順"] = 5
         if "印理由" in result.columns:
             reason = result.loc[watch_candidate, "印理由"].fillna("").astype(str)
-            reason = reason.where(reason.eq("") | reason.str.contains("見逃し注意", na=False), reason + " / 見逃し注意")
-            reason = reason.mask(reason.eq(""), "見逃し注意")
+            reason = reason.where(reason.eq("") | reason.str.contains("注意馬", na=False), reason + " / 注意馬")
+            reason = reason.mask(reason.eq(""), "注意馬")
             result.loc[watch_candidate, "印理由"] = reason
     return result
 
@@ -8398,7 +8454,7 @@ def print_target_horse_adjustment_audit(df, horse_no=12, horse_name_keyword="ヤ
     detail_rows = [
         {"項目": "馬番", "値": _target_audit_value(row, "馬番"), "補足": ""},
         {"項目": "馬名", "値": _target_audit_value(row, "馬名"), "補足": ""},
-        {"項目": "最終印", "値": _target_audit_value(row, "最終印"), "補足": "✓は見逃し注意で、購入推奨ではありません。"},
+        {"項目": "最終印", "値": _target_audit_value(row, "最終印"), "補足": "旧最終印です。通常表示の✓は穴候補、注意馬は別表示です。"},
         {"項目": "AI点", "値": _target_audit_value(row, "AI点"), "補足": "タイム指数中心の能力評価。"},
         {"項目": "総合評価", "値": _target_audit_value(row, "総合評価", "総合評価点", "_最終印点"), "補足": "AI点に条件補正を加えた評価。"},
         {"項目": "補正値", "値": correction_value, "補足": "総合評価－AI点。"},
@@ -8426,9 +8482,9 @@ def print_target_horse_adjustment_audit(df, horse_no=12, horse_name_keyword="ヤ
     if class_shift == "クラス降級":
         print("クラス降級材料は評価されていますが、最終順位では能力・市場・展開・対戦材料との総合比較で上位5印に届かなかった可能性があります。")
     if mark_text == "✓":
-        print("✓になった場合は、上位印ではないものの、クラス降級や展開・配当面などの見逃し材料がある馬として扱います。")
+        print("旧最終印が✓の場合は、注意馬候補として監査に保持します。通常表示の✓は穴候補のみです。")
     elif mark_text in ("", "無印"):
-        print("無印の場合は、現時点の表示材料だけでは見逃し注意条件に届いていません。")
+        print("無印の場合は、現時点の表示材料だけでは注意馬条件に届いていません。")
     print("AI点そのものの詳細な内部加点ログは現在保持していないため、距離指数・コース指数・近走指数・平均指数・最高指数を根拠として確認してください。")
 
 def print_betting_diagnosis(df, odds_html="", confidence_summary=None, race_type="nar"):
@@ -8792,12 +8848,12 @@ def add_purchase_value_columns(df):
             "単勝妙味/押さえ候補",
             "ワイド本線候補",
             "押さえ候補",
-            "単勝妙味/✓見逃し注意",
+            "単勝妙味/✓穴候補",
             "展開注意候補",
             "ワイド妙味候補",
-            "✓見逃し注意有力",
+            "✓穴候補有力",
             "妙味相手候補",
-            "✓見逃し注意候補",
+            "✓穴候補",
             "対戦ワイド候補",
             "対戦押さえ候補",
             "勝率補助候補",
@@ -9104,7 +9160,7 @@ def build_purchase_candidate_table(df, limit=8):
             "○": "相手本線",
             "▲": "連下候補",
             "△": "押さえ",
-            "✓": "見逃し注意",
+            "✓": "穴候補",
         }.get(str(mark_value or "").strip(), "")
 
     pool["買い方メモ"] = pool["印"].map(memo_for_mark)
@@ -10449,7 +10505,7 @@ def _run_nar_notebook_body(
     result_df = prepare_nar_display_columns(result_df)
 
 
-    display_cols = ["最終印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "★最高指数", "評価/検討材料", "能力評価値", "能力帯", "能力差", "レース難易度", "レース難易度理由", "表示コメント", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "axis_confidence", "axis_confidence_reason", "ability_band", "ability_gap_level", "race_difficulty", "race_difficulty_reason", "display_comment", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
+    display_cols = ["表示印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "★最高指数", "評価/検討材料", "能力評価値", "能力帯", "能力差", "レース難易度", "レース難易度理由", "表示コメント", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "axis_confidence", "axis_confidence_reason", "ability_band", "ability_gap_level", "race_difficulty", "race_difficulty_reason", "display_comment", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
     print(f"レース: {race_info.get('race_name', '')} / {race_info.get('race_data', '')}")
     print(f"抽出頭数: {len(result_df)}")
     print_venue_profile(detected_venue, venue_profile, bool(style_html_input))

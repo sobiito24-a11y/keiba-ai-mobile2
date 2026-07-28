@@ -49,7 +49,7 @@ class AbilityBandDisplayTest(unittest.TestCase):
         self.assertEqual(result.loc[4, "ability_band"], "下位帯")
 
     def test_audit_export_keeps_hidden_and_new_fields(self) -> None:
-        frame = pd.DataFrame([{"馬番": 1, "馬名": "A", "AI点": 100.0, "_raw_score": 83.2, "最終印": "◎"}])
+        frame = pd.DataFrame([{"馬番": 1, "馬名": "A", "脚質": "先", "AI点": 100.0, "_raw_score": 83.2, "最終印": "◎"}])
 
         result = add_audit_evaluation_columns(frame, race_type="jra")
         audit = build_audit_export_table(result)
@@ -64,8 +64,13 @@ class AbilityBandDisplayTest(unittest.TestCase):
             "ability_gap_level",
             "race_difficulty",
             "race_difficulty_reason",
+            "display_mark",
+            "running_style_display",
         ]:
             self.assertIn(column, audit.columns)
+        self.assertIn("表示印", audit.columns)
+        self.assertIn("脚質表示", audit.columns)
+        self.assertEqual(audit.loc[0, "脚質表示"], "先行")
 
     def test_normal_card_and_png_sources_hide_rank_first_labels(self) -> None:
         root = Path(__file__).resolve().parents[1]
@@ -77,6 +82,7 @@ class AbilityBandDisplayTest(unittest.TestCase):
             self.assertNotIn("軸理由：", source)
             self.assertIn("能力評価値：", source)
             self.assertIn("能力帯：", source)
+            self.assertIn("脚質：", source)
             self.assertIn("穴候補：該当", source)
             self.assertIn("注意馬：該当", source)
 

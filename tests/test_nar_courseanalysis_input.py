@@ -307,6 +307,28 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertIn('<td class="DataTitle_Cell">先</td>', package.html_files["style"])
         self.assertIn("<td>15</td><td>28</td><td>38</td>", package.html_files["style"])
 
+    def test_previous_weight_and_jockey_are_carried_as_display_only_attributes(self) -> None:
+        entry = base_json("entry")
+        entry["horses"][0]["previous_weight"] = "55.0"
+        entry["horses"][0]["previous_jockey"] = "前走騎手A"
+        entry["horses"][1]["前走斤量"] = "54.0"
+        entry["horses"][1]["前走騎手"] = "騎手B"
+
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("entry.json", entry),
+                upload("speed.json", base_json("speed")),
+                upload("courseanalysis.html", course_html(["先", "差", "追"])),
+            ]
+        )
+
+        speed_html = package.html_files["speed"]
+        self.assertIn('data-display-previous-load-weight="55.0"', speed_html)
+        self.assertIn('data-display-load-weight-change="1.0"', speed_html)
+        self.assertIn('data-display-previous-jockey="前走騎手A"', speed_html)
+        self.assertIn('data-display-jockey-changed="True"', speed_html)
+        self.assertIn('data-display-jockey-changed="False"', speed_html)
+
     def test_parse_nar_newspaper_html_extracts_entry_fields(self) -> None:
         data = parse_nar_newspaper_html(newspaper_html())
         self.assertEqual(data["race_id"], "202644072106")

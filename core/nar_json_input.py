@@ -23,6 +23,22 @@ from .nar_newspaper_parser import (
 
 REQUIRED_NAR_JSON_TYPES = {"entry", "speed", "courseanalysis"}
 
+CURRENT_LOAD_WEIGHT_KEYS = ("weight", "斤量", "load_weight", "current_weight", "current_load_weight")
+PREVIOUS_LOAD_WEIGHT_KEYS = (
+    "previous_weight",
+    "prev_weight",
+    "last_weight",
+    "前走斤量",
+    "previous_load_weight",
+    "prev_load_weight",
+    "last_load_weight",
+    "_previous_load_weight",
+)
+LOAD_WEIGHT_CHANGE_KEYS = ("weight_change", "load_weight_change", "前走比", "斤量増減", "_load_weight_change")
+CURRENT_JOCKEY_KEYS = ("jockey", "騎手", "current_jockey", "_current_jockey")
+PREVIOUS_JOCKEY_KEYS = ("previous_jockey", "prev_jockey", "last_jockey", "前走騎手", "_previous_jockey")
+JOCKEY_CHANGED_KEYS = ("jockey_changed", "乗り替わり", "_jockey_changed")
+
 
 class NarJsonDataError(ValueError):
     """Raised when uploaded shortcut data cannot be used for NAR prediction."""
@@ -314,12 +330,101 @@ def merge_entry_and_speed(
             merged["running_style"] = running_style
             if not _safe_text(merged.get("style")):
                 merged["style"] = running_style
+        _apply_display_detail_fields(merged, entry_horse, speed_horse)
         weight_value, weight_diff = parse_horse_weight(merged.get("horse_weight"))
         merged["horse_weight_value"] = weight_value
         merged["horse_weight_diff"] = weight_diff
         merged["_speed_horse"] = speed_horse
         merged_horses.append(merged)
     return merged_horses
+
+
+def _apply_display_detail_fields(merged: dict[str, Any], *sources: dict[str, Any]) -> None:
+    """Carry shortcut-supplied previous weight/jockey data as display-only fields."""
+
+    all_sources = (merged, *sources)
+    current_weight = _first_horse_text(all_sources, CURRENT_LOAD_WEIGHT_KEYS)
+    previous_weight = _first_horse_text(all_sources, PREVIOUS_LOAD_WEIGHT_KEYS)
+    explicit_change = _first_horse_text(all_sources, LOAD_WEIGHT_CHANGE_KEYS)
+    current_jockey = _first_horse_text(all_sources, CURRENT_JOCKEY_KEYS)
+    previous_jockey = _first_horse_text(all_sources, PREVIOUS_JOCKEY_KEYS)
+    explicit_jockey_changed = _first_horse_text(all_sources, JOCKEY_CHANGED_KEYS)
+
+    current_weight_number = _parse_float_text(current_weight)
+    previous_weight_number = _parse_float_text(previous_weight)
+    change_number = _parse_float_text(explicit_change)
+    if change_number is None and current_weight_number is not None and previous_weight_number is not None:
+        change_number = current_weight_number - previous_weight_number
+
+    if current_weight_number is not None:
+        merged["_display_current_load_weight"] = current_weight_number
+    if previous_weight_number is not None:
+        merged["_display_previous_load_weight"] = previous_weight_number
+    if change_number is not None:
+        merged["_display_load_weight_change"] = round(change_number, 3)
+    if current_jockey:
+        merged["_display_current_jockey"] = current_jockey
+    if previous_jockey:
+        merged["_display_previous_jockey"] = previous_jockey
+    if current_jockey and previous_jockey:
+        merged["_display_jockey_changed"] = _normalize_jockey_for_compare(current_jockey) != _normalize_jockey_for_compare(previous_jockey)
+    elif explicit_jockey_changed:
+        merged["_display_jockey_changed"] = _parse_bool_text(explicit_jockey_changed)
+
+
+def _display_detail_attrs(horse: dict[str, Any]) -> str:
+    attrs = []
+    for key, attr_name in (
+        ("_display_current_load_weight", "current-load-weight"),
+        ("_display_previous_load_weight", "previous-load-weight"),
+        ("_display_load_weight_change", "load-weight-change"),
+        ("_display_current_jockey", "current-jockey"),
+        ("_display_previous_jockey", "previous-jockey"),
+        ("_display_jockey_changed", "jockey-changed"),
+    ):
+        if key not in horse:
+            continue
+        value = horse.get(key)
+        if value is None:
+            continue
+        text = _safe_text(value)
+        if text:
+            attrs.append(f' data-display-{attr_name}="{_e(text)}"')
+    return "".join(attrs)
+
+
+def _first_horse_text(sources: tuple[dict[str, Any], ...], keys: tuple[str, ...]) -> str:
+    for source in sources:
+        for key in keys:
+            value = _safe_text(source.get(key))
+            if value:
+                return value
+    return ""
+
+
+def _parse_float_text(value: Any) -> float | None:
+    text = _safe_text(value).replace("＋", "+").replace("－", "-")
+    if not text:
+        return None
+    match = re.search(r"[+-]?\d+(?:\.\d+)?", text)
+    if not match:
+        return None
+    try:
+        return float(match.group(0))
+    except ValueError:
+        return None
+
+
+def _parse_bool_text(value: Any) -> bool:
+    text = _safe_text(value).lower()
+    return text in {"true", "1", "yes", "y", "○", "あり", "替", "乗り替わり", "乗替"}
+
+
+def _normalize_jockey_for_compare(value: Any) -> str:
+    text = _safe_text(value)
+    text = re.sub(r"[\(（]\s*替\s*[\)）]", "", text)
+    text = text.replace("騎手", "")
+    return re.sub(r"\s+", "", text)
 
 
 def parse_index(value: Any) -> int | None:
@@ -364,8 +469,9 @@ def build_speed_html(
     race_data_2 = _race_value(race, "race_data_2") or ""
     rows = []
     for horse in merged_horses:
+        detail_attrs = _display_detail_attrs(horse)
         rows.append(
-            '<tr class="List HorseList">'
+            f'<tr class="List HorseList"{detail_attrs}>'
             f"<td>{_e(horse.get('frame_number'))}</td>"
             f'<td><span class="Speed_List01 UmaBan">{_e(horse.get("horse_number"))}</span></td>'
             f'<td><span class="Horse_Name"><a href="https://nar.netkeiba.com/horse/{_e(horse.get("horse_id"))}">{_e(horse.get("horse_name"))}</a></span></td>'

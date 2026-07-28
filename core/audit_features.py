@@ -48,6 +48,8 @@ AUDIT_OUTPUT_COLUMNS = [
     "race_difficulty",
     "race_difficulty_reason",
     "display_comment",
+    "display_mark",
+    "running_style_display",
     "old_watch_mark",
     "hole_candidate",
     "watch_horse",
@@ -56,6 +58,8 @@ AUDIT_OUTPUT_COLUMNS = [
 AUDIT_EXPORT_COLUMNS = [
     "馬番",
     "馬名",
+    "脚質",
+    "running_style_display",
     "old_ai_score",
     "raw_score",
     "ability_display_score",
@@ -71,6 +75,7 @@ AUDIT_EXPORT_COLUMNS = [
     "race_difficulty",
     "race_difficulty_reason",
     "display_comment",
+    "display_mark",
     "old_watch_mark",
     "hole_candidate",
     "watch_horse",
@@ -88,6 +93,8 @@ AUDIT_EXPORT_COLUMNS = [
     "レース難易度",
     "レース難易度理由",
     "表示コメント",
+    "表示印",
+    "脚質表示",
     "旧✓",
     "穴候補",
     "注意馬",
@@ -152,6 +159,8 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["race_difficulty"] = ability_context.difficulty
     result["race_difficulty_reason"] = ability_context.reason
     result["display_comment"] = result.apply(_display_comment_for_row, axis=1)
+    result["display_mark"] = _display_mark_series(result)
+    result["running_style_display"] = _running_style_display_series(result)
 
     # Japanese aliases are kept for normal UI/CSV readability. They mirror the
     # snake_case audit columns and do not feed back into prediction logic.
@@ -168,6 +177,8 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["レース難易度"] = result["race_difficulty"]
     result["レース難易度理由"] = result["race_difficulty_reason"]
     result["表示コメント"] = result["display_comment"]
+    result["表示印"] = result["display_mark"]
+    result["脚質表示"] = result["running_style_display"]
     result["旧✓"] = result["old_watch_mark"].map(_bool_label)
     result["穴候補"] = result["hole_candidate"].map(_bool_label)
     result["注意馬"] = result["watch_horse"].map(_bool_label)
@@ -293,6 +304,41 @@ def _display_comment_for_row(row: pd.Series) -> str:
             return "中位帯ですが逆転余地があります。適性・展開・オッズをあわせて確認したい馬です。"
         return "能力差が小さいため、他馬との比較材料を確認したい馬です。"
     return ""
+
+
+def _display_mark_series(df: pd.DataFrame) -> pd.Series:
+    mark = _text_series(df, "old_final_mark")
+    display = pd.Series("", index=df.index, dtype="object")
+    core_mark = mark.isin(["◎", "○", "▲", "△"])
+    display.loc[core_mark] = mark.loc[core_mark]
+    hole = _bool_series(df, "hole_candidate")
+    display.loc[hole] = "✓"
+    return display
+
+
+def _running_style_display_series(df: pd.DataFrame) -> pd.Series:
+    result = pd.Series("", index=df.index, dtype="object")
+    for column in ("脚質", "running_style", "style"):
+        if column not in df.columns:
+            continue
+        values = df[column].map(_display_running_style)
+        result = result.where(result.astype(str).str.len().gt(0), values)
+    return result
+
+
+def _display_running_style(value: Any) -> str:
+    text = _text_value(value)
+    if not text:
+        return ""
+    if "逃" in text:
+        return "逃げ"
+    if "先" in text:
+        return "先行"
+    if "差" in text:
+        return "差し"
+    if "追" in text:
+        return "追込"
+    return text
 
 
 def _axis_confidence_for_row(row: pd.Series, context: AxisContext, *, race_type: str) -> tuple[str, str]:

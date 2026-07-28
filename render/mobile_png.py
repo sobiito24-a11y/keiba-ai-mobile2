@@ -129,10 +129,10 @@ class _Canvas:
         padding = 18
         line_items: list[tuple[str, bool]] = []
         for row in rows:
-            mark = str(_pick(row, "最終印", "印") or "").strip()
+            mark = _display_mark(row)
             no = str(_pick(row, "馬番", "馬") or "").strip()
             name = str(_pick(row, "馬名") or "").strip()
-            suffix = "（見逃し注意）" if "✓" in mark else ""
+            suffix = "（穴候補）" if "✓" in mark else ""
             line_items.append((_join_nonempty([mark, no, name], sep=" ") + suffix, "✓" in mark))
 
         wrapped: list[tuple[str, bool]] = []
@@ -178,12 +178,12 @@ class _Canvas:
             return
 
         for row in rows:
-            mark = _pick(row, "最終印", "印")
+            mark = _display_mark(row)
             pace_mark = _pick(row, "展開印")
             no = _pick(row, "馬番", "馬")
             name = _pick(row, "馬名")
             odds = _format_odds(_pick(row, "単勝オッズ", "オッズ", "単勝"))
-            style = _pick(row, "脚質")
+            style = _display_running_style(row)
             total = _format_number(_pick(row, "総合評価", "総合評価点", "補正AI点"))
             ability_value = _format_number(_pick(row, "能力評価値", "ability_display_score", "raw_score"))
             ability_band = _clean(_pick(row, "能力帯", "ability_band"))
@@ -259,10 +259,11 @@ class _Canvas:
         is_nar = result.race_mode == "nar"
         for row in rows:
             no = _pick(row, "馬番", "馬")
-            mark = _pick(row, "印", "最終印")
+            mark = _display_mark(row)
             name = _pick(row, "馬名")
             horse_age = _pick(row, "馬年齢", "性齢", "馬齢") or "データなし"
             jockey = _pick(row, "騎手", "jockey") or "―"
+            style = _display_running_style(row) or "データなし"
             weight_detail = _pick(row, "斤量詳細")
             jockey_detail = _pick(row, "騎手詳細") or jockey
             odds = _format_odds(_pick(row, "単勝オッズ", "オッズ", "単勝"))
@@ -290,6 +291,7 @@ class _Canvas:
             title = _join_nonempty([str(mark), str(no), str(name)], sep=" ")
             lines = [
                 f"馬年齢：{horse_age}",
+                f"脚質：{style}",
                 f"斤量：{weight_detail}" if weight_detail else "",
                 f"騎手：{jockey_detail}",
                 f"単勝：{odds}" if odds else "単勝：―",
@@ -722,10 +724,33 @@ def _conclusion_rows(result: PredictionResult) -> list[dict[str, Any]]:
         rows = _records(result.horse_evaluation)
     selected: list[dict[str, Any]] = []
     for row in rows:
-        mark = str(_pick(row, "最終印", "印") or "").strip()
+        mark = _display_mark(row)
         if mark:
             selected.append(row)
     return selected[:7]
+
+
+def _display_mark(row: dict[str, Any]) -> str:
+    if "表示印" in row:
+        return _clean(row.get("表示印"))
+    if "display_mark" in row:
+        return _clean(row.get("display_mark"))
+    return _clean(_pick(row, "印", "最終印"))
+
+
+def _display_running_style(row: dict[str, Any]) -> str:
+    text = _clean(_pick(row, "脚質表示", "running_style_display", "脚質", "running_style", "style"))
+    if not text:
+        return ""
+    if "逃" in text:
+        return "逃げ"
+    if "先" in text:
+        return "先行"
+    if "差" in text:
+        return "差し"
+    if "追" in text:
+        return "追込"
+    return text
 
 
 def _race_info_lines(result: PredictionResult) -> list[str]:
@@ -792,7 +817,7 @@ def _build_review_summary(result: PredictionResult, review: str) -> list[str]:
     text = _clean_multiline(review)
     rows = _conclusion_rows(result)
     top_rows = rows[:3]
-    watch_rows = [row for row in rows if "✓" in str(_pick(row, "最終印", "印"))]
+    watch_rows = [row for row in rows if "✓" in _display_mark(row)]
     summary: list[str] = []
 
     if "先行" in text or "前" in text:
@@ -805,7 +830,7 @@ def _build_review_summary(result: PredictionResult, review: str) -> list[str]:
     if top_rows:
         labels = []
         for row in top_rows[:2]:
-            mark = _pick(row, "最終印", "印")
+            mark = _display_mark(row)
             no = _pick(row, "馬番", "馬")
             labels.append(_join_nonempty([mark, no], sep=""))
         if labels:
@@ -815,7 +840,7 @@ def _build_review_summary(result: PredictionResult, review: str) -> list[str]:
         row = watch_rows[0]
         no = _pick(row, "馬番", "馬")
         name = _pick(row, "馬名")
-        summary.append(f"✓{no} {name}は見逃し注意")
+        summary.append(f"✓{no} {name}は穴候補")
 
     if "能力" in text:
         summary.append("能力上位馬と展開材料を照合")

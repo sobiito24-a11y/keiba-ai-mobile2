@@ -54,6 +54,8 @@ class AuditFeaturesTest(unittest.TestCase):
         self.assertNotEqual(result.loc[0, "ability_display_score"], 100.0)
         self.assertEqual(result.loc[0, "normalized_ai_score"], 100.0)
         self.assertEqual(result.loc[0, "最終印"], "◎")
+        self.assertEqual(result.loc[0, "running_style_display"], "先行")
+        self.assertEqual(result.loc[1, "脚質表示"], "差し")
 
     def test_existing_ai_score_and_marks_are_not_mutated(self) -> None:
         frame = pd.DataFrame(
@@ -123,7 +125,35 @@ class AuditFeaturesTest(unittest.TestCase):
         result = add_audit_evaluation_columns(frame, race_type="nar")
 
         self.assertLessEqual(int(result["hole_candidate"].sum()), 2)
+        self.assertLessEqual(int(result["display_mark"].eq("✓").sum()), 2)
         self.assertGreaterEqual(int(result["watch_horse"].sum()), 1)
+
+    def test_display_mark_limits_old_watch_marks_without_mutating_final_mark(self) -> None:
+        frame = pd.DataFrame(
+            [
+                {
+                    "馬番": number,
+                    "AI点": 90.0 - number,
+                    "_raw_score": 88.0 - number,
+                    "AI順位": number,
+                    "最終印": "✓",
+                    "_最終印点": 100.0 - number,
+                    "単勝オッズ": 12.0 + number,
+                    "評価/検討材料": "高指数 / コース実績",
+                }
+                for number in range(1, 6)
+            ]
+        )
+
+        result = add_audit_evaluation_columns(frame, race_type="jra")
+
+        self.assertTrue(result["最終印"].eq("✓").all())
+        self.assertTrue(result["old_watch_mark"].all())
+        self.assertEqual(int(result["hole_candidate"].sum()), 2)
+        self.assertEqual(int(result["display_mark"].eq("✓").sum()), 2)
+        self.assertEqual(int(result["表示印"].eq("✓").sum()), 2)
+        self.assertGreaterEqual(int(result["watch_horse"].sum()), 3)
+        self.assertTrue(result.loc[result["display_mark"].ne("✓"), "表示印"].eq("").all())
 
     def test_legacy_final_mark_function_is_not_called_by_mobile_wrappers(self) -> None:
         root = Path(__file__).resolve().parents[1]
