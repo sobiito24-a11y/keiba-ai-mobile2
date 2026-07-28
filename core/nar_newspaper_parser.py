@@ -5,6 +5,24 @@ import re
 from typing import Any
 
 
+_PREVIOUS_RUN_KEYS = (
+    "previous_date",
+    "previous_track",
+    "previous_race",
+    "previous_finish",
+    "previous_jockey",
+    "previous_weight",
+    "previous_body_weight",
+    "前走日付",
+    "前走競馬場",
+    "前走レース",
+    "前走着順",
+    "前走騎手",
+    "前走斤量",
+    "前走馬体重",
+)
+
+
 class NarNewspaperParseError(ValueError):
     """Raised when NAR newspaper HTML cannot be converted to entry data."""
 
@@ -77,6 +95,10 @@ def build_entry_from_nar_newspaper(newspaper_data: dict[str, Any]) -> dict[str, 
             "early_3f": item.get("early_3f", ""),
             "late_3f": item.get("late_3f", ""),
         }
+        for key in _PREVIOUS_RUN_KEYS:
+            value = item.get(key)
+            if value not in (None, ""):
+                horse[key] = value
         horses.append(horse)
 
     return {
@@ -162,7 +184,7 @@ def _record_from_vertical_block(block: str, attrs: str) -> dict[str, Any]:
     if not affiliation:
         affiliation = _extract_affiliation(_clean_text(info_prefix), trainer)
 
-    return {
+    record = {
         "frame_number": frame_number,
         "horse_number": horse_number,
         "horse_id": horse_id,
@@ -185,6 +207,8 @@ def _record_from_vertical_block(block: str, attrs: str) -> dict[str, Any]:
         "early_3f": _extract_3f(_clean_text(block), "前半"),
         "late_3f": _extract_3f(_clean_text(block), "後半"),
     }
+    record.update(_extract_latest_past_run(block))
+    return record
 
 
 def _record_from_row(row_html: str) -> dict[str, Any]:
@@ -213,7 +237,7 @@ def _record_from_row(row_html: str) -> dict[str, Any]:
     if not affiliation:
         affiliation = _extract_affiliation(row_text, trainer)
 
-    return {
+    record = {
         "frame_number": frame_number,
         "horse_number": horse_number,
         "horse_id": horse_id,
@@ -235,6 +259,8 @@ def _record_from_row(row_html: str) -> dict[str, Any]:
         "early_3f": _extract_3f(row_text, "前半"),
         "late_3f": _extract_3f(row_text, "後半"),
     }
+    record.update(_extract_latest_past_run(row_html))
+    return record
 
 
 def _extract_cells(row_html: str) -> list[tuple[str, str, str]]:
@@ -244,6 +270,195 @@ def _extract_cells(row_html: str) -> list[tuple[str, str, str]]:
         body = match.group("body") or ""
         cells.append((attrs, body, _clean_text(body)))
     return cells
+
+
+def _extract_latest_past_run(source: str) -> dict[str, Any]:
+    for segment in _past_run_segments(source):
+        record = _extract_past_run_from_segment(segment)
+        if record.get("previous_jockey") or record.get("previous_weight"):
+            return record
+    return {}
+
+
+def _past_run_segments(source: str) -> list[str]:
+    segments: list[str] = []
+    seen: set[str] = set()
+    for tag in ("li", "div", "tr", "dd", "dt"):
+        pattern = rf"<{tag}\b[^>]*>[\s\S]*?</{tag}>"
+        for match in re.finditer(pattern, source, flags=re.I):
+            segment = match.group(0)
+            if _looks_like_past_run(segment):
+                key = _clean_text(segment)[:240]
+                if key and key not in seen:
+                    seen.add(key)
+                    segments.append(segment)
+
+    if not segments:
+        for match in re.finditer(r"<div\b[^>]*>[\s\S]*?</div>", source, flags=re.I):
+            segment = match.group(0)
+            if _looks_like_past_run(segment):
+                key = _clean_text(segment)[:240]
+                if key and key not in seen:
+                    seen.add(key)
+                    segments.append(segment)
+
+    if not segments and _looks_like_past_run(source):
+        segments.append(source)
+    return segments
+
+
+def _looks_like_past_run(segment: str) -> bool:
+    text = _clean_text(segment)
+    if not text:
+        return False
+    start_tag = re.match(r"<[a-z0-9]+\b[^>]*>", segment, flags=re.I)
+    if start_tag and "HorseList" in start_tag.group(0) and ("Horse_Info" in segment or "HorseName" in segment):
+        return False
+    has_date = re.search(r"(?:\d{4}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[./-]\d{1,2})", text) is not None
+    has_race_link = re.search(r"/race/|race_id=", segment, flags=re.I) is not None
+    has_past_hint = re.search(r"Past|past|History|history|Result|result|過去走|前走|近走|戦績", segment) is not None
+    has_finish = re.search(r"(?:\d{1,2}\s*着|中止|取消|除外|失格)", text) is not None
+    has_jockey = "/jockey/" in segment or "騎手" in text
+    has_weight = _extract_past_load_weight(segment) != ""
+    # Current horse header cells can contain a jockey and carried weight, so require
+    # a past-run cue such as a date, race link, or explicit past-run class/text.
+    return (has_date or has_race_link or has_past_hint) and (has_finish or has_jockey or has_weight)
+
+
+def _extract_past_run_from_segment(segment: str) -> dict[str, Any]:
+    text = _clean_text(segment)
+    record = {
+        "previous_date": _extract_previous_date(text),
+        "previous_track": _extract_previous_track(text),
+        "previous_race": _extract_previous_race(segment),
+        "previous_finish": _extract_previous_finish(text),
+        "previous_jockey": _extract_previous_jockey(segment, text),
+        "previous_weight": _extract_past_load_weight(segment),
+        "previous_body_weight": _extract_body_weight(text),
+    }
+    aliases = {
+        "前走日付": record["previous_date"],
+        "前走競馬場": record["previous_track"],
+        "前走レース": record["previous_race"],
+        "前走着順": record["previous_finish"],
+        "前走騎手": record["previous_jockey"],
+        "前走斤量": record["previous_weight"],
+        "前走馬体重": record["previous_body_weight"],
+    }
+    record.update({key: value for key, value in aliases.items() if value})
+    return {key: value for key, value in record.items() if value not in (None, "")}
+
+
+def _extract_previous_date(text: str) -> str:
+    match = re.search(r"(?:\d{4}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[./-]\d{1,2})", str(text or ""))
+    return match.group(0) if match else ""
+
+
+def _extract_previous_track(text: str) -> str:
+    tracks = (
+        "門別",
+        "盛岡",
+        "水沢",
+        "浦和",
+        "船橋",
+        "大井",
+        "川崎",
+        "金沢",
+        "笠松",
+        "名古屋",
+        "園田",
+        "姫路",
+        "高知",
+        "佐賀",
+        "帯広",
+        "札幌",
+        "函館",
+        "福島",
+        "新潟",
+        "東京",
+        "中山",
+        "中京",
+        "京都",
+        "阪神",
+        "小倉",
+    )
+    for track in tracks:
+        if track in str(text or ""):
+            return track
+    return ""
+
+
+def _extract_previous_race(segment: str) -> str:
+    for match in re.finditer(
+        r"<a\b[^>]*href=['\"][^'\"]*(?:/race/|race_id=)[^'\"]*['\"][^>]*>([\s\S]*?)</a>",
+        segment,
+        flags=re.I,
+    ):
+        text = _clean_text(match.group(1))
+        if text and "/horse/" not in match.group(0).lower() and "/jockey/" not in match.group(0).lower():
+            return text[:80]
+    return ""
+
+
+def _extract_previous_finish(text: str) -> str:
+    match = re.search(r"(\d{1,2})\s*着", str(text or ""))
+    if match:
+        return f"{match.group(1)}着"
+    match = re.search(r"(中止|取消|除外|失格)", str(text or ""))
+    return match.group(1) if match else ""
+
+
+def _extract_previous_jockey(segment: str, text: str) -> str:
+    jockey = _clean_jockey_name(_link_text(segment, "/jockey/"))
+    if jockey:
+        return jockey
+    for pattern in (
+        r"(?:騎手|鞍上)\s*[:：]?\s*([^\s　/／・,，、]+)",
+        r"([一-龥ぁ-んァ-ン]{2,6})\s*騎手",
+    ):
+        match = re.search(pattern, text)
+        if match:
+            return _clean_jockey_name(match.group(1))
+    return ""
+
+
+def _extract_past_load_weight(segment: str) -> str:
+    text = _clean_text(segment)
+    for pattern in (
+        r"(?:斤量|負担重量)\s*[:：]?\s*(\d{2}(?:\.\d)?)",
+        r"(\d{2}(?:\.\d)?)\s*kg\s*(?:騎手|[一-龥ぁ-んァ-ン]{2,6})",
+    ):
+        match = re.search(pattern, text, flags=re.I)
+        if match and _is_carried_weight(match.group(1)):
+            return match.group(1)
+
+    cells = _extract_cells(segment)
+    for attrs, _, cell_text in cells:
+        lower = attrs.lower()
+        if (
+            ("斤量" in attrs or "futan" in lower or "load" in lower or "carried" in lower or "weight" in lower)
+            and "horseweight" not in lower
+            and "body" not in lower
+            and "馬体" not in cell_text
+        ):
+            value = _extract_carried_weight(cell_text)
+            if value:
+                return value
+
+    cleaned = re.sub(r"\d{3}\s*(?:kg)?\s*\([+-]?\d+\)", " ", text, flags=re.I)
+    cleaned = re.sub(r"\d{3,4}\s*m", " ", cleaned, flags=re.I)
+    cleaned = re.sub(r"\d{4}[./-]\d{1,2}[./-]\d{1,2}|(?<!\d)\d{1,2}[/-]\d{1,2}(?!\d)", " ", cleaned)
+    candidates = [match.group(1) for match in re.finditer(r"(?<!\d)(\d{2}(?:\.\d)?)(?!\d)", cleaned)]
+    weights = [value for value in candidates if _is_carried_weight(value)]
+    return weights[-1] if weights else ""
+
+
+def _is_carried_weight(value: str) -> bool:
+    try:
+        number = float(str(value).strip())
+    except ValueError:
+        return False
+    return 45 <= number <= 65
 
 
 def _extract_vertical_frame_number(block: str) -> str:

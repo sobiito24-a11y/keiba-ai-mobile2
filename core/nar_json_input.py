@@ -100,7 +100,7 @@ def build_nar_prediction_inputs_from_uploads(
 
 
 def apply_newspaper_jockey_priority(entry_data: dict[str, Any], newspaper_data: dict[str, Any]) -> dict[str, Any]:
-    """Use the latest jockey text from newspaper HTML without changing horse order."""
+    """Use per-horse display data from newspaper HTML without changing horse order."""
 
     result = dict(entry_data)
     newspaper_horses = [horse for horse in newspaper_data.get("horses", []) if isinstance(horse, dict)]
@@ -133,6 +133,26 @@ def apply_newspaper_jockey_priority(entry_data: dict[str, Any], newspaper_data: 
         if jockey:
             horse["jockey"] = jockey
             horse["_jockey_source"] = "newspaper"
+        if newspaper_horse:
+            for key in (
+                "previous_date",
+                "previous_track",
+                "previous_race",
+                "previous_finish",
+                "previous_jockey",
+                "previous_weight",
+                "previous_body_weight",
+                "前走日付",
+                "前走競馬場",
+                "前走レース",
+                "前走着順",
+                "前走騎手",
+                "前走斤量",
+                "前走馬体重",
+            ):
+                value = _safe_text(newspaper_horse.get(key))
+                if value:
+                    horse[key] = value
         merged_horses.append(horse)
 
     result["horses"] = merged_horses
