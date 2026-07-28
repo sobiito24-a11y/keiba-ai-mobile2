@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from html import escape, unescape
 from typing import Any, Iterable
@@ -389,7 +390,7 @@ def _apply_display_detail_fields(merged: dict[str, Any], *sources: dict[str, Any
     if previous_jockey:
         merged["_display_previous_jockey"] = previous_jockey
     if current_jockey and previous_jockey:
-        merged["_display_jockey_changed"] = _normalize_jockey_for_compare(current_jockey) != _normalize_jockey_for_compare(previous_jockey)
+        merged["_display_jockey_changed"] = _nar_jockey_changed_value(current_jockey, previous_jockey)
     elif explicit_jockey_changed:
         merged["_display_jockey_changed"] = _parse_bool_text(explicit_jockey_changed)
 
@@ -530,10 +531,42 @@ def _parse_bool_text(value: Any) -> bool:
 
 
 def _normalize_jockey_for_compare(value: Any) -> str:
-    text = _safe_text(value)
+    text = unicodedata.normalize("NFKC", _safe_text(value))
     text = re.sub(r"[\(（]\s*替\s*[\)）]", "", text)
+    text = re.sub(r"[\(（][^\)）]{1,4}所属[\)）]", "", text)
+    text = re.sub(r"^[一-龥ぁ-んァ-ン]{1,4}[・･]", "", text)
+    text = re.sub(r"^(?:替|乗替|乗り替わり|初騎乗)", "", text)
     text = text.replace("騎手", "")
+    text = re.sub(r"^[▲△☆★◇◆▽▼]+", "", text)
     return re.sub(r"\s+", "", text)
+
+
+def _same_nar_jockey_name(current: Any, previous: Any) -> bool | None:
+    current_text = _normalize_jockey_for_compare(current)
+    previous_text = _normalize_jockey_for_compare(previous)
+    if not current_text or not previous_text:
+        return None
+    if current_text == previous_text:
+        return True
+
+    short, long = (
+        (current_text, previous_text)
+        if len(current_text) <= len(previous_text)
+        else (previous_text, current_text)
+    )
+    if long.startswith(short):
+        diff = len(long) - len(short)
+        if len(short) >= 3 and 1 <= diff <= 2:
+            return True
+        return None
+    return False
+
+
+def _nar_jockey_changed_value(current: Any, previous: Any) -> bool | str | None:
+    same = _same_nar_jockey_name(current, previous)
+    if same is None:
+        return "pending" if _safe_text(current) and _safe_text(previous) else None
+    return not same
 
 
 def parse_index(value: Any) -> int | None:

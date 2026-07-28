@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 import time
+import unicodedata
 from datetime import date
 from functools import lru_cache
 from urllib.parse import urljoin
@@ -439,6 +440,13 @@ def parse_float_from_text(text):
 def parse_bool_from_text(text):
     value = str(text or "").strip().lower()
     return value in {"true", "1", "yes", "y", "○", "あり", "替", "乗り替わり", "乗替"}
+
+
+def parse_jockey_changed_from_text(text):
+    value = str(text or "").strip().lower()
+    if value in {"pending", "unknown", "hold", "判定保留", "保留"}:
+        return "pending"
+    return parse_bool_from_text(text)
 
 
 def display_attr(row, name):
@@ -930,10 +938,42 @@ def apply_shutuba_features(df, race_info, shutuba_html):
 
 
 def normalize_jockey_for_compare(value):
-    text = norm_text(str(value or ""))
+    text = unicodedata.normalize("NFKC", norm_text(str(value or "")))
     text = re.sub(r"[\(（]\s*替\s*[\)）]", "", text)
+    text = re.sub(r"[\(（][^\)）]{1,4}所属[\)）]", "", text)
+    text = re.sub(r"^[一-龥ぁ-んァ-ン]{1,4}[・･]", "", text)
+    text = re.sub(r"^(?:替|乗替|乗り替わり|初騎乗)", "", text)
     text = text.replace("騎手", "")
+    text = re.sub(r"^[▲△☆★◇◆▽▼]+", "", text)
     return re.sub(r"\s+", "", text)
+
+
+def same_nar_jockey_name(current, previous):
+    current_text = normalize_jockey_for_compare(current)
+    previous_text = normalize_jockey_for_compare(previous)
+    if not current_text or not previous_text:
+        return None
+    if current_text == previous_text:
+        return True
+
+    short, long = (
+        (current_text, previous_text)
+        if len(current_text) <= len(previous_text)
+        else (previous_text, current_text)
+    )
+    if long.startswith(short):
+        diff = len(long) - len(short)
+        if len(short) >= 3 and 1 <= diff <= 2:
+            return True
+        return None
+    return False
+
+
+def nar_jockey_changed_value(current, previous):
+    same = same_nar_jockey_name(current, previous)
+    if same is None:
+        return "pending" if norm_text(str(current or "")) and norm_text(str(previous or "")) else None
+    return not same
 
 
 def parse_nar_newspaper_feature_html(html):
@@ -997,10 +1037,7 @@ def parse_nar_newspaper_feature_html(html):
         if previous_jockey:
             record["_display_previous_jockey"] = previous_jockey
         if current_jockey and previous_jockey:
-            record["_display_jockey_changed"] = (
-                normalize_jockey_for_compare(current_jockey)
-                != normalize_jockey_for_compare(previous_jockey)
-            )
+            record["_display_jockey_changed"] = nar_jockey_changed_value(current_jockey, previous_jockey)
         records.append(record)
 
     newspaper_df = pd.DataFrame(records)
@@ -1143,7 +1180,7 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
         display_current_jockey = display_attr(row, "current-jockey")
         display_previous_jockey = display_attr(row, "previous-jockey")
         display_jockey_changed_text = display_attr(row, "jockey-changed")
-        display_jockey_changed = parse_bool_from_text(display_jockey_changed_text) if display_jockey_changed_text else None
+        display_jockey_changed = parse_jockey_changed_from_text(display_jockey_changed_text) if display_jockey_changed_text else None
         max_index = parse_index_cell(first(row, [".Speed_List03", ".sk__max_index", ".MaxIndex"]))["value"]
         avg5_index = parse_index_cell(first(row, [".Speed_List04", ".sk__avg5_index", ".Avg5Index"]))["value"]
         distance_index = parse_index_cell(first(row, [".Speed_List05", ".sk__max_distance_index"]))["value"]
@@ -1225,7 +1262,8 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
         trend = None
         if prev_values[0] is not None and prev_values[-1] is not None:
             trend = prev_values[-1] - prev_values[0]
-        jockey_changed = bool(jockey and previous_jockey and jockey != previous_jockey)
+        jockey_change_value = nar_jockey_changed_value(jockey, previous_jockey)
+        jockey_changed = bool(jockey_change_value is True)
         jockey_display = f"{jockey}(替)" if jockey_changed else jockey
         load_weight_display = format_load_weight_with_change(load_weight, previous_load_weight)
         current_load_weight = parse_float_from_text(load_weight)
@@ -1273,6 +1311,7 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
             "_current_jockey": jockey,
             "_previous_jockey": previous_jockey,
             "_jockey_changed": jockey_changed,
+            "_jockey_change_pending": jockey_change_value == "pending",
             "_previous_load_weight": previous_load_weight,
             "_current_load_weight": current_load_weight,
             "_load_weight_change": load_weight_change,
@@ -7899,6 +7938,13 @@ def _ver30_jockey_detail(row):
     changed_value = row.get("_display_jockey_changed")
     if _ver30_text_value(changed_value) == "":
         changed_value = row.get("_jockey_changed")
+    changed_text = _ver30_text_value(changed_value).lower()
+    if changed_text in {"pending", "unknown", "hold", "判定保留", "保留"} or _nar_safe_bool(row.get("_jockey_change_pending"), False):
+        return f"{current}【判定保留】"
+    if changed_text == "":
+        changed_value = nar_jockey_changed_value(current, previous)
+        if changed_value == "pending":
+            return f"{current}【判定保留】"
     changed = _nar_safe_bool(changed_value, False)
     if changed:
         return f"{previous} → {current}【乗り替わり】"

@@ -35,6 +35,8 @@ from core.nar_notebook_logic import (  # noqa: E402
     prepare_nar_display_columns,
 )
 import core.nar_notebook_logic as nar_logic  # noqa: E402
+import core.nar_json_input as nar_input  # noqa: E402
+import core.jra_notebook_logic as jra_logic  # noqa: E402
 from render import mobile_png  # noqa: E402
 
 
@@ -137,6 +139,59 @@ class NarDataShortageTest(unittest.TestCase):
         self.assertEqual(nar_logic._ver30_jockey_detail(continued), "継続騎手【継続】")
         self.assertEqual(nar_logic._ver30_load_weight_detail(missing_previous), "55.0kg（前走データなし）")
         self.assertEqual(nar_logic._ver30_jockey_detail(missing_previous), "不明騎手【前走データなし】")
+
+    def test_nar_jockey_abbreviated_names_are_continuation(self) -> None:
+        examples = [
+            ("櫻井光", "櫻井光輔"),
+            ("池谷匠", "池谷匠翔"),
+            ("山本聡", "山本聡"),
+        ]
+        for current, previous in examples:
+            with self.subTest(current=current, previous=previous):
+                self.assertEqual(nar_logic.nar_jockey_changed_value(current, previous), False)
+                self.assertEqual(nar_input._nar_jockey_changed_value(current, previous), False)
+                self.assertEqual(
+                    nar_logic._ver30_jockey_detail(
+                        pd.Series({"_current_jockey": current, "_display_previous_jockey": previous})
+                    ),
+                    f"{current}【継続】",
+                )
+
+    def test_nar_jockey_different_names_are_switch(self) -> None:
+        self.assertEqual(nar_logic.nar_jockey_changed_value("山本政", "山本聡"), True)
+        self.assertEqual(nar_input._nar_jockey_changed_value("山本政", "山本聡"), True)
+        self.assertEqual(
+            nar_logic._ver30_jockey_detail(
+                pd.Series({"_current_jockey": "山本政", "_display_previous_jockey": "山本聡"})
+            ),
+            "山本聡 → 山本政【乗り替わり】",
+        )
+
+    def test_nar_jockey_surname_only_is_pending_not_continuation(self) -> None:
+        self.assertEqual(nar_logic.nar_jockey_changed_value("山本聡", "山本"), "pending")
+        self.assertEqual(nar_input._nar_jockey_changed_value("山本聡", "山本"), "pending")
+        self.assertEqual(
+            nar_logic._ver30_jockey_detail(
+                pd.Series({"_current_jockey": "山本聡", "_display_previous_jockey": "山本"})
+            ),
+            "山本聡【判定保留】",
+        )
+
+    def test_nar_jockey_missing_values_are_missing_previous_data(self) -> None:
+        self.assertIsNone(nar_logic.nar_jockey_changed_value("山本聡", ""))
+        self.assertIsNone(nar_input._nar_jockey_changed_value("山本聡", pd.NA))
+        self.assertEqual(
+            nar_logic._ver30_jockey_detail(pd.Series({"_current_jockey": "山本聡", "_display_previous_jockey": pd.NA})),
+            "山本聡【前走データなし】",
+        )
+
+    def test_jra_jockey_change_display_is_unchanged(self) -> None:
+        self.assertEqual(
+            jra_logic._ver30_jockey_detail(
+                pd.Series({"_current_jockey": "櫻井光", "_previous_jockey": "櫻井光輔", "_jockey_changed": True})
+            ),
+            "櫻井光輔 → 櫻井光【乗り替わり】",
+        )
 
     def test_running_style_display_normalization(self) -> None:
         self.assertEqual(nar_logic._ver30_display_running_style("逃"), "逃げ")
