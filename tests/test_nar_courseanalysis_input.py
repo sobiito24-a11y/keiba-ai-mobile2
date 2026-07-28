@@ -5,6 +5,7 @@ import unittest
 
 import pandas as pd
 
+from core.html_classifier import classify_html, required_kinds
 from core.nar_courseanalysis_parser import parse_courseanalysis_html
 from core.nar_newspaper_parser import parse_nar_newspaper_html
 from core.nar_json_input import (
@@ -419,6 +420,11 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         )
         self.assertEqual(set(classified), {"entry", "speed", "courseanalysis"})
         self.assertEqual(classified["courseanalysis"]["running_styles"][1]["style"], "差")
+
+    def test_nar_direct_html_upload_uses_newspaper_instead_of_shutuba(self) -> None:
+        self.assertEqual(required_kinds("nar"), ("speed", "newspaper", "style"))
+        item = classify_html("newspaper.html", newspaper_html(), "nar")
+        self.assertEqual(item.kind, "newspaper")
 
     def test_build_inputs_accepts_courseanalysis_html(self) -> None:
         package = build_nar_prediction_inputs_from_uploads(

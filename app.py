@@ -229,7 +229,7 @@ def render_nar_json_flow() -> None:
     fallback_grouped: dict[str, list[ClassifiedHtml]] = {}
     fallback_ready = False
     with st.expander("詳細設定：HTMLを直接アップロード", expanded=False):
-        st.caption("JSONを作れない場合だけ使用してください。出馬表HTML、タイム指数HTML、脚質分析HTMLをまとめて選択します。")
+        st.caption("JSONを作れない場合だけ使用してください。競馬新聞HTML、タイム指数HTML、脚質分析HTMLをまとめて選択します。")
         fallback_selected, fallback_grouped, has_fallback_uploads, fallback_missing = render_upload_input(
             "nar",
             key_prefix="nar_json_direct",
@@ -691,6 +691,14 @@ def has_required_nar_page_marker(kind: str, html_text: str) -> bool:
             "馬番",
             "馬名",
             "斤量",
+        ),
+        "newspaper": (
+            "newspaper.html",
+            "競馬新聞",
+            "NewsPaper",
+            "RaceNewspaper",
+            "HorseList",
+            "Jockey",
         ),
         "speed": (
             "Speed_List",

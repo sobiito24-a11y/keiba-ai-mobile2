@@ -145,6 +145,60 @@ class NarDataShortageTest(unittest.TestCase):
         self.assertEqual(nar_logic._ver30_display_running_style("追い込み"), "追込")
         self.assertEqual(mobile_png._display_running_style({"脚質": "追"}), "追込")
 
+    def test_colab_nar_newspaper_html_supplies_previous_display_details(self) -> None:
+        class FakeSoup:
+            def get_text(self, *args, **kwargs):
+                return "地方競馬新聞"
+
+            def select_one(self, selector):
+                return None
+
+        original_parser = nar_logic.parse_uploaded_nar_newspaper_html
+        original_soup = nar_logic.BeautifulSoup
+        try:
+            nar_logic.BeautifulSoup = lambda *args, **kwargs: FakeSoup()
+            nar_logic.parse_uploaded_nar_newspaper_html = lambda html: {
+                "race": {"race_name": "テスト", "race_data_1": ""},
+                "horses": [
+                    {
+                        "horse_number": "8",
+                        "horse_name": "スピリチュアル",
+                        "weight": "54.0",
+                        "jockey": "山本聡",
+                        "previous_weight": "54.0",
+                        "previous_jockey": "山本聡",
+                        "horse_weight": "450(0)",
+                    }
+                ],
+            }
+            frame = pd.DataFrame(
+                [
+                    {
+                        "馬番": 8,
+                        "馬名": "スピリチュアル",
+                        "馬体重": "",
+                        "馬場適性": "",
+                        "_same_going_high": None,
+                        "_same_going_count": 0,
+                        "_class_shift": "",
+                    }
+                ]
+            )
+
+            result, _, info = nar_logic.apply_nar_newspaper_html_features(frame, {}, "<html></html>")
+        finally:
+            nar_logic.parse_uploaded_nar_newspaper_html = original_parser
+            nar_logic.BeautifulSoup = original_soup
+
+        row = result.iloc[0]
+        self.assertEqual(info["previous_detail_count"], 1)
+        self.assertEqual(row["_display_current_load_weight"], 54.0)
+        self.assertEqual(row["_display_previous_load_weight"], 54.0)
+        self.assertEqual(row["_display_load_weight_change"], 0.0)
+        self.assertEqual(row["_display_current_jockey"], "山本聡")
+        self.assertEqual(row["_display_previous_jockey"], "山本聡")
+        self.assertEqual(row["_display_jockey_changed"], False)
+
 
 if __name__ == "__main__":
     unittest.main()

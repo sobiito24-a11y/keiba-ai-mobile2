@@ -19,16 +19,16 @@ KIND_LABELS = {
 }
 
 REQUIRED_KINDS: dict[RaceMode, tuple[str, ...]] = {
-    "nar": ("speed", "shutuba", "style"),
+    "nar": ("speed", "newspaper", "style"),
     "jra": ("speed", "newspaper", "style"),
 }
 
 DISPLAY_ORDER: dict[RaceMode, tuple[str, ...]] = {
-    "nar": ("speed", "shutuba", "style"),
+    "nar": ("speed", "newspaper", "style", "shutuba"),
     "jra": ("speed", "newspaper", "style", "oikiri"),
 }
 
-KIND_PRIORITY = ("speed", "style", "shutuba", "newspaper", "oikiri", "odds")
+KIND_PRIORITY = ("speed", "style", "newspaper", "shutuba", "oikiri", "odds")
 
 
 def required_kinds(mode: RaceMode) -> tuple[str, ...]:
@@ -163,8 +163,6 @@ def _match_field(source_name: str, value: str, mode: RaceMode) -> list[tuple[str
         if _contains_any(text, ("RaceOdds_HorseList_Table", "Odds_Table", "OddsTable")):
             add("odds", "Odds table")
 
-    if mode == "nar":
-        return [(kind, reason) for kind, reason in found if kind != "newspaper"]
     return found
 
 

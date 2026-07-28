@@ -14,6 +14,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .audit_features import add_audit_evaluation_columns
+from .nar_newspaper_parser import parse_nar_newspaper_html as parse_uploaded_nar_newspaper_html
 
 
 USER_AGENT = (
@@ -926,6 +927,155 @@ def apply_shutuba_features(df, race_info, shutuba_html):
                 axis=1,
             )
     return result, race_info, shutuba_info
+
+
+def normalize_jockey_for_compare(value):
+    text = norm_text(str(value or ""))
+    text = re.sub(r"[\(（]\s*替\s*[\)）]", "", text)
+    text = text.replace("騎手", "")
+    return re.sub(r"\s+", "", text)
+
+
+def parse_nar_newspaper_feature_html(html):
+    if not html:
+        return {}, pd.DataFrame()
+    data = parse_uploaded_nar_newspaper_html(html)
+    race = data.get("race") or {}
+    soup = BeautifulSoup(html, "html.parser")
+    full_text = text_of(soup)
+    info = parse_course_text(
+        " ".join(
+            [
+                str(race.get("race_data_1") or ""),
+                str(race.get("race_data_2") or ""),
+                str(race.get("race_name") or ""),
+                full_text[:2000],
+            ]
+        )
+    )
+    if not info.get("going"):
+        info["going"] = parse_going_from_text(full_text)
+    info.update(
+        {
+            "race_name": race.get("race_name") or text_of(soup.select_one(".RaceName")),
+            "race_data": race.get("race_data_1") or text_of(soup.select_one(".RaceData01")),
+            "race_data2": race.get("race_data_2") or text_of(soup.select_one(".RaceData02")),
+        }
+    )
+
+    records = []
+    for item in data.get("horses", []):
+        horse_no = parse_int_from_text(str(item.get("horse_number") or ""))
+        if not horse_no:
+            continue
+        body_value, body_change, body_display = parse_body_weight_text(str(item.get("horse_weight") or ""))
+        current_weight = parse_float_from_text(str(item.get("weight") or ""))
+        previous_weight = parse_float_from_text(str(item.get("previous_weight") or item.get("前走斤量") or ""))
+        load_weight_change = (
+            round(current_weight - previous_weight, 3)
+            if current_weight is not None and previous_weight is not None
+            else None
+        )
+        current_jockey = norm_text(str(item.get("jockey") or ""))
+        previous_jockey = norm_text(str(item.get("previous_jockey") or item.get("前走騎手") or ""))
+
+        record = {
+            "馬番": int(horse_no),
+            "_newspaper_horse_name": item.get("horse_name", ""),
+            "馬体重": body_display,
+            "_body_weight": body_value,
+            "_body_weight_change": body_change,
+        }
+        if current_weight is not None:
+            record["_display_current_load_weight"] = current_weight
+        if previous_weight is not None:
+            record["_display_previous_load_weight"] = previous_weight
+        if load_weight_change is not None:
+            record["_display_load_weight_change"] = load_weight_change
+        if current_jockey:
+            record["_display_current_jockey"] = current_jockey
+        if previous_jockey:
+            record["_display_previous_jockey"] = previous_jockey
+        if current_jockey and previous_jockey:
+            record["_display_jockey_changed"] = (
+                normalize_jockey_for_compare(current_jockey)
+                != normalize_jockey_for_compare(previous_jockey)
+            )
+        records.append(record)
+
+    newspaper_df = pd.DataFrame(records)
+    if not newspaper_df.empty:
+        newspaper_df = newspaper_df.drop_duplicates("馬番")
+    return info, newspaper_df
+
+
+def _coalesce_newspaper_column(result, column):
+    newspaper_column = f"{column}_newspaper"
+    if newspaper_column not in result.columns:
+        return result
+    newspaper_values = result[newspaper_column]
+    has_newspaper_value = newspaper_values.notna()
+    if newspaper_values.dtype == object:
+        has_newspaper_value &= newspaper_values.astype(str).str.strip().ne("")
+    if column in result.columns:
+        result.loc[has_newspaper_value, column] = newspaper_values[has_newspaper_value]
+    else:
+        result[column] = newspaper_values
+    return result.drop(columns=[newspaper_column])
+
+
+def apply_nar_newspaper_html_features(df, race_info, newspaper_html):
+    result = df.copy()
+    result["馬体重"] = result.get("馬体重", pd.Series("", index=result.index)).fillna("")
+    if "同馬場実績" not in result.columns:
+        result["同馬場実績"] = result.get("馬場適性", pd.Series("", index=result.index)).fillna("")
+    newspaper_info = {"used": False, "going": "", "body_count": 0, "previous_detail_count": 0}
+    if not newspaper_html:
+        return result, race_info, newspaper_info
+
+    parsed_info, newspaper_df = parse_nar_newspaper_feature_html(newspaper_html)
+    newspaper_info["used"] = True
+    if parsed_info.get("going"):
+        race_info["going"] = parsed_info.get("going")
+        newspaper_info["going"] = parsed_info.get("going")
+        result = recompute_same_going_features(result, race_info)
+    else:
+        result = add_condition_context_features(result, race_info)
+
+    if not newspaper_df.empty:
+        result = result.merge(
+            newspaper_df.drop(columns=["_newspaper_horse_name"], errors="ignore"),
+            on="馬番",
+            how="left",
+            suffixes=("", "_newspaper"),
+        )
+        for column in (
+            "馬体重",
+            "_body_weight",
+            "_body_weight_change",
+            "_display_current_load_weight",
+            "_display_previous_load_weight",
+            "_display_load_weight_change",
+            "_display_current_jockey",
+            "_display_previous_jockey",
+            "_display_jockey_changed",
+        ):
+            result = _coalesce_newspaper_column(result, column)
+
+        newspaper_info["body_count"] = int(result["馬体重"].astype(str).str.len().gt(0).sum())
+        previous_cols = [
+            col for col in ("_display_previous_load_weight", "_display_previous_jockey") if col in result.columns
+        ]
+        if previous_cols:
+            newspaper_info["previous_detail_count"] = int(
+                result[previous_cols].notna().any(axis=1).sum()
+            )
+        if "コメント" in result.columns:
+            result["コメント"] = result.apply(
+                lambda row: append_comment_part(row.get("コメント", ""), body_weight_comment(row.get("_body_weight_change"))),
+                axis=1,
+            )
+    return result, race_info, newspaper_info
 
 
 def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35):
@@ -10445,9 +10595,11 @@ def _run_nar_notebook_body(
             "html_from_pc_file": html_files.get("speed", ""),
             "html_from_style_file": html_files.get("style", ""),
             "html_from_odds_file": "",
+            "html_from_newspaper_file": html_files.get("newspaper", ""),
             "html_file_name": file_names.get("speed", ""),
             "style_html_file_name": file_names.get("style", ""),
             "odds_html_file_name": "",
+            "newspaper_html_file_name": file_names.get("newspaper", ""),
             "html_from_shutuba_file": html_files.get("shutuba", ""),
             "shutuba_html_file_name": file_names.get("shutuba", ""),
     })
@@ -10465,6 +10617,7 @@ def _run_nar_notebook_body(
     show_corner_scenario = globals().get("SHOW_CORNER_SCENARIO", True)
     OPTIONAL_ODDS_HTML_UI_ENABLED = False  # オッズHTML UIは一時的に非表示
     style_html_input = globals().get("html_from_style_file", "").strip()
+    newspaper_html_input = globals().get("html_from_newspaper_file", "").strip()
     shutuba_html_input = globals().get("html_from_shutuba_file", "").strip()
     odds_html_input = globals().get("html_from_odds_file", "").strip() if OPTIONAL_ODDS_HTML_UI_ENABLED else ""
 
@@ -10490,7 +10643,12 @@ def _run_nar_notebook_body(
     result_df, style_df = apply_nar_style_features(result_df, style_html_input)
     running_style_info = analyze_running_style(result_df)
     result_df = add_newspaper_features(result_df, running_style_info)
-    result_df, race_info, shutuba_info = apply_shutuba_features(result_df, race_info, shutuba_html_input)
+    if newspaper_html_input:
+        entry_html_label = "競馬新聞HTML"
+        result_df, race_info, entry_html_info = apply_nar_newspaper_html_features(result_df, race_info, newspaper_html_input)
+    else:
+        entry_html_label = "出馬表HTML"
+        result_df, race_info, entry_html_info = apply_shutuba_features(result_df, race_info, shutuba_html_input)
     result_df, venue_candidates, detected_venue, venue_profile = apply_venue_profile(
         result_df, race_info, has_style_html=bool(style_html_input)
     )
@@ -10510,10 +10668,16 @@ def _run_nar_notebook_body(
     print(f"抽出頭数: {len(result_df)}")
     print_venue_profile(detected_venue, venue_profile, bool(style_html_input))
     print_venue_pace_summary(result_df)
-    if shutuba_html_input:
-        print(f"出馬表HTML: 反映 / 今日の馬場: {race_info.get('going') or '未取得'} / 馬体重反映: {shutuba_info.get('body_count', 0)}")
+    if newspaper_html_input:
+        print(
+            f"競馬新聞HTML: 反映 / 今日の馬場: {race_info.get('going') or '未取得'}"
+            f" / 馬体重反映: {entry_html_info.get('body_count', 0)}"
+            f" / 前走斤量・騎手反映: {entry_html_info.get('previous_detail_count', 0)}"
+        )
+    elif shutuba_html_input:
+        print(f"{entry_html_label}: 反映 / 今日の馬場: {race_info.get('going') or '未取得'} / 馬体重反映: {entry_html_info.get('body_count', 0)}")
     else:
-        print("出馬表HTML: 未アップロード")
+        print("競馬新聞HTML: 未アップロード")
     if style_html_input:
         style_count = int(result_df["脚質"].astype(str).ne("").sum())
         print(f"脚質HTML内の抽出頭数: {len(style_df)} / 表へ反映: {style_count}")
