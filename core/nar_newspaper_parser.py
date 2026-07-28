@@ -273,11 +273,33 @@ def _extract_cells(row_html: str) -> list[tuple[str, str, str]]:
 
 
 def _extract_latest_past_run(source: str) -> dict[str, Any]:
+    best: dict[str, Any] = {}
     for segment in _past_run_segments(source):
         record = _extract_past_run_from_segment(segment)
-        if record.get("previous_jockey") or record.get("previous_weight"):
-            return record
-    return {}
+        if not (record.get("previous_jockey") or record.get("previous_weight")):
+            continue
+        if not best:
+            best = record
+        elif _same_previous_run_fragment(best, record):
+            for key, value in record.items():
+                if value not in (None, "") and best.get(key) in (None, ""):
+                    best[key] = value
+        else:
+            break
+        if best.get("previous_jockey") and best.get("previous_weight"):
+            return best
+    return best
+
+
+def _same_previous_run_fragment(base: dict[str, Any], candidate: dict[str, Any]) -> bool:
+    """Return true when adjacent HTML fragments appear to describe the same latest run."""
+
+    for key in ("previous_date", "previous_race", "previous_finish"):
+        left = str(base.get(key) or "").strip()
+        right = str(candidate.get(key) or "").strip()
+        if left and right and left != right:
+            return False
+    return True
 
 
 def _past_run_segments(source: str) -> list[str]:
@@ -314,11 +336,11 @@ def _looks_like_past_run(segment: str) -> bool:
     start_tag = re.match(r"<[a-z0-9]+\b[^>]*>", segment, flags=re.I)
     if start_tag and "HorseList" in start_tag.group(0) and ("Horse_Info" in segment or "HorseName" in segment):
         return False
-    has_date = re.search(r"(?:\d{4}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[./-]\d{1,2})", text) is not None
+    has_date = _extract_previous_date(text) != ""
     has_race_link = re.search(r"/race/|race_id=", segment, flags=re.I) is not None
     has_past_hint = re.search(r"Past|past|History|history|Result|result|過去走|前走|近走|戦績", segment) is not None
     has_finish = re.search(r"(?:\d{1,2}\s*着|中止|取消|除外|失格)", text) is not None
-    has_jockey = "/jockey/" in segment or "騎手" in text
+    has_jockey = _extract_previous_jockey(segment, text) != ""
     has_weight = _extract_past_load_weight(segment) != ""
     # Current horse header cells can contain a jockey and carried weight, so require
     # a past-run cue such as a date, race link, or explicit past-run class/text.
@@ -350,8 +372,17 @@ def _extract_past_run_from_segment(segment: str) -> dict[str, Any]:
 
 
 def _extract_previous_date(text: str) -> str:
-    match = re.search(r"(?:\d{4}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[./-]\d{1,2})", str(text or ""))
-    return match.group(0) if match else ""
+    source = str(text or "")
+    for match in re.finditer(r"(\d{4})[./-](\d{1,2})[./-](\d{1,2})|(?<!\d)(\d{1,2})[./-](\d{1,2})(?!\d)", source):
+        if match.group(1):
+            month = int(match.group(2))
+            day = int(match.group(3))
+        else:
+            month = int(match.group(4))
+            day = int(match.group(5))
+        if 1 <= month <= 12 and 1 <= day <= 31:
+            return match.group(0)
+    return ""
 
 
 def _extract_previous_track(text: str) -> str:
@@ -395,7 +426,8 @@ def _extract_previous_race(segment: str) -> str:
         flags=re.I,
     ):
         text = _clean_text(match.group(1))
-        if text and "/horse/" not in match.group(0).lower() and "/jockey/" not in match.group(0).lower():
+        link_html = match.group(0).lower()
+        if text and "/horse/" not in link_html and "jockey" not in link_html:
             return text[:80]
     return ""
 
@@ -410,6 +442,9 @@ def _extract_previous_finish(text: str) -> str:
 
 def _extract_previous_jockey(segment: str, text: str) -> str:
     jockey = _clean_jockey_name(_link_text(segment, "/jockey/"))
+    if jockey:
+        return jockey
+    jockey = _clean_jockey_name(_class_text(segment, "Jockey"))
     if jockey:
         return jockey
     for pattern in (
@@ -507,7 +542,10 @@ def _extract_carried_weight(text: str) -> str:
 
 def _clean_jockey_name(value: str) -> str:
     text = _clean_text(value)
-    text = re.sub(r"^\s*替\s*", "", text)
+    text = re.sub(r"[\(（]\s*替\s*[\)）]", "", text)
+    text = re.sub(r"^\s*(?:替|乗替|初騎乗)\s*", "", text)
+    text = re.sub(r"(?<!\d)\d{2}(?:\.\d)?(?!\d).*", "", text)
+    text = re.sub(r"\s+", "", text)
     return text.strip()
 
 
@@ -668,8 +706,11 @@ def _extract_3f(row_text: str, label: str) -> str:
 
 
 def _link_text(row_html: str, href_part: str) -> str:
+    href_patterns = [re.escape(href_part)]
+    if href_part == "/jockey/":
+        href_patterns.append("jockey")
     match = re.search(
-        rf"<a\b[^>]*href=['\"][^'\"]*{re.escape(href_part)}[^'\"]*['\"][^>]*>([\s\S]*?)</a>",
+        rf"<a\b[^>]*href=['\"][^'\"]*(?:{'|'.join(href_patterns)})[^'\"]*['\"][^>]*>([\s\S]*?)</a>",
         row_html,
         flags=re.I,
     )

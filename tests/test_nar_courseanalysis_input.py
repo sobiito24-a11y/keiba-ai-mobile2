@@ -386,6 +386,63 @@ def spiritual_newspaper_html(race_id: str = "202635072803") -> str:
     """
 
 
+def split_previous_jockey_newspaper_html(race_id: str = "202635072803") -> str:
+    return f"""
+    <!doctype html>
+    <html>
+      <head>
+        <title>地方競馬新聞</title>
+        <link rel="canonical" href="https://nar.netkeiba.com/race/newspaper.html?race_id={race_id}">
+      </head>
+      <body>
+        <div class="HorseList_Wrapper">
+          <dl class="HorseList" id="past_tr_8">
+            <dt class="Waku4 orderfix">4</dt>
+            <dt class="Waku Waku_Horse orderfix">8</dt>
+            <dt class="HorseName Waku4 HorseListSort orderfix">
+              <span class="Vertical"><a href="https://db.netkeiba.com/horse/h8/">スピリチュアル</a></span>
+            </dt>
+            <dt class="Horse_Info orderfix">
+              <dl class="fc">
+                <dt class="Horse02"><a href="https://db.netkeiba.com/horse/h8/">スピリチュアル</a></dt>
+                <dt class="Horse06 fc"><div class="Type Type03"><span>差</span></div> 中1週</dt>
+                <dt class="Horse07 fc">
+                  <div class="Weight UpdateOdds"><span>450kg <span>(0)</span></span></div>
+                  <div class="Popular UpdateOdds"><span class="OddsDataTxt transition-color">8.0</span><virtul>(<span>4</span><span>人気)</span></virtul></div>
+                </dt>
+              </dl>
+            </dt>
+            <dd class="Jockey HorseListSort order2">
+              <span class="Barei">牝5 鹿</span>
+              <a href="https://nar.netkeiba.com/race/jockey.html?jockey_id=yamamoto"><span>山本聡</span></a>
+              <br><span> 54.0 </span>
+            </dd>
+            <dd class="PastRun">
+              <div class="PastRunItem">
+                <span class="Date">2026/07/14</span>
+                <span class="Place">盛岡</span>
+                <a href="https://nar.netkeiba.com/race/result.html?race_id=202635071401">前走レース</a>
+                <span class="Finish">3着</span>
+                <span class="LoadWeight">54.0</span>
+                <span class="HorseWeight">450(0)</span>
+              </div>
+              <div class="PastRunJockey">
+                <span class="Label">騎手</span>
+                <a href="https://nar.netkeiba.com/race/jockey.html?jockey_id=yamamoto">山本聡</a>
+              </div>
+              <div class="PastRunItem">
+                <span class="Date">2026/06/30</span>
+                <span class="Jockey"><a href="https://nar.netkeiba.com/race/jockey.html?jockey_id=old">別騎手</a></span>
+                <span class="LoadWeight">52.0</span>
+              </div>
+            </dd>
+          </dl>
+        </div>
+      </body>
+    </html>
+    """
+
+
 class NarCourseAnalysisInputTest(unittest.TestCase):
     def test_parse_courseanalysis_html_three_labels(self) -> None:
         data = parse_courseanalysis_html(course_html(["先", "差", "追"]))
@@ -535,6 +592,17 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(spiritual["previous_jockey"], "山本聡")
         self.assertEqual(spiritual["previous_weight"], "54.0")
         self.assertEqual(spiritual["previous_body_weight"], "450(0)")
+        self.assertNotEqual(spiritual["previous_jockey"], "別騎手")
+
+    def test_nar_newspaper_previous_jockey_can_use_jockey_id_link_and_split_fragment(self) -> None:
+        data = parse_nar_newspaper_html(split_previous_jockey_newspaper_html())
+        self.assertEqual(data["race_id"], "202635072803")
+        spiritual = data["horses"][0]
+        self.assertEqual(spiritual["horse_number"], "8")
+        self.assertEqual(spiritual["jockey"], "山本聡")
+        self.assertEqual(spiritual["weight"], "54.0")
+        self.assertEqual(spiritual["previous_weight"], "54.0")
+        self.assertEqual(spiritual["previous_jockey"], "山本聡")
         self.assertNotEqual(spiritual["previous_jockey"], "別騎手")
 
     def test_spiritual_previous_run_details_reach_display_attrs(self) -> None:
