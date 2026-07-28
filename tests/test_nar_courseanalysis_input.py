@@ -130,6 +130,28 @@ def base_json(data_type: str, race_id: str = "202644072106") -> dict:
     }
 
 
+def spiritual_speed_json(race_id: str = "202635072803") -> dict:
+    return {
+        "race_id": race_id,
+        "data_type": "speed",
+        "race": {"race_name": "地方競馬", "race_data_1": "12:00発走 / ダ1400m"},
+        "horses": [
+            {
+                "horse_number": "8",
+                "horse_id": "h8",
+                "horse_name": "スピリチュアル",
+                "max": "60",
+                "avg5": "55",
+                "distance": "54",
+                "course": "53",
+                "race3": "52",
+                "race2": "51",
+                "race1": "50",
+            }
+        ],
+    }
+
+
 def upload(name: str, payload: str | dict) -> tuple[str, bytes]:
     if isinstance(payload, dict):
         payload = json.dumps(payload, ensure_ascii=False)
@@ -508,6 +530,23 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(spiritual["previous_weight"], "54.0")
         self.assertEqual(spiritual["previous_body_weight"], "450(0)")
         self.assertNotEqual(spiritual["previous_jockey"], "別騎手")
+
+    def test_spiritual_previous_run_details_reach_display_attrs(self) -> None:
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("speed.json", spiritual_speed_json()),
+                upload("courseanalysis.html", course_html(["逃", "先", "差", "追"], "202635072803", {"8": "差"})),
+                upload("newspaper.html", spiritual_newspaper_html()),
+            ]
+        )
+
+        speed_html = package.html_files["speed"]
+        self.assertIn('data-display-current-load-weight="54.0"', speed_html)
+        self.assertIn('data-display-previous-load-weight="54.0"', speed_html)
+        self.assertIn('data-display-load-weight-change="0.0"', speed_html)
+        self.assertIn('data-display-current-jockey="山本聡"', speed_html)
+        self.assertIn('data-display-previous-jockey="山本聡"', speed_html)
+        self.assertIn('data-display-jockey-changed="False"', speed_html)
 
     def test_newspaper_html_can_replace_entry_json(self) -> None:
         package = build_nar_prediction_inputs_from_uploads(
