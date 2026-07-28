@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from html import escape
+from html import escape, unescape
 from typing import Any, Iterable
 
 import pandas as pd
@@ -54,6 +54,7 @@ class NarJsonPredictionInput:
     running_styles: tuple[str, ...]
     horse_style_count: int = 0
     entry_source: str = "entry"
+    debug_logs: tuple[dict[str, Any], ...] = ()
 
 
 def build_nar_prediction_inputs_from_uploads(
@@ -96,6 +97,7 @@ def build_nar_prediction_inputs_from_uploads(
         running_styles=running_styles,
         horse_style_count=sum(1 for horse in merged_horses if _safe_text(horse.get("running_style"))),
         entry_source=_safe_text(entry_data.get("source")) or "entry",
+        debug_logs=tuple(_build_nar_previous_jockey_debug_logs(classified, entry_data, merged_horses, html_files)),
     )
 
 
@@ -411,6 +413,93 @@ def _display_detail_attrs(horse: dict[str, Any]) -> str:
         if text:
             attrs.append(f' data-display-{attr_name}="{_e(text)}"')
     return "".join(attrs)
+
+
+def _build_nar_previous_jockey_debug_logs(
+    classified: dict[str, dict[str, Any]],
+    entry_data: dict[str, Any],
+    merged_horses: list[dict[str, Any]],
+    html_files: dict[str, str],
+) -> list[dict[str, Any]]:
+    newspaper = classified.get("newspaper") or {}
+    newspaper_by_number = {
+        _horse_number(horse): horse
+        for horse in newspaper.get("horses", [])
+        if isinstance(horse, dict) and _horse_number(horse)
+    }
+    entry_by_number = {
+        _horse_number(horse): horse
+        for horse in entry_data.get("horses", [])
+        if isinstance(horse, dict) and _horse_number(horse)
+    }
+    merged_by_number = {
+        _horse_number(horse): horse
+        for horse in merged_horses
+        if isinstance(horse, dict) and _horse_number(horse)
+    }
+    speed_attrs_by_number = _extract_speed_previous_jockey_attrs(html_files.get("speed", ""))
+    numbers = sorted(
+        set(newspaper_by_number) | set(entry_by_number) | set(merged_by_number) | set(speed_attrs_by_number),
+        key=_number_sort_key,
+    )
+    rows: list[dict[str, Any]] = []
+    for number in numbers:
+        newspaper_horse = newspaper_by_number.get(number, {})
+        entry_horse = entry_by_number.get(number, {})
+        merged_horse = merged_by_number.get(number, {})
+        speed_attrs = speed_attrs_by_number.get(number, {})
+        rows.append(
+            {
+                "horse_number": number,
+                "horse_name": (
+                    _safe_text(merged_horse.get("horse_name"))
+                    or _safe_text(entry_horse.get("horse_name"))
+                    or _safe_text(newspaper_horse.get("horse_name"))
+                ),
+                "raw_previous_jockey": _safe_text(newspaper_horse.get("_debug_previous_jockey_raw")),
+                "normalized_previous_jockey": _safe_text(newspaper_horse.get("_debug_previous_jockey_normalized")),
+                "entry_prev_jockey": _first_horse_text((entry_horse,), PREVIOUS_JOCKEY_KEYS),
+                "merged_prev_jockey": _safe_text(merged_horse.get("_display_previous_jockey")),
+                "speed_html_previous_jockey": _safe_text(speed_attrs.get("previous_jockey")),
+                "current_jockey": (
+                    _safe_text(merged_horse.get("_display_current_jockey"))
+                    or _safe_text(merged_horse.get("jockey"))
+                    or _safe_text(speed_attrs.get("current_jockey"))
+                ),
+                "jockey_changed": _safe_text(merged_horse.get("_display_jockey_changed")),
+            }
+        )
+    return rows
+
+
+def _extract_speed_previous_jockey_attrs(html_text: str) -> dict[str, dict[str, str]]:
+    attrs_by_number: dict[str, dict[str, str]] = {}
+    for match in re.finditer(r"<tr\b(?P<attrs>[^>]*)>(?P<body>[\s\S]*?)</tr>", str(html_text or ""), flags=re.I):
+        attrs = match.group("attrs") or ""
+        body = match.group("body") or ""
+        if "data-display-" not in attrs:
+            continue
+        number_match = re.search(
+            r'class=["\'][^"\']*(?:Speed_List01|UmaBan)[^"\']*["\'][^>]*>\s*(\d{1,2})',
+            body,
+            flags=re.I,
+        )
+        if not number_match:
+            number_match = re.search(r">\s*(\d{1,2})\s*</", body)
+        if not number_match:
+            continue
+        number = number_match.group(1)
+        attrs_by_number[number] = {
+            "current_jockey": _extract_generated_attr(attrs, "current-jockey"),
+            "previous_jockey": _extract_generated_attr(attrs, "previous-jockey"),
+            "jockey_changed": _extract_generated_attr(attrs, "jockey-changed"),
+        }
+    return attrs_by_number
+
+
+def _extract_generated_attr(attrs: str, name: str) -> str:
+    match = re.search(rf'data-display-{re.escape(name)}=["\']([^"\']*)["\']', attrs or "", flags=re.I)
+    return unescape(match.group(1)).strip() if match else ""
 
 
 def _first_horse_text(sources: tuple[dict[str, Any], ...], keys: tuple[str, ...]) -> str:

@@ -50,3 +50,4 @@ class PredictionResult:
     status: str = "not_started"
     message: str = ""
     raw_output: str = ""
+    debug_info: dict[str, Any] = field(default_factory=dict)

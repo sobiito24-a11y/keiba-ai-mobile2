@@ -605,6 +605,17 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(spiritual["previous_jockey"], "山本聡")
         self.assertNotEqual(spiritual["previous_jockey"], "別騎手")
 
+    def test_nar_newspaper_previous_jockey_can_use_data14_cell(self) -> None:
+        html = spiritual_newspaper_html().replace(
+            '<span class="Jockey"><a href="https://db.netkeiba.com/jockey/result/recent/yamamoto/">山本聡</a></span>',
+            '<span class="Data14">山本聡</span>',
+        )
+        data = parse_nar_newspaper_html(html)
+        spiritual = data["horses"][0]
+        self.assertEqual(spiritual["previous_jockey"], "山本聡")
+        self.assertEqual(spiritual["_debug_previous_jockey_raw"], "山本聡")
+        self.assertEqual(spiritual["_debug_previous_jockey_normalized"], "山本聡")
+
     def test_spiritual_previous_run_details_reach_display_attrs(self) -> None:
         package = build_nar_prediction_inputs_from_uploads(
             [
@@ -621,6 +632,13 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertIn('data-display-current-jockey="山本聡"', speed_html)
         self.assertIn('data-display-previous-jockey="山本聡"', speed_html)
         self.assertIn('data-display-jockey-changed="False"', speed_html)
+
+        trace = {row["horse_number"]: row for row in package.debug_logs}
+        self.assertEqual(trace["8"]["raw_previous_jockey"], "山本聡")
+        self.assertEqual(trace["8"]["normalized_previous_jockey"], "山本聡")
+        self.assertEqual(trace["8"]["entry_prev_jockey"], "山本聡")
+        self.assertEqual(trace["8"]["merged_prev_jockey"], "山本聡")
+        self.assertEqual(trace["8"]["speed_html_previous_jockey"], "山本聡")
 
     def test_newspaper_html_can_replace_entry_json(self) -> None:
         package = build_nar_prediction_inputs_from_uploads(

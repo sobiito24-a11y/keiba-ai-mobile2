@@ -274,6 +274,16 @@ def render_nar_json_status(package: NarJsonPredictionInput) -> None:
         st.write("コース脚質：" + "・".join(package.running_styles))
     else:
         st.write("コース脚質：未取得")
+    render_nar_previous_jockey_upload_trace(package)
+
+
+def render_nar_previous_jockey_upload_trace(package: NarJsonPredictionInput) -> None:
+    rows = list(getattr(package, "debug_logs", ()) or ())
+    if not rows:
+        return
+    with st.expander("地方前走騎手診断（アップロード解析）", expanded=False):
+        st.caption("HTML全文は表示せず、前走騎手の抽出・統合経路だけを表示します。")
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
 def render_nar_legacy_url_flow() -> None:
@@ -1008,6 +1018,7 @@ AUDIT_EVALUATION_COLUMNS = [
 def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
     render_colab_style_result(result)
     render_audit_details(result)
+    render_nar_previous_jockey_result_trace(result)
 
     st.divider()
     st.subheader("スマホ用PNG")
@@ -1038,6 +1049,17 @@ def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
         st.session_state.fetch_race_id = ""
         st.session_state.url_input_key += 1
         st.rerun()
+
+
+def render_nar_previous_jockey_result_trace(result: PredictionResult) -> None:
+    if result.race_mode != "nar":
+        return
+    rows = list((getattr(result, "debug_info", {}) or {}).get("nar_previous_jockey_trace", []) or [])
+    if not rows:
+        return
+    with st.expander("地方前走騎手診断（PredictionResult・表示直前）", expanded=False):
+        st.caption("PredictionResult作成時の内部列と、app.pyカード表示が参照する騎手詳細です。")
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
 def render_colab_style_result(result: PredictionResult) -> None:

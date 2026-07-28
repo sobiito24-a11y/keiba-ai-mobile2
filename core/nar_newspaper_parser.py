@@ -349,14 +349,18 @@ def _looks_like_past_run(segment: str) -> bool:
 
 def _extract_past_run_from_segment(segment: str) -> dict[str, Any]:
     text = _clean_text(segment)
+    previous_jockey_raw = _extract_previous_jockey_raw(segment, text)
+    previous_jockey = _clean_jockey_name(previous_jockey_raw)
     record = {
         "previous_date": _extract_previous_date(text),
         "previous_track": _extract_previous_track(text),
         "previous_race": _extract_previous_race(segment),
         "previous_finish": _extract_previous_finish(text),
-        "previous_jockey": _extract_previous_jockey(segment, text),
+        "previous_jockey": previous_jockey,
         "previous_weight": _extract_past_load_weight(segment),
         "previous_body_weight": _extract_body_weight(text),
+        "_debug_previous_jockey_raw": previous_jockey_raw,
+        "_debug_previous_jockey_normalized": previous_jockey,
     }
     aliases = {
         "前走日付": record["previous_date"],
@@ -441,19 +445,24 @@ def _extract_previous_finish(text: str) -> str:
 
 
 def _extract_previous_jockey(segment: str, text: str) -> str:
-    jockey = _clean_jockey_name(_link_text(segment, "/jockey/"))
+    return _clean_jockey_name(_extract_previous_jockey_raw(segment, text))
+
+
+def _extract_previous_jockey_raw(segment: str, text: str) -> str:
+    jockey = _link_text(segment, "/jockey/")
     if jockey:
         return jockey
-    jockey = _clean_jockey_name(_class_text(segment, "Jockey"))
-    if jockey:
-        return jockey
+    for class_name in ("Jockey", "Data14"):
+        jockey = _class_text(segment, class_name)
+        if jockey:
+            return jockey
     for pattern in (
         r"(?:騎手|鞍上)\s*[:：]?\s*([^\s　/／・,，、]+)",
         r"([一-龥ぁ-んァ-ン]{2,6})\s*騎手",
     ):
         match = re.search(pattern, text)
         if match:
-            return _clean_jockey_name(match.group(1))
+            return _clean_text(match.group(1))
     return ""
 
 
