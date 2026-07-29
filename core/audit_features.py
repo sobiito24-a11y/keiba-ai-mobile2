@@ -33,6 +33,8 @@ ABILITY_BAND_CONFIG = {
 
 
 AUDIT_OUTPUT_COLUMNS = [
+    "★最高指数",
+    "star_max_source",
     "old_ai_score",
     "raw_score",
     "ability_display_score",
@@ -60,6 +62,9 @@ AUDIT_EXPORT_COLUMNS = [
     "馬名",
     "脚質",
     "running_style_display",
+    "★最高指数",
+    "★最高指数の取得元",
+    "star_max_source",
     "old_ai_score",
     "raw_score",
     "ability_display_score",
@@ -137,6 +142,12 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["old_final_mark"] = _text_series(result, "最終印")
     result["final_mark_score"] = _first_numeric_series(result, ["総合評価点", "_最終印点", "総合評価"])
     result["market_score"] = _first_numeric_series(result, ["市場反映勝率", "推定勝率", "単勝期待値"])
+    if "star_max_source" in result.columns:
+        star_source = _text_series(result, "star_max_source")
+    else:
+        star_source = _text_series(result, "★最高指数の取得元")
+    result["star_max_source"] = star_source.where(star_source.astype(str).str.len().gt(0), "missing")
+    result["★最高指数の取得元"] = result["star_max_source"]
 
     axis_context = _axis_context(result["raw_score"])
     axis_values: list[str] = []

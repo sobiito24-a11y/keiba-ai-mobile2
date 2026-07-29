@@ -341,6 +341,10 @@ def merge_entry_and_speed(
         merged = dict(entry_horse)
         for key in ("max", "avg5", "distance", "course", "race3", "race2", "race1"):
             merged[key] = parse_speed_index(speed_horse.get(key))
+        star_max, star_max_source = _star_max_from_speed_horse(speed_horse)
+        if star_max is not None:
+            merged["star_max"] = star_max
+            merged["star_max_source"] = star_max_source
         for key in ("odds", "popularity", "style", "running_style", "jockey"):
             if not _safe_text(merged.get(key)) and _safe_text(speed_horse.get(key)):
                 merged[key] = speed_horse.get(key)
@@ -414,6 +418,41 @@ def _display_detail_attrs(horse: dict[str, Any]) -> str:
         if text:
             attrs.append(f' data-display-{attr_name}="{_e(text)}"')
     return "".join(attrs)
+
+
+def _speed_star_attrs(horse: dict[str, Any]) -> str:
+    attrs = []
+    star_max = horse.get("star_max")
+    if star_max is not None:
+        attrs.append(f' data-speed-star-max="{_e(star_max)}"')
+    source = _safe_text(horse.get("star_max_source"))
+    if source:
+        attrs.append(f' data-speed-star-max-source="{_e(source)}"')
+    return "".join(attrs)
+
+
+def _star_max_from_speed_horse(speed_horse: dict[str, Any]) -> tuple[int | None, str]:
+    for key in (
+        "star_max",
+        "same_condition_max",
+        "same_condition_high",
+        "condition_max",
+        "★最高指数",
+        "★最高",
+        "同条件最高指数",
+        "条件最高",
+        "star_high",
+    ):
+        value = parse_speed_index(speed_horse.get(key))
+        if value is not None:
+            return value, key
+
+    # Shortcut speed JSON has historically supplied the Colab-side
+    # same-condition maximum as max, sometimes with a trailing * marker.
+    max_value = parse_speed_index(speed_horse.get("max"))
+    if max_value is not None:
+        return max_value, "speed.max"
+    return None, "missing"
 
 
 def _build_nar_previous_jockey_debug_logs(
@@ -611,7 +650,7 @@ def build_speed_html(
     race_data_2 = _race_value(race, "race_data_2") or ""
     rows = []
     for horse in merged_horses:
-        detail_attrs = _display_detail_attrs(horse)
+        detail_attrs = _display_detail_attrs(horse) + _speed_star_attrs(horse)
         rows.append(
             f'<tr class="List HorseList"{detail_attrs}>'
             f"<td>{_e(horse.get('frame_number'))}</td>"

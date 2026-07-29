@@ -1181,6 +1181,8 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
         display_previous_jockey = display_attr(row, "previous-jockey")
         display_jockey_changed_text = display_attr(row, "jockey-changed")
         display_jockey_changed = parse_jockey_changed_from_text(display_jockey_changed_text) if display_jockey_changed_text else None
+        speed_star_high_hint = parse_float_from_text(str(row.get("data-speed-star-max", "") or ""))
+        speed_star_high_source = str(row.get("data-speed-star-max-source", "") or "").strip()
         max_index = parse_index_cell(first(row, [".Speed_List03", ".sk__max_index", ".MaxIndex"]))["value"]
         avg5_index = parse_index_cell(first(row, [".Speed_List04", ".sk__avg5_index", ".Avg5Index"]))["value"]
         distance_index = parse_index_cell(first(row, [".Speed_List05", ".sk__max_distance_index"]))["value"]
@@ -1268,6 +1270,9 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
         load_weight_display = format_load_weight_with_change(load_weight, previous_load_weight)
         current_load_weight = parse_float_from_text(load_weight)
         load_weight_change = current_load_weight - previous_load_weight if current_load_weight is not None and previous_load_weight is not None else None
+        star_high_value = max(star_values) if star_values else speed_star_high_hint
+        star_source_value = "same_condition" if star_values else (speed_star_high_source or "missing")
+        star_count_value = star_count if star_values else (1 if speed_star_high_hint is not None else 0)
 
         records.append({
             "馬番": int(parse_int_from_text(umaban) or 0),
@@ -1290,8 +1295,9 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
             "_prev_values": prev_values,
             "_last": prev_values[-1] if prev_values else None,
             "_trend": trend,
-            "_star_count": star_count,
-            "_star_high": max(star_values) if star_values else None,
+            "_star_count": star_count_value,
+            "_star_high": star_high_value,
+            "_star_high_source": star_source_value if star_high_value is not None else "missing",
             "_same_condition_flags": same_condition_flags,
             "_last_same_condition": bool(same_condition_flags[-1]) if same_condition_flags else False,
             "_same_distance_high": max(same_distance_values) if same_distance_values else None,
@@ -1644,6 +1650,12 @@ def add_scores_and_comments(df):
             60 + 40 * (raw_numeric.loc[valid_score_mask] - min_raw) / (max_raw - min_raw)
         ).round(1)
     df["★最高"] = df["_star_high"]
+    if "_star_high_source" in df.columns:
+        star_source = df["_star_high_source"].fillna("missing").astype(str).replace("", "missing")
+    else:
+        star_source = pd.Series("missing", index=df.index)
+    df["star_max_source"] = star_source
+    df["★最高指数の取得元"] = star_source
 
     df = df.sort_values(["AI点", "3走平均", "距離指数"], ascending=[False, False, False]).reset_index(drop=True)
     ai_rank = pd.to_numeric(df["AI点"], errors="coerce").rank(method="min", ascending=False)
@@ -1937,7 +1949,7 @@ def add_scores_and_comments(df):
     df["買い目メモ"] = df["印"].map(betting_note)
     df["展開メモ"] = ""
 
-    final_cols = ["推奨順位", "印", "役割", "買い目メモ", "妙味スコア", "AI順位", "枠", "馬番", "馬名", "性齢", "斤量", "騎手", "単勝オッズ", "人気", "コメント", "距離指数", "コース指数", "3走前", "2走前", "前走", "3走平均", "★最高", "近3走最高", "対戦", "AI点", "推奨点"]
+    final_cols = ["推奨順位", "印", "役割", "買い目メモ", "妙味スコア", "AI順位", "枠", "馬番", "馬名", "性齢", "斤量", "騎手", "単勝オッズ", "人気", "コメント", "距離指数", "コース指数", "3走前", "2走前", "前走", "3走平均", "★最高", "★最高指数の取得元", "star_max_source", "近3走最高", "対戦", "AI点", "推奨点"]
     return df[final_cols + [c for c in df.columns if c.startswith("_")]]
 
 
@@ -10743,7 +10755,7 @@ def _run_nar_notebook_body(
     result_df = prepare_nar_display_columns(result_df)
 
 
-    display_cols = ["表示印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "★最高指数", "評価/検討材料", "能力評価値", "能力帯", "能力差", "レース難易度", "レース難易度理由", "表示コメント", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "axis_confidence", "axis_confidence_reason", "ability_band", "ability_gap_level", "race_difficulty", "race_difficulty_reason", "display_comment", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
+    display_cols = ["表示印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "★最高指数", "★最高指数の取得元", "評価/検討材料", "能力評価値", "能力帯", "能力差", "レース難易度", "レース難易度理由", "表示コメント", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "star_max_source", "axis_confidence", "axis_confidence_reason", "ability_band", "ability_gap_level", "race_difficulty", "race_difficulty_reason", "display_comment", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
     print(f"レース: {race_info.get('race_name', '')} / {race_info.get('race_data', '')}")
     print(f"抽出頭数: {len(result_df)}")
     print_venue_profile(detected_venue, venue_profile, bool(style_html_input))

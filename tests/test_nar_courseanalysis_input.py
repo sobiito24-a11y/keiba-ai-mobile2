@@ -6,6 +6,7 @@ import unittest
 import pandas as pd
 
 from core.html_classifier import classify_html, required_kinds
+from core.audit_features import add_audit_evaluation_columns, build_audit_export_table
 from core.nar_courseanalysis_parser import parse_courseanalysis_html
 from core.nar_newspaper_parser import parse_nar_newspaper_html
 from core.nar_json_input import (
@@ -16,6 +17,7 @@ from core.nar_json_input import (
     parse_index,
     parse_speed_index,
 )
+from core.nar_notebook_logic import parse_nar_speed_table, predict_nar_from_html
 
 
 def course_html(
@@ -149,6 +151,73 @@ def spiritual_speed_json(race_id: str = "202635072803") -> dict:
                 "race2": "51",
                 "race1": "50",
             }
+        ],
+    }
+
+
+def three_horse_entry_json(race_id: str = "202644072106") -> dict:
+    data = base_json("entry", race_id)
+    data["horses"].append(
+        {
+            "frame_number": "3",
+            "horse_number": "3",
+            "horse_id": "h3",
+            "horse_name": "テストホースC",
+            "sex_age": "セ6",
+            "weight": "57",
+            "jockey": "騎手C",
+            "horse_weight": "490(-2)",
+            "odds": "18.0",
+            "popularity": "7",
+            "style": "追",
+        }
+    )
+    return data
+
+
+def three_horse_speed_json(race_id: str = "202644072106") -> dict:
+    return {
+        "race_id": race_id,
+        "data_type": "speed",
+        "race": {"race_name": "C2九十", "race_data_1": "17:30発走 / ダ1600m"},
+        "horses": [
+            {
+                "horse_number": "1",
+                "horse_id": "h1",
+                "horse_name": "テストホースA",
+                "max": "72*",
+                "avg5": "61",
+                "distance": "60",
+                "course": "59",
+                "race3": "58",
+                "race2": "60",
+                "race1": "62",
+            },
+            {
+                "horse_number": "2",
+                "horse_id": "h2",
+                "horse_name": "テストホースB",
+                "star_max": "65",
+                "max": "66",
+                "avg5": "58",
+                "distance": "57",
+                "course": "56",
+                "race3": "55",
+                "race2": "58",
+                "race1": "59",
+            },
+            {
+                "horse_number": "3",
+                "horse_id": "h3",
+                "horse_name": "テストホースC",
+                "max": "61",
+                "avg5": "55",
+                "distance": "54",
+                "course": "53",
+                "race3": "52",
+                "race2": "54",
+                "race1": "56",
+            },
         ],
     }
 
@@ -500,6 +569,115 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertIn('<td class="Speed_List04 Avg5Index">53</td>', package.html_files["speed"])
         self.assertIn('<td class="DataTitle_Cell">先</td>', package.html_files["style"])
         self.assertIn("<td>15</td><td>28</td><td>38</td>", package.html_files["style"])
+
+    def test_speed_json_star_max_reaches_score_inputs_and_audit(self) -> None:
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("entry.json", three_horse_entry_json()),
+                upload("speed.json", three_horse_speed_json()),
+                upload(
+                    "courseanalysis.html",
+                    course_html(["逃", "先", "差", "追"], horse_styles={"1": "先", "2": "差", "3": "追"}),
+                ),
+            ]
+        )
+
+        speed_html = package.html_files["speed"]
+        self.assertIn('data-speed-star-max="72"', speed_html)
+        self.assertIn('data-speed-star-max-source="speed.max"', speed_html)
+        self.assertIn('data-speed-star-max="65"', speed_html)
+        self.assertIn('data-speed-star-max-source="star_max"', speed_html)
+
+        parsed, _ = parse_nar_speed_table(speed_html, session=None, fetch_past_detail=False)
+        by_number = parsed.set_index("馬番")
+        self.assertEqual(float(by_number.loc[1, "★最高"]), 72.0)
+        self.assertEqual(by_number.loc[1, "star_max_source"], "speed.max")
+        self.assertEqual(float(by_number.loc[2, "★最高"]), 65.0)
+        self.assertEqual(by_number.loc[2, "star_max_source"], "star_max")
+        self.assertEqual(float(by_number.loc[3, "★最高"]), 61.0)
+        self.assertEqual(by_number.loc[3, "star_max_source"], "speed.max")
+
+        audited = add_audit_evaluation_columns(parsed, race_type="nar")
+        export = build_audit_export_table(audited)
+        self.assertIn("★最高指数の取得元", export.columns)
+        self.assertIn("star_max_source", export.columns)
+        self.assertIn("raw_score", export.columns)
+
+    def test_star_high_source_cases_keep_missing_as_missing(self) -> None:
+        entry = base_json("entry")
+        speed = base_json("speed")
+        speed["horses"][0]["max"] = ""
+        speed["horses"][0]["star_max"] = "70"
+        speed["horses"][1]["max"] = ""
+        speed["horses"][1]["distance"] = "64"
+        speed["horses"][1]["course"] = "63"
+
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("entry.json", entry),
+                upload("speed.json", speed),
+                upload("courseanalysis.html", course_html(["先", "差"], horse_styles={"1": "先", "2": "差"})),
+            ]
+        )
+        parsed, _ = parse_nar_speed_table(package.html_files["speed"], session=None, fetch_past_detail=False)
+        by_number = parsed.set_index("馬番")
+
+        self.assertEqual(float(by_number.loc[1, "★最高"]), 70.0)
+        self.assertEqual(by_number.loc[1, "star_max_source"], "star_max")
+        self.assertTrue(pd.isna(by_number.loc[2, "★最高"]))
+        self.assertEqual(by_number.loc[2, "star_max_source"], "missing")
+
+    def test_json_route_and_colab_equivalent_speed_html_match_for_star_and_scores(self) -> None:
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("entry.json", three_horse_entry_json()),
+                upload("speed.json", three_horse_speed_json()),
+                upload(
+                    "courseanalysis.html",
+                    course_html(["逃", "先", "差", "追"], horse_styles={"1": "先", "2": "差", "3": "追"}),
+                ),
+            ]
+        )
+
+        app_result = predict_nar_from_html(package.html_files, package.file_names, fetch_past_detail=False)
+        colab_result = predict_nar_from_html(dict(package.html_files), dict(package.file_names), fetch_past_detail=False)
+        app_table = app_result.overall_table.set_index("馬番")
+        colab_table = colab_result.overall_table.set_index("馬番")
+
+        for horse_number in [1, 2, 3]:
+            for column in [
+                "★最高指数",
+                "★最高指数の取得元",
+                "star_max_source",
+                "raw_score",
+                "能力評価値",
+                "normalized_ai_score",
+                "ai_rank",
+                "final_mark_score",
+                "表示印",
+            ]:
+                self.assertEqual(app_table.loc[horse_number, column], colab_table.loc[horse_number, column])
+
+        self.assertFalse(app_table["★最高指数"].isna().all())
+
+    def test_all_missing_indexes_do_not_create_star_high(self) -> None:
+        entry = base_json("entry")
+        speed = base_json("speed")
+        for horse in speed["horses"]:
+            for key in ("max", "avg5", "distance", "course", "race3", "race2", "race1"):
+                horse[key] = "-"
+
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("entry.json", entry),
+                upload("speed.json", speed),
+                upload("courseanalysis.html", course_html(["先", "差"], horse_styles={"1": "先", "2": "差"})),
+            ]
+        )
+        parsed, _ = parse_nar_speed_table(package.html_files["speed"], session=None, fetch_past_detail=False)
+
+        self.assertTrue(parsed["★最高"].isna().all())
+        self.assertTrue(parsed["star_max_source"].eq("missing").all())
 
     def test_previous_weight_and_jockey_are_carried_as_display_only_attributes(self) -> None:
         entry = base_json("entry")
