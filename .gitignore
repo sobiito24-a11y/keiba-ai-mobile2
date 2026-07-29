@@ -7,6 +7,7 @@ __pycache__/
 *.pyo
 *.tmp
 *.log
+assets/fonts/NotoSansJP-Downloaded.ttf
 .streamlit/secrets.toml
 .DS_Store
 Thumbs.db

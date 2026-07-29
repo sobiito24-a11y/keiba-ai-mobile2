@@ -33,6 +33,7 @@ from core.nar_json_input import (
     build_nar_prediction_inputs_from_uploads,
 )
 from core.nar_predictor import predict_nar
+from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION
 from render.mobile_png import MobilePngRenderError, render_mobile_png
 
@@ -275,6 +276,7 @@ def render_nar_json_status(package: NarJsonPredictionInput) -> None:
     else:
         st.write("コース脚質：未取得")
     render_nar_previous_jockey_upload_trace(package)
+    render_nar_star_upload_trace(package)
 
 
 def render_nar_previous_jockey_upload_trace(package: NarJsonPredictionInput) -> None:
@@ -283,6 +285,15 @@ def render_nar_previous_jockey_upload_trace(package: NarJsonPredictionInput) -> 
         return
     with st.expander("地方前走騎手診断（アップロード解析）", expanded=False):
         st.caption("HTML全文は表示せず、前走騎手の抽出・統合経路だけを表示します。")
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
+def render_nar_star_upload_trace(package: NarJsonPredictionInput) -> None:
+    rows = list(getattr(package, "star_debug_logs", ()) or ())
+    if not rows:
+        return
+    with st.expander("地方★最高指数診断（アップロード〜HTML生成）", expanded=False):
+        st.caption("JSON読込直後、speed疑似HTML生成時、courseanalysis生成時のyear_max_index / star_max_indexです。")
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
@@ -1023,6 +1034,7 @@ def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
     render_colab_style_result(result)
     render_audit_details(result)
     render_nar_previous_jockey_result_trace(result)
+    render_nar_star_result_trace(result)
 
     st.divider()
     st.subheader("スマホ用PNG")
@@ -1066,6 +1078,17 @@ def render_nar_previous_jockey_result_trace(result: PredictionResult) -> None:
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
+def render_nar_star_result_trace(result: PredictionResult) -> None:
+    if result.race_mode != "nar":
+        return
+    rows = list((getattr(result, "debug_info", {}) or {}).get("nar_star_trace", []) or [])
+    if not rows:
+        return
+    with st.expander("地方★最高指数診断（予想処理〜表示直前）", expanded=False):
+        st.caption("parse_nar_speed_table、star_index.py、add_scores_and_comments、PredictionResult、app.py、PNGの値の流れです。")
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
 def render_colab_style_result(result: PredictionResult) -> None:
     render_raw_text_section(
         "会場別試験評価",
@@ -1089,6 +1112,51 @@ def render_colab_style_result(result: PredictionResult) -> None:
     )
 
 
+def append_nar_star_display_trace(
+    result: PredictionResult,
+    stage: str,
+    table: pd.DataFrame,
+    *,
+    horse_no_pos: int = 2,
+    horse_name_pos: int = 3,
+) -> None:
+    if result.race_mode != "nar" or table is None or getattr(table, "empty", False):
+        return
+    debug_info = getattr(result, "debug_info", None)
+    if debug_info is None:
+        result.debug_info = {}
+        debug_info = result.debug_info
+    flag = f"_logged_{stage}"
+    if debug_info.get(flag):
+        return
+    rows = []
+    for _, row in table.iterrows():
+        rows.append(
+            star_trace_row(
+                horse_no=row.iloc[horse_no_pos] if len(row) > horse_no_pos else "",
+                horse_name=row.iloc[horse_name_pos] if len(row) > horse_name_pos else "",
+                year_max_index=_star_trace_value(row, "year_max_index", 23),
+                star_max_index=_star_trace_value(row, "star_max_index", 24),
+                star_source=row.get("star_max_source"),
+            )
+        )
+    debug_info.setdefault("nar_star_trace", []).extend(log_star_trace(stage, rows))
+    debug_info[flag] = True
+
+
+def _star_trace_value(row: pd.Series, key: str, fallback_pos: int):
+    value = row.get(key)
+    if value is not None:
+        try:
+            if pd.notna(value):
+                return value
+        except TypeError:
+            return value
+    if len(row) > fallback_pos:
+        return row.iloc[fallback_pos]
+    return value
+
+
 def render_raw_text_section(title: str, text: str) -> None:
     st.subheader(title)
     body = clean_multiline(text)
@@ -1105,6 +1173,8 @@ def render_overall_table(result: PredictionResult) -> None:
         st.info("レース全体表は未取得です。")
         return
 
+    append_nar_star_display_trace(result, "09 app.py display DataFrame creation", table)
+
     mode = st.radio(
         "レース全体表の表示",
         ["簡易表示", "詳細表示"],
@@ -1117,7 +1187,9 @@ def render_overall_table(result: PredictionResult) -> None:
         columns = existing_columns(table, columns)
     if not columns:
         columns = list(table.columns)
-    st.dataframe(table.loc[:, columns], use_container_width=True, hide_index=True)
+    display_table = table.loc[:, columns]
+    append_nar_star_display_trace(result, "11 Streamlit detail table before st.dataframe", display_table)
+    st.dataframe(display_table, use_container_width=True, hide_index=True)
 
 
 def render_race_difficulty(result: PredictionResult) -> None:

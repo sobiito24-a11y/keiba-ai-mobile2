@@ -673,6 +673,31 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertTrue(pd.isna(by_number.loc[2, "★最高"]))
         self.assertEqual(by_number.loc[2, "star_max_source"], "missing")
 
+    def test_newspaper_past_run_conditions_feed_star_max_without_speed_condition_keys(self) -> None:
+        speed = base_json("speed")
+        html = newspaper_html().replace(
+            '<span class="Finish">2',
+            '<span class="Course">ダ1600m (右)</span><span class="Finish">2',
+            1,
+        )
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("newspaper.html", html),
+                upload("speed.json", speed),
+                upload("courseanalysis.html", course_html(["A", "B"], horse_styles={"1": "A", "2": "B"})),
+            ]
+        )
+
+        self.assertIn('data-star-distance="1600"', package.html_files["speed"])
+        parsed, _ = parse_nar_speed_table(package.html_files["speed"], session=None, fetch_past_detail=False)
+        same_condition_rows = parsed[parsed["star_max_source"].eq("recent3_same_condition")]
+        self.assertEqual(len(same_condition_rows), 1)
+        first = same_condition_rows.iloc[0]
+
+        self.assertEqual(float(first["star_max_index"]), 51.0)
+        self.assertEqual(first["star_max_source"], "recent3_same_condition")
+        self.assertFalse(parsed["star_max_index"].isna().all())
+
     def test_json_route_and_colab_equivalent_speed_html_match_for_star_and_scores(self) -> None:
         package = build_nar_prediction_inputs_from_uploads(
             [

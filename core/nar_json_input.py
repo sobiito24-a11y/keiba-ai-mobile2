@@ -20,6 +20,8 @@ from .nar_newspaper_parser import (
     is_nar_newspaper_html,
     parse_nar_newspaper_html,
 )
+from .star_trace import candidate_summary, log_star_trace, star_trace_row
+from .star_trace import clear_star_trace
 
 
 REQUIRED_NAR_JSON_TYPES = {"entry", "speed", "courseanalysis"}
@@ -56,12 +58,15 @@ class NarJsonPredictionInput:
     horse_style_count: int = 0
     entry_source: str = "entry"
     debug_logs: tuple[dict[str, Any], ...] = ()
+    star_debug_logs: tuple[dict[str, Any], ...] = ()
 
 
 def build_nar_prediction_inputs_from_uploads(
     uploaded_files: Iterable[tuple[str, bytes]],
 ) -> NarJsonPredictionInput:
+    clear_star_trace()
     classified = classify_nar_uploaded_files(uploaded_files)
+    star_debug_logs = _build_star_trace_from_speed_json(classified.get("speed", {}))
     if "entry" not in classified and "newspaper" in classified:
         classified["entry"] = build_entry_from_nar_newspaper(classified["newspaper"])
     elif "entry" in classified and "newspaper" in classified:
@@ -73,6 +78,7 @@ def build_nar_prediction_inputs_from_uploads(
     courseanalysis_data = classified["courseanalysis"]
     race_id = str(entry_data.get("race_id", "")).strip()
     merged_horses = merge_entry_and_speed(entry_data, speed_data, courseanalysis_data)
+    star_debug_logs.extend(_build_star_trace_from_merged_horses("01b nar_json_input merged", merged_horses))
     running_styles = tuple(
         _safe_text(item.get("style"))
         for item in courseanalysis_data.get("running_styles", [])
@@ -84,6 +90,7 @@ def build_nar_prediction_inputs_from_uploads(
         "speed": build_speed_html(speed_data, entry_data, merged_horses),
         "style": build_courseanalysis_html(courseanalysis_data, merged_horses),
     }
+    star_debug_logs.extend(_extract_speed_star_trace(html_files.get("speed", ""), "02b build_speed_html output attrs"))
     file_names = {
         "shutuba": _suggested_name(entry_data, race_id, "entry"),
         "speed": _suggested_name(speed_data, race_id, "speed"),
@@ -99,6 +106,7 @@ def build_nar_prediction_inputs_from_uploads(
         horse_style_count=sum(1 for horse in merged_horses if _safe_text(horse.get("running_style"))),
         entry_source=_safe_text(entry_data.get("source")) or "entry",
         debug_logs=tuple(_build_nar_previous_jockey_debug_logs(classified, entry_data, merged_horses, html_files)),
+        star_debug_logs=tuple(star_debug_logs),
     )
 
 
@@ -138,6 +146,32 @@ def apply_newspaper_jockey_priority(entry_data: dict[str, Any], newspaper_data: 
             horse["_jockey_source"] = "newspaper"
         if newspaper_horse:
             for key in (
+                "past_runs",
+                "recent_runs",
+                "race1_racecourse",
+                "race1_venue",
+                "race1_track",
+                "race1_surface",
+                "race1_distance",
+                "race1_turn",
+                "race1_direction",
+                "race1_condition",
+                "race2_racecourse",
+                "race2_venue",
+                "race2_track",
+                "race2_surface",
+                "race2_distance",
+                "race2_turn",
+                "race2_direction",
+                "race2_condition",
+                "race3_racecourse",
+                "race3_venue",
+                "race3_track",
+                "race3_surface",
+                "race3_distance",
+                "race3_turn",
+                "race3_direction",
+                "race3_condition",
                 "previous_date",
                 "previous_track",
                 "previous_race",
@@ -153,7 +187,12 @@ def apply_newspaper_jockey_priority(entry_data: dict[str, Any], newspaper_data: 
                 "前走斤量",
                 "前走馬体重",
             ):
-                value = _safe_text(newspaper_horse.get(key))
+                raw_value = newspaper_horse.get(key)
+                if isinstance(raw_value, (list, dict)):
+                    if raw_value:
+                        horse[key] = raw_value
+                    continue
+                value = _safe_text(raw_value)
                 if value:
                     horse[key] = value
         merged_horses.append(horse)
@@ -632,6 +671,7 @@ def build_speed_html(
             f'{_speed_index_td("Speed_List11", horse, "race1", "前走")}'
             "</tr>"
         )
+    _build_star_trace_from_merged_horses("02 build_speed_html", merged_horses)
     return _html_document(
         race_id,
         race_name,
@@ -739,6 +779,114 @@ def _find_nested_past_run(sources: list[dict[str, Any]], run_key: str, label: st
     return {}
 
 
+def _build_star_trace_from_speed_json(speed_data: dict[str, Any]) -> list[dict[str, Any]]:
+    horses = speed_data.get("horses", []) if isinstance(speed_data, dict) else []
+    rows = []
+    for horse in horses:
+        if not isinstance(horse, dict):
+            continue
+        rows.append(
+            star_trace_row(
+                horse_no=_horse_number(horse),
+                horse_name=horse.get("horse_name"),
+                year_max_index=parse_speed_index(horse.get("max")),
+                star_max_index=_first_value(
+                    horse,
+                    (
+                        "star_max_index",
+                        "star_max",
+                        "same_condition_max",
+                        "same_condition_high",
+                    ),
+                ),
+                star_candidates=candidate_summary(_star_candidate_runs_from_horse(horse)),
+            )
+        )
+    return log_star_trace("01 nar_json_input JSON loaded", rows)
+
+
+def _build_star_trace_from_merged_horses(stage: str, horses: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    for horse in horses:
+        rows.append(
+            star_trace_row(
+                horse_no=horse.get("horse_number"),
+                horse_name=horse.get("horse_name"),
+                year_max_index=horse.get("max"),
+                star_max_index=horse.get("star_max_index"),
+                star_candidates=candidate_summary(_star_candidate_runs_from_horse(horse)),
+            )
+        )
+    return log_star_trace(stage, rows)
+
+
+def _star_candidate_runs_from_horse(horse: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "label": label,
+            "value": horse.get(run_key),
+            **_past_run_condition_dict(horse, run_key, label),
+        }
+        for run_key, label in (("race3", "3back"), ("race2", "2back"), ("race1", "last"))
+    ]
+
+
+def _extract_speed_star_trace(html_text: str, stage: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for match in re.finditer(r"<tr\b(?P<attrs>[^>]*)>(?P<body>[\s\S]*?)</tr>", str(html_text or ""), flags=re.I):
+        body = match.group("body") or ""
+        number_match = re.search(
+            r'class=["\'][^"\']*(?:Speed_List01|UmaBan)[^"\']*["\'][^>]*>\s*(\d{1,2})',
+            body,
+            flags=re.I,
+        )
+        name_match = re.search(
+            r'class=["\'][^"\']*Horse_Name[^"\']*["\'][^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)</a>',
+            body,
+            flags=re.I,
+        )
+        year_match = re.search(
+            r'class=["\'][^"\']*(?:Speed_List03|MaxIndex)[^"\']*["\'][^>]*>[\s\S]*?([+-]?\d+(?:\.\d+)?)',
+            body,
+            flags=re.I,
+        )
+        star_attrs = []
+        for cell in re.findall(r"<td\b[^>]*data-star-[^>]*>[\s\S]*?</td>", body, flags=re.I):
+            value_text = _clean_html_text(cell)
+            attrs = re.search(r"<td\b([^>]*)>", cell, flags=re.I)
+            attr_text = attrs.group(1) if attrs else ""
+            star_attrs.append(
+                {
+                    "label": _extract_star_attr(attr_text, "label") or "cell",
+                    "value": value_text,
+                    "racecourse": _extract_star_attr(attr_text, "venue"),
+                    "surface": _extract_star_attr(attr_text, "surface"),
+                    "distance": _extract_star_attr(attr_text, "distance"),
+                    "direction": _extract_star_attr(attr_text, "turn"),
+                }
+            )
+        rows.append(
+            star_trace_row(
+                horse_no=number_match.group(1) if number_match else "",
+                horse_name=_clean_html_text(name_match.group(1)) if name_match else "",
+                year_max_index=year_match.group(1) if year_match else None,
+                star_max_index=None,
+                star_candidates=candidate_summary(star_attrs),
+            )
+        )
+    return log_star_trace(stage, rows)
+
+
+def _extract_star_attr(attrs: str, name: str) -> str:
+    match = re.search(rf'data-star-{re.escape(name)}=["\']([^"\']*)["\']', attrs or "", flags=re.I)
+    return unescape(match.group(1)).strip() if match else ""
+
+
+def _clean_html_text(source: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", source or "")
+    return re.sub(r"\s+", " ", unescape(text)).strip()
+
+
 def _first_value(source: dict[str, Any], keys: tuple[str, ...]) -> Any:
     for key in keys:
         value = source.get(key)
@@ -817,6 +965,20 @@ def build_courseanalysis_html(
             f"<td>{_e(item.get('outside_rate'))}</td>"
             "</tr>"
         )
+
+    log_star_trace(
+        "03 build_courseanalysis_html",
+        [
+            star_trace_row(
+                horse_no=horse.get("horse_number"),
+                horse_name=horse.get("horse_name"),
+                year_max_index=horse.get("max"),
+                star_max_index=None,
+                running_style=horse.get("running_style") or horse.get("style"),
+            )
+            for horse in merged_horses
+        ],
+    )
 
     body = (
         f'<canvas id="score1"></canvas>'

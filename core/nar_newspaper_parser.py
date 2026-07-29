@@ -6,6 +6,32 @@ from typing import Any
 
 
 _PREVIOUS_RUN_KEYS = (
+    "past_runs",
+    "recent_runs",
+    "race1_racecourse",
+    "race1_venue",
+    "race1_track",
+    "race1_surface",
+    "race1_distance",
+    "race1_turn",
+    "race1_direction",
+    "race1_condition",
+    "race2_racecourse",
+    "race2_venue",
+    "race2_track",
+    "race2_surface",
+    "race2_distance",
+    "race2_turn",
+    "race2_direction",
+    "race2_condition",
+    "race3_racecourse",
+    "race3_venue",
+    "race3_track",
+    "race3_surface",
+    "race3_distance",
+    "race3_turn",
+    "race3_direction",
+    "race3_condition",
     "previous_date",
     "previous_track",
     "previous_race",
@@ -207,7 +233,7 @@ def _record_from_vertical_block(block: str, attrs: str) -> dict[str, Any]:
         "early_3f": _extract_3f(_clean_text(block), "前半"),
         "late_3f": _extract_3f(_clean_text(block), "後半"),
     }
-    record.update(_extract_latest_past_run(block))
+    _attach_recent_past_runs(record, block)
     return record
 
 
@@ -259,7 +285,7 @@ def _record_from_row(row_html: str) -> dict[str, Any]:
         "early_3f": _extract_3f(row_text, "前半"),
         "late_3f": _extract_3f(row_text, "後半"),
     }
-    record.update(_extract_latest_past_run(row_html))
+    _attach_recent_past_runs(record, row_html)
     return record
 
 
@@ -289,6 +315,68 @@ def _extract_latest_past_run(source: str) -> dict[str, Any]:
         if best.get("previous_jockey") and best.get("previous_weight"):
             return best
     return best
+
+
+def _attach_recent_past_runs(record: dict[str, Any], source: str) -> None:
+    past_runs = _extract_recent_past_runs(source)
+    if not past_runs:
+        record.update(_extract_latest_past_run(source))
+        return
+
+    latest = dict(past_runs[0])
+    record.update({key: value for key, value in latest.items() if value not in (None, "")})
+    record["past_runs"] = past_runs
+    record["recent_runs"] = past_runs
+    for index, run in enumerate(past_runs[:3], start=1):
+        run_key = f"race{index}"
+        record[f"{run_key}_racecourse"] = run.get("racecourse", "")
+        record[f"{run_key}_venue"] = run.get("venue", "")
+        record[f"{run_key}_track"] = run.get("track", "")
+        record[f"{run_key}_surface"] = run.get("surface", "")
+        record[f"{run_key}_distance"] = run.get("distance")
+        record[f"{run_key}_turn"] = run.get("turn", "")
+        record[f"{run_key}_direction"] = run.get("direction", "")
+        record[f"{run_key}_condition"] = run.get("condition", "")
+
+
+def _extract_recent_past_runs(source: str, limit: int = 3) -> list[dict[str, Any]]:
+    runs: list[dict[str, Any]] = []
+    for segment in _past_run_segments(source):
+        record = _extract_past_run_from_segment(segment)
+        if not _has_past_run_material(record):
+            continue
+        if runs and _same_previous_run_fragment(runs[-1], record):
+            for key, value in record.items():
+                if value not in (None, "") and runs[-1].get(key) in (None, ""):
+                    runs[-1][key] = value
+        else:
+            runs.append(record)
+        if len(runs) >= limit:
+            break
+
+    labels = ("last", "2back", "3back")
+    keys = ("race1", "race2", "race3")
+    for index, run in enumerate(runs):
+        run["label"] = labels[index] if index < len(labels) else f"{index + 1}back"
+        run["key"] = keys[index] if index < len(keys) else f"race{index + 1}"
+        run["run_key"] = run["key"]
+    return runs[:limit]
+
+
+def _has_past_run_material(record: dict[str, Any]) -> bool:
+    return any(
+        record.get(key)
+        for key in (
+            "previous_date",
+            "previous_track",
+            "previous_race",
+            "previous_finish",
+            "previous_jockey",
+            "previous_weight",
+            "distance",
+            "racecourse",
+        )
+    )
 
 
 def _same_previous_run_fragment(base: dict[str, Any], candidate: dict[str, Any]) -> bool:
@@ -351,14 +439,28 @@ def _extract_past_run_from_segment(segment: str) -> dict[str, Any]:
     text = _clean_text(segment)
     previous_jockey_raw = _extract_previous_jockey_raw(segment, text)
     previous_jockey = _clean_jockey_name(previous_jockey_raw)
+    course_text = _class_text(segment, "Course") or text
+    previous_track = _class_text(segment, "Place") or _extract_previous_track(text)
+    previous_surface = _extract_previous_surface(course_text)
+    previous_distance = _extract_previous_distance(course_text)
+    previous_turn = _extract_previous_turn(course_text)
+    condition = _build_previous_condition(previous_track, previous_surface, previous_distance, previous_turn)
     record = {
         "previous_date": _extract_previous_date(text),
-        "previous_track": _extract_previous_track(text),
+        "previous_track": previous_track,
         "previous_race": _extract_previous_race(segment),
         "previous_finish": _extract_previous_finish(text),
         "previous_jockey": previous_jockey,
         "previous_weight": _extract_past_load_weight(segment),
         "previous_body_weight": _extract_body_weight(text),
+        "racecourse": previous_track,
+        "venue": previous_track,
+        "track": previous_track,
+        "surface": previous_surface,
+        "distance": previous_distance,
+        "turn": previous_turn,
+        "direction": previous_turn,
+        "condition": condition,
         "_debug_previous_jockey_raw": previous_jockey_raw,
         "_debug_previous_jockey_normalized": previous_jockey,
     }
@@ -421,6 +523,52 @@ def _extract_previous_track(text: str) -> str:
         if track in str(text or ""):
             return track
     return ""
+
+
+def _extract_previous_surface(text: str) -> str:
+    source = str(text or "")
+    if "ダート" in source or "ダ" in source:
+        return "ダ"
+    if "芝" in source:
+        return "芝"
+    return ""
+
+
+def _extract_previous_distance(text: str) -> int | None:
+    source = str(text or "")
+    for pattern in (
+        r"(?:芝|ダート|ダ)\s*(\d{3,4})\s*m?",
+        r"(\d{3,4})\s*m",
+    ):
+        match = re.search(pattern, source, flags=re.I)
+        if match:
+            try:
+                return int(match.group(1))
+            except ValueError:
+                return None
+    return None
+
+
+def _extract_previous_turn(text: str) -> str:
+    source = str(text or "")
+    if "右" in source:
+        return "右"
+    if "左" in source:
+        return "左"
+    if "直" in source:
+        return "直"
+    return ""
+
+
+def _build_previous_condition(track: str, surface: str, distance: int | None, turn: str) -> str:
+    course = ""
+    if surface:
+        course += surface
+    if distance is not None:
+        course += f"{distance}m"
+    if turn:
+        course += turn
+    return "".join(part for part in (track, course) if part)
 
 
 def _extract_previous_race(segment: str) -> str:

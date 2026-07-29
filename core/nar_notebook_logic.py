@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup
 from .audit_features import add_audit_evaluation_columns
 from .nar_newspaper_parser import parse_nar_newspaper_html as parse_uploaded_nar_newspaper_html
 from .star_index import build_star_max_result, star_match_level
+from .star_trace import candidate_summary, clear_star_trace, get_star_trace, log_star_trace, star_trace_row
 
 
 USER_AGENT = (
@@ -1285,8 +1286,35 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
         load_weight_display = format_load_weight_with_change(load_weight, previous_load_weight)
         current_load_weight = parse_float_from_text(load_weight)
         load_weight_change = current_load_weight - previous_load_weight if current_load_weight is not None and previous_load_weight is not None else None
+        log_star_trace(
+            "05 before star_index.py call",
+            [
+                star_trace_row(
+                    horse_no=umaban,
+                    horse_name=horse_name,
+                    year_max_index=max_index,
+                    star_max_index=None,
+                    star_candidates=candidate_summary(star_candidate_runs),
+                )
+            ],
+        )
         star_result = build_star_max_result(current, star_candidate_runs)
         star_high_value = star_result.value
+        log_star_trace(
+            "06 after star_index.py call",
+            [
+                star_trace_row(
+                    horse_no=umaban,
+                    horse_name=horse_name,
+                    year_max_index=max_index,
+                    star_max_index=star_high_value,
+                    star_source=star_result.source,
+                    star_race=star_result.race,
+                    star_condition=star_result.condition,
+                    star_match_level=star_result.match_level,
+                )
+            ],
+        )
         star_count_value = sum(1 for item in star_candidate_runs if star_match_level(current, item) != "none" and item.get("value") is not None)
 
         records.append({
@@ -1361,6 +1389,22 @@ def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35)
     df = pd.DataFrame(records)
     if df.empty:
         raise ValueError("馬データを抽出できませんでした。保存HTMLにタイム指数表が含まれているか確認してください。")
+
+    log_star_trace(
+        "04 parse_nar_speed_table DataFrame",
+        [
+            star_trace_row(
+                horse_no=row.iloc[0] if len(row) > 0 else "",
+                horse_name=row.iloc[2] if len(row) > 2 else "",
+                year_max_index=row.get("year_max_index"),
+                star_max_index=row.get("_star_high"),
+                star_source=row.get("_star_high_source"),
+                star_race=row.get("_star_max_race"),
+                star_condition=row.get("_star_max_condition"),
+            )
+            for _, row in df.iterrows()
+        ],
+    )
 
     df = add_head_to_head_features(df)
     df = add_condition_context_features(df, current)
@@ -1688,6 +1732,21 @@ def add_scores_and_comments(df):
     df["star_max_source"] = star_source
     df["★最高指数の取得元"] = star_source
     df["star_max_condition"] = df.get("_star_max_condition", pd.Series("", index=df.index))
+    log_star_trace(
+        "07 add_scores_and_comments",
+        [
+            star_trace_row(
+                horse_no=row.iloc[0] if len(row) > 0 else "",
+                horse_name=row.iloc[2] if len(row) > 2 else "",
+                year_max_index=row.get("year_max_index"),
+                star_max_index=row.get("star_max_index"),
+                star_source=row.get("star_max_source"),
+                raw_score=row.get("_raw_score"),
+                normalized_ai_score=row.get("AI轤ｹ"),
+            )
+            for _, row in df.iterrows()
+        ],
+    )
     df["★該当走"] = df["star_max_race"]
     df["★条件"] = df["star_max_condition"]
 
@@ -10896,6 +10955,31 @@ def _ka_build_nar_previous_jockey_prediction_trace(result_df, horse_evaluation) 
     return rows
 
 
+def _ka_build_nar_star_table_trace(table, stage: str) -> list[dict[str, str]]:
+    if not isinstance(table, _ka_pd.DataFrame) or table.empty:
+        return []
+
+    rows: list[dict[str, str]] = []
+    for _, row in table.iterrows():
+        year_max_index = _ka_row_text(row, "year_max_index") or _ka_row_text(row, "_year_max_index")
+        if not year_max_index and len(row) > 23:
+            year_max_index = row.iloc[23]
+        star_max_index = _ka_row_text(row, "star_max_index") or _ka_row_text(row, "_star_high")
+        if not star_max_index and len(row) > 24:
+            star_max_index = row.iloc[24]
+        rows.append(
+            star_trace_row(
+                horse_no=row.iloc[2] if len(row) > 2 else "",
+                horse_name=row.iloc[3] if len(row) > 3 else "",
+                year_max_index=year_max_index,
+                star_max_index=star_max_index,
+                star_source=_ka_row_text(row, "star_max_source") or _ka_row_text(row, "_star_high_source"),
+                stage_label=stage,
+            )
+        )
+    return rows
+
+
 def predict_nar_from_html(
     html_files: dict[str, str],
     file_names: dict[str, str] | None = None,
@@ -10921,6 +11005,7 @@ def predict_nar_from_html(
     globals()["display"] = capture.display
 
     overall_table = _ka_build_overall_table(result_df, state.get("display_cols"))
+    log_star_trace("08 PredictionResult creation", _ka_build_nar_star_table_trace(overall_table, "overall_table"))
     horse_evaluation = _ka_capture_first_dataframe(
         capture,
         lambda: print_ver30_all_horse_rating(result_df, race_type="nar"),
@@ -10948,6 +11033,7 @@ def predict_nar_from_html(
         ),
     )
     debug_info = {
+        "nar_star_trace": get_star_trace(),
         "nar_previous_jockey_trace": _ka_build_nar_previous_jockey_prediction_trace(
             result_df,
             horse_evaluation,

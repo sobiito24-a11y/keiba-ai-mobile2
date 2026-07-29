@@ -16,6 +16,7 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
 from core.models import PredictionResult
+from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION, PREDICTION_LOGIC_VERSION
 
 
@@ -46,6 +47,7 @@ class MobilePngRenderError(RuntimeError):
 def render_mobile_png(result: PredictionResult) -> bytes:
     """Render a PredictionResult into a single mobile-friendly PNG."""
 
+    _append_png_star_trace(result)
     fonts = _load_fonts()
     canvas = _Canvas(fonts)
     canvas.draw_text_section(
@@ -67,6 +69,47 @@ def render_dummy_png(result: PredictionResult) -> bytes:
     """Backward-compatible alias kept for old Phase2 callers."""
 
     return render_mobile_png(result)
+
+
+def _append_png_star_trace(result: PredictionResult) -> None:
+    if result.race_mode != "nar":
+        return
+    table = result.overall_table
+    if table is None or getattr(table, "empty", False):
+        return
+    debug_info = getattr(result, "debug_info", None)
+    if debug_info is None:
+        result.debug_info = {}
+        debug_info = result.debug_info
+    stage = "10 render/mobile_png.py"
+    if debug_info.get(f"_logged_{stage}"):
+        return
+    rows = []
+    for _, row in table.iterrows():
+        rows.append(
+            star_trace_row(
+                horse_no=row.iloc[2] if len(row) > 2 else "",
+                horse_name=row.iloc[3] if len(row) > 3 else "",
+                year_max_index=_star_trace_value(row, "year_max_index", 23),
+                star_max_index=_star_trace_value(row, "star_max_index", 24),
+                star_source=row.get("star_max_source"),
+            )
+        )
+    debug_info.setdefault("nar_star_trace", []).extend(log_star_trace(stage, rows))
+    debug_info[f"_logged_{stage}"] = True
+
+
+def _star_trace_value(row, key: str, fallback_pos: int):
+    value = row.get(key)
+    if value is not None:
+        try:
+            if pd.notna(value):
+                return value
+        except TypeError:
+            return value
+    if len(row) > fallback_pos:
+        return row.iloc[fallback_pos]
+    return value
 
 
 class _Canvas:
