@@ -199,6 +199,12 @@ class _Canvas:
             course = _format_number(_pick(row, "コース指数"))
             avg = _format_number(_pick(row, "平均指数"))
             best = _pick(row, "★最高指数")
+            best_race = _clean(_pick(row, "★該当走", "star_max_race"))
+            best_condition = _clean(_pick(row, "★条件", "star_max_condition"))
+            best_detail = "・".join([value for value in (best_race, best_condition) if value])
+            best_text = f"★最高{best}"
+            if best and best_detail:
+                best_text = f"{best_text}（{best_detail}）"
             three_back = _pick(row, "3走前")
             two_back = _pick(row, "2走前")
             last = _pick(row, "前走")
@@ -232,7 +238,7 @@ class _Canvas:
                         f"距離{distance}" if distance else "",
                         f"コース{course}" if course else "",
                         f"平均{avg}" if avg else "",
-                        f"★最高{best}" if best else "",
+                        best_text if best else "★最高なし",
                     ],
                     sep=" / ",
                 ),

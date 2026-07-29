@@ -190,21 +190,44 @@ def three_horse_speed_json(race_id: str = "202644072106") -> dict:
                 "distance": "60",
                 "course": "59",
                 "race3": "58",
+                "race3_venue": "大井",
+                "race3_surface": "ダ",
+                "race3_distance": "1600",
+                "race3_turn": "右",
                 "race2": "60",
+                "race2_venue": "大井",
+                "race2_surface": "ダ",
+                "race2_distance": "1600",
+                "race2_turn": "右",
                 "race1": "62",
+                "race1_venue": "船橋",
+                "race1_surface": "ダ",
+                "race1_distance": "1600",
+                "race1_turn": "左",
             },
             {
                 "horse_number": "2",
                 "horse_id": "h2",
                 "horse_name": "テストホースB",
-                "star_max": "65",
                 "max": "66",
                 "avg5": "58",
                 "distance": "57",
                 "course": "56",
                 "race3": "55",
+                "race3_venue": "大井",
+                "race3_surface": "ダ",
+                "race3_distance": "1600",
+                "race3_turn": "右",
                 "race2": "58",
+                "race2_venue": "大井",
+                "race2_surface": "ダ",
+                "race2_distance": "1200",
+                "race2_turn": "右",
                 "race1": "59",
+                "race1_venue": "大井",
+                "race1_surface": "ダ",
+                "race1_distance": "1600",
+                "race1_turn": "右",
             },
             {
                 "horse_number": "3",
@@ -215,8 +238,20 @@ def three_horse_speed_json(race_id: str = "202644072106") -> dict:
                 "distance": "54",
                 "course": "53",
                 "race3": "52",
+                "race3_venue": "大井",
+                "race3_surface": "ダ",
+                "race3_distance": "1200",
+                "race3_turn": "右",
                 "race2": "54",
+                "race2_venue": "船橋",
+                "race2_surface": "ダ",
+                "race2_distance": "1600",
+                "race2_turn": "左",
                 "race1": "56",
+                "race1_venue": "船橋",
+                "race1_surface": "ダ",
+                "race1_distance": "1400",
+                "race1_turn": "左",
             },
         ],
     }
@@ -570,7 +605,7 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertIn('<td class="DataTitle_Cell">先</td>', package.html_files["style"])
         self.assertIn("<td>15</td><td>28</td><td>38</td>", package.html_files["style"])
 
-    def test_speed_json_star_max_reaches_score_inputs_and_audit(self) -> None:
+    def test_speed_json_same_condition_star_max_reaches_score_inputs_and_audit(self) -> None:
         package = build_nar_prediction_inputs_from_uploads(
             [
                 upload("entry.json", three_horse_entry_json()),
@@ -583,31 +618,42 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         )
 
         speed_html = package.html_files["speed"]
-        self.assertIn('data-speed-star-max="72"', speed_html)
-        self.assertIn('data-speed-star-max-source="speed.max"', speed_html)
-        self.assertIn('data-speed-star-max="65"', speed_html)
-        self.assertIn('data-speed-star-max-source="star_max"', speed_html)
+        self.assertIn('data-star-venue="大井"', speed_html)
+        self.assertIn('data-star-distance="1600"', speed_html)
+        self.assertNotIn("data-speed-star-max", speed_html)
 
         parsed, _ = parse_nar_speed_table(speed_html, session=None, fetch_past_detail=False)
         by_number = parsed.set_index("馬番")
-        self.assertEqual(float(by_number.loc[1, "★最高"]), 72.0)
-        self.assertEqual(by_number.loc[1, "star_max_source"], "speed.max")
-        self.assertEqual(float(by_number.loc[2, "★最高"]), 65.0)
-        self.assertEqual(by_number.loc[2, "star_max_source"], "star_max")
-        self.assertEqual(float(by_number.loc[3, "★最高"]), 61.0)
-        self.assertEqual(by_number.loc[3, "star_max_source"], "speed.max")
+        self.assertEqual(float(by_number.loc[1, "過去1年最高指数"]), 72.0)
+        self.assertEqual(float(by_number.loc[1, "★最高"]), 60.0)
+        self.assertEqual(by_number.loc[1, "star_max_source"], "recent3_same_condition")
+        self.assertEqual(by_number.loc[1, "star_max_race"], "2走前")
+        self.assertEqual(float(by_number.loc[2, "過去1年最高指数"]), 66.0)
+        self.assertEqual(float(by_number.loc[2, "★最高"]), 59.0)
+        self.assertEqual(by_number.loc[2, "star_max_source"], "recent3_same_condition")
+        self.assertTrue(pd.isna(by_number.loc[3, "★最高"]))
+        self.assertEqual(float(by_number.loc[3, "過去1年最高指数"]), 61.0)
+        self.assertEqual(by_number.loc[3, "star_max_source"], "missing")
 
         audited = add_audit_evaluation_columns(parsed, race_type="nar")
         export = build_audit_export_table(audited)
+        self.assertIn("過去1年最高指数", export.columns)
         self.assertIn("★最高指数の取得元", export.columns)
+        self.assertIn("star_max_index", export.columns)
+        self.assertIn("star_max_race", export.columns)
+        self.assertIn("star_match_level", export.columns)
         self.assertIn("star_max_source", export.columns)
         self.assertIn("raw_score", export.columns)
 
-    def test_star_high_source_cases_keep_missing_as_missing(self) -> None:
+    def test_star_high_requires_recent_same_condition_not_explicit_star_max(self) -> None:
         entry = base_json("entry")
         speed = base_json("speed")
         speed["horses"][0]["max"] = ""
         speed["horses"][0]["star_max"] = "70"
+        speed["horses"][0]["race3"] = "70"
+        speed["horses"][0]["race3_venue"] = "大井"
+        speed["horses"][0]["race3_surface"] = "ダ"
+        speed["horses"][0]["race3_distance"] = "1600"
         speed["horses"][1]["max"] = ""
         speed["horses"][1]["distance"] = "64"
         speed["horses"][1]["course"] = "63"
@@ -623,7 +669,7 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         by_number = parsed.set_index("馬番")
 
         self.assertEqual(float(by_number.loc[1, "★最高"]), 70.0)
-        self.assertEqual(by_number.loc[1, "star_max_source"], "star_max")
+        self.assertEqual(by_number.loc[1, "star_max_source"], "recent3_same_condition")
         self.assertTrue(pd.isna(by_number.loc[2, "★最高"]))
         self.assertEqual(by_number.loc[2, "star_max_source"], "missing")
 
@@ -646,8 +692,16 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
 
         for horse_number in [1, 2, 3]:
             for column in [
+                "過去1年最高指数",
                 "★最高指数",
                 "★最高指数の取得元",
+                "star_max_index",
+                "star_max_race",
+                "star_max_venue",
+                "star_max_distance",
+                "star_max_surface",
+                "star_max_turn",
+                "star_match_level",
                 "star_max_source",
                 "raw_score",
                 "能力評価値",
@@ -656,7 +710,11 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
                 "final_mark_score",
                 "表示印",
             ]:
-                self.assertEqual(app_table.loc[horse_number, column], colab_table.loc[horse_number, column])
+                left = app_table.loc[horse_number, column]
+                right = colab_table.loc[horse_number, column]
+                if pd.isna(left) and pd.isna(right):
+                    continue
+                self.assertEqual(left, right)
 
         self.assertFalse(app_table["★最高指数"].isna().all())
 

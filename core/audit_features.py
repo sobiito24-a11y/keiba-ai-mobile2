@@ -33,8 +33,19 @@ ABILITY_BAND_CONFIG = {
 
 
 AUDIT_OUTPUT_COLUMNS = [
+    "過去1年最高指数",
+    "year_max_index",
     "★最高指数",
+    "★該当走",
+    "★条件",
     "star_max_source",
+    "star_max_index",
+    "star_max_race",
+    "star_max_venue",
+    "star_max_distance",
+    "star_max_surface",
+    "star_max_turn",
+    "star_match_level",
     "old_ai_score",
     "raw_score",
     "ability_display_score",
@@ -62,9 +73,20 @@ AUDIT_EXPORT_COLUMNS = [
     "馬名",
     "脚質",
     "running_style_display",
+    "過去1年最高指数",
+    "year_max_index",
     "★最高指数",
+    "★該当走",
+    "★条件",
     "★最高指数の取得元",
     "star_max_source",
+    "star_max_index",
+    "star_max_race",
+    "star_max_venue",
+    "star_max_distance",
+    "star_max_surface",
+    "star_max_turn",
+    "star_match_level",
     "old_ai_score",
     "raw_score",
     "ability_display_score",
@@ -142,6 +164,33 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["old_final_mark"] = _text_series(result, "最終印")
     result["final_mark_score"] = _first_numeric_series(result, ["総合評価点", "_最終印点", "総合評価"])
     result["market_score"] = _first_numeric_series(result, ["市場反映勝率", "推定勝率", "単勝期待値"])
+    if "year_max_index" not in result.columns:
+        result["year_max_index"] = _first_numeric_series(result, ["過去1年最高指数", "_year_max_index"])
+    if "過去1年最高指数" not in result.columns:
+        result["過去1年最高指数"] = result["year_max_index"]
+    if "star_max_index" not in result.columns:
+        result["star_max_index"] = _first_numeric_series(result, ["★最高指数", "★最高"])
+    if "★最高指数" not in result.columns:
+        result["★最高指数"] = result["star_max_index"]
+    for column, default in (
+        ("star_max_race", ""),
+        ("star_max_venue", ""),
+        ("star_max_distance", pd.NA),
+        ("star_max_surface", ""),
+        ("star_max_turn", ""),
+        ("star_match_level", "none"),
+        ("★該当走", ""),
+        ("★条件", ""),
+    ):
+        if column not in result.columns:
+            result[column] = default
+    if "star_max_condition" in result.columns:
+        condition = _text_series(result, "star_max_condition")
+        result["★条件"] = _text_series(result, "★条件").where(_text_series(result, "★条件").astype(str).str.len().gt(0), condition)
+    result["★該当走"] = _text_series(result, "★該当走").where(
+        _text_series(result, "★該当走").astype(str).str.len().gt(0),
+        _text_series(result, "star_max_race"),
+    )
     if "star_max_source" in result.columns:
         star_source = _text_series(result, "star_max_source")
     else:

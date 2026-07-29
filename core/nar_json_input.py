@@ -341,10 +341,6 @@ def merge_entry_and_speed(
         merged = dict(entry_horse)
         for key in ("max", "avg5", "distance", "course", "race3", "race2", "race1"):
             merged[key] = parse_speed_index(speed_horse.get(key))
-        star_max, star_max_source = _star_max_from_speed_horse(speed_horse)
-        if star_max is not None:
-            merged["star_max"] = star_max
-            merged["star_max_source"] = star_max_source
         for key in ("odds", "popularity", "style", "running_style", "jockey"):
             if not _safe_text(merged.get(key)) and _safe_text(speed_horse.get(key)):
                 merged[key] = speed_horse.get(key)
@@ -418,41 +414,6 @@ def _display_detail_attrs(horse: dict[str, Any]) -> str:
         if text:
             attrs.append(f' data-display-{attr_name}="{_e(text)}"')
     return "".join(attrs)
-
-
-def _speed_star_attrs(horse: dict[str, Any]) -> str:
-    attrs = []
-    star_max = horse.get("star_max")
-    if star_max is not None:
-        attrs.append(f' data-speed-star-max="{_e(star_max)}"')
-    source = _safe_text(horse.get("star_max_source"))
-    if source:
-        attrs.append(f' data-speed-star-max-source="{_e(source)}"')
-    return "".join(attrs)
-
-
-def _star_max_from_speed_horse(speed_horse: dict[str, Any]) -> tuple[int | None, str]:
-    for key in (
-        "star_max",
-        "same_condition_max",
-        "same_condition_high",
-        "condition_max",
-        "★最高指数",
-        "★最高",
-        "同条件最高指数",
-        "条件最高",
-        "star_high",
-    ):
-        value = parse_speed_index(speed_horse.get(key))
-        if value is not None:
-            return value, key
-
-    # Shortcut speed JSON has historically supplied the Colab-side
-    # same-condition maximum as max, sometimes with a trailing * marker.
-    max_value = parse_speed_index(speed_horse.get("max"))
-    if max_value is not None:
-        return max_value, "speed.max"
-    return None, "missing"
 
 
 def _build_nar_previous_jockey_debug_logs(
@@ -650,7 +611,7 @@ def build_speed_html(
     race_data_2 = _race_value(race, "race_data_2") or ""
     rows = []
     for horse in merged_horses:
-        detail_attrs = _display_detail_attrs(horse) + _speed_star_attrs(horse)
+        detail_attrs = _display_detail_attrs(horse)
         rows.append(
             f'<tr class="List HorseList"{detail_attrs}>'
             f"<td>{_e(horse.get('frame_number'))}</td>"
@@ -666,9 +627,9 @@ def build_speed_html(
             f'<td class="Speed_List04 Avg5Index">{_index_text(horse.get("avg5"))}</td>'
             f'<td class="Speed_List05">{_index_text(horse.get("distance"))}</td>'
             f'<td class="Speed_List06">{_index_text(horse.get("course"))}</td>'
-            f'<td class="Speed_List09">{_index_text(horse.get("race3"))}</td>'
-            f'<td class="Speed_List10">{_index_text(horse.get("race2"))}</td>'
-            f'<td class="Speed_List11">{_index_text(horse.get("race1"))}</td>'
+            f'{_speed_index_td("Speed_List09", horse, "race3", "3走前")}'
+            f'{_speed_index_td("Speed_List10", horse, "race2", "2走前")}'
+            f'{_speed_index_td("Speed_List11", horse, "race1", "前走")}'
             "</tr>"
         )
     return _html_document(
@@ -679,6 +640,111 @@ def build_speed_html(
         "speed",
         f'<div id="Speed_List"><table class="SpeedIndex_Table"><tbody>{"".join(rows)}</tbody></table></div>',
     )
+
+
+def _speed_index_td(class_name: str, horse: dict[str, Any], run_key: str, label: str) -> str:
+    return f'<td class="{_e(class_name)}"{_past_run_condition_attrs(horse, run_key, label)}>{_index_text(horse.get(run_key))}</td>'
+
+
+def _past_run_condition_attrs(horse: dict[str, Any], run_key: str, label: str) -> str:
+    run = _past_run_condition_dict(horse, run_key, label)
+    attrs = []
+    for key, attr_name in (
+        ("racecourse", "venue"),
+        ("surface", "surface"),
+        ("distance", "distance"),
+        ("direction", "turn"),
+        ("condition", "condition"),
+    ):
+        value = _safe_text(run.get(key))
+        if value:
+            attrs.append(f' data-star-{attr_name}="{_e(value)}"')
+    return "".join(attrs)
+
+
+def _past_run_condition_dict(horse: dict[str, Any], run_key: str, label: str) -> dict[str, Any]:
+    speed_horse = horse.get("_speed_horse") if isinstance(horse.get("_speed_horse"), dict) else {}
+    sources = [speed_horse, horse]
+    nested = _find_nested_past_run(sources, run_key, label)
+    result: dict[str, Any] = {}
+    for source in [nested, *sources]:
+        if not isinstance(source, dict):
+            continue
+        generic_keys = bool(source is nested and source)
+        result["racecourse"] = result.get("racecourse") or _first_value(
+            source,
+            (
+                f"{run_key}_racecourse",
+                f"{run_key}_venue",
+                f"{run_key}_track",
+                f"{run_key}_競馬場",
+                *(( "racecourse", "venue", "track", "競馬場") if generic_keys else ()),
+            ),
+        )
+        result["surface"] = result.get("surface") or _first_value(
+            source,
+            (
+                f"{run_key}_surface",
+                f"{run_key}_芝ダ",
+                f"{run_key}_course_type",
+                *(("surface", "芝ダ", "course_type") if generic_keys else ()),
+            ),
+        )
+        result["distance"] = result.get("distance") or _first_value(
+            source,
+            (
+                f"{run_key}_distance",
+                f"{run_key}_距離",
+                *(("distance", "距離") if generic_keys else ()),
+            ),
+        )
+        result["direction"] = result.get("direction") or _first_value(
+            source,
+            (
+                f"{run_key}_turn",
+                f"{run_key}_direction",
+                f"{run_key}_回り",
+                *(("turn", "direction", "回り") if generic_keys else ()),
+            ),
+        )
+        result["condition"] = result.get("condition") or _first_value(
+            source,
+            (
+                f"{run_key}_condition",
+                f"{run_key}_条件",
+                *(("condition", "条件", "course_label") if generic_keys else ()),
+            ),
+        )
+    return result
+
+
+def _find_nested_past_run(sources: list[dict[str, Any]], run_key: str, label: str) -> dict[str, Any]:
+    index_by_key = {"race3": 0, "race2": 1, "race1": 2}
+    target_index = index_by_key.get(run_key)
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        for list_key in ("past_runs", "recent_runs", "runs", "races", "history"):
+            value = source.get(list_key)
+            if not isinstance(value, list):
+                continue
+            candidates = [item for item in value if isinstance(item, dict)]
+            for item in candidates:
+                item_label = _safe_text(item.get("label") or item.get("race_label") or item.get("走"))
+                item_key = _safe_text(item.get("key") or item.get("run_key"))
+                if item_key == run_key or item_label == label:
+                    return item
+            if target_index is not None and len(candidates) > target_index:
+                return candidates[target_index]
+    return {}
+
+
+def _first_value(source: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        value = source.get(key)
+        if _safe_text(value):
+            return value
+    return ""
 
 
 def build_shutuba_html(entry_data: dict[str, Any], merged_horses: list[dict[str, Any]]) -> str:

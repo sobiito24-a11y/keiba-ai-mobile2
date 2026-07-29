@@ -15,6 +15,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .audit_features import add_audit_evaluation_columns
+from .star_index import build_star_max_result, star_match_level
 
 
 USER_AGENT = (
@@ -404,7 +405,17 @@ def parse_index_cell(cell):
         a = cell.find("a", href=True)
         if a:
             link = urljoin("https://db.netkeiba.com", a["href"])
-    return {"value": value, "raw": raw, "url": link}
+    info = {"value": value, "raw": raw, "url": link, "race_date": None}
+    attr_get = getattr(cell, "get", None)
+    if cell is not None and callable(attr_get):
+        info.update({
+            "racecourse": str(attr_get("data-star-venue", "") or attr_get("data-star-racecourse", "") or "").strip(),
+            "surface": str(attr_get("data-star-surface", "") or "").strip(),
+            "distance": parse_int_from_text(str(attr_get("data-star-distance", "") or "")),
+            "direction": str(attr_get("data-star-turn", "") or attr_get("data-star-direction", "") or "").strip(),
+            "label": str(attr_get("data-star-condition", "") or "").strip(),
+        })
+    return info
 
 
 def parse_float_from_text(text):
@@ -511,17 +522,7 @@ def extract_past_race_results(past_soup):
 
 
 def is_same_condition(current, past):
-    return bool(
-        current.get("racecourse")
-        and past.get("racecourse")
-        and current.get("racecourse") == past.get("racecourse")
-        and current.get("surface")
-        and current.get("distance")
-        and current.get("direction")
-        and current.get("surface") == past.get("surface")
-        and current.get("distance") == past.get("distance")
-        and current.get("direction") == past.get("direction")
-    )
+    return star_match_level(current, past) != "none"
 
 
 def is_similar_condition(current, past):
@@ -634,6 +635,7 @@ def parse_speed_table(html, race_url, session, fetch_past_detail=True, sleep_sec
         current_jockey_id = extract_jockey_id(jockey_link)
         odds = parse_float_from_text(visible_text(row.select_one(".sk__odds") or row.select_one(".Odds")))
         popularity = parse_int_from_text(visible_text(row.select_one(".sk__ninki") or row.select_one(".Ninki")))
+        max_index = parse_index_cell(row.select_one(".sk__max_index") or row.select_one(".MaxIndex") or row.select_one(".Speed_List03"))["value"]
         distance_index = parse_index_cell(row.select_one(".sk__max_distance_index"))["value"]
         course_index = parse_index_cell(row.select_one(".sk__max_course_index"))["value"]
 
@@ -642,6 +644,7 @@ def parse_speed_table(html, race_url, session, fetch_past_detail=True, sleep_sec
         prev_display = {}
         star_count = 0
         star_values = []
+        star_candidate_runs = []
         same_condition_flags = []
         same_distance_values = []
         similar_condition_values = []
@@ -661,6 +664,12 @@ def parse_speed_table(html, race_url, session, fetch_past_detail=True, sleep_sec
         for label, selector in prev_defs:
             cell_info = parse_index_cell(row.select_one(selector))
             past_info = fetch_past_info(cell_info["url"])
+            past_condition = dict(past_info)
+            for key in ("racecourse", "surface", "distance", "direction", "label"):
+                if not past_condition.get(key) and cell_info.get(key):
+                    past_condition[key] = cell_info.get(key)
+            if not past_condition.get("label"):
+                past_condition["label"] = cell_info.get("label") or ""
             result_entry = (past_info.get("results") or {}).get(compact_name(horse_name), {})
             if result_entry or cell_info["url"]:
                 past_runs.append({
@@ -668,7 +677,11 @@ def parse_speed_table(html, race_url, session, fetch_past_detail=True, sleep_sec
                     "url": cell_info["url"],
                     "race_date": past_info.get("race_date"),
                     "race_name": past_info.get("race_name", ""),
-                    "course_label": past_info.get("label", ""),
+                    "course_label": past_condition.get("label", ""),
+                    "racecourse": past_condition.get("racecourse", ""),
+                    "surface": past_condition.get("surface", ""),
+                    "distance": past_condition.get("distance"),
+                    "direction": past_condition.get("direction", ""),
                     "position": result_entry.get("position"),
                     "label": label,
                     "value": cell_info["value"],
@@ -680,9 +693,9 @@ def parse_speed_table(html, race_url, session, fetch_past_detail=True, sleep_sec
                 missing_past_labels += 1
                 if past_info.get("error"):
                     past_fetch_errors.append(f"{label}: {past_info.get('error')}")
-            same_cond = is_same_condition(current, past_info)
-            same_dist = is_same_distance(current, past_info)
-            similar_cond = is_similar_condition(current, past_info)
+            same_cond = is_same_condition(current, past_condition)
+            same_dist = is_same_distance(current, past_condition)
+            similar_cond = is_similar_condition(current, past_condition)
             same_condition_flags.append(bool(same_cond))
             if same_cond:
                 star_count += 1
@@ -695,7 +708,15 @@ def parse_speed_table(html, race_url, session, fetch_past_detail=True, sleep_sec
             if current.get("going") and past_info.get("going") == current.get("going") and cell_info["value"] is not None:
                 same_going_values.append(cell_info["value"])
             prev_values.append(cell_info["value"])
-            prev_display[label] = format_prev_run(cell_info["value"], past_info, same_cond)
+            prev_display[label] = format_prev_run(cell_info["value"], past_condition, same_cond)
+            star_candidate_runs.append({
+                "label": label,
+                "value": cell_info.get("value"),
+                "racecourse": past_condition.get("racecourse", ""),
+                "surface": past_condition.get("surface", ""),
+                "distance": past_condition.get("distance"),
+                "direction": past_condition.get("direction", ""),
+            })
             if label == "前走":
                 result_entry = (past_info.get("results") or {}).get(compact_name(horse_name), {})
                 previous_load_weight = result_entry.get("load_weight")
@@ -719,6 +740,10 @@ def parse_speed_table(html, race_url, session, fetch_past_detail=True, sleep_sec
             jockey_changed = bool(jockey and previous_jockey and compact_name(jockey) != compact_name(previous_jockey))
         jockey_display = f"{jockey}(替)" if jockey_changed else jockey
 
+        star_result = build_star_max_result(current, star_candidate_runs)
+        star_high_value = star_result.value
+        star_count_value = sum(1 for item in star_candidate_runs if star_match_level(current, item) != "none" and item.get("value") is not None)
+
         records.append({
             "馬番": int(parse_int_from_text(umaban) or 0),
             "枠": int(parse_int_from_text(waku) or 0),
@@ -735,11 +760,21 @@ def parse_speed_table(html, race_url, session, fetch_past_detail=True, sleep_sec
             "2走前": prev_display["2走前"],
             "前走": prev_display["前走"],
             "3走平均": avg3,
+            "year_max_index": max_index,
+            "_year_max_index": max_index,
             "_prev_values": prev_values,
             "_last": prev_values[-1] if prev_values else None,
             "_trend": trend,
-            "_star_count": star_count,
-            "_star_high": max(star_values) if star_values else None,
+            "_star_count": star_count_value,
+            "_star_high": star_high_value,
+            "_star_max_race": star_result.race,
+            "_star_max_venue": star_result.venue,
+            "_star_max_distance": star_result.distance,
+            "_star_max_surface": star_result.surface,
+            "_star_max_turn": star_result.turn,
+            "_star_match_level": star_result.match_level,
+            "_star_max_condition": star_result.condition,
+            "_star_high_source": star_result.source,
             "_same_condition_flags": same_condition_flags,
             "_last_same_condition": bool(same_condition_flags[-1]) if same_condition_flags else False,
             "_same_distance_high": max(same_distance_values) if same_distance_values else None,
@@ -1829,6 +1864,10 @@ def add_scores_and_comments(df):
         raw_scores.append(raw)
 
     df["_raw_score"] = raw_scores
+    if "year_max_index" not in df.columns:
+        df["year_max_index"] = df.get("_year_max_index", pd.Series(pd.NA, index=df.index))
+    if "過去1年最高指数" not in df.columns:
+        df["過去1年最高指数"] = df["year_max_index"]
     min_raw = df["_raw_score"].min()
     max_raw = df["_raw_score"].max()
     if max_raw == min_raw:
@@ -1836,6 +1875,22 @@ def add_scores_and_comments(df):
     else:
         df["AI点"] = (60 + 40 * (df["_raw_score"] - min_raw) / (max_raw - min_raw)).round(1)
     df["★最高"] = df["_star_high"]
+    if "_star_high_source" in df.columns:
+        star_source = df["_star_high_source"].fillna("missing").astype(str).replace("", "missing")
+    else:
+        star_source = pd.Series("missing", index=df.index)
+    df["star_max_index"] = df["_star_high"]
+    df["star_max_race"] = df.get("_star_max_race", pd.Series("", index=df.index))
+    df["star_max_venue"] = df.get("_star_max_venue", pd.Series("", index=df.index))
+    df["star_max_distance"] = df.get("_star_max_distance", pd.Series(pd.NA, index=df.index))
+    df["star_max_surface"] = df.get("_star_max_surface", pd.Series("", index=df.index))
+    df["star_max_turn"] = df.get("_star_max_turn", pd.Series("", index=df.index))
+    df["star_match_level"] = df.get("_star_match_level", pd.Series("none", index=df.index))
+    df["star_max_source"] = star_source
+    df["★最高指数の取得元"] = star_source
+    df["star_max_condition"] = df.get("_star_max_condition", pd.Series("", index=df.index))
+    df["★該当走"] = df["star_max_race"]
+    df["★条件"] = df["star_max_condition"]
 
     df = df.sort_values(["AI点", "3走平均", "距離指数"], ascending=[False, False, False]).reset_index(drop=True)
     df.insert(0, "AI順位", range(1, len(df) + 1))
@@ -2082,7 +2137,7 @@ def add_scores_and_comments(df):
     df["印"] = df.apply(betting_mark, axis=1)
     df["買い目メモ"] = df["印"].map(betting_note)
 
-    final_cols = ["推奨順位", "印", "役割", "買い目メモ", "妙味スコア", "AI順位", "枠", "馬番", "馬名", "性齢", "斤量", "騎手", "単勝オッズ", "人気", "距離指数", "コース指数", "3走前", "2走前", "前走", "3走平均", "★最高", "近3走最高", "AI点", "推奨点", "コメント"]
+    final_cols = ["推奨順位", "印", "役割", "買い目メモ", "妙味スコア", "AI順位", "枠", "馬番", "馬名", "性齢", "斤量", "騎手", "単勝オッズ", "人気", "距離指数", "コース指数", "3走前", "2走前", "前走", "3走平均", "過去1年最高指数", "year_max_index", "★最高", "★該当走", "★条件", "★最高指数の取得元", "star_max_index", "star_max_race", "star_max_venue", "star_max_distance", "star_max_surface", "star_max_turn", "star_match_level", "star_max_source", "近3走最高", "AI点", "推奨点", "コメント"]
     return df[final_cols + [c for c in df.columns if c.startswith("_")]]
 
 
@@ -10139,7 +10194,7 @@ def _run_jra_notebook_body(
     result_df = prepare_jra_display_columns(result_df)
 
 
-    display_cols = ["表示印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "★最高指数", "調教/評価/検討材料", "能力評価値", "能力帯", "能力差", "レース難易度", "レース難易度理由", "表示コメント", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "axis_confidence", "axis_confidence_reason", "ability_band", "ability_gap_level", "race_difficulty", "race_difficulty_reason", "display_comment", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
+    display_cols = ["表示印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "過去1年最高指数", "★最高指数", "★該当走", "★条件", "★最高指数の取得元", "調教/評価/検討材料", "能力評価値", "能力帯", "能力差", "レース難易度", "レース難易度理由", "表示コメント", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "star_max_index", "star_max_race", "star_max_venue", "star_max_distance", "star_max_surface", "star_max_turn", "star_match_level", "star_max_source", "axis_confidence", "axis_confidence_reason", "ability_band", "ability_gap_level", "race_difficulty", "race_difficulty_reason", "display_comment", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
     print(f"レース: {race_info.get('race_name', '')} / {race_info.get('race_data', '')}")
     print(f"抽出頭数: {len(result_df)}")
     print_jra_venue_profile(detected_venue, venue_profile, bool(style_html_input))
