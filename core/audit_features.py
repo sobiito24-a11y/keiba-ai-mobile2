@@ -54,6 +54,7 @@ AUDIT_OUTPUT_COLUMNS = [
     "normalized_ai_score",
     "ai_rank",
     "old_final_mark",
+    "original_mark",
     "final_mark_score",
     "market_score",
     "axis_confidence",
@@ -64,6 +65,7 @@ AUDIT_OUTPUT_COLUMNS = [
     "race_difficulty_reason",
     "display_comment",
     "display_mark",
+    "display_group",
     "running_style_display",
     "old_watch_mark",
     "hole_candidate",
@@ -77,6 +79,7 @@ AUDIT_OUTPUT_COLUMNS = [
     "recent3_slope",
     "recent3_volatility",
     "recent3_valid_count",
+    "form_state",
     "overall_rank",
     "overall_rank_reason",
     "power_group",
@@ -114,6 +117,7 @@ AUDIT_EXPORT_COLUMNS = [
     "normalized_ai_score",
     "ai_rank",
     "old_final_mark",
+    "original_mark",
     "final_mark_score",
     "market_score",
     "axis_confidence",
@@ -124,6 +128,7 @@ AUDIT_EXPORT_COLUMNS = [
     "race_difficulty_reason",
     "display_comment",
     "display_mark",
+    "display_group",
     "old_watch_mark",
     "hole_candidate",
     "watch_horse",
@@ -132,6 +137,7 @@ AUDIT_EXPORT_COLUMNS = [
     "正規化AI点",
     "AI順位",
     "旧印",
+    "元印",
     "総合評価監査点",
     "市場評価点",
     "軸信頼度",
@@ -142,6 +148,7 @@ AUDIT_EXPORT_COLUMNS = [
     "レース難易度理由",
     "表示コメント",
     "表示印",
+    "グループ",
     "脚質表示",
     "旧✓",
     "穴候補",
@@ -155,6 +162,7 @@ AUDIT_EXPORT_COLUMNS = [
     "recent3_slope",
     "recent3_volatility",
     "recent3_valid_count",
+    "form_state",
     "overall_rank",
     "overall_rank_reason",
     "power_group",
@@ -169,6 +177,7 @@ AUDIT_EXPORT_COLUMNS = [
     "勢いランク",
     "勢い理由",
     "近3走傾向",
+    "状態",
     "総合ランク",
     "総合ランク理由",
     "勢力図グループ",
@@ -216,6 +225,7 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     else:
         result["ai_rank"] = result["normalized_ai_score"].rank(method="min", ascending=False)
     result["old_final_mark"] = _text_series(result, "最終印")
+    result["original_mark"] = result["old_final_mark"]
     result["final_mark_score"] = _first_numeric_series(result, ["総合評価点", "_最終印点", "総合評価"])
     result["market_score"] = _first_numeric_series(result, ["市場反映勝率", "推定勝率", "単勝期待値"])
     if "year_max_index" not in result.columns:
@@ -274,6 +284,7 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["race_difficulty_reason"] = ability_context.reason
     result["display_comment"] = result.apply(_display_comment_for_row, axis=1)
     result["display_mark"] = _display_mark_series(result)
+    result["display_group"] = result["display_mark"].map(_display_group_from_mark)
     result["running_style_display"] = _running_style_display_series(result)
 
     # Japanese aliases are kept for normal UI/CSV readability. They mirror the
@@ -282,6 +293,7 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["能力評価値"] = result["ability_display_score"]
     result["正規化AI点"] = result["normalized_ai_score"]
     result["旧印"] = result["old_final_mark"]
+    result["元印"] = result["original_mark"]
     result["総合評価監査点"] = result["final_mark_score"]
     result["市場評価点"] = result["market_score"]
     result["軸信頼度"] = result["axis_confidence"]
@@ -292,6 +304,7 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["レース難易度理由"] = result["race_difficulty_reason"]
     result["表示コメント"] = result["display_comment"]
     result["表示印"] = result["display_mark"]
+    result["グループ"] = result["display_group"]
     result["脚質表示"] = result["running_style_display"]
     result["旧✓"] = result["old_watch_mark"].map(_bool_label)
     result["穴候補"] = result["hole_candidate"].map(_bool_label)
@@ -433,6 +446,21 @@ def _display_mark_series(df: pd.DataFrame) -> pd.Series:
     hole = _bool_series(df, "hole_candidate")
     display.loc[hole] = "✓"
     return display
+
+
+def _display_group_from_mark(value: Any) -> str:
+    mark = _text_value(value)
+    if mark == "◎":
+        return "SS"
+    if mark in {"○", "▲"}:
+        return "A"
+    if mark == "△":
+        return "B"
+    if mark == "☆":
+        return "C"
+    if mark in {"✓", "✔"}:
+        return "D"
+    return "D"
 
 
 def _running_style_display_series(df: pd.DataFrame) -> pd.Series:

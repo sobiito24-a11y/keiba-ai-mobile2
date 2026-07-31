@@ -91,10 +91,12 @@ def add_form_rank_columns(df: pd.DataFrame | None, *, race_type: str = "nar") ->
     result["recent3_slope"] = [item.slope for item in momentum_rows]
     result["recent3_volatility"] = [item.volatility for item in momentum_rows]
     result["recent3_valid_count"] = [item.valid_count for item in momentum_rows]
+    result["form_state"] = result["recent3_trend"].map(form_state_from_trend)
     result["勢いスコア"] = result["momentum_score"]
     result["勢いランク"] = result["momentum_rank"]
     result["勢い理由"] = result["momentum_reason"]
     result["近3走傾向"] = result["recent3_trend"]
+    result["状態"] = result["form_state"]
 
     check_frame = build_check_columns(result)
     for column in check_frame.columns:
@@ -294,6 +296,21 @@ def momentum_rank(score: Any) -> str:
     return "D"
 
 
+def form_state_from_trend(value: Any) -> str:
+    trend = _text_value(value)
+    if trend in {"連続上昇", "上昇"}:
+        return "上昇"
+    if trend in {"横ばい", "安定"}:
+        return "安定"
+    if trend in {"連続下降", "下降", "急落"}:
+        return "下降"
+    if trend in {"持ち直し", "反発"}:
+        return "反発"
+    if trend in {"判定保留", "未判定"}:
+        return "判定なし"
+    return "判定なし"
+
+
 def overall_rank_for_row(row: pd.Series, *, race_type: str = "nar") -> tuple[str, str]:
     points = 0.0
     reasons: list[str] = []
@@ -476,6 +493,7 @@ def _empty_columns() -> list[str]:
         "recent3_slope",
         "recent3_volatility",
         "recent3_valid_count",
+        "form_state",
         "overall_rank",
         "overall_rank_reason",
         "power_group",
@@ -485,6 +503,7 @@ def _empty_columns() -> list[str]:
         "has_same_turn",
         "has_heavy_track",
         "チェック項目",
+        "状態",
         "補足",
     ]
 

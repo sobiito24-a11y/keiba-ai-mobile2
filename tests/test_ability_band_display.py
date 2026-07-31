@@ -69,21 +69,48 @@ class AbilityBandDisplayTest(unittest.TestCase):
         ]:
             self.assertIn(column, audit.columns)
         self.assertIn("表示印", audit.columns)
+        self.assertIn("元印", audit.columns)
+        self.assertIn("グループ", audit.columns)
         self.assertIn("脚質表示", audit.columns)
         self.assertEqual(audit.loc[0, "脚質表示"], "先行")
+        self.assertEqual(audit.loc[0, "元印"], "◎")
+        self.assertEqual(audit.loc[0, "グループ"], "SS")
 
-    def test_normal_card_and_png_sources_show_form_rank_labels(self) -> None:
+    def test_display_group_is_derived_from_display_mark_without_changing_original_mark(self) -> None:
+        frame = pd.DataFrame(
+            [
+                {"馬番": 1, "AI点": 100.0, "_raw_score": 90.0, "最終印": "◎"},
+                {"馬番": 2, "AI点": 95.0, "_raw_score": 88.0, "最終印": "○"},
+                {"馬番": 3, "AI点": 90.0, "_raw_score": 86.0, "最終印": "▲"},
+                {"馬番": 4, "AI点": 85.0, "_raw_score": 80.0, "最終印": "△"},
+                {"馬番": 5, "AI点": 80.0, "_raw_score": 76.0, "最終印": "✓"},
+            ]
+        )
+
+        result = add_audit_evaluation_columns(frame, race_type="nar")
+
+        self.assertEqual(list(result["original_mark"]), ["◎", "○", "▲", "△", "✓"])
+        self.assertEqual(list(result["display_group"][:4]), ["SS", "A", "A", "B"])
+        self.assertIn(result.loc[4, "display_group"], {"D"})
+
+    def test_normal_card_sources_show_group_and_hide_rank_first_labels(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        for relative in ["app.py", "render/mobile_png.py"]:
-            source = (root / relative).read_text(encoding="utf-8")
-            self.assertIn("AI点", source)
-            self.assertIn("能力評価値：", source)
-            self.assertIn("能力帯：", source)
-            self.assertIn("能力ランク", source)
-            self.assertIn("勢いランク", source)
-            self.assertIn("脚質：", source)
-            self.assertIn("穴候補：該当", source)
-            self.assertIn("注意馬：該当", source)
+        app_source = (root / "app.py").read_text(encoding="utf-8")
+        card_source = app_source[app_source.index("def horse_summary_card_html") : app_source.index("def result_rows")]
+        self.assertNotIn("AI点", card_source)
+        self.assertNotIn("能力ランク", card_source)
+        self.assertNotIn("勢いランク", card_source)
+        self.assertIn("【{group}】", card_source)
+        self.assertIn("脚質：", card_source)
+        self.assertIn("状態：", card_source)
+        self.assertIn("★最高指数：", card_source)
+
+        png_source = (root / "render" / "mobile_png.py").read_text(encoding="utf-8")
+        png_card_source = png_source[png_source.index("    def draw_horse_evaluation") : png_source.index("    def draw_attention_horses")]
+        self.assertNotIn("能力ランク", png_card_source)
+        self.assertNotIn("勢いランク", png_card_source)
+        self.assertIn("状態：", png_card_source)
+        self.assertIn("★該当なし", png_card_source)
 
 
 if __name__ == "__main__":

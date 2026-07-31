@@ -230,11 +230,7 @@ class _Canvas:
             total = _format_number(_pick(row, "総合評価", "総合評価点", "補正AI点"))
             ability_value = _format_number(_pick(row, "能力評価値", "ability_display_score", "raw_score"))
             ability_band = _clean(_pick(row, "能力帯", "ability_band"))
-            ability_rank = _clean(_pick(row, "能力ランク", "ability_rank"))
-            momentum_rank = _clean(_pick(row, "勢いランク", "momentum_rank"))
             training_grade = _clean(_pick(row, "調教評価", "追切評価")) if result.race_mode == "jra" else ""
-            market = _format_number(_pick(row, "市場反映勝率", "推定勝率"))
-            win_expect = _format_number(_pick(row, "単勝期待値"))
             class_shift = _pick(row, "クラス変動") or "-"
             age = _pick(row, "馬年齢", "性齢", "馬齢")
             weight = _pick(row, "斤量")
@@ -263,11 +259,7 @@ class _Canvas:
                         f"総合{total}" if total else "",
                         f"能力評価値{ability_value}" if ability_value else "",
                         f"能力帯{ability_band}" if ability_band else "",
-                        f"能力{ability_rank}" if ability_rank else "",
-                        f"勢い{momentum_rank}" if momentum_rank else "",
                         f"調教{training_grade}" if training_grade else "",
-                        f"市場{market}" if market else "",
-                        f"単勝期待{win_expect}" if win_expect else "",
                     ],
                     sep=" / ",
                 ),
@@ -316,18 +308,18 @@ class _Canvas:
             no = _pick(row, "馬番", "馬")
             mark = _display_mark(row)
             name = _pick(row, "馬名")
+            group = _display_group(row)
             horse_age = _pick(row, "馬年齢", "性齢", "馬齢") or "データなし"
             jockey = _pick(row, "騎手", "jockey") or "―"
             style = _display_running_style(row) or "データなし"
             weight_detail = _pick(row, "斤量詳細")
             jockey_detail = _pick(row, "騎手詳細") or jockey
             odds = _format_odds(_pick(row, "単勝オッズ", "オッズ", "単勝"))
-            market = _pick(row, "市場評価")
             ability_value = _format_number(_pick(row, "能力評価値", "ability_display_score", "raw_score"))
-            ability_band = _clean(_pick(row, "能力帯", "ability_band")) or "-"
-            ability_rank = _clean(_pick(row, "能力ランク", "ability_rank")) or "-"
-            momentum_rank = _clean(_pick(row, "勢いランク", "momentum_rank")) or "-"
-            momentum_reason = _clean(_pick(row, "勢い理由", "momentum_reason"))
+            state = _clean(_pick(row, "状態", "form_state", "近3走傾向", "recent3_trend")) or "判定なし"
+            star = _format_number(_pick(row, "★最高指数", "star_max_index"))
+            distance = _format_number(_pick(row, "距離指数"))
+            course = _format_number(_pick(row, "コース指数"))
             class_shift = _pick(row, "クラス変動") or "-"
             material = _pick(row, "評価／検討材料", "評価/検討材料", "評価材料") or "-"
             material = _limit_materials(material)
@@ -346,24 +338,23 @@ class _Canvas:
                 sep="　",
             )
 
-            title = _join_nonempty([str(mark), str(no), str(name)], sep=" ")
+            title = _join_nonempty([f"【{group}】", str(mark), str(no), str(name)], sep=" ")
             lines = [
                 f"馬年齢：{horse_age}",
                 f"脚質：{style}",
                 f"斤量：{weight_detail}" if weight_detail else "",
                 f"騎手：{jockey_detail}",
                 f"単勝：{odds}" if odds else "単勝：―",
-                _join_nonempty([f"能力評価値：{ability_value}" if ability_value else "", f"能力帯：{ability_band}" if ability_band else ""], sep="　"),
                 _join_nonempty(
                     [
-                        f"能力：{ability_rank}" if ability_rank else "",
-                        f"勢い：{momentum_rank}" if momentum_rank else "",
-                        f"調教：{support_value}" if (not is_nar and support_value) else "",
+                        f"★{star}" if star else "★該当なし",
+                        f"距離{distance}" if distance else "距離—",
+                        f"コース{course}" if course else "コース—",
+                        f"状態：{state}",
                     ],
                     sep="　",
                 ),
-                f"勢い理由：{momentum_reason}" if momentum_reason else "",
-                f"市場評価：{market}" if market else "",
+                f"能力評価値：{ability_value}" if ability_value else "",
                 audit_labels,
                 _join_nonempty([f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),
                 f"材料：{material}",
@@ -803,6 +794,22 @@ def _display_mark(row: dict[str, Any]) -> str:
     if "display_mark" in row:
         return _clean(row.get("display_mark"))
     return _clean(_pick(row, "印", "最終印"))
+
+
+def _display_group(row: dict[str, Any]) -> str:
+    group = _clean(_pick(row, "グループ", "display_group"))
+    if group in {"SS", "A", "B", "C", "D"}:
+        return group
+    mark = _display_mark(row)
+    if mark == "◎":
+        return "SS"
+    if mark in {"○", "▲"}:
+        return "A"
+    if mark == "△":
+        return "B"
+    if mark == "☆":
+        return "C"
+    return "D"
 
 
 def _display_running_style(row: dict[str, Any]) -> str:
