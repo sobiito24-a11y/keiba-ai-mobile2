@@ -1672,6 +1672,13 @@ def format_index_value(value: Any) -> str:
     return f"{number:.1f}".rstrip("0").rstrip(".")
 
 
+def normalize_horse_number_key(value: Any) -> str:
+    number = to_float(value)
+    if number is not None and number.is_integer():
+        return str(int(number))
+    return clean_text(value)
+
+
 def index_summary_text(label: str, value: Any) -> str:
     formatted = format_index_value(value)
     return f"{label}{formatted}" if formatted != "—" else f"{label}—"
@@ -1759,17 +1766,31 @@ def render_overall_table(result: PredictionResult) -> None:
 
     append_nar_star_display_trace(result, "09 app.py display DataFrame creation", table)
 
+    overall_rows_by_horse: dict[str, dict[str, Any]] = {}
+    for overall_row in table.to_dict("records"):
+        horse_key = normalize_horse_number_key(pick(overall_row, "馬番", "馬"))
+        if horse_key:
+            overall_rows_by_horse[horse_key] = overall_row
+
     rows = sorted_display_rows(result)
-    display_table = build_detail_analysis_table(rows)
+    display_table = build_detail_analysis_table(rows, overall_rows_by_horse)
     append_nar_star_display_trace(result, "11 Streamlit detail table before st.dataframe", display_table)
     st.dataframe(display_table, use_container_width=True, hide_index=True)
 
 
-def build_detail_analysis_table(rows: list[dict[str, Any]]) -> pd.DataFrame:
+def build_detail_analysis_table(
+    rows: list[dict[str, Any]],
+    overall_rows_by_horse: dict[str, dict[str, Any]] | None = None,
+) -> pd.DataFrame:
     records: list[dict[str, Any]] = []
     for row in rows:
         no = clean_text(pick(row, "馬番", "馬"))
         name = clean_text(pick(row, "馬名"))
+        if overall_rows_by_horse is None:
+            index_row = row
+        else:
+            horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
+            index_row = overall_rows_by_horse.get(horse_key, {})
         records.append(
             {
                 "グループ": display_group_from_row(row),
@@ -1779,13 +1800,13 @@ def build_detail_analysis_table(rows: list[dict[str, Any]]) -> pd.DataFrame:
                 "騎手": compact_table_jockey_text(row),
                 "斤量": compact_weight_text(row).replace("kg", "") or "—",
                 "脚質": short_running_style(row),
-                "距離": format_index_value(pick(row, "距離指数")),
-                "コース": format_index_value(pick(row, "コース指数")),
-                "★": format_star_value(pick(row, "★最高指数", "star_max_index")),
-                "3走前": format_index_value(pick(row, "3走前")),
-                "2走前": format_index_value(pick(row, "2走前")),
-                "前走": format_index_value(pick(row, "前走")),
-                "3走平均": format_index_value(pick(row, "3走平均", "近3走平均", "平均指数")),
+                "距離": format_index_value(pick(index_row, "距離指数")),
+                "コース": format_index_value(pick(index_row, "コース指数")),
+                "★": format_star_value(pick(index_row, "★最高指数", "star_max_index")),
+                "3走前": format_index_value(pick(index_row, "3走前")),
+                "2走前": format_index_value(pick(index_row, "2走前")),
+                "前走": format_index_value(pick(index_row, "前走")),
+                "3走平均": format_index_value(pick(index_row, "平均指数", "3走平均", "近3走平均")),
                 "状態": state_label_from_row(row),
                 "コメント": short_comment_from_row(row),
             }
