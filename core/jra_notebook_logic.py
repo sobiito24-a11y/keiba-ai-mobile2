@@ -8686,6 +8686,14 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
             "安定評価": row.get("_Ver30安定評価", ""),
             "市場評価": row.get("_Ver30市場評価", ""),
             "能力評価値": _ver30_audit_score_display(row),
+            "能力ランク": _ver30_text_value(row.get("ability_rank", "")) or "-",
+            "能力ランク理由": _ver30_text_value(row.get("ability_rank_reason", "")) or "-",
+            "勢いランク": _ver30_text_value(row.get("momentum_rank", "")) or "-",
+            "勢いスコア": row.get("momentum_score", ""),
+            "勢い理由": _ver30_text_value(row.get("momentum_reason", "")) or "-",
+            "近3走傾向": _ver30_text_value(row.get("recent3_trend", "")) or "-",
+            "総合ランク": _ver30_text_value(row.get("overall_rank", "")) or "-",
+            "総合ランク理由": _ver30_text_value(row.get("overall_rank_reason", "")) or "-",
             "AI順位": _ver30_audit_rank_display(row),
             "軸信頼度": _ver30_text_value(row.get("axis_confidence", "")) or "-",
             "軸信頼度理由": _ver30_text_value(row.get("axis_confidence_reason", "")) or "-",
@@ -8695,6 +8703,8 @@ def print_ver30_all_horse_rating(df, race_type="nar"):
             "レース難易度理由": _ver30_text_value(row.get("race_difficulty_reason", "")) or "-",
             "AI点": _ver30_ai_point_display(row),
             "クラス変動": _ver30_class_shift_short(row),
+            "チェック項目": _ver30_text_value(row.get("チェック項目", "")) or "-",
+            "補足": _ver30_text_value(row.get("補足", "")) or "なし",
         }
         if str(race_type).lower() == "jra":
             base["調教評価"] = _ver30_training_eval_short(row)

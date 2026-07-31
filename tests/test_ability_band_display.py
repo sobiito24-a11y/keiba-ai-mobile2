@@ -72,16 +72,15 @@ class AbilityBandDisplayTest(unittest.TestCase):
         self.assertIn("脚質表示", audit.columns)
         self.assertEqual(audit.loc[0, "脚質表示"], "先行")
 
-    def test_normal_card_and_png_sources_hide_rank_first_labels(self) -> None:
+    def test_normal_card_and_png_sources_show_form_rank_labels(self) -> None:
         root = Path(__file__).resolve().parents[1]
         for relative in ["app.py", "render/mobile_png.py"]:
             source = (root / relative).read_text(encoding="utf-8")
-            self.assertNotIn("AI点：", source)
-            self.assertNotIn("AI順位：", source)
-            self.assertNotIn("軸信頼度：", source)
-            self.assertNotIn("軸理由：", source)
+            self.assertIn("AI点", source)
             self.assertIn("能力評価値：", source)
             self.assertIn("能力帯：", source)
+            self.assertIn("能力ランク", source)
+            self.assertIn("勢いランク", source)
             self.assertIn("脚質：", source)
             self.assertIn("穴候補：該当", source)
             self.assertIn("注意馬：該当", source)

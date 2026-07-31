@@ -230,6 +230,9 @@ class _Canvas:
             total = _format_number(_pick(row, "総合評価", "総合評価点", "補正AI点"))
             ability_value = _format_number(_pick(row, "能力評価値", "ability_display_score", "raw_score"))
             ability_band = _clean(_pick(row, "能力帯", "ability_band"))
+            ability_rank = _clean(_pick(row, "能力ランク", "ability_rank"))
+            momentum_rank = _clean(_pick(row, "勢いランク", "momentum_rank"))
+            training_grade = _clean(_pick(row, "調教評価", "追切評価")) if result.race_mode == "jra" else ""
             market = _format_number(_pick(row, "市場反映勝率", "推定勝率"))
             win_expect = _format_number(_pick(row, "単勝期待値"))
             class_shift = _pick(row, "クラス変動") or "-"
@@ -260,6 +263,9 @@ class _Canvas:
                         f"総合{total}" if total else "",
                         f"能力評価値{ability_value}" if ability_value else "",
                         f"能力帯{ability_band}" if ability_band else "",
+                        f"能力{ability_rank}" if ability_rank else "",
+                        f"勢い{momentum_rank}" if momentum_rank else "",
+                        f"調教{training_grade}" if training_grade else "",
                         f"市場{market}" if market else "",
                         f"単勝期待{win_expect}" if win_expect else "",
                     ],
@@ -319,6 +325,9 @@ class _Canvas:
             market = _pick(row, "市場評価")
             ability_value = _format_number(_pick(row, "能力評価値", "ability_display_score", "raw_score"))
             ability_band = _clean(_pick(row, "能力帯", "ability_band")) or "-"
+            ability_rank = _clean(_pick(row, "能力ランク", "ability_rank")) or "-"
+            momentum_rank = _clean(_pick(row, "勢いランク", "momentum_rank")) or "-"
+            momentum_reason = _clean(_pick(row, "勢い理由", "momentum_reason"))
             class_shift = _pick(row, "クラス変動") or "-"
             material = _pick(row, "評価／検討材料", "評価/検討材料", "評価材料") or "-"
             material = _limit_materials(material)
@@ -345,6 +354,15 @@ class _Canvas:
                 f"騎手：{jockey_detail}",
                 f"単勝：{odds}" if odds else "単勝：―",
                 _join_nonempty([f"能力評価値：{ability_value}" if ability_value else "", f"能力帯：{ability_band}" if ability_band else ""], sep="　"),
+                _join_nonempty(
+                    [
+                        f"能力：{ability_rank}" if ability_rank else "",
+                        f"勢い：{momentum_rank}" if momentum_rank else "",
+                        f"調教：{support_value}" if (not is_nar and support_value) else "",
+                    ],
+                    sep="　",
+                ),
+                f"勢い理由：{momentum_reason}" if momentum_reason else "",
                 f"市場評価：{market}" if market else "",
                 audit_labels,
                 _join_nonempty([f"クラス：{class_shift}", f"{support_label}：{support_value}"], sep="　"),

@@ -6,6 +6,8 @@ from typing import Any
 
 import pandas as pd
 
+from .form_rank import add_form_rank_columns
+
 
 AXIS_CONFIDENCE_CONFIG = {
     "raw_a": 95.0,
@@ -66,6 +68,25 @@ AUDIT_OUTPUT_COLUMNS = [
     "old_watch_mark",
     "hole_candidate",
     "watch_horse",
+    "ability_rank",
+    "ability_rank_reason",
+    "momentum_score",
+    "momentum_rank",
+    "momentum_reason",
+    "recent3_trend",
+    "recent3_slope",
+    "recent3_volatility",
+    "recent3_valid_count",
+    "overall_rank",
+    "overall_rank_reason",
+    "power_group",
+    "power_group_label",
+    "has_same_course",
+    "has_same_distance",
+    "has_same_turn",
+    "has_heavy_track",
+    "check_summary",
+    "supplement_note",
 ]
 
 AUDIT_EXPORT_COLUMNS = [
@@ -125,6 +146,39 @@ AUDIT_EXPORT_COLUMNS = [
     "旧✓",
     "穴候補",
     "注意馬",
+    "ability_rank",
+    "ability_rank_reason",
+    "momentum_score",
+    "momentum_rank",
+    "momentum_reason",
+    "recent3_trend",
+    "recent3_slope",
+    "recent3_volatility",
+    "recent3_valid_count",
+    "overall_rank",
+    "overall_rank_reason",
+    "power_group",
+    "power_group_label",
+    "has_same_course",
+    "has_same_distance",
+    "has_same_turn",
+    "has_heavy_track",
+    "能力ランク",
+    "能力ランク理由",
+    "勢いスコア",
+    "勢いランク",
+    "勢い理由",
+    "近3走傾向",
+    "総合ランク",
+    "総合ランク理由",
+    "勢力図グループ",
+    "勢力図役割",
+    "同競馬場",
+    "同距離",
+    "同回り",
+    "重馬場実績",
+    "チェック項目",
+    "補足",
 ]
 
 
@@ -242,6 +296,11 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["旧✓"] = result["old_watch_mark"].map(_bool_label)
     result["穴候補"] = result["hole_candidate"].map(_bool_label)
     result["注意馬"] = result["watch_horse"].map(_bool_label)
+    result = add_form_rank_columns(result, race_type=race_type)
+    if "check_summary" not in result.columns:
+        result["check_summary"] = _text_series(result, "チェック項目")
+    if "supplement_note" not in result.columns:
+        result["supplement_note"] = _text_series(result, "補足")
     return result
 
 

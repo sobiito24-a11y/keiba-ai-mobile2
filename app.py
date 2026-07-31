@@ -93,6 +93,86 @@ MOBILE_CSS = """
     line-height: 1.6;
     overflow-wrap: anywhere;
   }
+  .ka-dashboard-card {
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 0.85rem 0.9rem;
+    margin: 0.55rem 0 0.9rem;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  }
+  .ka-dashboard-title {
+    font-size: 0.78rem;
+    color: #667085;
+    font-weight: 700;
+    letter-spacing: 0 !important;
+    margin-bottom: 0.25rem;
+  }
+  .ka-dashboard-value {
+    font-size: 1.1rem;
+    color: #101828;
+    font-weight: 800;
+    margin-bottom: 0.2rem;
+  }
+  .ka-chip {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.16rem 0.48rem;
+    margin: 0.08rem 0.18rem 0.08rem 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border: 1px solid #d0d5dd;
+    color: #344054;
+    background: #f9fafb;
+  }
+  .ka-chip.ss { background: #fff1f3; border-color: #fecdd6; color: #b42318; }
+  .ka-chip.a { background: #fff7ed; border-color: #fed7aa; color: #b45309; }
+  .ka-chip.b { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .ka-chip.c { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+  .ka-chip.d { background: #f2f4f7; border-color: #d0d5dd; color: #667085; }
+  .ka-power-group {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 0.75rem;
+    margin: 0.55rem 0;
+    background: #ffffff;
+  }
+  .ka-power-row {
+    padding: 0.28rem 0;
+    border-top: 1px solid #f2f4f7;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+  .ka-power-row:first-of-type { border-top: none; }
+  .ka-horse-card details summary {
+    cursor: pointer;
+    list-style: none;
+  }
+  .ka-horse-card details summary::-webkit-details-marker {
+    display: none;
+  }
+  .ka-horse-title-line {
+    display: flex;
+    gap: 0.35rem;
+    align-items: baseline;
+    flex-wrap: wrap;
+    font-weight: 800;
+    color: #101828;
+  }
+  .ka-horse-quick {
+    margin-top: 0.35rem;
+    color: #344054;
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+  .ka-horse-detail {
+    margin-top: 0.65rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid #eef2f6;
+    color: #344054;
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
   .ka-horse-card {
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -954,6 +1034,9 @@ OVERALL_SIMPLE_COLUMNS = [
     "オッズ",
     "脚質",
     "能力評価値",
+    "能力ランク",
+    "勢いランク",
+    "近3走傾向",
     "能力帯",
     "総合評価",
     "評価／検討材料",
@@ -971,6 +1054,8 @@ HORSE_EVALUATION_COLUMNS = [
     "斤量詳細",
     "騎手詳細",
     "能力評価値",
+    "能力ランク",
+    "勢いランク",
     "能力帯",
     "市場評価",
     "クラス変動",
@@ -981,6 +1066,8 @@ HORSE_EVALUATION_COLUMNS = [
     "馬タイプ",
     "穴候補",
     "注意馬",
+    "チェック項目",
+    "補足",
     "一言コメント",
 ]
 
@@ -1008,6 +1095,29 @@ AUDIT_EVALUATION_COLUMNS = [
     "axis_confidence_reason",
     "能力帯",
     "ability_band",
+    "能力ランク",
+    "ability_rank",
+    "能力ランク理由",
+    "ability_rank_reason",
+    "勢いスコア",
+    "momentum_score",
+    "勢いランク",
+    "momentum_rank",
+    "勢い理由",
+    "momentum_reason",
+    "近3走傾向",
+    "recent3_trend",
+    "recent3_slope",
+    "recent3_volatility",
+    "recent3_valid_count",
+    "総合ランク",
+    "overall_rank",
+    "総合ランク理由",
+    "overall_rank_reason",
+    "勢力図グループ",
+    "power_group",
+    "勢力図役割",
+    "power_group_label",
     "能力差",
     "ability_gap_level",
     "レース難易度",
@@ -1027,6 +1137,14 @@ AUDIT_EVALUATION_COLUMNS = [
     "hole_candidate",
     "注意馬",
     "watch_horse",
+    "has_same_course",
+    "has_same_distance",
+    "has_same_turn",
+    "has_heavy_track",
+    "チェック項目",
+    "check_summary",
+    "補足",
+    "supplement_note",
 ]
 
 
@@ -1090,17 +1208,12 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
 
 
 def render_colab_style_result(result: PredictionResult) -> None:
-    render_raw_text_section(
-        "会場別試験評価",
-        extract_raw_section(result, ["会場別試験評価", "JRA会場別試験評価"]),
-    )
-    render_raw_text_section(
-        "展開予想",
-        extract_raw_section(result, ["展開予想"]),
-    )
-    render_race_difficulty(result)
+    render_race_header(result)
+    render_race_summary(result)
+    render_power_map(result)
+    render_ai_roles(result)
+    render_horse_summary_cards(result)
     render_overall_table(result)
-    render_horse_evaluation(result)
     render_attention_horses(result)
     render_raw_text_section(
         "AIレース考察",
@@ -1110,6 +1223,15 @@ def render_colab_style_result(result: PredictionResult) -> None:
         "今回の馬券構成",
         strip_section_title(result.betting_structure, "今回の馬券構成"),
     )
+    with st.expander("監査・補足情報", expanded=False):
+        render_raw_text_section(
+            "会場別試験評価",
+            extract_raw_section(result, ["会場別試験評価", "JRA会場別試験評価"]),
+        )
+        render_raw_text_section(
+            "展開予想",
+            extract_raw_section(result, ["展開予想"]),
+        )
 
 
 def append_nar_star_display_trace(
@@ -1164,6 +1286,274 @@ def render_raw_text_section(title: str, text: str) -> None:
         st.markdown('<div class="ka-section ka-muted">未取得です。</div>', unsafe_allow_html=True)
         return
     st.markdown(f'<div class="ka-section">{plain_text_to_html(body)}</div>', unsafe_allow_html=True)
+
+
+POWER_GROUPS = [
+    ("SS", "軸"),
+    ("A", "相手本線"),
+    ("B", "相手・穴"),
+    ("C", "押さえ"),
+    ("D", "消し寄り"),
+]
+
+
+def render_race_header(result: PredictionResult) -> None:
+    info = result.race_info or {}
+    mode = "地方" if result.race_mode == "nar" else "中央"
+    title = clean_text(result.race_name) or clean_text(pick(info, "race_name", "レース名")) or "レース"
+    items = [
+        mode,
+        pick(info, "venue", "競馬場", "place"),
+        pick(info, "race_number", "R", "レース番号"),
+        pick(info, "class", "クラス"),
+        pick(info, "post_time", "発走時刻", "発走"),
+        pick(info, "distance", "距離"),
+        pick(info, "surface", "芝ダート", "馬場種別"),
+        pick(info, "turn", "回り"),
+        _horse_count_text(result),
+    ]
+    chips = "".join(f'<span class="ka-chip">{plain_text_to_html(item)}</span>' for item in items if clean_text(item))
+    st.markdown(
+        f'<div class="ka-dashboard-card"><div class="ka-dashboard-title">レース基本情報</div>'
+        f'<div class="ka-dashboard-value">{plain_text_to_html(title)}</div>{chips}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_race_summary(result: PredictionResult) -> None:
+    rows = result_rows(result)
+    if not rows:
+        return
+    first = rows[0]
+    difficulty = clean_text(pick(first, "レース難易度", "race_difficulty")) or "-"
+    difficulty_reason = clean_text(pick(first, "レース難易度理由", "race_difficulty_reason")) or "-"
+    gap = clean_text(pick(first, "能力差", "ability_gap_level")) or "-"
+    axis = clean_text(pick(first, "軸信頼度", "axis_confidence")) or "-"
+    axis_reason = clean_text(pick(first, "軸信頼度理由", "axis_confidence_reason")) or "-"
+    body = (
+        '<div class="ka-dashboard-card">'
+        '<div class="ka-dashboard-title">レースサマリー</div>'
+        f'<div><span class="ka-chip">{plain_text_to_html("能力差：" + gap)}</span>'
+        f'<span class="ka-chip">{plain_text_to_html("難易度：" + difficulty)}</span>'
+        f'<span class="ka-chip">{plain_text_to_html("軸信頼度：" + axis)}</span></div>'
+        f'<div class="ka-note">{plain_text_to_html(difficulty_reason)}<br>{plain_text_to_html(axis_reason)}</div>'
+        '</div>'
+    )
+    st.markdown(body, unsafe_allow_html=True)
+
+
+def render_power_map(result: PredictionResult) -> None:
+    rows = sorted_display_rows(result)
+    if not rows:
+        return
+    st.subheader("勢力図・能力グループ")
+    for group, label in POWER_GROUPS:
+        group_rows = [row for row in rows if clean_text(pick(row, "勢力図グループ", "power_group")) == group]
+        if not group_rows:
+            continue
+        lines = []
+        for row in group_rows:
+            mark = display_mark_from_row(row) or "無印"
+            no = clean_text(pick(row, "馬番", "馬"))
+            name = clean_text(pick(row, "馬名"))
+            ai = format_number(pick(row, "AI点", "normalized_ai_score"))
+            ability = format_number(pick(row, "能力評価値", "ability_display_score", "raw_score"))
+            ability_rank = clean_text(pick(row, "能力ランク", "ability_rank")) or "-"
+            momentum_rank = clean_text(pick(row, "勢いランク", "momentum_rank")) or "-"
+            training = clean_text(pick(row, "調教評価", "追切評価")) if result.race_mode == "jra" else ""
+            metrics = join_nonempty(
+                [
+                    f"{mark} AI{ai}" if ai else mark,
+                    f"能力{ability}" if ability else "",
+                    f"能力R{ability_rank}",
+                    f"勢い{momentum_rank}",
+                    f"調教{training}" if training else "",
+                ],
+                sep=" / ",
+            )
+            lines.append(
+                f'<div class="ka-power-row"><b>{plain_text_to_html(no)} {plain_text_to_html(name)}</b><br>'
+                f'<span class="ka-muted">{plain_text_to_html(metrics)}</span></div>'
+            )
+        st.markdown(
+            f'<div class="ka-power-group"><span class="ka-chip {group.lower()}">{plain_text_to_html(group + "［" + label + "］")}</span>'
+            + "".join(lines)
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+
+
+def render_ai_roles(result: PredictionResult) -> None:
+    rows = sorted_display_rows(result)
+    if not rows:
+        return
+    role_map = {"SS": "軸", "A": "相手本線", "B": "相手・穴", "C": "押さえ"}
+    blocks = []
+    for group, label in role_map.items():
+        nums = [
+            clean_text(pick(row, "馬番", "馬"))
+            for row in rows
+            if clean_text(pick(row, "勢力図グループ", "power_group")) == group
+        ]
+        if nums:
+            blocks.append(f"<b>{plain_text_to_html(label)}</b><br>{plain_text_to_html(' '.join(nums))}")
+    if not blocks:
+        return
+    st.subheader("AI推奨エリア")
+    st.markdown(
+        '<div class="ka-dashboard-card">' + "<br><br>".join(blocks) + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_horse_summary_cards(result: PredictionResult) -> None:
+    rows = sorted_display_rows(result)
+    if not rows:
+        st.info("馬別サマリーは未取得です。")
+        return
+    st.subheader("馬別サマリーカード")
+    visible = [row for row in rows if clean_text(pick(row, "勢力図グループ", "power_group")) != "D"]
+    hidden = [row for row in rows if clean_text(pick(row, "勢力図グループ", "power_group")) == "D"]
+    for row in visible:
+        st.markdown(horse_summary_card_html(row, result.race_mode), unsafe_allow_html=True)
+    if hidden:
+        with st.expander("消し寄りの馬も表示", expanded=False):
+            for row in hidden:
+                st.markdown(horse_summary_card_html(row, result.race_mode), unsafe_allow_html=True)
+
+
+def horse_summary_card_html(row: dict[str, Any], race_mode: str) -> str:
+    mark = display_mark_from_row(row) or "無印"
+    no = clean_text(pick(row, "馬番", "馬"))
+    name = clean_text(pick(row, "馬名"))
+    ai = format_number(pick(row, "AI点", "normalized_ai_score"))
+    popularity = clean_text(pick(row, "人気"))
+    odds = format_odds(pick(row, "単勝オッズ", "オッズ", "単勝"))
+    ability_rank = clean_text(pick(row, "能力ランク", "ability_rank")) or "-"
+    momentum_rank = clean_text(pick(row, "勢いランク", "momentum_rank")) or "-"
+    training = clean_text(pick(row, "調教評価", "追切評価")) if race_mode == "jra" else ""
+    group = clean_text(pick(row, "勢力図グループ", "power_group")) or "D"
+    group_label = clean_text(pick(row, "勢力図役割", "power_group_label")) or "確認"
+    quick = join_nonempty(
+        [
+            f"AI点{ai}" if ai else "",
+            f"能力 {ability_rank}",
+            f"勢い {momentum_rank}",
+            f"調教 {training}" if training else "",
+            f"{popularity}人気" if popularity else "",
+            odds,
+        ],
+        sep=" ｜ ",
+    )
+    detail_lines = [
+        f"能力評価値：{format_number(pick(row, '能力評価値', 'ability_display_score', 'raw_score'))}",
+        f"能力ランク理由：{clean_text(pick(row, '能力ランク理由', 'ability_rank_reason')) or '-'}",
+        f"能力帯：{clean_text(pick(row, '能力帯', 'ability_band')) or '-'}",
+        f"能力差：{clean_text(pick(row, '能力差', 'ability_gap_level')) or '-'}",
+        f"勢いスコア：{format_number(pick(row, '勢いスコア', 'momentum_score'))}",
+        f"勢い理由：{clean_text(pick(row, '勢い理由', 'momentum_reason')) or '-'}",
+        f"近3走：{recent3_text_from_row(row)}",
+        f"★最高指数：{star_text_from_row(row)}",
+        f"距離指数：{format_number(pick(row, '距離指数'))}　コース指数：{format_number(pick(row, 'コース指数'))}",
+        f"レース間隔：{clean_text(pick(row, 'レース間隔', '間隔')) or '-'}",
+        f"表示コメント：{clean_text(pick(row, '表示コメント', 'display_comment', '一言コメント', 'コメント')) or '-'}",
+        f"穴候補：{'該当' if truthy_display(pick(row, '穴候補', 'hole_candidate')) else '-'}　注意馬：{'該当' if truthy_display(pick(row, '注意馬', 'watch_horse')) else '-'}",
+        "チェック：",
+        clean_multiline(pick(row, "チェック項目", "check_summary")) or "-",
+        f"補足：{clean_text(pick(row, '補足', 'supplement_note')) or 'なし'}",
+    ]
+    title = f"{mark} {no} {name}".strip()
+    return (
+        f'<div class="ka-horse-card">'
+        f'<details><summary>'
+        f'<div class="ka-horse-title-line"><span class="ka-chip {group.lower()}">{plain_text_to_html(group + " " + group_label)}</span>'
+        f'<span>{plain_text_to_html(title)}</span></div>'
+        f'<div class="ka-horse-quick">{plain_text_to_html(quick)}</div>'
+        f'</summary><div class="ka-horse-detail">{plain_text_to_html(chr(10).join(line for line in detail_lines if clean_text(line)))}</div></details>'
+        f'</div>'
+    )
+
+
+def result_rows(result: PredictionResult) -> list[dict[str, Any]]:
+    for table in (result.horse_evaluation, result.overall_table):
+        if table is not None and not getattr(table, "empty", False):
+            return table.to_dict("records")
+    return []
+
+
+def sorted_display_rows(result: PredictionResult) -> list[dict[str, Any]]:
+    rows = result_rows(result)
+    group_order = {"SS": 0, "A": 1, "B": 2, "C": 3, "D": 4}
+    mark_order = {"◎": 0, "○": 1, "▲": 2, "△": 3, "✓": 4, "✔": 4, "": 9}
+
+    def sort_key(row: dict[str, Any]) -> tuple[int, int, float, int, str]:
+        group = clean_text(pick(row, "勢力図グループ", "power_group")) or "D"
+        mark = display_mark_from_row(row)
+        ai = to_float(pick(row, "AI点", "normalized_ai_score"))
+        horse_no = to_float(pick(row, "馬番", "馬"))
+        return (
+            group_order.get(group, 9),
+            mark_order.get(mark, 8),
+            -(ai if ai is not None else -9999.0),
+            int(horse_no) if horse_no is not None else 999,
+            clean_text(pick(row, "馬名")),
+        )
+
+    return sorted(rows, key=sort_key)
+
+
+def _horse_count_text(result: PredictionResult) -> str:
+    info = result.race_info or {}
+    count = pick(info, "頭数", "horse_count", "runners", "出走頭数")
+    if not count:
+        count = len(result_rows(result))
+    number = to_float(count)
+    if number is not None:
+        return f"{int(number)}頭"
+    text = clean_text(count)
+    return text if "頭" in text else f"{text}頭" if text else ""
+
+
+def recent3_text_from_row(row: dict[str, Any]) -> str:
+    values = [
+        pick(row, "3走前", "race3", "three_back_index"),
+        pick(row, "2走前", "race2", "two_back_index"),
+        pick(row, "前走", "race1", "last_index"),
+    ]
+    parts = [format_number(value) if not is_missing_value(value) else "-" for value in values]
+    trend = clean_text(pick(row, "近3走傾向", "recent3_trend"))
+    if not trend:
+        return " → ".join(parts)
+    arrow = "↗" if trend in {"連続上昇", "上昇", "持ち直し", "反発"} else "↘" if trend in {"連続下降", "下降", "急落"} else "→"
+    return f"{' → '.join(parts)}　{arrow} {trend}"
+
+
+def star_text_from_row(row: dict[str, Any]) -> str:
+    star = pick(row, "★最高指数", "star_max_index")
+    if is_missing_value(star):
+        return "なし"
+    star_text = format_number(star) or clean_text(star)
+    race = clean_text(pick(row, "★該当走", "star_max_race"))
+    condition = clean_text(pick(row, "★条件", "star_max_condition"))
+    level = clean_text(pick(row, "star_match_level"))
+    condition_text = condition
+    if not condition_text and level and level != "none":
+        condition_text = "今回と同条件"
+    pieces = [f"★{star_text}"]
+    if condition_text:
+        pieces.append(condition_text)
+    if race:
+        pieces.append(race)
+    return "｜".join(pieces)
+
+
+def truthy_display(value: Any) -> bool:
+    if is_missing_value(value):
+        return False
+    if isinstance(value, bool):
+        return value
+    text = clean_text(value).lower()
+    return text not in {"", "-", "なし", "false", "0", "no", "nan", "none", "×"}
 
 
 def render_overall_table(result: PredictionResult) -> None:

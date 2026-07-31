@@ -356,3 +356,16 @@ Cloud用のEntrypointはリポジトリ直下の `streamlit_app.py` です。ア
 - 中央は現在URL方式ではなくHTMLアップロード方式です
 - PNGは1枚にまとめるため、頭数や文章量が非常に多い場合は縦長になります
 - 研究用Notebookで予想ロジックを更新した場合は、対応するPythonモジュールへの再移植が必要です
+
+## Phase 1 レース俯瞰UI
+
+通常画面は、レースサマリー、勢力図、馬別サマリーカード、詳細表の順に表示します。
+
+- 能力ランク: 能力評価値を全レース共通の固定閾値で S/A/B/C/D に分類します。AI順位では判定しません。
+- 能力帯: そのレース内で能力が近い馬をまとめる相対表示です。
+- 勢いランク: 3走前、2走前、前走の指数推移を中心に S/A/B/C/D または判定保留で表示します。
+- 調教評価: 中央のみ表示します。勢い判定では補助材料に留めます。
+
+現在の暫定閾値は `core/form_rank.py` に集約しています。AI点、印、能力評価値、買い目ロジック、★最高指数の計算式は変更していません。
+
+監査CSV / JSON / Markdownには、`ability_rank`, `ability_rank_reason`, `momentum_score`, `momentum_rank`, `momentum_reason`, `recent3_trend`, `recent3_slope`, `recent3_volatility`, `recent3_valid_count` を追加しています。
