@@ -798,7 +798,7 @@ def _display_mark(row: dict[str, Any]) -> str:
 
 def _display_group(row: dict[str, Any]) -> str:
     group = _clean(_pick(row, "グループ", "display_group"))
-    if group in {"SS", "A", "B", "C", "D"}:
+    if group in {"SS", "A", "B", "C", "Z"}:
         return group
     mark = _display_mark(row)
     if mark == "◎":
@@ -807,9 +807,9 @@ def _display_group(row: dict[str, Any]) -> str:
         return "A"
     if mark == "△":
         return "B"
-    if mark == "☆":
+    if mark in {"✓", "✔"}:
         return "C"
-    return "D"
+    return "Z"
 
 
 def _display_running_style(row: dict[str, Any]) -> str:

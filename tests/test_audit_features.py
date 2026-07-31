@@ -154,6 +154,10 @@ class AuditFeaturesTest(unittest.TestCase):
         self.assertEqual(int(result["表示印"].eq("✓").sum()), 2)
         self.assertGreaterEqual(int(result["watch_horse"].sum()), 3)
         self.assertTrue(result.loc[result["display_mark"].ne("✓"), "表示印"].eq("").all())
+        self.assertEqual(int(result["display_group"].eq("C").sum()), 2)
+        self.assertEqual(int(result["display_group"].eq("Z").sum()), 3)
+        self.assertNotIn("D", set(result["display_group"]))
+        self.assertTrue(result["original_mark"].eq("✓").all())
 
     def test_legacy_final_mark_function_is_not_called_by_mobile_wrappers(self) -> None:
         root = Path(__file__).resolve().parents[1]

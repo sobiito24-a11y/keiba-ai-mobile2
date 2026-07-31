@@ -6,6 +6,7 @@ import unittest
 import pandas as pd
 
 from core.audit_features import add_audit_evaluation_columns, build_audit_export_table
+from render.mobile_png import _display_group
 
 
 class AbilityBandDisplayTest(unittest.TestCase):
@@ -84,14 +85,30 @@ class AbilityBandDisplayTest(unittest.TestCase):
                 {"馬番": 3, "AI点": 90.0, "_raw_score": 86.0, "最終印": "▲"},
                 {"馬番": 4, "AI点": 85.0, "_raw_score": 80.0, "最終印": "△"},
                 {"馬番": 5, "AI点": 80.0, "_raw_score": 76.0, "最終印": "✓"},
+                {"馬番": 6, "AI点": 75.0, "_raw_score": 70.0, "最終印": ""},
             ]
         )
 
         result = add_audit_evaluation_columns(frame, race_type="nar")
 
-        self.assertEqual(list(result["original_mark"]), ["◎", "○", "▲", "△", "✓"])
-        self.assertEqual(list(result["display_group"][:4]), ["SS", "A", "A", "B"])
-        self.assertIn(result.loc[4, "display_group"], {"D"})
+        self.assertEqual(list(result["original_mark"]), ["◎", "○", "▲", "△", "✓", ""])
+        self.assertEqual(list(result["display_group"]), ["SS", "A", "A", "B", "C", "Z"])
+        self.assertEqual(list(result["グループ"]), ["SS", "A", "A", "B", "C", "Z"])
+        self.assertNotIn("D", set(result["display_group"]))
+        audit = build_audit_export_table(result)
+        self.assertEqual(list(audit["display_group"]), ["SS", "A", "A", "B", "C", "Z"])
+        self.assertEqual(list(audit["original_mark"]), ["◎", "○", "▲", "△", "✓", ""])
+
+    def test_png_group_display_matches_audit_groups_and_converts_legacy_d(self) -> None:
+        rows = [
+            ({"表示印": "◎", "グループ": "SS"}, "SS"),
+            ({"表示印": "○", "グループ": "A"}, "A"),
+            ({"表示印": "▲", "グループ": "A"}, "A"),
+            ({"表示印": "△", "グループ": "B"}, "B"),
+            ({"表示印": "✓", "グループ": "D"}, "C"),
+            ({"表示印": "", "グループ": "D"}, "Z"),
+        ]
+        self.assertEqual([_display_group(row) for row, _expected in rows], [expected for _row, expected in rows])
 
     def test_normal_card_sources_show_group_and_hide_rank_first_labels(self) -> None:
         root = Path(__file__).resolve().parents[1]

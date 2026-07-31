@@ -456,11 +456,9 @@ def _display_group_from_mark(value: Any) -> str:
         return "A"
     if mark == "△":
         return "B"
-    if mark == "☆":
-        return "C"
     if mark in {"✓", "✔"}:
-        return "D"
-    return "D"
+        return "C"
+    return "Z"
 
 
 def _running_style_display_series(df: pd.DataFrame) -> pd.Series:

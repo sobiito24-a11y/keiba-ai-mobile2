@@ -129,7 +129,7 @@ MOBILE_CSS = """
   .ka-chip.a { background: #fff7ed; border-color: #fed7aa; color: #b45309; }
   .ka-chip.b { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
   .ka-chip.c { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
-  .ka-chip.d { background: #f2f4f7; border-color: #d0d5dd; color: #667085; }
+  .ka-chip.z { background: #f2f4f7; border-color: #d0d5dd; color: #667085; }
   .ka-power-group {
     border: 1px solid #e5e7eb;
     border-radius: 10px;
@@ -1285,7 +1285,7 @@ POWER_GROUPS = [
     ("A", ""),
     ("B", ""),
     ("C", ""),
-    ("D", ""),
+    ("Z", ""),
 ]
 
 
@@ -1390,18 +1390,29 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
     if not rows:
         st.info("馬別サマリーは未取得です。")
         return
+    overall_rows_by_horse = build_overall_rows_by_horse(result.overall_table)
+
+    def card_html(row: dict[str, Any]) -> str:
+        horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
+        return horse_summary_card_html(row, result.race_mode, overall_rows_by_horse.get(horse_key, {}))
+
     st.subheader("馬別サマリーカード")
-    visible = [row for row in rows if display_group_from_row(row) != "D"]
-    hidden = [row for row in rows if display_group_from_row(row) == "D"]
+    visible = [row for row in rows if display_group_from_row(row) != "Z"]
+    hidden = [row for row in rows if display_group_from_row(row) == "Z"]
     for row in visible:
-        st.markdown(horse_summary_card_html(row, result.race_mode), unsafe_allow_html=True)
+        st.markdown(card_html(row), unsafe_allow_html=True)
     if hidden:
-        with st.expander("Dグループの馬も表示", expanded=False):
+        with st.expander("Zグループの馬も表示", expanded=False):
             for row in hidden:
-                st.markdown(horse_summary_card_html(row, result.race_mode), unsafe_allow_html=True)
+                st.markdown(card_html(row), unsafe_allow_html=True)
 
 
-def horse_summary_card_html(row: dict[str, Any], race_mode: str) -> str:
+def horse_summary_card_html(
+    row: dict[str, Any],
+    race_mode: str,
+    overall_row: dict[str, Any] | None = None,
+) -> str:
+    index_row = row if overall_row is None else overall_row
     mark = display_mark_from_row(row)
     no = clean_text(pick(row, "馬番", "馬"))
     name = clean_text(pick(row, "馬名"))
@@ -1411,9 +1422,9 @@ def horse_summary_card_html(row: dict[str, Any], race_mode: str) -> str:
     weight = compact_weight_text(row)
     jockey = compact_jockey_text(row)
     style = display_running_style_from_row(row) or "データなし"
-    star = star_summary_text(row)
-    distance = index_summary_text("距離", pick(row, "距離指数"))
-    course = index_summary_text("コース", pick(row, "コース指数"))
+    star = star_summary_text(index_row)
+    distance = index_summary_text("距離", pick(index_row, "距離指数"))
+    course = index_summary_text("コース", pick(index_row, "コース指数"))
     state = state_label_from_row(row)
     mark_part = mark if mark else ""
     quick_items = [
@@ -1436,19 +1447,19 @@ def horse_summary_card_html(row: dict[str, Any], race_mode: str) -> str:
         f"脚質：{style}",
         f"オッズ：{odds or '—'}",
         "",
-        f"距離指数：{format_index_value(pick(row, '距離指数'))}",
-        f"コース指数：{format_index_value(pick(row, 'コース指数'))}",
-        f"★最高指数：{format_star_value(pick(row, '★最高指数', 'star_max_index'))}",
+        f"距離指数：{format_index_value(pick(index_row, '距離指数'))}",
+        f"コース指数：{format_index_value(pick(index_row, 'コース指数'))}",
+        f"★最高指数：{format_star_value(pick(index_row, '★最高指数', 'star_max_index'))}",
         f"状態：{state}",
         "",
         "近3走",
-        recent3_detail_text(row),
-        f"3走平均：{format_index_value(pick(row, '3走平均', '近3走平均', '平均指数'))}",
+        recent3_detail_text(index_row),
+        f"3走平均：{format_index_value(pick(index_row, '平均指数', '3走平均', '近3走平均'))}",
         "",
-        f"★該当走：{clean_text(pick(row, '★該当走', 'star_max_race')) or '—'}",
-        f"★条件：{clean_text(pick(row, '★条件', 'star_max_condition')) or '—'}",
+        f"★該当走：{clean_text(pick(index_row, '★該当走', 'star_max_race')) or '—'}",
+        f"★条件：{star_condition_text_from_row(index_row) or '—'}",
         f"能力評価値：{format_number(pick(row, '能力評価値', 'ability_display_score', 'raw_score')) or '—'}",
-        f"近3走：{recent3_text_from_row(row)}",
+        f"近3走：{recent3_text_from_row(index_row, row)}",
         f"コメント：{short_comment_from_row(row)}",
         f"穴候補：{'該当' if truthy_display(pick(row, '穴候補', 'hole_candidate')) else '—'}　注意馬：{'該当' if truthy_display(pick(row, '注意馬', 'watch_horse')) else '—'}",
     ]
@@ -1476,7 +1487,7 @@ def result_rows(result: PredictionResult) -> list[dict[str, Any]]:
 
 def sorted_display_rows(result: PredictionResult) -> list[dict[str, Any]]:
     rows = result_rows(result)
-    group_order = {"SS": 0, "A": 1, "B": 2, "C": 3, "D": 4}
+    group_order = {"SS": 0, "A": 1, "B": 2, "C": 3, "Z": 4}
     mark_order = {"◎": 0, "○": 1, "▲": 2, "△": 3, "✓": 4, "✔": 4, "": 9}
 
     def sort_key(row: dict[str, Any]) -> tuple[int, int, float, int, str]:
@@ -1507,14 +1518,14 @@ def _horse_count_text(result: PredictionResult) -> str:
     return text if "頭" in text else f"{text}頭" if text else ""
 
 
-def recent3_text_from_row(row: dict[str, Any]) -> str:
+def recent3_text_from_row(row: dict[str, Any], trend_row: dict[str, Any] | None = None) -> str:
     values = [
         pick(row, "3走前", "race3", "three_back_index"),
         pick(row, "2走前", "race2", "two_back_index"),
         pick(row, "前走", "race1", "last_index"),
     ]
     parts = [format_number(value) if not is_missing_value(value) else "-" for value in values]
-    trend = clean_text(pick(row, "近3走傾向", "recent3_trend"))
+    trend = clean_text(pick(trend_row or row, "近3走傾向", "recent3_trend"))
     if not trend:
         return " → ".join(parts)
     arrow = "↗" if trend in {"連続上昇", "上昇", "持ち直し", "反発"} else "↘" if trend in {"連続下降", "下降", "急落"} else "→"
@@ -1527,17 +1538,21 @@ def star_text_from_row(row: dict[str, Any]) -> str:
         return "なし"
     star_text = format_number(star) or clean_text(star)
     race = clean_text(pick(row, "★該当走", "star_max_race"))
-    condition = clean_text(pick(row, "★条件", "star_max_condition"))
-    level = clean_text(pick(row, "star_match_level"))
-    condition_text = condition
-    if not condition_text and level and level != "none":
-        condition_text = "今回と同条件"
+    condition_text = star_condition_text_from_row(row)
     pieces = [f"★{star_text}"]
     if condition_text:
         pieces.append(condition_text)
     if race:
         pieces.append(race)
     return "｜".join(pieces)
+
+
+def star_condition_text_from_row(row: dict[str, Any]) -> str:
+    condition = clean_text(pick(row, "★条件", "star_max_condition"))
+    if condition:
+        return condition
+    level = clean_text(pick(row, "star_match_level"))
+    return "今回と同条件" if level and level != "none" else ""
 
 
 def truthy_display(value: Any) -> bool:
@@ -1551,7 +1566,7 @@ def truthy_display(value: Any) -> bool:
 
 def display_group_from_row(row: dict[str, Any]) -> str:
     group = clean_text(pick(row, "グループ", "display_group"))
-    if group in {"SS", "A", "B", "C", "D"}:
+    if group in {"SS", "A", "B", "C", "Z"}:
         return group
     return display_group_from_mark(display_mark_from_row(row))
 
@@ -1564,11 +1579,9 @@ def display_group_from_mark(mark: Any) -> str:
         return "A"
     if text == "△":
         return "B"
-    if text == "☆":
-        return "C"
     if text in {"✓", "✔"}:
-        return "D"
-    return "D"
+        return "C"
+    return "Z"
 
 
 def original_mark_from_row(row: dict[str, Any]) -> str:
@@ -1679,6 +1692,17 @@ def normalize_horse_number_key(value: Any) -> str:
     return clean_text(value)
 
 
+def build_overall_rows_by_horse(table: Any) -> dict[str, dict[str, Any]]:
+    if table is None or getattr(table, "empty", False):
+        return {}
+    rows_by_horse: dict[str, dict[str, Any]] = {}
+    for row in table.to_dict("records"):
+        horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
+        if horse_key:
+            rows_by_horse[horse_key] = row
+    return rows_by_horse
+
+
 def index_summary_text(label: str, value: Any) -> str:
     formatted = format_index_value(value)
     return f"{label}{formatted}" if formatted != "—" else f"{label}—"
@@ -1766,11 +1790,7 @@ def render_overall_table(result: PredictionResult) -> None:
 
     append_nar_star_display_trace(result, "09 app.py display DataFrame creation", table)
 
-    overall_rows_by_horse: dict[str, dict[str, Any]] = {}
-    for overall_row in table.to_dict("records"):
-        horse_key = normalize_horse_number_key(pick(overall_row, "馬番", "馬"))
-        if horse_key:
-            overall_rows_by_horse[horse_key] = overall_row
+    overall_rows_by_horse = build_overall_rows_by_horse(table)
 
     rows = sorted_display_rows(result)
     display_table = build_detail_analysis_table(rows, overall_rows_by_horse)
