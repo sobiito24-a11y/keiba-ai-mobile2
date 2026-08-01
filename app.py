@@ -18,6 +18,7 @@ from core.audit_features import (
     audit_table_to_markdown,
     build_audit_export_table,
 )
+from core.betting_recommendation import build_betting_recommendations
 from core.jra_predictor import predict_jra
 from core.html_classifier import (
     DISPLAY_ORDER,
@@ -1210,6 +1211,7 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
 def render_colab_style_result(result: PredictionResult) -> None:
     render_race_header(result)
     render_race_summary(result)
+    render_recommended_betting(result)
     render_power_map(result)
     render_race_flow(result)
     render_horse_summary_cards(result)
@@ -1332,6 +1334,29 @@ def render_race_summary(result: PredictionResult) -> None:
         '</div>'
     )
     st.markdown(body, unsafe_allow_html=True)
+
+
+def render_recommended_betting(result: PredictionResult) -> None:
+    table = result.overall_table
+    if table is None or getattr(table, "empty", False):
+        table = result.horse_evaluation
+    recommendations = build_betting_recommendations(table)
+    if not recommendations:
+        return
+    st.subheader("今回のおすすめ買い方")
+    blocks = []
+    for item in recommendations:
+        roi = f"期待回収率：{item.expected_roi:.0f}%" if item.expected_roi is not None else "期待回収率：検証中"
+        blocks.append(
+            '<div class="ka-dashboard-card">'
+            f'<div class="ka-dashboard-title">{plain_text_to_html(item.stars)}</div>'
+            f'<div class="ka-dashboard-value">{plain_text_to_html(item.ticket_type)}　{plain_text_to_html(item.label)}</div>'
+            f'<div class="ka-note">{plain_text_to_html(roi)}<br>'
+            f'{plain_text_to_html("買い条件：" + item.condition)}<br>'
+            f'{plain_text_to_html(item.reason)}</div>'
+            '</div>'
+        )
+    st.markdown("".join(blocks), unsafe_allow_html=True)
 
 
 def render_power_map(result: PredictionResult) -> None:
