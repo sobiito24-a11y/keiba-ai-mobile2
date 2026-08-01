@@ -19,6 +19,7 @@ from core.audit_features import (
     build_audit_export_table,
 )
 from core.betting_recommendation import build_betting_recommendations
+from core.purchase_conditions import build_purchase_condition_recommendations
 from core.jra_predictor import predict_jra
 from core.html_classifier import (
     DISPLAY_ORDER,
@@ -1212,6 +1213,7 @@ def render_colab_style_result(result: PredictionResult) -> None:
     render_race_header(result)
     render_race_summary(result)
     render_recommended_betting(result)
+    render_purchase_condition_recommendations(result)
     render_power_map(result)
     render_race_flow(result)
     render_horse_summary_cards(result)
@@ -1354,6 +1356,34 @@ def render_recommended_betting(result: PredictionResult) -> None:
             f'<div class="ka-note">{plain_text_to_html(roi)}<br>'
             f'{plain_text_to_html("買い条件：" + item.condition)}<br>'
             f'{plain_text_to_html(item.reason)}</div>'
+            '</div>'
+        )
+    st.markdown("".join(blocks), unsafe_allow_html=True)
+
+
+def render_purchase_condition_recommendations(result: PredictionResult) -> None:
+    if result.race_mode != "jra":
+        return
+    table = result.overall_table
+    if table is None or getattr(table, "empty", False):
+        table = result.horse_evaluation
+    recommendations = build_purchase_condition_recommendations(table)
+    if not recommendations:
+        return
+    st.subheader("今回のおすすめ購入条件")
+    blocks = []
+    for item in recommendations:
+        condition_lines = "<br>".join(plain_text_to_html(label) for label in item.condition_labels)
+        horses = " / ".join(item.matched_horses)
+        blocks.append(
+            '<div class="ka-dashboard-card">'
+            f'<div class="ka-dashboard-title">{plain_text_to_html(item.stars)} {plain_text_to_html(item.ticket_type)}</div>'
+            f'<div class="ka-dashboard-value">{plain_text_to_html(horses)}</div>'
+            f'<div class="ka-note">一致条件<br>{condition_lines}<br><br>'
+            f'過去実績: 対象{item.target_horses}頭・{item.target_races}R<br>'
+            f'単勝回収率{item.win_roi:.0f}% / 複勝回収率{item.place_roi:.0f}%<br>'
+            f'勝率{item.win_rate:.1f}% / 複勝率{item.place_rate:.1f}%<br>'
+            f'信頼度: {plain_text_to_html(item.reliability)} / score {item.condition_score:.1f}</div>'
             '</div>'
         )
     st.markdown("".join(blocks), unsafe_allow_html=True)
