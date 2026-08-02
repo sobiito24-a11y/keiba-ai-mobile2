@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import sys
 import types
 import unittest
@@ -441,6 +442,83 @@ class HorseSummaryCardTest(unittest.TestCase):
         ):
             self.assertIn(expected, html)
 
+    def test_ability_bar_clamps_display_without_mutating_source_values(self) -> None:
+        horse_row = {
+            "馬番": "1",
+            "馬名": "能力上限",
+            "表示印": "◎",
+            "グループ": "SS",
+            "能力評価値": 123.4,
+        }
+        overall_row = {"馬番": "1", "距離指数": 61, "コース指数": 44}
+        horse_before = horse_row.copy()
+        overall_before = overall_row.copy()
+
+        html = self.app.horse_summary_card_html(horse_row, "jra", overall_row)
+
+        self.assertEqual(html.count("ka-ability-track"), 1)
+        self.assertIn("能力評価", html)
+        self.assertIn("<span>100</span>", html)
+        self.assertIn("width:100%", html)
+        self.assertIn("能力評価値：123.4", html)
+        self.assertNotIn("補正前能力", html)
+        self.assertNotIn("補正後能力", html)
+        self.assertEqual(horse_row, horse_before)
+        self.assertEqual(overall_row, overall_before)
+
+        low_html = self.app.horse_summary_card_html(
+            {"馬番": "2", "馬名": "能力下限", "表示印": "", "グループ": "Z", "能力評価値": -8.2},
+            "nar",
+            {"馬番": "2"},
+        )
+        self.assertIn("<span>0</span>", low_html)
+        self.assertIn("width:0%", low_html)
+
+    def test_material_badges_and_first_blinker_are_display_only(self) -> None:
+        horse_row = {
+            "馬番": "3",
+            "馬名": "初装着",
+            "表示印": "○",
+            "グループ": "A",
+            "能力評価値": 91,
+            "年齢補正": 2,
+            "斤量詳細": "56.0kg（前走比+1.0kg）",
+            "騎手詳細": "前走騎手 → 今回騎手【乗り替わり】",
+            "状態": "上昇",
+            "補足": "初ブリンカー",
+        }
+        overall_row = {"馬番": "3", "距離指数": 65, "コース指数": 40}
+
+        html = self.app.horse_summary_card_html(horse_row, "jra", overall_row)
+
+        self.assertIn("年齢+2", html)
+        self.assertIn("距離◎", html)
+        self.assertIn("コース△", html)
+        self.assertIn("状態上昇", html)
+        self.assertIn("斤量増", html)
+        self.assertIn("乗替△", html)
+        self.assertIn("初B", html)
+        self.assertIn("数値補正：なし", html)
+        self.assertIn("二重補正回避", html)
+
+        nar_html = self.app.horse_summary_card_html(horse_row, "nar", overall_row)
+        self.assertNotIn("初B", nar_html)
+
+        continued_blinker_html = self.app.horse_summary_card_html(
+            {
+                "馬番": "4",
+                "馬名": "継続馬具",
+                "表示印": "△",
+                "グループ": "B",
+                "能力評価値": 73,
+                "補足": "ブリンカー継続",
+            },
+            "jra",
+            {"馬番": "4"},
+        )
+        self.assertNotIn("初B　", continued_blinker_html)
+        self.assertIn("初B：—", continued_blinker_html)
+
 
 class DisplayGroupViewTest(unittest.TestCase):
     @classmethod
@@ -476,14 +554,24 @@ class DisplayGroupViewTest(unittest.TestCase):
         rows = self.app.sorted_display_rows(result)
         self.assertEqual([self.app.display_group_from_row(row) for row in rows], ["SS", "A", "A", "B", "C", "Z"])
 
-        for renderer in (self.app.render_power_map, self.app.render_race_flow, self.app.render_betting_consideration):
+        for renderer in (self.app.render_power_map, self.app.render_betting_consideration):
             self.streamlit.markdown_calls.clear()
             renderer(result)
             markup = "\n".join(self.streamlit.markdown_calls)
             self.assertIn(">C<", markup)
             self.assertIn(">Z<", markup)
             self.assertNotIn(">D<", markup)
+        self.streamlit.markdown_calls.clear()
+        self.app.render_race_flow(result)
+        flow_markup = "\n".join(self.streamlit.markdown_calls)
+        self.assertIn("レース考察", flow_markup)
+        self.assertNotIn("ゴール前の勢力予想", flow_markup)
+        self.assertNotIn(">D<", flow_markup)
         self.assertEqual(result.betting_structure, "既存買い目本文")
+        self.assertNotIn(
+            "render_betting_consideration(result)",
+            inspect.getsource(self.app.render_colab_style_result),
+        )
 
         self.streamlit.markdown_calls.clear()
         self.streamlit.expander_labels.clear()

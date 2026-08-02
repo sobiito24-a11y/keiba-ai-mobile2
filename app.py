@@ -177,6 +177,52 @@ MOBILE_CSS = """
     font-size: 0.92rem;
     line-height: 1.55;
   }
+  .ka-ability-wrap {
+    margin-top: 0.5rem;
+  }
+  .ka-ability-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: #344054;
+    font-size: 0.84rem;
+    font-weight: 800;
+  }
+  .ka-ability-track {
+    width: 100%;
+    height: 9px;
+    margin-top: 0.2rem;
+    border-radius: 999px;
+    overflow: hidden;
+    background: #eef2f6;
+  }
+  .ka-ability-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #3563e9 0%, #4ea1ff 100%);
+  }
+  .ka-material-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.24rem;
+    margin-top: 0.45rem;
+  }
+  .ka-material-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.1rem 0.42rem;
+    font-size: 0.76rem;
+    font-weight: 800;
+    border: 1px solid #d0d5dd;
+    color: #475467;
+    background: #f9fafb;
+    white-space: nowrap;
+  }
+  .ka-material-badge.plus { color: #047857; background: #ecfdf3; border-color: #abefc6; }
+  .ka-material-badge.minus { color: #b42318; background: #fff1f3; border-color: #fecdd6; }
+  .ka-material-badge.info { color: #175cd3; background: #eff8ff; border-color: #b2ddff; }
+  .ka-material-badge.neutral { color: #475467; background: #f9fafb; border-color: #d0d5dd; }
   .ka-horse-detail {
     margin-top: 0.65rem;
     padding-top: 0.55rem;
@@ -1228,7 +1274,6 @@ def render_colab_style_result(result: PredictionResult) -> None:
     render_race_flow(result)
     render_horse_summary_cards(result)
     render_overall_table(result)
-    render_betting_consideration(result)
     with st.expander("監査・補足情報", expanded=False):
         render_raw_text_section(
             "会場別試験評価",
@@ -1554,7 +1599,7 @@ def render_race_flow(result: PredictionResult) -> None:
     rows = sorted_display_rows(result)
     if not rows:
         return
-    st.subheader("レース展開")
+    st.subheader("レース展開・レース考察")
     raw_flow = extract_raw_section(result, ["展開予想"])
     pace = extract_named_value(raw_flow, ["ペース", "想定ペース"]) or "既存展開考察を確認"
     front, middle, back, unknown = running_position_groups(rows)
@@ -1569,12 +1614,15 @@ def render_race_flow(result: PredictionResult) -> None:
     if unknown:
         body.append(flow_line_html("未分類", unknown))
     body.append("</div>")
-    body.append('<div class="ka-dashboard-card"><div class="ka-dashboard-title">ゴール前の勢力予想</div>')
-    for group, _label in POWER_GROUPS:
-        nums = group_numbers(rows, group)
-        if nums:
-            body.append(flow_line_html(group, nums))
-    body.append("</div>")
+    flow_review = race_flow_review_lines(rows, pace)
+    if flow_review:
+        body.append('<div class="ka-dashboard-card"><div class="ka-dashboard-title">レース考察</div>')
+        body.append(
+            '<div class="ka-note">'
+            + plain_text_to_html("\n\n".join(flow_review))
+            + "</div>"
+        )
+        body.append("</div>")
     st.markdown("".join(body), unsafe_allow_html=True)
 
     review = strip_section_title(result.ai_race_review, "AIレース考察")
@@ -1605,6 +1653,157 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
                 st.markdown(card_html(row), unsafe_allow_html=True)
 
 
+def card_pick(row: dict[str, Any], index_row: dict[str, Any], *names: str) -> Any:
+    value = pick(row, *names)
+    if not is_missing_value(value):
+        return value
+    return pick(index_row, *names)
+
+
+def ability_value_for_card(row: dict[str, Any], index_row: dict[str, Any]) -> Any:
+    return card_pick(row, index_row, "能力評価値", "ability_display_score", "raw_score", "_raw_score")
+
+
+def clamp_ability_display_value(value: Any) -> int | None:
+    number = to_float(value)
+    if number is None:
+        return None
+    return int(round(max(0.0, min(100.0, number))))
+
+
+def ability_bar_html(row: dict[str, Any], index_row: dict[str, Any]) -> str:
+    display_value = clamp_ability_display_value(ability_value_for_card(row, index_row))
+    if display_value is None:
+        return ""
+    return (
+        '<div class="ka-ability-wrap">'
+        '<div class="ka-ability-head"><span>能力評価</span>'
+        f'<span>{display_value}</span></div>'
+        '<div class="ka-ability-track">'
+        f'<div class="ka-ability-fill" style="width:{display_value}%"></div>'
+        '</div></div>'
+    )
+
+
+def signed_material_value(value: Any) -> str:
+    number = to_float(value)
+    if number is None:
+        return ""
+    if abs(number) < 0.05:
+        return "±0"
+    sign = "+" if number > 0 else ""
+    return f"{sign}{format_number(number)}"
+
+
+def index_material_badge(label: str, value: Any) -> tuple[str, str] | None:
+    number = to_float(value)
+    if number is None:
+        return None
+    if number >= 60:
+        return f"{label}◎", "plus"
+    if number >= 45:
+        return f"{label}○", "neutral"
+    return f"{label}△", "minus"
+
+
+def initial_blinker_source(
+    row: dict[str, Any],
+    race_mode: str,
+    index_row: dict[str, Any] | None = None,
+) -> str:
+    if race_mode != "jra":
+        return ""
+    index_row = index_row or {}
+    fields = [
+        "補足",
+        "supplement_note",
+        "評価／検討材料",
+        "評価/検討材料",
+        "調教/評価/検討材料",
+        "馬具",
+        "新聞コメント",
+        "厩舎コメント",
+        "stable_comment",
+        "表示コメント",
+        "display_comment",
+    ]
+    text = " ".join(clean_text(card_pick(row, index_row, field)) for field in fields)
+    if not text:
+        return ""
+    first_blinker_patterns = ["初ブリンカー", "初Ｂ", "初B", "B初", "Ｂ初", "ブリンカー初", "初めてブリンカー"]
+    if any(pattern in text for pattern in first_blinker_patterns):
+        return text
+    return ""
+
+
+def ability_material_badges(
+    row: dict[str, Any],
+    index_row: dict[str, Any],
+    race_mode: str,
+) -> list[tuple[str, str]]:
+    badges: list[tuple[str, str]] = []
+    age_adjustment = card_pick(row, index_row, "年齢補正", "age_adjustment")
+    age_text = signed_material_value(age_adjustment)
+    if age_text:
+        tone = "plus" if age_text.startswith("+") else "minus" if age_text.startswith("-") else "neutral"
+        badges.append((f"年齢{age_text}", tone))
+    else:
+        badges.append(("年齢±0", "neutral"))
+
+    for badge in (
+        index_material_badge("距離", card_pick(row, index_row, "距離指数")),
+        index_material_badge("コース", card_pick(row, index_row, "コース指数")),
+    ):
+        if badge:
+            badges.append(badge)
+
+    state = state_label_from_row(row)
+    if state:
+        if any(key in state for key in ["上昇", "良化", "安定", "持ち直し", "反発"]):
+            badges.append((f"状態{state}", "plus"))
+        elif any(key in state for key in ["下降", "急落", "不安", "波"]):
+            badges.append((f"状態{state}", "minus"))
+        else:
+            badges.append((f"状態{state}", "neutral"))
+
+    weight = compact_weight_text(row)
+    if weight:
+        if "前走データなし" in weight:
+            badges.append(("斤量不明", "neutral"))
+        elif "+" in weight or "＋" in weight:
+            badges.append(("斤量増", "minus"))
+        elif "-" in weight or "－" in weight:
+            badges.append(("斤量減", "plus"))
+        elif "±" in weight or "ﾂｱ" in weight:
+            badges.append(("斤量±0", "neutral"))
+
+    jockey = compact_jockey_text(row)
+    if jockey:
+        if "乗替" in jockey or "乗り替" in jockey or "乗り替わり" in jockey:
+            badges.append(("乗替△", "minus"))
+        elif "継続" in jockey:
+            badges.append(("継続", "plus"))
+
+    if initial_blinker_source(row, race_mode, index_row):
+        badges.append(("初B", "info"))
+
+    pace_mark = clean_text(card_pick(row, index_row, "展開印", "pace_mark"))
+    if pace_mark:
+        badges.append((f"展開{pace_mark}", "neutral"))
+
+    return badges[:8]
+
+
+def material_badges_html(badges: list[tuple[str, str]]) -> str:
+    if not badges:
+        return ""
+    parts = [
+        f'<span class="ka-material-badge {plain_text_to_html(tone)}">{plain_text_to_html(label)}</span>'
+        for label, tone in badges
+    ]
+    return '<div class="ka-material-badges">' + "".join(parts) + "</div>"
+
+
 def horse_summary_card_html(
     row: dict[str, Any],
     race_mode: str,
@@ -1624,6 +1823,13 @@ def horse_summary_card_html(
     distance = index_summary_text("距離", pick(index_row, "距離指数"))
     course = index_summary_text("コース", pick(index_row, "コース指数"))
     state = state_label_from_row(row)
+    ability_raw = ability_value_for_card(row, index_row)
+    ability_display = clamp_ability_display_value(ability_raw)
+    ability_bar = ability_bar_html(row, index_row)
+    material_badges = ability_material_badges(row, index_row, race_mode)
+    material_badges_markup = material_badges_html(material_badges)
+    material_labels = " ／ ".join(label for label, _tone in material_badges)
+    first_blinker_source = initial_blinker_source(row, race_mode, index_row)
     mark_part = mark if mark else ""
     quick_items = [
         f"{age}　{weight}" if weight else age,
@@ -1656,20 +1862,35 @@ def horse_summary_card_html(
         "",
         f"★該当走：{clean_text(pick(index_row, '★該当走', 'star_max_race')) or '—'}",
         f"★条件：{star_condition_text_from_row(index_row) or '—'}",
-        f"能力評価値：{format_number(pick(row, '能力評価値', 'ability_display_score', 'raw_score')) or '—'}",
+        f"能力評価値：{format_number(ability_raw) or '—'}",
+        f"能力評価表示：{ability_display if ability_display is not None else '—'}",
+        f"表示材料：{material_labels or '—'}",
+        "数値補正：なし（既存の能力評価値をそのまま表示）",
+        "二重補正回避：年齢・距離・コース・斤量・騎手は通常カードの材料表示のみ",
         f"近3走：{recent3_text_from_row(index_row, row)}",
         f"コメント：{short_comment_from_row(row)}",
         f"穴候補：{'該当' if truthy_display(pick(row, '穴候補', 'hole_candidate')) else '—'}　注意馬：{'該当' if truthy_display(pick(row, '注意馬', 'watch_horse')) else '—'}",
     ]
+    if race_mode == "jra":
+        detail_lines.extend(
+            [
+                f"初B：{'該当' if first_blinker_source else '—'}",
+                f"初B取得元：{shorten_text(first_blinker_source, 80) if first_blinker_source else '—'}",
+            ]
+        )
     if central_lines:
         detail_lines.extend(["", *central_lines])
     title = f"【{group}】{mark_part} {no} {name}　{odds}".strip()
+    if first_blinker_source:
+        title = f"{title}　初B"
     return (
         f'<div class="ka-horse-card">'
         f'<details><summary>'
         f'<div class="ka-horse-title-line"><span class="ka-chip {group.lower()}">{plain_text_to_html(group)}</span>'
         f'<span>{plain_text_to_html(title)}</span></div>'
         f'<div class="ka-horse-quick">{quick}</div>'
+        f'{ability_bar}'
+        f'{material_badges_markup}'
         f'<div class="ka-muted">詳細を見る</div>'
         f'</summary><div class="ka-horse-detail">{plain_text_to_html(chr(10).join(line for line in detail_lines if clean_text(line)))}</div></details>'
         f'</div>'
@@ -1814,6 +2035,49 @@ def running_position_groups(rows: list[dict[str, Any]]) -> tuple[list[str], list
         else:
             unknown.append(no)
     return front, middle, back, unknown
+
+
+def horse_refs(rows: list[dict[str, Any]], numbers: list[str], limit: int = 4) -> str:
+    by_number = {clean_text(pick(row, "馬番", "馬")): row for row in rows}
+    refs = []
+    for no in numbers[:limit]:
+        name = clean_text(pick(by_number.get(no, {}), "馬名"))
+        refs.append(f"{no}番{name}" if name else f"{no}番")
+    if len(numbers) > limit:
+        refs.append("ほか")
+    return "・".join(refs) if refs else "該当なし"
+
+
+def race_flow_review_lines(rows: list[dict[str, Any]], pace: str) -> list[str]:
+    front, middle, back, _unknown = running_position_groups(rows)
+    upper = [
+        clean_text(pick(row, "馬番", "馬"))
+        for row in rows
+        if display_group_from_row(row) in {"SS", "A"} and clean_text(pick(row, "馬番", "馬"))
+    ]
+    middle_force = [
+        clean_text(pick(row, "馬番", "馬"))
+        for row in rows
+        if display_group_from_row(row) in {"B", "C"} and clean_text(pick(row, "馬番", "馬"))
+    ]
+    lower_front = [
+        clean_text(pick(row, "馬番", "馬"))
+        for row in rows
+        if display_group_from_row(row) in {"C", "Z"}
+        and clean_text(pick(row, "馬番", "馬")) in front
+    ]
+    lines = [
+        f"【スタート】\n{horse_refs(rows, front)}がハナ・好位候補。{horse_refs(rows, middle)}は中団から運ぶ想定です。",
+        f"【前半】\n想定ペースは{pace}。先頭に行く馬と、最後まで残る評価は分けて確認します。",
+        f"【4角】\n勢力図上位は{horse_refs(rows, upper)}。ここが直線へ向けて進出する中心です。",
+        f"【直線】\n中心は{horse_refs(rows, upper, 3)}。相手・穴では{horse_refs(rows, middle_force, 4)}まで比較対象です。",
+    ]
+    if lower_front:
+        lines.append(
+            "【展開注意】\n"
+            f"{horse_refs(rows, lower_front)}は勢力図では下位寄りですが、単騎逃げや楽な先行なら前残り余地があります。"
+        )
+    return lines
 
 
 def extract_named_value(text: str, names: list[str]) -> str:
