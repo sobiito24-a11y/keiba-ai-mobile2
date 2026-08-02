@@ -1,0 +1,2310 @@
+{
+  "version": 2,
+  "scope": "jra",
+  "updated_at": "2026-08-02T10:15:00",
+  "source": {
+    "race_count": 32,
+    "horse_count": 403,
+    "source_race_count": 32,
+    "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+    "manifest": {
+      "path": "C:\\Users\\28011\\Documents\\Codex\\Codex\\2026-06-26\\new-chat\\keiba_ai_mobile\\collected_html_test5\\manifest_20260802_095555.csv",
+      "exists": true,
+      "rows": 180,
+      "race_count": 36,
+      "statuses": {
+        "saved": 177,
+        "failed": 3
+      },
+      "kinds": {
+        "newspaper": 36,
+        "oikiri": 36,
+        "speed": 36,
+        "style": 36,
+        "result": 36
+      },
+      "missing_count": 3,
+      "missing": [
+        {
+          "race_id": "202604020302",
+          "kind": "newspaper",
+          "status": "failed",
+          "message": "Page.goto: Navigation to \"https://race.netkeiba.com/race/newspaper.html?race_id=202604020302&rf=shutuba_submenu\" is interrupted by another navigation to \"https://regist.netkeiba.com/\"\nCall log:\n  - navigating to \"https://race.netkeiba.com/race/newspaper.html?race_id=202604020302&rf=shutuba_submenu\", waiting until \"domcontentloaded\"\n"
+        },
+        {
+          "race_id": "202604020302",
+          "kind": "oikiri",
+          "status": "failed",
+          "message": "Page.goto: Navigation to \"https://race.netkeiba.com/race/oikiri.html?race_id=202604020302&rf=race_submenu\" is interrupted by another navigation to \"https://race.netkeiba.com/race/newspaper.html?race_id=202604020302&rf=shutuba_submenu\"\nCall log:\n  - navigating to \"https://race.netkeiba.com/race/oikiri.html?race_id=202604020302&rf=race_submenu\", waiting until \"domcontentloaded\"\n"
+        },
+        {
+          "race_id": "202604020302",
+          "kind": "speed",
+          "status": "failed",
+          "message": "Page.goto: Navigation to \"https://race.netkeiba.com/race/speed.html?race_id=202604020302\" is interrupted by another navigation to \"https://race.netkeiba.com/race/oikiri.html?race_id=202604020302&rf=race_submenu\"\nCall log:\n  - navigating to \"https://race.netkeiba.com/race/speed.html?race_id=202604020302\", waiting until \"domcontentloaded\"\n"
+        }
+      ]
+    }
+  },
+  "recommendations": [
+    {
+      "strategy_id": "wide_ss_b",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "ワイド",
+      "label": "SS-B",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "SS"
+        ],
+        "right_roles": [
+          "B"
+        ]
+      },
+      "condition_labels": [
+        "SS-B"
+      ],
+      "sample_horses": 44,
+      "sample_races": 22,
+      "purchase_races": 22,
+      "purchase_points": 44,
+      "hit_rate": 45.5,
+      "return_rate": 133.0,
+      "profit": 1450.0,
+      "average_payout": 585.0,
+      "reliability_score": 60.3,
+      "risk_label": "正式",
+      "stars": "★★★☆☆",
+      "max_payout_contribution": 21.7,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 15,
+        "train_return_rate": 162.3,
+        "train_hit_rate": 46.7,
+        "test_races": 7,
+        "test_return_rate": 70.0,
+        "test_hit_rate": 42.9
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "place_ai2",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "複勝",
+      "label": "AI2",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "AI2"
+        ]
+      },
+      "condition_labels": [
+        "AI2"
+      ],
+      "sample_horses": 33,
+      "sample_races": 31,
+      "purchase_races": 31,
+      "purchase_points": 33,
+      "hit_rate": 48.4,
+      "return_rate": 95.5,
+      "profit": -150.0,
+      "average_payout": 210.0,
+      "reliability_score": 55.3,
+      "risk_label": "正式",
+      "stars": "★★★☆☆",
+      "max_payout_contribution": 9.5,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 88.3,
+        "train_hit_rate": 42.9,
+        "test_races": 10,
+        "test_return_rate": 112.0,
+        "test_hit_rate": 60.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "place_ai1",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "複勝",
+      "label": "AI1",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "AI1"
+        ]
+      },
+      "condition_labels": [
+        "AI1"
+      ],
+      "sample_horses": 33,
+      "sample_races": 32,
+      "purchase_races": 32,
+      "purchase_points": 33,
+      "hit_rate": 50.0,
+      "return_rate": 82.1,
+      "profit": -590.0,
+      "average_payout": 169.4,
+      "reliability_score": 50.7,
+      "risk_label": "正式",
+      "stars": "★★★☆☆",
+      "max_payout_contribution": 14.0,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 22,
+        "train_return_rate": 97.0,
+        "train_hit_rate": 54.5,
+        "test_races": 10,
+        "test_return_rate": 48.0,
+        "test_hit_rate": 40.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "place_b",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "複勝",
+      "label": "B",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "B"
+        ]
+      },
+      "condition_labels": [
+        "B"
+      ],
+      "sample_horses": 62,
+      "sample_races": 31,
+      "purchase_races": 31,
+      "purchase_points": 62,
+      "hit_rate": 54.8,
+      "return_rate": 63.7,
+      "profit": -2250.0,
+      "average_payout": 232.4,
+      "reliability_score": 49.9,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 10.1,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 74.8,
+        "train_hit_rate": 57.1,
+        "test_races": 10,
+        "test_return_rate": 40.5,
+        "test_hit_rate": 50.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "place_c",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "複勝",
+      "label": "C",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "C"
+        ]
+      },
+      "condition_labels": [
+        "C"
+      ],
+      "sample_horses": 59,
+      "sample_races": 31,
+      "purchase_races": 31,
+      "purchase_points": 59,
+      "hit_rate": 45.2,
+      "return_rate": 61.2,
+      "profit": -2290.0,
+      "average_payout": 257.9,
+      "reliability_score": 49.9,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 21.9,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 75.4,
+        "train_hit_rate": 47.6,
+        "test_races": 10,
+        "test_return_rate": 33.5,
+        "test_hit_rate": 40.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "place_ai3",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "複勝",
+      "label": "AI3",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "AI3"
+        ]
+      },
+      "condition_labels": [
+        "AI3"
+      ],
+      "sample_horses": 31,
+      "sample_races": 30,
+      "purchase_races": 30,
+      "purchase_points": 31,
+      "hit_rate": 33.3,
+      "return_rate": 58.1,
+      "profit": -1300.0,
+      "average_payout": 180.0,
+      "reliability_score": 49.0,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 16.1,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 54.3,
+        "train_hit_rate": 33.3,
+        "test_races": 9,
+        "test_return_rate": 66.0,
+        "test_hit_rate": 33.3
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "place_ss",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "複勝",
+      "label": "SS",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "SS"
+        ]
+      },
+      "condition_labels": [
+        "SS"
+      ],
+      "sample_horses": 23,
+      "sample_races": 23,
+      "purchase_races": 23,
+      "purchase_points": 23,
+      "hit_rate": 65.2,
+      "return_rate": 94.3,
+      "profit": -130.0,
+      "average_payout": 144.7,
+      "reliability_score": 47.7,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 10.6,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 16,
+        "train_return_rate": 95.6,
+        "train_hit_rate": 62.5,
+        "test_races": 7,
+        "test_return_rate": 91.4,
+        "test_hit_rate": 71.4
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "win_ai2",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "単勝",
+      "label": "AI2",
+      "stance": "妙味",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "AI2"
+        ]
+      },
+      "condition_labels": [
+        "AI2"
+      ],
+      "sample_horses": 33,
+      "sample_races": 31,
+      "purchase_races": 31,
+      "purchase_points": 33,
+      "hit_rate": 22.6,
+      "return_rate": 101.8,
+      "profit": 60.0,
+      "average_payout": 480.0,
+      "reliability_score": 45.7,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 32.7,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 123.5,
+        "train_hit_rate": 23.8,
+        "test_races": 10,
+        "test_return_rate": 52.0,
+        "test_hit_rate": 20.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "place_a",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "複勝",
+      "label": "A",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "A"
+        ]
+      },
+      "condition_labels": [
+        "A"
+      ],
+      "sample_horses": 46,
+      "sample_races": 23,
+      "purchase_races": 23,
+      "purchase_points": 46,
+      "hit_rate": 56.5,
+      "return_rate": 61.7,
+      "profit": -1760.0,
+      "average_payout": 218.5,
+      "reliability_score": 42.7,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 14.8,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 16,
+        "train_return_rate": 70.0,
+        "train_hit_rate": 62.5,
+        "test_races": 7,
+        "test_return_rate": 42.9,
+        "test_hit_rate": 42.9
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "win_ss",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "単勝",
+      "label": "SS",
+      "stance": "妙味",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "SS"
+        ]
+      },
+      "condition_labels": [
+        "SS"
+      ],
+      "sample_horses": 23,
+      "sample_races": 23,
+      "purchase_races": 23,
+      "purchase_points": 23,
+      "hit_rate": 34.8,
+      "return_rate": 96.1,
+      "profit": -90.0,
+      "average_payout": 276.2,
+      "reliability_score": 42.0,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 31.7,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 16,
+        "train_return_rate": 45.6,
+        "train_hit_rate": 18.8,
+        "test_races": 7,
+        "test_return_rate": 211.4,
+        "test_hit_rate": 71.4
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "wide_ss_a",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "ワイド",
+      "label": "SS-A",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "SS"
+        ],
+        "right_roles": [
+          "A"
+        ]
+      },
+      "condition_labels": [
+        "SS-A"
+      ],
+      "sample_horses": 46,
+      "sample_races": 23,
+      "purchase_races": 23,
+      "purchase_points": 46,
+      "hit_rate": 30.4,
+      "return_rate": 75.9,
+      "profit": -1110.0,
+      "average_payout": 498.6,
+      "reliability_score": 42.0,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 20.6,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 16,
+        "train_return_rate": 92.8,
+        "train_hit_rate": 37.5,
+        "test_races": 7,
+        "test_return_rate": 37.1,
+        "test_hit_rate": 14.3
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "wide_ai1_ai2",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "ワイド",
+      "label": "AI1-AI2",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "AI1"
+        ],
+        "right_roles": [
+          "AI2"
+        ]
+      },
+      "condition_labels": [
+        "AI1-AI2"
+      ],
+      "sample_horses": 33,
+      "sample_races": 31,
+      "purchase_races": 31,
+      "purchase_points": 33,
+      "hit_rate": 16.1,
+      "return_rate": 71.2,
+      "profit": -950.0,
+      "average_payout": 470.0,
+      "reliability_score": 39.2,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 30.6,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 102.2,
+        "train_hit_rate": 23.8,
+        "test_races": 10,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "win_ai1",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "単勝",
+      "label": "AI1",
+      "stance": "妙味",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "AI1"
+        ]
+      },
+      "condition_labels": [
+        "AI1"
+      ],
+      "sample_horses": 33,
+      "sample_races": 32,
+      "purchase_races": 32,
+      "purchase_points": 33,
+      "hit_rate": 21.9,
+      "return_rate": 57.0,
+      "profit": -1420.0,
+      "average_payout": 268.6,
+      "reliability_score": 37.9,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 37.2,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 22,
+        "train_return_rate": 31.7,
+        "train_hit_rate": 13.6,
+        "test_races": 10,
+        "test_return_rate": 115.0,
+        "test_hit_rate": 40.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "wide_a_b",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "ワイド",
+      "label": "A-B",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "A"
+        ],
+        "right_roles": [
+          "B"
+        ]
+      },
+      "condition_labels": [
+        "A-B"
+      ],
+      "sample_horses": 88,
+      "sample_races": 22,
+      "purchase_races": 22,
+      "purchase_points": 88,
+      "hit_rate": 27.3,
+      "return_rate": 70.7,
+      "profit": -2580.0,
+      "average_payout": 1036.7,
+      "reliability_score": 37.1,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 49.0,
+      "high_payout_dependency": "注意",
+      "time_split_result": {
+        "train_races": 15,
+        "train_return_rate": 79.2,
+        "train_hit_rate": 26.7,
+        "test_races": 7,
+        "test_return_rate": 52.5,
+        "test_hit_rate": 28.6
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "wide_ai1_ai3",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "ワイド",
+      "label": "AI1-AI3",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "AI1"
+        ],
+        "right_roles": [
+          "AI3"
+        ]
+      },
+      "condition_labels": [
+        "AI1-AI3"
+      ],
+      "sample_horses": 32,
+      "sample_races": 30,
+      "purchase_races": 30,
+      "purchase_points": 32,
+      "hit_rate": 13.3,
+      "return_rate": 65.9,
+      "profit": -1090.0,
+      "average_payout": 527.5,
+      "reliability_score": 36.3,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 30.8,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 57.7,
+        "train_hit_rate": 9.5,
+        "test_races": 9,
+        "test_return_rate": 84.0,
+        "test_hit_rate": 22.2
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "wide_ss_c",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "ワイド",
+      "label": "SS-C",
+      "stance": "安定",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "SS"
+        ],
+        "right_roles": [
+          "C"
+        ]
+      },
+      "condition_labels": [
+        "SS-C"
+      ],
+      "sample_horses": 41,
+      "sample_races": 22,
+      "purchase_races": 22,
+      "purchase_points": 41,
+      "hit_rate": 22.7,
+      "return_rate": 54.4,
+      "profit": -1870.0,
+      "average_payout": 446.0,
+      "reliability_score": 35.7,
+      "risk_label": "正式",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 35.0,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 15,
+        "train_return_rate": 63.2,
+        "train_hit_rate": 20.0,
+        "test_races": 7,
+        "test_return_rate": 35.4,
+        "test_hit_rate": 28.6
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "win_ai3",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "単勝",
+      "label": "AI3",
+      "stance": "妙味",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "AI3"
+        ]
+      },
+      "condition_labels": [
+        "AI3"
+      ],
+      "sample_horses": 31,
+      "sample_races": 30,
+      "purchase_races": 30,
+      "purchase_points": 31,
+      "hit_rate": 13.3,
+      "return_rate": 59.4,
+      "profit": -1260.0,
+      "average_payout": 460.0,
+      "reliability_score": 33.0,
+      "risk_label": "正式",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 34.8,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 64.8,
+        "train_hit_rate": 14.3,
+        "test_races": 9,
+        "test_return_rate": 48.0,
+        "test_hit_rate": 11.1
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "win_c",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "単勝",
+      "label": "C",
+      "stance": "妙味",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "C"
+        ]
+      },
+      "condition_labels": [
+        "C"
+      ],
+      "sample_horses": 59,
+      "sample_races": 31,
+      "purchase_races": 31,
+      "purchase_points": 59,
+      "hit_rate": 9.7,
+      "return_rate": 30.8,
+      "profit": -4080.0,
+      "average_payout": 606.7,
+      "reliability_score": 31.2,
+      "risk_label": "正式",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 47.3,
+      "high_payout_dependency": "注意",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 46.7,
+        "train_hit_rate": 14.3,
+        "test_races": 10,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "trio_ss_a_b_box",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "三連複",
+      "label": "SS-A-B BOX",
+      "stance": "本線",
+      "role_pattern": {
+        "type": "box",
+        "roles": [
+          "SS",
+          "A",
+          "B"
+        ],
+        "size": 3
+      },
+      "condition_labels": [
+        "SS-A-B BOX"
+      ],
+      "sample_horses": 310,
+      "sample_races": 31,
+      "purchase_races": 31,
+      "purchase_points": 310,
+      "hit_rate": 16.1,
+      "return_rate": 42.2,
+      "profit": -17930.0,
+      "average_payout": 2614.0,
+      "reliability_score": 31.1,
+      "risk_label": "正式",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 53.9,
+      "high_payout_dependency": "注意",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 55.7,
+        "train_hit_rate": 19.0,
+        "test_races": 10,
+        "test_return_rate": 13.8,
+        "test_hit_rate": 10.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "win_a",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "単勝",
+      "label": "A",
+      "stance": "妙味",
+      "role_pattern": {
+        "type": "single",
+        "roles": [
+          "A"
+        ]
+      },
+      "condition_labels": [
+        "A"
+      ],
+      "sample_horses": 46,
+      "sample_races": 23,
+      "purchase_races": 23,
+      "purchase_points": 46,
+      "hit_rate": 21.7,
+      "return_rate": 49.3,
+      "profit": -2330.0,
+      "average_payout": 454.0,
+      "reliability_score": 30.5,
+      "risk_label": "正式",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 28.2,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 16,
+        "train_return_rate": 70.9,
+        "train_hit_rate": 31.2,
+        "test_races": 7,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "quinella_a_b",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "馬連",
+      "label": "A-B",
+      "stance": "本線",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "A"
+        ],
+        "right_roles": [
+          "B"
+        ]
+      },
+      "condition_labels": [
+        "A-B"
+      ],
+      "sample_horses": 88,
+      "sample_races": 22,
+      "purchase_races": 22,
+      "purchase_points": 88,
+      "hit_rate": 18.2,
+      "return_rate": 215.2,
+      "profit": 10140.0,
+      "average_payout": 4735.0,
+      "reliability_score": 47.5,
+      "risk_label": "参考",
+      "stars": "★★☆☆☆",
+      "max_payout_contribution": 74.0,
+      "high_payout_dependency": "一発依存",
+      "time_split_result": {
+        "train_races": 15,
+        "train_return_rate": 315.7,
+        "train_hit_rate": 26.7,
+        "test_races": 7,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "quinella_ss_c",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "馬連",
+      "label": "SS-C",
+      "stance": "本線",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "SS"
+        ],
+        "right_roles": [
+          "C"
+        ]
+      },
+      "condition_labels": [
+        "SS-C"
+      ],
+      "sample_horses": 41,
+      "sample_races": 22,
+      "purchase_races": 22,
+      "purchase_points": 41,
+      "hit_rate": 13.6,
+      "return_rate": 105.9,
+      "profit": 240.0,
+      "average_payout": 1446.7,
+      "reliability_score": 28.1,
+      "risk_label": "参考",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 45.6,
+      "high_payout_dependency": "注意",
+      "time_split_result": {
+        "train_races": 15,
+        "train_return_rate": 155.0,
+        "train_hit_rate": 20.0,
+        "test_races": 7,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "quinella_ai1_ai2",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "馬連",
+      "label": "AI1-AI2",
+      "stance": "本線",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "AI1"
+        ],
+        "right_roles": [
+          "AI2"
+        ]
+      },
+      "condition_labels": [
+        "AI1-AI2"
+      ],
+      "sample_horses": 33,
+      "sample_races": 31,
+      "purchase_races": 31,
+      "purchase_points": 33,
+      "hit_rate": 0.0,
+      "return_rate": 0.0,
+      "profit": -3300.0,
+      "average_payout": 0.0,
+      "reliability_score": 5.9,
+      "risk_label": "高リスク",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 0.0,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 21,
+        "train_return_rate": 0.0,
+        "train_hit_rate": 0.0,
+        "test_races": 10,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "quinella_ai2_ai3",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "馬連",
+      "label": "AI2-AI3",
+      "stance": "本線",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "AI2"
+        ],
+        "right_roles": [
+          "AI3"
+        ]
+      },
+      "condition_labels": [
+        "AI2-AI3"
+      ],
+      "sample_horses": 30,
+      "sample_races": 29,
+      "purchase_races": 29,
+      "purchase_points": 30,
+      "hit_rate": 3.4,
+      "return_rate": 94.3,
+      "profit": -170.0,
+      "average_payout": 2830.0,
+      "reliability_score": 0.0,
+      "risk_label": "参考",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 100.0,
+      "high_payout_dependency": "一発依存大",
+      "time_split_result": {
+        "train_races": 20,
+        "train_return_rate": 0.0,
+        "train_hit_rate": 0.0,
+        "test_races": 9,
+        "test_return_rate": 283.0,
+        "test_hit_rate": 11.1
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "exacta_ss_a",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "馬単",
+      "label": "SS→A",
+      "stance": "妙味",
+      "role_pattern": {
+        "type": "exacta",
+        "first_roles": [
+          "SS"
+        ],
+        "second_roles": [
+          "A"
+        ]
+      },
+      "condition_labels": [
+        "SS→A"
+      ],
+      "sample_horses": 46,
+      "sample_races": 23,
+      "purchase_races": 23,
+      "purchase_points": 46,
+      "hit_rate": 4.3,
+      "return_rate": 45.4,
+      "profit": -2510.0,
+      "average_payout": 2090.0,
+      "reliability_score": 0.0,
+      "risk_label": "参考",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 100.0,
+      "high_payout_dependency": "一発依存大",
+      "time_split_result": {
+        "train_races": 16,
+        "train_return_rate": 0.0,
+        "train_hit_rate": 0.0,
+        "test_races": 7,
+        "test_return_rate": 149.3,
+        "test_hit_rate": 14.3
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "quinella_ss_a",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "馬連",
+      "label": "SS-A",
+      "stance": "本線",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "SS"
+        ],
+        "right_roles": [
+          "A"
+        ]
+      },
+      "condition_labels": [
+        "SS-A"
+      ],
+      "sample_horses": 46,
+      "sample_races": 23,
+      "purchase_races": 23,
+      "purchase_points": 46,
+      "hit_rate": 4.3,
+      "return_rate": 32.4,
+      "profit": -3110.0,
+      "average_payout": 1490.0,
+      "reliability_score": 0.0,
+      "risk_label": "参考",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 100.0,
+      "high_payout_dependency": "一発依存大",
+      "time_split_result": {
+        "train_races": 16,
+        "train_return_rate": 0.0,
+        "train_hit_rate": 0.0,
+        "test_races": 7,
+        "test_return_rate": 106.4,
+        "test_hit_rate": 14.3
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "trifecta_ai1_ai2_ai3_ai2_ai3_c",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "三連単",
+      "label": "AI1→AI2/AI3→AI2/AI3/C",
+      "stance": "高リスク",
+      "role_pattern": {
+        "type": "trifecta",
+        "first_roles": [
+          "AI1"
+        ],
+        "second_roles": [
+          "AI2",
+          "AI3"
+        ],
+        "third_roles": [
+          "AI2",
+          "AI3",
+          "C"
+        ]
+      },
+      "condition_labels": [
+        "AI1→AI2/AI3→AI2/AI3/C"
+      ],
+      "sample_horses": 168,
+      "sample_races": 27,
+      "purchase_races": 27,
+      "purchase_points": 168,
+      "hit_rate": 3.7,
+      "return_rate": 21.4,
+      "profit": -13200.0,
+      "average_payout": 3600.0,
+      "reliability_score": 0.0,
+      "risk_label": "参考",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 100.0,
+      "high_payout_dependency": "一発依存大",
+      "time_split_result": {
+        "train_races": 18,
+        "train_return_rate": 0.0,
+        "train_hit_rate": 0.0,
+        "test_races": 9,
+        "test_return_rate": 60.0,
+        "test_hit_rate": 11.1
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "exacta_a_ss",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "馬単",
+      "label": "A→SS",
+      "stance": "妙味",
+      "role_pattern": {
+        "type": "exacta",
+        "first_roles": [
+          "A"
+        ],
+        "second_roles": [
+          "SS"
+        ]
+      },
+      "condition_labels": [
+        "A→SS"
+      ],
+      "sample_horses": 46,
+      "sample_races": 23,
+      "purchase_races": 23,
+      "purchase_points": 46,
+      "hit_rate": 0.0,
+      "return_rate": 0.0,
+      "profit": -4600.0,
+      "average_payout": 0.0,
+      "reliability_score": 0.0,
+      "risk_label": "高リスク",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 0.0,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 16,
+        "train_return_rate": 0.0,
+        "train_hit_rate": 0.0,
+        "test_races": 7,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "quinella_a_c",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "馬連",
+      "label": "A-C",
+      "stance": "本線",
+      "role_pattern": {
+        "type": "pair",
+        "left_roles": [
+          "A"
+        ],
+        "right_roles": [
+          "C"
+        ]
+      },
+      "condition_labels": [
+        "A-C"
+      ],
+      "sample_horses": 82,
+      "sample_races": 22,
+      "purchase_races": 22,
+      "purchase_points": 82,
+      "hit_rate": 0.0,
+      "return_rate": 0.0,
+      "profit": -8200.0,
+      "average_payout": 0.0,
+      "reliability_score": 0.0,
+      "risk_label": "高リスク",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 0.0,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 15,
+        "train_return_rate": 0.0,
+        "train_hit_rate": 0.0,
+        "test_races": 7,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "exacta_ai1_ai2",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "馬単",
+      "label": "AI1→AI2",
+      "stance": "妙味",
+      "role_pattern": {
+        "type": "exacta",
+        "first_roles": [
+          "AI1"
+        ],
+        "second_roles": [
+          "AI2"
+        ]
+      },
+      "condition_labels": [
+        "AI1→AI2"
+      ],
+      "sample_horses": 4,
+      "sample_races": 2,
+      "purchase_races": 2,
+      "purchase_points": 4,
+      "hit_rate": 0.0,
+      "return_rate": 0.0,
+      "profit": -400.0,
+      "average_payout": 0.0,
+      "reliability_score": 0.0,
+      "risk_label": "高リスク",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 0.0,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 1,
+        "train_return_rate": 0.0,
+        "train_hit_rate": 0.0,
+        "test_races": 1,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "exacta_ai2_ai1",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "馬単",
+      "label": "AI2→AI1",
+      "stance": "妙味",
+      "role_pattern": {
+        "type": "exacta",
+        "first_roles": [
+          "AI2"
+        ],
+        "second_roles": [
+          "AI1"
+        ]
+      },
+      "condition_labels": [
+        "AI2→AI1"
+      ],
+      "sample_horses": 4,
+      "sample_races": 2,
+      "purchase_races": 2,
+      "purchase_points": 4,
+      "hit_rate": 0.0,
+      "return_rate": 0.0,
+      "profit": -400.0,
+      "average_payout": 0.0,
+      "reliability_score": 0.0,
+      "risk_label": "高リスク",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 0.0,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 1,
+        "train_return_rate": 0.0,
+        "train_hit_rate": 0.0,
+        "test_races": 1,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "strategy_id": "trio_ai1_ai2_ai3_box",
+      "recommendation_kind": "ticket_strategy",
+      "ticket_type": "三連複",
+      "label": "AI1-AI2-AI3 BOX",
+      "stance": "本線",
+      "role_pattern": {
+        "type": "box",
+        "roles": [
+          "AI1",
+          "AI2",
+          "AI3"
+        ],
+        "size": 3
+      },
+      "condition_labels": [
+        "AI1-AI2-AI3 BOX"
+      ],
+      "sample_horses": 4,
+      "sample_races": 1,
+      "purchase_races": 1,
+      "purchase_points": 4,
+      "hit_rate": 0.0,
+      "return_rate": 0.0,
+      "profit": -400.0,
+      "average_payout": 0.0,
+      "reliability_score": 0.0,
+      "risk_label": "高リスク",
+      "stars": "★☆☆☆☆",
+      "max_payout_contribution": 0.0,
+      "high_payout_dependency": "分散",
+      "time_split_result": {
+        "train_races": 1,
+        "train_return_rate": 0.0,
+        "train_hit_rate": 0.0,
+        "test_races": 0,
+        "test_return_rate": 0.0,
+        "test_hit_rate": 0.0
+      },
+      "updated_at": "2026-08-02T10:14:59",
+      "source_race_count": 32,
+      "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+      "current_odds_note": "現在オッズで暫定一致。最終オッズにより条件外となる可能性があります。"
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 62.8,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI順位2位"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 33,
+      "target_races": 31,
+      "win_rate": 21.2,
+      "place_rate": 48.5,
+      "win_roi": 101.8,
+      "place_roi": 95.5,
+      "max_win_contribution": 32.7,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 101.8,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 62.8,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "平均指数70以上",
+        "オッズ2～5倍"
+      ],
+      "conditions": [
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "odds_2_5x",
+          "label": "オッズ2～5倍",
+          "family": "odds",
+          "source": "オッズ",
+          "kind": "range",
+          "value": null,
+          "low": 2.0,
+          "high": 5.0,
+          "include_high": false
+        }
+      ],
+      "target_horses": 35,
+      "target_races": 22,
+      "win_rate": 25.7,
+      "place_rate": 57.1,
+      "win_roi": 104.3,
+      "place_roi": 87.7,
+      "max_win_contribution": 13.2,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 104.3,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 56.6,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI順位1位",
+        "平均指数70以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_1",
+          "label": "AI順位1位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 1,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 30,
+      "target_races": 29,
+      "win_rate": 23.3,
+      "place_rate": 50.0,
+      "win_roi": 62.7,
+      "place_roi": 85.7,
+      "max_win_contribution": 37.2,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 85.7,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 56.4,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "オッズ2～5倍"
+      ],
+      "conditions": [
+        {
+          "id": "odds_2_5x",
+          "label": "オッズ2～5倍",
+          "family": "odds",
+          "source": "オッズ",
+          "kind": "range",
+          "value": null,
+          "low": 2.0,
+          "high": 5.0,
+          "include_high": false
+        }
+      ],
+      "target_horses": 47,
+      "target_races": 24,
+      "win_rate": 23.4,
+      "place_rate": 57.4,
+      "win_roi": 94.7,
+      "place_roi": 86.8,
+      "max_win_contribution": 11.0,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 94.7,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 55.9,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "総合評価点100以上"
+      ],
+      "conditions": [
+        {
+          "id": "total_score_100up",
+          "label": "総合評価点100以上",
+          "family": "total_score",
+          "source": "総合評価点",
+          "kind": "range",
+          "value": null,
+          "low": 100,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 30,
+      "target_races": 29,
+      "win_rate": 23.3,
+      "place_rate": 50.0,
+      "win_roi": 62.7,
+      "place_roi": 86.0,
+      "max_win_contribution": 37.2,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 86.0,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 54.6,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI順位1位"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_1",
+          "label": "AI順位1位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 1,
+          "low": null,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 33,
+      "target_races": 32,
+      "win_rate": 21.2,
+      "place_rate": 48.5,
+      "win_roi": 57.0,
+      "place_roi": 82.1,
+      "max_win_contribution": 37.2,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 82.1,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 54.1,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "平均指数70以上",
+        "オッズ5～8倍"
+      ],
+      "conditions": [
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "odds_5_8x",
+          "label": "オッズ5～8倍",
+          "family": "odds",
+          "source": "オッズ",
+          "kind": "range",
+          "value": null,
+          "low": 5.0,
+          "high": 8.0,
+          "include_high": false
+        }
+      ],
+      "target_horses": 33,
+      "target_races": 20,
+      "win_rate": 18.2,
+      "place_rate": 45.5,
+      "win_roi": 108.2,
+      "place_roi": 90.0,
+      "max_win_contribution": 20.4,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 108.2,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 52.8,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "オッズ5～8倍"
+      ],
+      "conditions": [
+        {
+          "id": "odds_5_8x",
+          "label": "オッズ5～8倍",
+          "family": "odds",
+          "source": "オッズ",
+          "kind": "range",
+          "value": null,
+          "low": 5.0,
+          "high": 8.0,
+          "include_high": false
+        }
+      ],
+      "target_horses": 49,
+      "target_races": 29,
+      "win_rate": 18.4,
+      "place_rate": 44.9,
+      "win_roi": 109.2,
+      "place_roi": 88.2,
+      "max_win_contribution": 13.6,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 109.2,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 51.7,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI順位1～3位",
+        "AI点95以上",
+        "平均指数70以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_1_3",
+          "label": "AI順位1～3位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "range",
+          "value": null,
+          "low": 1,
+          "high": 3,
+          "include_high": true
+        },
+        {
+          "id": "ai_score_95up",
+          "label": "AI点95以上",
+          "family": "ai_score",
+          "source": "AI点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 55,
+      "target_races": 30,
+      "win_rate": 23.6,
+      "place_rate": 43.6,
+      "win_roi": 75.3,
+      "place_roi": 75.8,
+      "max_win_contribution": 16.9,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 75.8,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 50.9,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI点95以上",
+        "平均指数70以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_score_95up",
+          "label": "AI点95以上",
+          "family": "ai_score",
+          "source": "AI点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 57,
+      "target_races": 30,
+      "win_rate": 22.8,
+      "place_rate": 42.1,
+      "win_roi": 72.6,
+      "place_roi": 73.2,
+      "max_win_contribution": 16.9,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 73.2,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 50.6,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI順位1～3位",
+        "AI点95以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_1_3",
+          "label": "AI順位1～3位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "range",
+          "value": null,
+          "low": 1,
+          "high": 3,
+          "include_high": true
+        },
+        {
+          "id": "ai_score_95up",
+          "label": "AI点95以上",
+          "family": "ai_score",
+          "source": "AI点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 63,
+      "target_races": 32,
+      "win_rate": 22.2,
+      "place_rate": 44.4,
+      "win_roi": 70.6,
+      "place_roi": 77.3,
+      "max_win_contribution": 15.7,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 77.3,
+      "risk_label": "正式",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 64.5,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "クラス根拠:今回未勝利",
+        "オッズ5～8倍"
+      ],
+      "conditions": [
+        {
+          "id": "class_basis_今回under勝利",
+          "label": "クラス根拠:今回未勝利",
+          "family": "class_basis",
+          "source": "クラス根拠",
+          "kind": "eq",
+          "value": "今回未勝利",
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "odds_5_8x",
+          "label": "オッズ5～8倍",
+          "family": "odds",
+          "source": "オッズ",
+          "kind": "range",
+          "value": null,
+          "low": 5.0,
+          "high": 8.0,
+          "include_high": false
+        }
+      ],
+      "target_horses": 19,
+      "target_races": 12,
+      "win_rate": 26.3,
+      "place_rate": 47.4,
+      "win_roi": 159.5,
+      "place_roi": 88.4,
+      "max_win_contribution": 23.1,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 159.5,
+      "risk_label": "参考",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 62.5,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "AI順位2位",
+        "平均指数70以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 28,
+      "target_races": 26,
+      "win_rate": 25.0,
+      "place_rate": 46.4,
+      "win_roi": 120.0,
+      "place_roi": 92.9,
+      "max_win_contribution": 32.7,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 120.0,
+      "risk_label": "参考",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 54.6,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "AI順位2位",
+        "AI点95以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "ai_score_95up",
+          "label": "AI点95以上",
+          "family": "ai_score",
+          "source": "AI点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 20,
+      "target_races": 19,
+      "win_rate": 30.0,
+      "place_rate": 50.0,
+      "win_roi": 113.0,
+      "place_roi": 89.5,
+      "max_win_contribution": 24.3,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 113.0,
+      "risk_label": "参考",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 54.6,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "AI順位2位",
+        "平均指数70以上",
+        "総合評価点95～99.9"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "total_score_95_99_9",
+          "label": "総合評価点95～99.9",
+          "family": "total_score",
+          "source": "総合評価点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": 100,
+          "include_high": false
+        }
+      ],
+      "target_horses": 20,
+      "target_races": 19,
+      "win_rate": 30.0,
+      "place_rate": 45.0,
+      "win_roi": 113.0,
+      "place_roi": 82.5,
+      "max_win_contribution": 24.3,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 113.0,
+      "risk_label": "参考",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 54.4,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "平均指数70以上",
+        "勢力図SS"
+      ],
+      "conditions": [
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "group_ss",
+          "label": "勢力図SS",
+          "family": "display_group",
+          "source": "display_group",
+          "kind": "eq",
+          "value": "SS",
+          "low": null,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 19,
+      "target_races": 19,
+      "win_rate": 42.1,
+      "place_rate": 73.7,
+      "win_roi": 116.3,
+      "place_roi": 106.8,
+      "max_win_contribution": 31.7,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 116.3,
+      "risk_label": "参考",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 53.2,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "AI順位2位",
+        "総合評価点95～99.9"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "total_score_95_99_9",
+          "label": "総合評価点95～99.9",
+          "family": "total_score",
+          "source": "総合評価点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": 100,
+          "include_high": false
+        }
+      ],
+      "target_horses": 22,
+      "target_races": 21,
+      "win_rate": 27.3,
+      "place_rate": 50.0,
+      "win_roi": 102.7,
+      "place_roi": 93.6,
+      "max_win_contribution": 24.3,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 102.7,
+      "risk_label": "参考",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 52.3,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "AI順位2位",
+        "平均指数70以上",
+        "距離指数70以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "distance_index_70up",
+          "label": "距離指数70以上",
+          "family": "distance_index",
+          "source": "距離指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 20,
+      "target_races": 20,
+      "win_rate": 25.0,
+      "place_rate": 45.0,
+      "win_roi": 134.5,
+      "place_roi": 95.5,
+      "max_win_contribution": 40.9,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 134.5,
+      "risk_label": "参考",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 51.3,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "平均指数70以上",
+        "総合評価点100以上"
+      ],
+      "conditions": [
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "total_score_100up",
+          "label": "総合評価点100以上",
+          "family": "total_score",
+          "source": "総合評価点",
+          "kind": "range",
+          "value": null,
+          "low": 100,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 26,
+      "target_races": 25,
+      "win_rate": 26.9,
+      "place_rate": 53.8,
+      "win_roi": 72.3,
+      "place_roi": 93.8,
+      "max_win_contribution": 37.2,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 93.8,
+      "risk_label": "参考",
+      "source_race_count": 32
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 50.9,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "勢力図SS"
+      ],
+      "conditions": [
+        {
+          "id": "group_ss",
+          "label": "勢力図SS",
+          "family": "display_group",
+          "source": "display_group",
+          "kind": "eq",
+          "value": "SS",
+          "low": null,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 23,
+      "target_races": 23,
+      "win_rate": 34.8,
+      "place_rate": 65.2,
+      "win_roi": 96.1,
+      "place_roi": 94.3,
+      "max_win_contribution": 31.7,
+      "validation_note": "",
+      "recommendation_kind": "purchase_condition",
+      "return_rate": 96.1,
+      "risk_label": "参考",
+      "source_race_count": 32
+    }
+  ]
+}

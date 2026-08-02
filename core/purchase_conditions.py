@@ -15,7 +15,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORK_ROOT = Path(__file__).resolve().parents[2] / "work"
 DEFAULT_DATA_DIR = WORK_ROOT / "audit_ver20_outputs"
 DEFAULT_REPORT_DIR = WORK_ROOT / "jra_betting_expectation_report"
-DEFAULT_CONDITION_JSON = DEFAULT_REPORT_DIR / "purchase_condition_ranked.json"
+ASSETS_ANALYSIS_DIR = PROJECT_ROOT / "assets" / "analysis"
+DEFAULT_CONDITION_JSON = ASSETS_ANALYSIS_DIR / "purchase_condition_ranked.json"
+LEGACY_CONDITION_JSON = DEFAULT_REPORT_DIR / "purchase_condition_ranked.json"
 
 
 OFFICIAL_MIN_HORSES = 30
@@ -178,7 +180,7 @@ def enrich_analysis_records(records: pd.DataFrame) -> pd.DataFrame:
     frame["result_odds_eval"] = frame.apply(lambda row: first_number(row, ["結果オッズ", "result_odds"]), axis=1)
     frame["win_payoff_eval"] = frame.apply(lambda row: first_number(row, ["単勝払戻"]), axis=1).fillna(0)
     frame["place_payoff_eval"] = frame.apply(lambda row: first_number(row, ["複勝払戻"]), axis=1).fillna(0)
-    frame["mark_eval"] = frame.apply(lambda row: normalize_mark(first_value(row, ["最終印", "mark", "印"])), axis=1)
+    frame["mark_eval"] = frame.apply(lambda row: normalize_mark(first_value(row, ["表示印", "最終印", "mark", "印"])), axis=1)
     frame["display_group_eval"] = frame.apply(display_group_from_row, axis=1)
     frame["jockey_changed_eval"] = frame.apply(jockey_changed_from_row, axis=1)
     frame["star_available_eval"] = frame.apply(lambda row: first_number(row, ["★最高指数", "star_max_index", "★最高"]) is not None, axis=1)
@@ -932,7 +934,7 @@ def display_group_from_row(row: pd.Series) -> str:
     group = clean_text(first_value(row, ["display_group", "勢力図グループ", "グループ"]))
     if group in {"SS", "A", "B", "C", "Z"}:
         return group
-    mark = normalize_mark(first_value(row, ["最終印", "mark", "印"]))
+    mark = normalize_mark(first_value(row, ["表示印", "最終印", "mark", "印"]))
     if mark == "◎":
         return "SS"
     if mark in {"○", "▲"}:
@@ -1116,6 +1118,7 @@ def build_purchase_condition_recommendations(
     json_path: Path = DEFAULT_CONDITION_JSON,
     max_items: int = 4,
 ) -> list[PurchaseConditionRecommendation]:
+    json_path = resolve_condition_json_path(json_path)
     if table is None or not isinstance(table, pd.DataFrame) or table.empty or not json_path.exists():
         return []
     try:
@@ -1159,6 +1162,14 @@ def build_purchase_condition_recommendations(
     return recommendations
 
 
+def resolve_condition_json_path(json_path: Path) -> Path:
+    if json_path.exists():
+        return json_path
+    if json_path == DEFAULT_CONDITION_JSON and LEGACY_CONDITION_JSON.exists():
+        return LEGACY_CONDITION_JSON
+    return json_path
+
+
 def enrich_current_table(table: pd.DataFrame) -> pd.DataFrame:
     current = table.copy()
     current["race_id"] = current.get("race_id", "")
@@ -1171,7 +1182,7 @@ def enrich_current_table(table: pd.DataFrame) -> pd.DataFrame:
     current["ability_value_eval"] = current.apply(lambda row: first_number(row, ["能力評価値", "ability_display_score", "_raw_score", "raw_score"]), axis=1)
     current["odds_eval"] = current.apply(lambda row: first_number(row, ["オッズ", "単勝オッズ", "odds"]), axis=1)
     current["popularity_eval"] = current.apply(lambda row: first_number(row, ["人気", "popularity"]), axis=1)
-    current["mark_eval"] = current.apply(lambda row: normalize_mark(first_value(row, ["最終印", "mark", "印"])), axis=1)
+    current["mark_eval"] = current.apply(lambda row: normalize_mark(first_value(row, ["表示印", "最終印", "mark", "印"])), axis=1)
     current["display_group_eval"] = current.apply(display_group_from_row, axis=1)
     current["jockey_changed_eval"] = current.apply(jockey_changed_from_row, axis=1)
     for column in ["距離指数", "コース指数", "近3走最高", "平均指数", "最高指数", "3走前", "2走前", "前走"]:

@@ -1,0 +1,979 @@
+{
+  "version": 1,
+  "scope": "jra",
+  "note": "49R時点の暫定検証結果。AI予想ロジックには使用しません。",
+  "meta": {
+    "data_dir": "C:\\Users\\28011\\Documents\\Codex\\Codex\\2026-06-26\\new-chat\\keiba_ai_mobile\\collected_html_test5\\jra",
+    "records_path": "collected_html",
+    "payoff_path": "result_html",
+    "race_count": 32,
+    "horse_count": 403,
+    "source_columns": [
+      "表示印",
+      "展開印",
+      "馬番",
+      "馬名",
+      "馬年齢",
+      "斤量",
+      "騎手",
+      "オッズ",
+      "脚質",
+      "レース間隔",
+      "AI点",
+      "総合評価",
+      "市場反映勝率",
+      "単勝期待値",
+      "クラス変動",
+      "クラス根拠",
+      "馬場実績",
+      "距離指数",
+      "コース指数",
+      "3走前",
+      "2走前",
+      "前走",
+      "平均指数",
+      "過去1年最高指数",
+      "★最高指数",
+      "★該当走",
+      "★条件",
+      "★最高指数の取得元",
+      "調教/評価/検討材料",
+      "能力評価値",
+      "能力帯",
+      "能力差",
+      "レース難易度",
+      "レース難易度理由",
+      "表示コメント",
+      "raw_score",
+      "ability_display_score",
+      "normalized_ai_score",
+      "ai_rank",
+      "final_mark_score",
+      "market_score",
+      "star_max_index",
+      "star_max_race",
+      "star_max_venue",
+      "star_max_distance",
+      "star_max_surface",
+      "star_max_turn",
+      "star_match_level",
+      "star_max_source",
+      "axis_confidence",
+      "axis_confidence_reason",
+      "ability_band",
+      "ability_gap_level",
+      "race_difficulty",
+      "race_difficulty_reason",
+      "display_comment",
+      "old_final_mark",
+      "old_watch_mark",
+      "hole_candidate",
+      "watch_horse",
+      "race_id",
+      "race_name",
+      "実際の着順",
+      "結果人気",
+      "結果オッズ",
+      "単勝払戻",
+      "複勝払戻",
+      "odds_basis",
+      "horse_no_eval",
+      "horse_name_eval",
+      "ai_rank_eval",
+      "ai_score_eval",
+      "adjusted_ai_score_eval",
+      "total_score_eval",
+      "ability_value_eval",
+      "odds_eval",
+      "popularity_eval",
+      "finish_eval",
+      "result_odds_eval",
+      "win_payoff_eval",
+      "place_payoff_eval",
+      "mark_eval",
+      "display_group_eval",
+      "jockey_changed_eval",
+      "star_available_eval",
+      "距離指数_num",
+      "コース指数_num",
+      "平均指数_num",
+      "3走前_num",
+      "2走前_num",
+      "前走_num",
+      "split_order"
+    ],
+    "collected_dir": "C:\\Users\\28011\\Documents\\Codex\\Codex\\2026-06-26\\new-chat\\keiba_ai_mobile\\collected_html_test5\\jra",
+    "manifest": {
+      "path": "C:\\Users\\28011\\Documents\\Codex\\Codex\\2026-06-26\\new-chat\\keiba_ai_mobile\\collected_html_test5\\manifest_20260802_095555.csv",
+      "exists": true,
+      "rows": 180,
+      "race_count": 36,
+      "statuses": {
+        "saved": 177,
+        "failed": 3
+      },
+      "kinds": {
+        "newspaper": 36,
+        "oikiri": 36,
+        "speed": 36,
+        "style": 36,
+        "result": 36
+      },
+      "missing_count": 3,
+      "missing": [
+        {
+          "race_id": "202604020302",
+          "kind": "newspaper",
+          "status": "failed",
+          "message": "Page.goto: Navigation to \"https://race.netkeiba.com/race/newspaper.html?race_id=202604020302&rf=shutuba_submenu\" is interrupted by another navigation to \"https://regist.netkeiba.com/\"\nCall log:\n  - navigating to \"https://race.netkeiba.com/race/newspaper.html?race_id=202604020302&rf=shutuba_submenu\", waiting until \"domcontentloaded\"\n"
+        },
+        {
+          "race_id": "202604020302",
+          "kind": "oikiri",
+          "status": "failed",
+          "message": "Page.goto: Navigation to \"https://race.netkeiba.com/race/oikiri.html?race_id=202604020302&rf=race_submenu\" is interrupted by another navigation to \"https://race.netkeiba.com/race/newspaper.html?race_id=202604020302&rf=shutuba_submenu\"\nCall log:\n  - navigating to \"https://race.netkeiba.com/race/oikiri.html?race_id=202604020302&rf=race_submenu\", waiting until \"domcontentloaded\"\n"
+        },
+        {
+          "race_id": "202604020302",
+          "kind": "speed",
+          "status": "failed",
+          "message": "Page.goto: Navigation to \"https://race.netkeiba.com/race/speed.html?race_id=202604020302\" is interrupted by another navigation to \"https://race.netkeiba.com/race/oikiri.html?race_id=202604020302&rf=race_submenu\"\nCall log:\n  - navigating to \"https://race.netkeiba.com/race/speed.html?race_id=202604020302\", waiting until \"domcontentloaded\"\n"
+        }
+      ]
+    },
+    "attempted_races": 36,
+    "prediction_races": 32,
+    "prediction_errors": [
+      "202601010305: prediction/result parse failed: タイム指数テーブルが見つかりません。ログイン済みページのHTMLか、正しいタイム指数URLを確認してください。",
+      "202604020302: speed HTML missing",
+      "202604020303: prediction/result parse failed: タイム指数テーブルが見つかりません。ログイン済みページのHTMLか、正しいタイム指数URLを確認してください。",
+      "202607020302: prediction/result parse failed: タイム指数テーブルが見つかりません。ログイン済みページのHTMLか、正しいタイム指数URLを確認してください。"
+    ],
+    "prediction_error_count": 4,
+    "odds_basis": "保存HTMLのレース前オッズで条件判定、払戻は結果HTMLの確定払戻",
+    "explored_conditions": 4400,
+    "condition_specs": 55,
+    "used_features": [
+      "AI点",
+      "AI順位",
+      "display_group",
+      "オッズ",
+      "クラス根拠",
+      "コース指数",
+      "平均指数",
+      "最終印",
+      "総合評価点",
+      "能力評価値",
+      "距離指数"
+    ],
+    "excluded_features": [
+      "★最高指数: 保存CSVで値が不足しているため探索対象外"
+    ]
+  },
+  "recommendations": [
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 62.8,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI順位2位"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 33,
+      "target_races": 31,
+      "win_rate": 21.2,
+      "place_rate": 48.5,
+      "win_roi": 101.8,
+      "place_roi": 95.5,
+      "max_win_contribution": 32.7,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 62.8,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "平均指数70以上",
+        "オッズ2～5倍"
+      ],
+      "conditions": [
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "odds_2_5x",
+          "label": "オッズ2～5倍",
+          "family": "odds",
+          "source": "オッズ",
+          "kind": "range",
+          "value": null,
+          "low": 2.0,
+          "high": 5.0,
+          "include_high": false
+        }
+      ],
+      "target_horses": 35,
+      "target_races": 22,
+      "win_rate": 25.7,
+      "place_rate": 57.1,
+      "win_roi": 104.3,
+      "place_roi": 87.7,
+      "max_win_contribution": 13.2,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 56.6,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI順位1位",
+        "平均指数70以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_1",
+          "label": "AI順位1位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 1,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 30,
+      "target_races": 29,
+      "win_rate": 23.3,
+      "place_rate": 50.0,
+      "win_roi": 62.7,
+      "place_roi": 85.7,
+      "max_win_contribution": 37.2,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 56.4,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "オッズ2～5倍"
+      ],
+      "conditions": [
+        {
+          "id": "odds_2_5x",
+          "label": "オッズ2～5倍",
+          "family": "odds",
+          "source": "オッズ",
+          "kind": "range",
+          "value": null,
+          "low": 2.0,
+          "high": 5.0,
+          "include_high": false
+        }
+      ],
+      "target_horses": 47,
+      "target_races": 24,
+      "win_rate": 23.4,
+      "place_rate": 57.4,
+      "win_roi": 94.7,
+      "place_roi": 86.8,
+      "max_win_contribution": 11.0,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 55.9,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "総合評価点100以上"
+      ],
+      "conditions": [
+        {
+          "id": "total_score_100up",
+          "label": "総合評価点100以上",
+          "family": "total_score",
+          "source": "総合評価点",
+          "kind": "range",
+          "value": null,
+          "low": 100,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 30,
+      "target_races": 29,
+      "win_rate": 23.3,
+      "place_rate": 50.0,
+      "win_roi": 62.7,
+      "place_roi": 86.0,
+      "max_win_contribution": 37.2,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 54.6,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI順位1位"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_1",
+          "label": "AI順位1位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 1,
+          "low": null,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 33,
+      "target_races": 32,
+      "win_rate": 21.2,
+      "place_rate": 48.5,
+      "win_roi": 57.0,
+      "place_roi": 82.1,
+      "max_win_contribution": 37.2,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 54.1,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "平均指数70以上",
+        "オッズ5～8倍"
+      ],
+      "conditions": [
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "odds_5_8x",
+          "label": "オッズ5～8倍",
+          "family": "odds",
+          "source": "オッズ",
+          "kind": "range",
+          "value": null,
+          "low": 5.0,
+          "high": 8.0,
+          "include_high": false
+        }
+      ],
+      "target_horses": 33,
+      "target_races": 20,
+      "win_rate": 18.2,
+      "place_rate": 45.5,
+      "win_roi": 108.2,
+      "place_roi": 90.0,
+      "max_win_contribution": 20.4,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 52.8,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "オッズ5～8倍"
+      ],
+      "conditions": [
+        {
+          "id": "odds_5_8x",
+          "label": "オッズ5～8倍",
+          "family": "odds",
+          "source": "オッズ",
+          "kind": "range",
+          "value": null,
+          "low": 5.0,
+          "high": 8.0,
+          "include_high": false
+        }
+      ],
+      "target_horses": 49,
+      "target_races": 29,
+      "win_rate": 18.4,
+      "place_rate": 44.9,
+      "win_roi": 109.2,
+      "place_roi": 88.2,
+      "max_win_contribution": 13.6,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 51.7,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI順位1～3位",
+        "AI点95以上",
+        "平均指数70以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_1_3",
+          "label": "AI順位1～3位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "range",
+          "value": null,
+          "low": 1,
+          "high": 3,
+          "include_high": true
+        },
+        {
+          "id": "ai_score_95up",
+          "label": "AI点95以上",
+          "family": "ai_score",
+          "source": "AI点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 55,
+      "target_races": 30,
+      "win_rate": 23.6,
+      "place_rate": 43.6,
+      "win_roi": 75.3,
+      "place_roi": 75.8,
+      "max_win_contribution": 16.9,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 50.9,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI点95以上",
+        "平均指数70以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_score_95up",
+          "label": "AI点95以上",
+          "family": "ai_score",
+          "source": "AI点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 57,
+      "target_races": 30,
+      "win_rate": 22.8,
+      "place_rate": 42.1,
+      "win_roi": 72.6,
+      "place_roi": 73.2,
+      "max_win_contribution": 16.9,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 50.6,
+      "ranking_type": "正式",
+      "condition_labels": [
+        "AI順位1～3位",
+        "AI点95以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_1_3",
+          "label": "AI順位1～3位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "range",
+          "value": null,
+          "low": 1,
+          "high": 3,
+          "include_high": true
+        },
+        {
+          "id": "ai_score_95up",
+          "label": "AI点95以上",
+          "family": "ai_score",
+          "source": "AI点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 63,
+      "target_races": 32,
+      "win_rate": 22.2,
+      "place_rate": 44.4,
+      "win_roi": 70.6,
+      "place_roi": 77.3,
+      "max_win_contribution": 15.7,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 64.5,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "クラス根拠:今回未勝利",
+        "オッズ5～8倍"
+      ],
+      "conditions": [
+        {
+          "id": "class_basis_今回under勝利",
+          "label": "クラス根拠:今回未勝利",
+          "family": "class_basis",
+          "source": "クラス根拠",
+          "kind": "eq",
+          "value": "今回未勝利",
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "odds_5_8x",
+          "label": "オッズ5～8倍",
+          "family": "odds",
+          "source": "オッズ",
+          "kind": "range",
+          "value": null,
+          "low": 5.0,
+          "high": 8.0,
+          "include_high": false
+        }
+      ],
+      "target_horses": 19,
+      "target_races": 12,
+      "win_rate": 26.3,
+      "place_rate": 47.4,
+      "win_roi": 159.5,
+      "place_roi": 88.4,
+      "max_win_contribution": 23.1,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 62.5,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "AI順位2位",
+        "平均指数70以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 28,
+      "target_races": 26,
+      "win_rate": 25.0,
+      "place_rate": 46.4,
+      "win_roi": 120.0,
+      "place_roi": 92.9,
+      "max_win_contribution": 32.7,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 54.6,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "AI順位2位",
+        "AI点95以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "ai_score_95up",
+          "label": "AI点95以上",
+          "family": "ai_score",
+          "source": "AI点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 20,
+      "target_races": 19,
+      "win_rate": 30.0,
+      "place_rate": 50.0,
+      "win_roi": 113.0,
+      "place_roi": 89.5,
+      "max_win_contribution": 24.3,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 54.6,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "AI順位2位",
+        "平均指数70以上",
+        "総合評価点95～99.9"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "total_score_95_99_9",
+          "label": "総合評価点95～99.9",
+          "family": "total_score",
+          "source": "総合評価点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": 100,
+          "include_high": false
+        }
+      ],
+      "target_horses": 20,
+      "target_races": 19,
+      "win_rate": 30.0,
+      "place_rate": 45.0,
+      "win_roi": 113.0,
+      "place_roi": 82.5,
+      "max_win_contribution": 24.3,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 54.4,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "平均指数70以上",
+        "勢力図SS"
+      ],
+      "conditions": [
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "group_ss",
+          "label": "勢力図SS",
+          "family": "display_group",
+          "source": "display_group",
+          "kind": "eq",
+          "value": "SS",
+          "low": null,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 19,
+      "target_races": 19,
+      "win_rate": 42.1,
+      "place_rate": 73.7,
+      "win_roi": 116.3,
+      "place_roi": 106.8,
+      "max_win_contribution": 31.7,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 53.2,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "AI順位2位",
+        "総合評価点95～99.9"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "total_score_95_99_9",
+          "label": "総合評価点95～99.9",
+          "family": "total_score",
+          "source": "総合評価点",
+          "kind": "range",
+          "value": null,
+          "low": 95,
+          "high": 100,
+          "include_high": false
+        }
+      ],
+      "target_horses": 22,
+      "target_races": 21,
+      "win_rate": 27.3,
+      "place_rate": 50.0,
+      "win_roi": 102.7,
+      "place_roi": 93.6,
+      "max_win_contribution": 24.3,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 52.3,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "AI順位2位",
+        "平均指数70以上",
+        "距離指数70以上"
+      ],
+      "conditions": [
+        {
+          "id": "ai_rank_2",
+          "label": "AI順位2位",
+          "family": "ai_rank",
+          "source": "AI順位",
+          "kind": "eq",
+          "value": 2,
+          "low": null,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "distance_index_70up",
+          "label": "距離指数70以上",
+          "family": "distance_index",
+          "source": "距離指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 20,
+      "target_races": 20,
+      "win_rate": 25.0,
+      "place_rate": 45.0,
+      "win_roi": 134.5,
+      "place_roi": 95.5,
+      "max_win_contribution": 40.9,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "複勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 51.3,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "平均指数70以上",
+        "総合評価点100以上"
+      ],
+      "conditions": [
+        {
+          "id": "avg_index_70up",
+          "label": "平均指数70以上",
+          "family": "avg_index",
+          "source": "平均指数",
+          "kind": "range",
+          "value": null,
+          "low": 70,
+          "high": null,
+          "include_high": false
+        },
+        {
+          "id": "total_score_100up",
+          "label": "総合評価点100以上",
+          "family": "total_score",
+          "source": "総合評価点",
+          "kind": "range",
+          "value": null,
+          "low": 100,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 26,
+      "target_races": 25,
+      "win_rate": 26.9,
+      "place_rate": 53.8,
+      "win_roi": 72.3,
+      "place_roi": 93.8,
+      "max_win_contribution": 37.2,
+      "validation_note": ""
+    },
+    {
+      "ticket_type": "単勝候補",
+      "stars": "★★★☆☆",
+      "condition_score": 50.9,
+      "ranking_type": "参考",
+      "condition_labels": [
+        "勢力図SS"
+      ],
+      "conditions": [
+        {
+          "id": "group_ss",
+          "label": "勢力図SS",
+          "family": "display_group",
+          "source": "display_group",
+          "kind": "eq",
+          "value": "SS",
+          "low": null,
+          "high": null,
+          "include_high": false
+        }
+      ],
+      "target_horses": 23,
+      "target_races": 23,
+      "win_rate": 34.8,
+      "place_rate": 65.2,
+      "win_roi": 96.1,
+      "place_roi": 94.3,
+      "max_win_contribution": 31.7,
+      "validation_note": ""
+    }
+  ]
+}
