@@ -24,6 +24,11 @@ from core.betting_recommendation import (
     adoption_map_from_recommendations,
     build_betting_recommendations,
 )
+from core.investment_decision import (
+    InvestmentDecision,
+    build_investment_decision,
+    confidence_label,
+)
 from core.purchase_conditions import build_purchase_condition_recommendations
 from core.jra_predictor import predict_jra
 from core.html_classifier import (
@@ -1217,8 +1222,8 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
 def render_colab_style_result(result: PredictionResult) -> None:
     render_race_header(result)
     render_race_summary(result)
-    betting_recommendations = render_recommended_betting(result)
-    render_purchase_condition_recommendations(result, betting_recommendations)
+    investment_decision = render_investment_decision(result)
+    render_investment_target_horses(result, investment_decision)
     render_power_map(result)
     render_race_flow(result)
     render_horse_summary_cards(result)
@@ -1341,6 +1346,100 @@ def render_race_summary(result: PredictionResult) -> None:
         '</div>'
     )
     st.markdown(body, unsafe_allow_html=True)
+
+
+def result_prediction_table(result: PredictionResult) -> pd.DataFrame | None:
+    table = result.overall_table
+    if table is None or getattr(table, "empty", False):
+        table = result.horse_evaluation
+    return table
+
+
+def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
+    table = result_prediction_table(result)
+    decision = build_investment_decision(table, result.race_mode)
+    st.subheader("今回買うべき馬券")
+
+    source_race_count = decision.source_race_count
+    race_label = "地方" if decision.race_type == "nar" else "中央"
+    source_line = (
+        f"{race_label}{source_race_count}R時点の暫定検証"
+        if source_race_count
+        else f"{race_label}の暫定検証"
+    )
+    if decision.updated_at:
+        source_line += f" / 更新: {decision.updated_at}"
+
+    judgement_class = {
+        "買い": "ss",
+        "保留": "a",
+        "見送り": "z",
+    }.get(decision.judgement, "z")
+
+    if decision.selected is None:
+        reasons = "<br>".join(plain_text_to_html("・" + line) for line in decision.reason_lines) or "・正式購入条件の一致なし"
+        st.markdown(
+            '<div class="ka-dashboard-card">'
+            f'<div><span class="ka-chip {judgement_class}">総合判定：{plain_text_to_html(decision.judgement)}</span></div>'
+            '<div class="ka-dashboard-value">今回は見送り推奨</div>'
+            f'<div class="ka-note">今回は正式購入条件に一致する馬券がありません。<br><br>'
+            f'見送り理由<br>{reasons}<br><br>{plain_text_to_html(source_line)}</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        render_investment_audit(decision)
+        return decision
+
+    selected = decision.selected
+    score = selected.audit.get("strategy_score")
+    confidence = confidence_label(score if isinstance(score, (int, float)) else None)
+    tickets = "<br>".join(plain_text_to_html(line) for line in selected.tickets) or "買い目なし"
+    matched = "<br>".join(plain_text_to_html("✓ " + line) for line in selected.matched_conditions) or "✓ 条件成立"
+    caution = ""
+    if decision.source_note:
+        caution = f"<br>{plain_text_to_html(decision.source_note)}"
+    st.markdown(
+        '<div class="ka-dashboard-card">'
+        f'<div><span class="ka-chip {judgement_class}">総合判定：{plain_text_to_html(decision.judgement)}</span></div>'
+        f'<div class="ka-dashboard-value">{plain_text_to_html(selected.ticket_type)} {plain_text_to_html(selected.label)}</div>'
+        f'<div class="ka-note">実際の買い目<br>{tickets}<br><br>'
+        f'{selected.ticket_count}点 / 合計{decision.total_stake}円（1点100円）<br><br>'
+        f'過去実績<br>対象{selected.sample_races}R / 的中率{(selected.hit_rate or 0):.1f}% / '
+        f'回収率{(selected.expected_roi or 0):.1f}%<br>'
+        f'信頼度：{plain_text_to_html(confidence)}<br><br>'
+        f'買い条件<br>{matched}<br><br>'
+        f'注意<br>{plain_text_to_html(source_line)}{caution}</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    render_investment_audit(decision)
+    return decision
+
+
+def render_investment_target_horses(result: PredictionResult, decision: InvestmentDecision) -> None:
+    selected = decision.selected
+    if selected is None or not selected.ticket_horses:
+        return
+    st.subheader("今回の対象馬")
+    horse_lines = "<br>".join(plain_text_to_html(label) for label in selected.ticket_horses)
+    matched = "<br>".join(plain_text_to_html("・" + line) for line in selected.matched_conditions) or "・条件成立"
+    ticket_lines = " / ".join(selected.tickets)
+    st.markdown(
+        '<div class="ka-dashboard-card">'
+        f'<div class="ka-dashboard-value">{horse_lines}</div>'
+        f'<div class="ka-note">一致条件<br>{matched}<br><br>'
+        f'採用馬券<br>{plain_text_to_html(selected.ticket_type)} {plain_text_to_html(selected.label)} '
+        f'{plain_text_to_html(ticket_lines)}</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_investment_audit(decision: InvestmentDecision) -> None:
+    if not decision.audit_rows:
+        return
+    with st.expander("監査モード：馬券戦略選択", expanded=False):
+        st.dataframe(pd.DataFrame(decision.audit_rows), use_container_width=True, hide_index=True)
 
 
 def render_recommended_betting(result: PredictionResult) -> list[BettingRecommendation]:

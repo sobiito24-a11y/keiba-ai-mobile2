@@ -1,0 +1,165 @@
+{
+  "version": 1,
+  "scope": "nar",
+  "updated_at": "2026-08-02T21:23:50",
+  "source": {
+    "race_count": 34,
+    "note": "地方34R時点の暫定検証。戦略選択UI用の軽量JSONです。",
+    "portfolio_stats": {
+      "purchase_races": 30,
+      "pass_races": 4,
+      "all_races": 34,
+      "hit_rate": 46.7,
+      "return_rate": 163.2,
+      "max_losing_streak": 5,
+      "max_drawdown": 1670.0,
+      "high_payout_dependency": 19.9
+    }
+  },
+  "strategies": [
+    {
+      "strategy_id": "wide_ss_b",
+      "ticket_type": "ワイド",
+      "label": "SS-B",
+      "risk_label": "正式",
+      "selection_rank": 1,
+      "strategy_score": 79.5,
+      "return_rate": 179.3,
+      "hit_rate": 50.0,
+      "target_races": 14,
+      "hits": 7,
+      "max_losing_streak": 3,
+      "max_drawdown": 870.0,
+      "max_payout_contribution": 38.8,
+      "role_pattern": {"type": "pair", "left_roles": ["SS"], "right_roles": ["B"]},
+      "conditions": [
+        {"label": "AI1オッズ2～5倍", "role": "AI1", "field": "odds", "op": "range", "low": 2.0, "high": 5.0, "include_high": true}
+      ],
+      "avoid_conditions": []
+    },
+    {
+      "strategy_id": "quinella_ss_a",
+      "ticket_type": "馬連",
+      "label": "SS-A",
+      "risk_label": "正式",
+      "selection_rank": 2,
+      "strategy_score": 78.2,
+      "return_rate": 211.9,
+      "hit_rate": 46.2,
+      "target_races": 13,
+      "hits": 6,
+      "max_losing_streak": 3,
+      "max_drawdown": 600.0,
+      "max_payout_contribution": 42.6,
+      "role_pattern": {"type": "pair", "left_roles": ["SS"], "right_roles": ["A"]},
+      "conditions": [
+        {"label": "AI2人気2～3番人気", "role": "AI2", "field": "popularity", "op": "range", "low": 2.0, "high": 3.0, "include_high": true}
+      ],
+      "avoid_conditions": []
+    },
+    {
+      "strategy_id": "win_b",
+      "ticket_type": "単勝",
+      "label": "B",
+      "risk_label": "正式",
+      "selection_rank": 3,
+      "strategy_score": 77.9,
+      "return_rate": 298.3,
+      "hit_rate": 50.0,
+      "target_races": 12,
+      "hits": 6,
+      "max_losing_streak": 3,
+      "max_drawdown": 600.0,
+      "max_payout_contribution": 39.9,
+      "role_pattern": {"type": "single", "roles": ["B"]},
+      "conditions": [
+        {"label": "AI3のAI点90～95", "role": "AI3", "field": "ai_score", "op": "range", "low": 90.0, "high": 95.0, "include_high": true}
+      ],
+      "avoid_conditions": [
+        {"label": "AI1オッズ2倍未満", "role": "AI1", "field": "odds", "op": "lt", "high": 2.0},
+        {"label": "AI1が1番人気", "role": "AI1", "field": "popularity", "op": "eq", "value": 1},
+        {"label": "AI3のAI点85～90", "role": "AI3", "field": "ai_score", "op": "range", "low": 85.0, "high": 90.0, "include_high": false}
+      ]
+    },
+    {
+      "strategy_id": "exacta_ss_a",
+      "ticket_type": "馬単",
+      "label": "SS→A",
+      "risk_label": "正式",
+      "selection_rank": 4,
+      "strategy_score": 73.7,
+      "return_rate": 294.3,
+      "hit_rate": 33.3,
+      "target_races": 15,
+      "hits": 5,
+      "max_losing_streak": 5,
+      "max_drawdown": 1000.0,
+      "max_payout_contribution": 44.2,
+      "role_pattern": {"type": "exacta", "first_roles": ["SS"], "second_roles": ["A"]},
+      "conditions": [
+        {"label": "Aが2～3番人気", "role": "A", "field": "popularity", "op": "range", "low": 2.0, "high": 3.0, "include_high": true}
+      ],
+      "avoid_conditions": []
+    },
+    {
+      "strategy_id": "wide_ss_a",
+      "ticket_type": "ワイド",
+      "label": "SS-A",
+      "risk_label": "正式",
+      "selection_rank": 5,
+      "strategy_score": 73.4,
+      "return_rate": 159.6,
+      "hit_rate": 76.9,
+      "target_races": 13,
+      "hits": 10,
+      "max_losing_streak": 1,
+      "max_drawdown": 240.0,
+      "max_payout_contribution": 24.6,
+      "role_pattern": {"type": "pair", "left_roles": ["SS"], "right_roles": ["A"]},
+      "conditions": [
+        {"label": "AI2人気2～3番人気", "role": "AI2", "field": "popularity", "op": "range", "low": 2.0, "high": 3.0, "include_high": true}
+      ],
+      "avoid_conditions": []
+    },
+    {
+      "strategy_id": "place_ai1",
+      "ticket_type": "複勝",
+      "label": "AI1",
+      "risk_label": "参考",
+      "selection_rank": 6,
+      "strategy_score": 59.0,
+      "return_rate": 118.7,
+      "hit_rate": 80.0,
+      "target_races": 15,
+      "hits": 12,
+      "max_losing_streak": 1,
+      "max_drawdown": 100.0,
+      "max_payout_contribution": 12.4,
+      "role_pattern": {"type": "single", "roles": ["AI1"]},
+      "conditions": [
+        {"label": "Aが2～3番人気", "role": "A", "field": "popularity", "op": "range", "low": 2.0, "high": 3.0, "include_high": true}
+      ],
+      "avoid_conditions": []
+    },
+    {
+      "strategy_id": "place_b",
+      "ticket_type": "複勝",
+      "label": "B",
+      "risk_label": "参考",
+      "selection_rank": 7,
+      "strategy_score": 56.8,
+      "return_rate": 123.2,
+      "hit_rate": 81.8,
+      "target_races": 11,
+      "hits": 9,
+      "max_losing_streak": 1,
+      "max_drawdown": 340.0,
+      "max_payout_contribution": 22.5,
+      "role_pattern": {"type": "single", "roles": ["B"]},
+      "conditions": [
+        {"label": "AI3オッズ2～5倍", "role": "AI3", "field": "odds", "op": "range", "low": 2.0, "high": 5.0, "include_high": true}
+      ],
+      "avoid_conditions": []
+    }
+  ]
+}

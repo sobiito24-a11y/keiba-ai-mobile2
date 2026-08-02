@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "scope": "jra",
+  "updated_at": "2026-08-02T10:15:00",
+  "source": {
+    "race_count": 32,
+    "note": "中央32R時点の券種別検証を、1レース1戦略選択UI向けに軽量化したJSONです。中央は地方と同等の同時成立バックテストが未整備のため、既存ticket_strategy_ranked.jsonの正式推奨を利用します。",
+    "portfolio_stats": {
+      "purchase_races": null,
+      "pass_races": null,
+      "all_races": 32,
+      "hit_rate": null,
+      "return_rate": null,
+      "max_losing_streak": null,
+      "max_drawdown": null,
+      "high_payout_dependency": null
+    }
+  },
+  "strategies": [
+    {
+      "strategy_id": "wide_ss_b",
+      "ticket_type": "ワイド",
+      "label": "SS-B",
+      "risk_label": "正式",
+      "selection_rank": 1,
+      "strategy_score": 60.3,
+      "return_rate": 133.0,
+      "hit_rate": 45.5,
+      "target_races": 22,
+      "hits": 10,
+      "max_losing_streak": null,
+      "max_drawdown": null,
+      "max_payout_contribution": 21.7,
+      "role_pattern": {"type": "pair", "left_roles": ["SS"], "right_roles": ["B"]},
+      "conditions": [
+        {"label": "SSが存在", "role": "SS", "field": "count", "op": "gte", "value": 1},
+        {"label": "Bが存在", "role": "B", "field": "count", "op": "gte", "value": 1}
+      ],
+      "avoid_conditions": []
+    },
+    {
+      "strategy_id": "win_ai2",
+      "ticket_type": "単勝",
+      "label": "AI2",
+      "risk_label": "正式",
+      "selection_rank": 2,
+      "strategy_score": 45.7,
+      "return_rate": 101.8,
+      "hit_rate": 22.6,
+      "target_races": 31,
+      "hits": 7,
+      "max_losing_streak": null,
+      "max_drawdown": null,
+      "max_payout_contribution": 32.7,
+      "role_pattern": {"type": "single", "roles": ["AI2"]},
+      "conditions": [
+        {"label": "AI2が存在", "role": "AI2", "field": "count", "op": "gte", "value": 1}
+      ],
+      "avoid_conditions": []
+    },
+    {
+      "strategy_id": "win_ss",
+      "ticket_type": "単勝",
+      "label": "SS",
+      "risk_label": "正式",
+      "selection_rank": 3,
+      "strategy_score": 42.0,
+      "return_rate": 96.1,
+      "hit_rate": 34.8,
+      "target_races": 23,
+      "hits": 8,
+      "max_losing_streak": null,
+      "max_drawdown": null,
+      "max_payout_contribution": 20.0,
+      "role_pattern": {"type": "single", "roles": ["SS"]},
+      "conditions": [
+        {"label": "SSが存在", "role": "SS", "field": "count", "op": "gte", "value": 1}
+      ],
+      "avoid_conditions": []
+    },
+    {
+      "strategy_id": "wide_ss_a",
+      "ticket_type": "ワイド",
+      "label": "SS-A",
+      "risk_label": "正式",
+      "selection_rank": 4,
+      "strategy_score": 42.0,
+      "return_rate": 75.9,
+      "hit_rate": 30.4,
+      "target_races": 23,
+      "hits": 7,
+      "max_losing_streak": null,
+      "max_drawdown": null,
+      "max_payout_contribution": 23.5,
+      "role_pattern": {"type": "pair", "left_roles": ["SS"], "right_roles": ["A"]},
+      "conditions": [
+        {"label": "SSが存在", "role": "SS", "field": "count", "op": "gte", "value": 1},
+        {"label": "Aが存在", "role": "A", "field": "count", "op": "gte", "value": 1}
+      ],
+      "avoid_conditions": []
+    },
+    {
+      "strategy_id": "place_ai2",
+      "ticket_type": "複勝",
+      "label": "AI2",
+      "risk_label": "参考",
+      "selection_rank": 5,
+      "strategy_score": 55.3,
+      "return_rate": 95.5,
+      "hit_rate": 48.4,
+      "target_races": 31,
+      "hits": 15,
+      "max_losing_streak": null,
+      "max_drawdown": null,
+      "max_payout_contribution": 28.0,
+      "role_pattern": {"type": "single", "roles": ["AI2"]},
+      "conditions": [
+        {"label": "AI2が存在", "role": "AI2", "field": "count", "op": "gte", "value": 1}
+      ],
+      "avoid_conditions": []
+    },
+    {
+      "strategy_id": "place_ai1",
+      "ticket_type": "複勝",
+      "label": "AI1",
+      "risk_label": "参考",
+      "selection_rank": 6,
+      "strategy_score": 50.7,
+      "return_rate": 82.1,
+      "hit_rate": 50.0,
+      "target_races": 32,
+      "hits": 16,
+      "max_losing_streak": null,
+      "max_drawdown": null,
+      "max_payout_contribution": 18.0,
+      "role_pattern": {"type": "single", "roles": ["AI1"]},
+      "conditions": [
+        {"label": "AI1が存在", "role": "AI1", "field": "count", "op": "gte", "value": 1}
+      ],
+      "avoid_conditions": []
+    }
+  ]
+}
