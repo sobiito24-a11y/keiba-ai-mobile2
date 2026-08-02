@@ -4,7 +4,7 @@ from __future__ import annotations
 import itertools
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -123,6 +123,11 @@ class PurchaseConditionRecommendation:
     win_rate: float
     place_rate: float
     reliability: str
+    horse_no: str = ""
+    horse_name: str = ""
+    adopted_betting_labels: list[str] = field(default_factory=list)
+    recommended_ticket_types: list[str] = field(default_factory=list)
+    audit: dict[str, Any] = field(default_factory=dict)
 
 
 def load_jra_analysis_records(data_dir: Path = DEFAULT_DATA_DIR) -> tuple[pd.DataFrame, dict[str, Any]]:
@@ -1117,6 +1122,8 @@ def build_purchase_condition_recommendations(
     *,
     json_path: Path = DEFAULT_CONDITION_JSON,
     max_items: int = 4,
+    adopted_horse_numbers: set[str] | None = None,
+    adoption_map: dict[str, list[str]] | None = None,
 ) -> list[PurchaseConditionRecommendation]:
     json_path = resolve_condition_json_path(json_path)
     if table is None or not isinstance(table, pd.DataFrame) or table.empty or not json_path.exists():
@@ -1135,31 +1142,69 @@ def build_purchase_condition_recommendations(
         for spec in specs:
             mask &= condition_mask(current, spec)
         matched = current[mask].copy()
+        if adopted_horse_numbers is not None:
+            matched = matched[matched["horse_no_eval"].astype(str).isin({str(no) for no in adopted_horse_numbers})].copy()
         if matched.empty:
             continue
         score = float(item.get("condition_score", 0) or 0)
         if score < 50:
             continue
-        recommendations.append(
-            PurchaseConditionRecommendation(
-                ticket_type=str(item.get("ticket_type", "購入候補")),
-                stars=str(item.get("stars", stars_for_score(score))),
-                condition_score=round(score, 1),
-                condition_labels=[str(label) for label in item.get("condition_labels", [])],
-                matched_horses=[horse_label(row) for _, row in matched.iterrows()],
-                sample_label=str(item.get("ranking_type", "暫定")),
-                target_horses=int(item.get("target_horses", 0) or 0),
-                target_races=int(item.get("target_races", 0) or 0),
-                win_roi=float(item.get("win_roi", 0) or 0),
-                place_roi=float(item.get("place_roi", 0) or 0),
-                win_rate=float(item.get("win_rate", 0) or 0),
-                place_rate=float(item.get("place_rate", 0) or 0),
-                reliability="暫定" if item.get("ranking_type") == "正式" else "参考",
+        if adopted_horse_numbers is None:
+            recommendations.append(
+                build_purchase_condition_recommendation(item, matched, score)
             )
-        )
+        else:
+            for _, row in matched.iterrows():
+                no = clean_text(row.get("horse_no_eval"))
+                used_in = list((adoption_map or {}).get(no, []))
+                if not used_in:
+                    continue
+                recommendations.append(
+                    build_purchase_condition_recommendation(item, pd.DataFrame([row]), score, adopted_labels=used_in)
+                )
+                if len(recommendations) >= max_items:
+                    break
         if len(recommendations) >= max_items:
             break
     return recommendations
+
+
+def build_purchase_condition_recommendation(
+    item: dict[str, Any],
+    matched: pd.DataFrame,
+    score: float,
+    *,
+    adopted_labels: list[str] | None = None,
+) -> PurchaseConditionRecommendation:
+    first = matched.iloc[0] if not matched.empty else pd.Series(dtype=object)
+    adopted = list(adopted_labels or [])
+    ticket_types = sorted({label.split()[0] for label in adopted if label.strip()})
+    condition_labels = [str(label) for label in item.get("condition_labels", [])]
+    return PurchaseConditionRecommendation(
+        ticket_type=str(item.get("ticket_type", "購入候補")),
+        stars=str(item.get("stars", stars_for_score(score))),
+        condition_score=round(score, 1),
+        condition_labels=condition_labels,
+        matched_horses=[horse_label(row) for _, row in matched.iterrows()],
+        sample_label=str(item.get("ranking_type", "暫定")),
+        target_horses=int(item.get("target_horses", 0) or 0),
+        target_races=int(item.get("target_races", 0) or 0),
+        win_roi=float(item.get("win_roi", 0) or 0),
+        place_roi=float(item.get("place_roi", 0) or 0),
+        win_rate=float(item.get("win_rate", 0) or 0),
+        place_rate=float(item.get("place_rate", 0) or 0),
+        reliability="暫定" if item.get("ranking_type") == "正式" else "参考",
+        horse_no=clean_text(first.get("horse_no_eval")),
+        horse_name=clean_text(first.get("horse_name_eval")),
+        adopted_betting_labels=adopted,
+        recommended_ticket_types=ticket_types,
+        audit={
+            "conditions": condition_labels,
+            "matched_horses": [horse_label(row) for _, row in matched.iterrows()],
+            "adopted_betting_labels": adopted,
+            "used_in_betting": bool(adopted),
+        },
+    )
 
 
 def resolve_condition_json_path(json_path: Path) -> Path:

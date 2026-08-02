@@ -18,7 +18,12 @@ from core.audit_features import (
     audit_table_to_markdown,
     build_audit_export_table,
 )
-from core.betting_recommendation import build_betting_recommendations
+from core.betting_recommendation import (
+    LAST_MATCH_AUDIT,
+    BettingRecommendation,
+    adoption_map_from_recommendations,
+    build_betting_recommendations,
+)
 from core.purchase_conditions import build_purchase_condition_recommendations
 from core.jra_predictor import predict_jra
 from core.html_classifier import (
@@ -1212,8 +1217,8 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
 def render_colab_style_result(result: PredictionResult) -> None:
     render_race_header(result)
     render_race_summary(result)
-    render_recommended_betting(result)
-    render_purchase_condition_recommendations(result)
+    betting_recommendations = render_recommended_betting(result)
+    render_purchase_condition_recommendations(result, betting_recommendations)
     render_power_map(result)
     render_race_flow(result)
     render_horse_summary_cards(result)
@@ -1338,36 +1343,71 @@ def render_race_summary(result: PredictionResult) -> None:
     st.markdown(body, unsafe_allow_html=True)
 
 
-def render_recommended_betting(result: PredictionResult) -> None:
+def render_recommended_betting(result: PredictionResult) -> list[BettingRecommendation]:
+    if result.race_mode != "jra":
+        return []
     table = result.overall_table
     if table is None or getattr(table, "empty", False):
         table = result.horse_evaluation
     recommendations = build_betting_recommendations(table)
-    if not recommendations:
-        return
     st.subheader("今回のおすすめ買い方")
+    if not recommendations:
+        st.markdown(
+            '<div class="ka-dashboard-card">'
+            '<div class="ka-dashboard-title">今回は見送り推奨</div>'
+            '<div class="ka-note">現在レースで正式条件に一致する買い方がありません。'
+            'ランキング上位を無理に表示せず、条件が成立した時だけ表示します。</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        render_recommendation_audit()
+        return []
     blocks = []
     for item in recommendations:
         roi = f"期待回収率：{item.expected_roi:.0f}%" if item.expected_roi is not None else "期待回収率：検証中"
+        hit = f"的中率：{item.hit_rate:.1f}%" if item.hit_rate is not None else "的中率：検証中"
+        matched = "<br>".join(plain_text_to_html("✓ " + line) for line in item.matched_conditions) or "✓ 条件一致"
+        ticket_lines = "<br>".join(plain_text_to_html(line) for line in item.tickets) or "買い目なし"
         blocks.append(
             '<div class="ka-dashboard-card">'
             f'<div class="ka-dashboard-title">{plain_text_to_html(item.stars)}</div>'
             f'<div class="ka-dashboard-value">{plain_text_to_html(item.ticket_type)}　{plain_text_to_html(item.label)}</div>'
-            f'<div class="ka-note">{plain_text_to_html(roi)}<br>'
-            f'{plain_text_to_html("買い条件：" + item.condition)}<br>'
-            f'{plain_text_to_html(item.reason)}</div>'
+            f'<div class="ka-note">一致条件<br>{matched}<br><br>'
+            f'過去実績<br>{plain_text_to_html(str(item.sample_races) + "R")} / {plain_text_to_html(roi)} / {plain_text_to_html(hit)}<br><br>'
+            f'実際の買い目（{item.ticket_count}点）<br>{ticket_lines}</div>'
             '</div>'
         )
     st.markdown("".join(blocks), unsafe_allow_html=True)
+    render_recommendation_audit()
+    return recommendations
 
 
-def render_purchase_condition_recommendations(result: PredictionResult) -> None:
+def render_recommendation_audit() -> None:
+    if not LAST_MATCH_AUDIT:
+        return
+    with st.expander("監査モード：おすすめ買い方判定", expanded=False):
+        st.dataframe(pd.DataFrame(LAST_MATCH_AUDIT), use_container_width=True, hide_index=True)
+
+
+def render_purchase_condition_recommendations(
+    result: PredictionResult,
+    betting_recommendations: list[BettingRecommendation] | None = None,
+) -> None:
     if result.race_mode != "jra":
+        return
+    betting_recommendations = betting_recommendations or []
+    adoption_map = adoption_map_from_recommendations(betting_recommendations)
+    adopted_horse_numbers = set(adoption_map)
+    if not adopted_horse_numbers:
         return
     table = result.overall_table
     if table is None or getattr(table, "empty", False):
         table = result.horse_evaluation
-    recommendations = build_purchase_condition_recommendations(table)
+    recommendations = build_purchase_condition_recommendations(
+        table,
+        adopted_horse_numbers=adopted_horse_numbers,
+        adoption_map=adoption_map,
+    )
     if not recommendations:
         return
     st.subheader("今回のおすすめ購入条件")
@@ -1375,15 +1415,19 @@ def render_purchase_condition_recommendations(result: PredictionResult) -> None:
     for item in recommendations:
         condition_lines = "<br>".join(plain_text_to_html(label) for label in item.condition_labels)
         horses = " / ".join(item.matched_horses)
+        adopted = " / ".join(item.adopted_betting_labels)
+        tickets = " / ".join(item.recommended_ticket_types) or plain_text_to_html(item.ticket_type)
         blocks.append(
             '<div class="ka-dashboard-card">'
-            f'<div class="ka-dashboard-title">{plain_text_to_html(item.stars)} {plain_text_to_html(item.ticket_type)}</div>'
+            f'<div class="ka-dashboard-title">{plain_text_to_html(item.stars)} {plain_text_to_html(tickets)}</div>'
             f'<div class="ka-dashboard-value">{plain_text_to_html(horses)}</div>'
             f'<div class="ka-note">一致条件<br>{condition_lines}<br><br>'
+            f'推奨: {plain_text_to_html(tickets)}<br>'
             f'過去実績: 対象{item.target_horses}頭・{item.target_races}R<br>'
             f'単勝回収率{item.win_roi:.0f}% / 複勝回収率{item.place_roi:.0f}%<br>'
             f'勝率{item.win_rate:.1f}% / 複勝率{item.place_rate:.1f}%<br>'
-            f'信頼度: {plain_text_to_html(item.reliability)} / score {item.condition_score:.1f}</div>'
+            f'信頼度: {plain_text_to_html(item.reliability)} / score {item.condition_score:.1f}<br>'
+            f'採用買い方: {plain_text_to_html(adopted)}</div>'
             '</div>'
         )
     st.markdown("".join(blocks), unsafe_allow_html=True)

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from core.betting_recommendation import build_betting_recommendations
+from core.betting_recommendation import LAST_MATCH_AUDIT, build_betting_recommendations
 
 
 class BettingRecommendationTest(unittest.TestCase):
@@ -64,7 +64,7 @@ class BettingRecommendationTest(unittest.TestCase):
         self.assertEqual(recommendations[0].ticket_type, "ワイド")
         self.assertEqual(recommendations[0].expected_roi, 131.0)
 
-    def test_broken_latest_json_does_not_silently_fallback_to_fixed_rules(self) -> None:
+    def test_broken_latest_json_uses_fixed_fallback_only_when_json_unusable(self) -> None:
         table = pd.DataFrame(
             [
                 {"horse_no": 1, "horse_name": "Axis", "ai_rank": 1, "odds": 12.0, "mark": "◎"},
@@ -77,7 +77,8 @@ class BettingRecommendationTest(unittest.TestCase):
 
             recommendations = build_betting_recommendations(table, json_paths=[path])
 
-        self.assertEqual(recommendations, [])
+        self.assertGreaterEqual(len(recommendations), 1)
+        self.assertEqual(recommendations[0].source, "fixed")
 
     def test_json_recommendations_hide_when_no_current_ticket_matches(self) -> None:
         payload = {
@@ -154,6 +155,202 @@ class BettingRecommendationTest(unittest.TestCase):
 
         self.assertLessEqual(len(recommendations), 4)
         self.assertGreaterEqual(len({item.ticket_type for item in recommendations}), 3)
+
+    def test_ticket_recommendation_contains_actual_tickets_and_conditions(self) -> None:
+        payload = {
+            "recommendations": [
+                {
+                    "strategy_id": "wide_ss_b",
+                    "recommendation_kind": "ticket_strategy",
+                    "ticket_type": "ワイド",
+                    "label": "SS-B",
+                    "return_rate": 133.0,
+                    "hit_rate": 45.5,
+                    "purchase_races": 22,
+                    "risk_label": "正式",
+                    "reliability_score": 60.0,
+                    "role_pattern": {"type": "pair", "left_roles": ["SS"], "right_roles": ["B"]},
+                }
+            ]
+        }
+        table = pd.DataFrame(
+            [
+                {"horse_no": 5, "horse_name": "Axis", "display_group": "SS", "ai_rank": 1},
+                {"horse_no": 8, "horse_name": "Blue", "display_group": "B", "ai_rank": 4},
+                {"horse_no": 9, "horse_name": "Value", "display_group": "B", "ai_rank": 5},
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "betting_recommendations.json"
+            path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            recommendations = build_betting_recommendations(table, json_paths=[path])
+
+        self.assertEqual(len(recommendations), 1)
+        self.assertEqual(recommendations[0].tickets, ("5-8", "5-9"))
+        self.assertEqual(recommendations[0].ticket_count, 2)
+        self.assertIn("SSが1頭", recommendations[0].matched_conditions)
+        self.assertIn("Bが2頭", recommendations[0].matched_conditions)
+
+    def test_matching_reference_only_strategy_is_hold_not_forced_display(self) -> None:
+        payload = {
+            "recommendations": [
+                {
+                    "strategy_id": "wide_ss_b_reference",
+                    "recommendation_kind": "ticket_strategy",
+                    "ticket_type": "ワイド",
+                    "label": "SS-B",
+                    "return_rate": 200.0,
+                    "hit_rate": 40.0,
+                    "purchase_races": 10,
+                    "risk_label": "参考",
+                    "role_pattern": {"type": "pair", "left_roles": ["SS"], "right_roles": ["B"]},
+                }
+            ]
+        }
+        table = pd.DataFrame(
+            [
+                {"horse_no": 5, "horse_name": "Axis", "display_group": "SS"},
+                {"horse_no": 8, "horse_name": "Blue", "display_group": "B"},
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "betting_recommendations.json"
+            path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            recommendations = build_betting_recommendations(table, json_paths=[path])
+
+        self.assertEqual(recommendations, [])
+        self.assertEqual(LAST_MATCH_AUDIT[0]["non_adoption_reason"], "正式推奨が0件のため見送り")
+
+    def test_ai2_strategy_hides_when_ai2_is_absent(self) -> None:
+        payload = {
+            "recommendations": [
+                {
+                    "strategy_id": "place_ai2",
+                    "recommendation_kind": "ticket_strategy",
+                    "ticket_type": "複勝",
+                    "label": "AI2",
+                    "return_rate": 120.0,
+                    "hit_rate": 40.0,
+                    "purchase_races": 30,
+                    "risk_label": "正式",
+                    "role_pattern": {"type": "single", "roles": ["AI2"]},
+                }
+            ]
+        }
+        table = pd.DataFrame([{"horse_no": 1, "horse_name": "Axis", "ai_rank": 1}])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "betting_recommendations.json"
+            path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            recommendations = build_betting_recommendations(table, json_paths=[path])
+
+        self.assertEqual(recommendations, [])
+        self.assertIn("AI2位が不在", LAST_MATCH_AUDIT[0]["unmatched_conditions"])
+
+    def test_trio_strategy_hides_when_required_horse_count_is_short(self) -> None:
+        payload = {
+            "recommendations": [
+                {
+                    "strategy_id": "trio_ss_a_b",
+                    "recommendation_kind": "ticket_strategy",
+                    "ticket_type": "三連複",
+                    "label": "SS-A-B BOX",
+                    "return_rate": 180.0,
+                    "hit_rate": 25.0,
+                    "purchase_races": 20,
+                    "risk_label": "正式",
+                    "role_pattern": {"type": "box", "roles": ["SS", "A", "B"], "size": 3},
+                }
+            ]
+        }
+        table = pd.DataFrame(
+            [
+                {"horse_no": 1, "horse_name": "Axis", "display_group": "SS"},
+                {"horse_no": 2, "horse_name": "Main", "display_group": "A"},
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "betting_recommendations.json"
+            path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            recommendations = build_betting_recommendations(table, json_paths=[path])
+
+        self.assertEqual(recommendations, [])
+        self.assertIn("BOX対象が3頭未満", LAST_MATCH_AUDIT[0]["unmatched_conditions"])
+
+    def test_generated_tickets_change_by_race(self) -> None:
+        payload = {
+            "recommendations": [
+                {
+                    "strategy_id": "wide_ss_b",
+                    "recommendation_kind": "ticket_strategy",
+                    "ticket_type": "ワイド",
+                    "label": "SS-B",
+                    "return_rate": 133.0,
+                    "hit_rate": 45.5,
+                    "purchase_races": 22,
+                    "risk_label": "正式",
+                    "role_pattern": {"type": "pair", "left_roles": ["SS"], "right_roles": ["B"]},
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "betting_recommendations.json"
+            path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            first = build_betting_recommendations(
+                pd.DataFrame(
+                    [
+                        {"horse_no": 1, "horse_name": "Axis", "display_group": "SS"},
+                        {"horse_no": 2, "horse_name": "Blue", "display_group": "B"},
+                    ]
+                ),
+                json_paths=[path],
+            )
+            second = build_betting_recommendations(
+                pd.DataFrame(
+                    [
+                        {"horse_no": 7, "horse_name": "Axis2", "display_group": "SS"},
+                        {"horse_no": 9, "horse_name": "Blue2", "display_group": "B"},
+                    ]
+                ),
+                json_paths=[path],
+            )
+
+        self.assertEqual(first[0].tickets, ("1-2",))
+        self.assertEqual(second[0].tickets, ("7-9",))
+
+    def test_japanese_app_columns_generate_current_tickets(self) -> None:
+        payload = {
+            "recommendations": [
+                {
+                    "strategy_id": "wide_ss_b",
+                    "recommendation_kind": "ticket_strategy",
+                    "ticket_type": "ワイド",
+                    "label": "SS-B",
+                    "return_rate": 133.0,
+                    "hit_rate": 45.5,
+                    "purchase_races": 22,
+                    "risk_label": "正式",
+                    "role_pattern": {"type": "pair", "left_roles": ["SS"], "right_roles": ["B"]},
+                }
+            ]
+        }
+        table = pd.DataFrame(
+            [
+                {"馬番": 5, "馬名": "軸馬", "グループ": "SS", "AI順位": 1},
+                {"馬番": 9, "馬名": "相手馬", "グループ": "B", "AI順位": 3},
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "betting_recommendations.json"
+            path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            recommendations = build_betting_recommendations(table, json_paths=[path])
+
+        self.assertEqual(len(recommendations), 1)
+        self.assertEqual(recommendations[0].tickets, ("5-9",))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +16,7 @@ from .purchase_conditions import (
     enrich_current_table,
     to_float,
 )
-from .ticket_strategy_analysis import build_tickets_for_race, unique_nums
+from .ticket_strategy_analysis import POINT_LIMITS, build_tickets_for_race, role_numbers, unique_nums
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +35,17 @@ class BettingRecommendation:
     reason: str
     source: str = "fixed"
     risk_label: str = ""
+    strategy_id: str = ""
+    hit_rate: float | None = None
+    sample_races: int = 0
+    ticket_count: int = 0
+    tickets: tuple[str, ...] = ()
+    ticket_numbers: tuple[tuple[str, ...], ...] = ()
+    ticket_horses: tuple[str, ...] = ()
+    matched_conditions: tuple[str, ...] = ()
+    unmatched_conditions: tuple[str, ...] = ()
+    adopted_reason: str = ""
+    audit: dict[str, Any] = field(default_factory=dict)
 
 
 RECOMMENDATION_RULES = {
@@ -66,6 +77,7 @@ RECOMMENDATION_RULES = {
 
 
 LAST_LOAD_DIAGNOSTIC: dict[str, Any] = {}
+LAST_MATCH_AUDIT: list[dict[str, Any]] = []
 
 
 def build_betting_recommendations(
@@ -89,8 +101,8 @@ def build_betting_recommendations(
     LAST_LOAD_DIAGNOSTIC.update(diagnostic)
     if payload is not None:
         return build_recommendations_from_payload(table, payload, max_items=max_items)
-    if diagnostic.get("status") == "parse_error":
-        return []
+    # Fallback is used only when the analysis JSON cannot be loaded.  A loaded
+    # JSON with no current-race match returns no recommendation instead.
     return build_fixed_betting_recommendations(table, max_items=max_items)
 
 
@@ -140,37 +152,153 @@ def build_recommendations_from_payload(
     if not isinstance(raw_items, list):
         return []
 
-    matched: list[BettingRecommendation] = []
-    used_types: set[str] = set()
+    LAST_MATCH_AUDIT.clear()
+    candidates: list[BettingRecommendation] = []
     for item in raw_items:
         if not isinstance(item, dict):
             continue
-        if not is_displayable_payload_item(item):
-            continue
-        recommendation = match_payload_item(current, item)
-        if recommendation is None:
+        recommendation, audit = evaluate_payload_item(current, item)
+        LAST_MATCH_AUDIT.append(audit)
+        if recommendation is not None:
+            candidates.append(recommendation)
+
+    if not any(item.risk_label == "正式" for item in candidates):
+        for audit in LAST_MATCH_AUDIT:
+            if audit.get("matched"):
+                audit["adopted"] = False
+                audit["non_adoption_reason"] = "正式推奨が0件のため見送り"
+        return []
+
+    candidates = sorted(candidates, key=recommendation_priority_key)
+    matched: list[BettingRecommendation] = []
+    used_types: set[str] = set()
+    high_risk_used = False
+    for recommendation in candidates:
+        if recommendation.risk_label == "高リスク" and high_risk_used:
+            _mark_audit_not_adopted(recommendation.strategy_id, "高リスクは最大1件まで")
             continue
         # Keep the section varied; do not fill all slots with one ticket type.
         if recommendation.ticket_type in used_types and len(used_types) < max_items:
+            _mark_audit_not_adopted(recommendation.strategy_id, "券種の偏りを避けるため非採用")
             continue
-        matched.append(recommendation)
+        matched.append(_with_adopted_reason(recommendation, "条件一致かつ優先順位内"))
+        if recommendation.risk_label == "高リスク":
+            high_risk_used = True
         used_types.add(recommendation.ticket_type)
+        _mark_audit_adopted(recommendation.strategy_id, "条件一致かつ優先順位内")
         if len(matched) >= max_items:
             break
 
     if len(matched) < max_items:
-        for item in raw_items:
-            if not isinstance(item, dict):
+        already_added = {item.strategy_id for item in matched}
+        for recommendation in candidates:
+            if recommendation.strategy_id in already_added:
                 continue
-            if not is_displayable_payload_item(item):
+            if recommendation.risk_label == "高リスク" and high_risk_used:
+                _mark_audit_not_adopted(recommendation.strategy_id, "高リスクは最大1件まで")
                 continue
-            recommendation = match_payload_item(current, item)
-            if recommendation is None or recommendation in matched:
-                continue
-            matched.append(recommendation)
+            matched.append(_with_adopted_reason(recommendation, "条件一致かつ追加採用"))
+            already_added.add(recommendation.strategy_id)
+            if recommendation.risk_label == "高リスク":
+                high_risk_used = True
+            _mark_audit_adopted(recommendation.strategy_id, "条件一致かつ追加採用")
             if len(matched) >= max_items:
                 break
+
+    adopted_ids = {item.strategy_id for item in matched}
+    for audit in LAST_MATCH_AUDIT:
+        if audit.get("matched") and audit.get("strategy_id") not in adopted_ids and not audit.get("non_adoption_reason"):
+            audit["adopted"] = False
+            audit["non_adoption_reason"] = "最大表示件数外"
     return matched[:max_items]
+
+
+def evaluate_payload_item(current: pd.DataFrame, item: dict[str, Any]) -> tuple[BettingRecommendation | None, dict[str, Any]]:
+    strategy_id = str(item.get("strategy_id") or item.get("label") or "")
+    audit = {
+        "strategy_id": strategy_id,
+        "recommendation_kind": str(item.get("recommendation_kind") or item.get("kind") or ""),
+        "ticket_type": str(item.get("ticket_type") or ""),
+        "label": str(item.get("label") or ""),
+        "json_conditions": item.get("condition_labels") or item.get("conditions") or item.get("role_pattern") or [],
+        "matched_conditions": [],
+        "unmatched_conditions": [],
+        "target_horses": [],
+        "generated_tickets": [],
+        "purchase_points": 0,
+        "matched": False,
+        "adopted": False,
+        "adopted_reason": "",
+        "non_adoption_reason": "",
+    }
+    if not is_displayable_payload_item(item):
+        audit["non_adoption_reason"] = "表示基準外"
+        return None, audit
+    kind = str(item.get("recommendation_kind") or item.get("kind") or "")
+    if not (kind == "ticket_strategy" or item.get("role_pattern")):
+        audit["non_adoption_reason"] = "買い方セクションでは購入条件JSONを直接表示しない"
+        return None, audit
+    recommendation = match_ticket_strategy_item(current, item, base_audit=audit)
+    if recommendation is None:
+        return None, audit
+    return recommendation, dict(recommendation.audit)
+
+
+def recommendation_priority_key(item: BettingRecommendation) -> tuple[Any, ...]:
+    risk_order = {"正式": 0, "参考": 1, "高リスク": 2}
+    score = to_float(item.audit.get("reliability_score")) or 0.0
+    roi = item.expected_roi or 0.0
+    hit = item.hit_rate or 0.0
+    points = item.ticket_count or 999
+    return (
+        risk_order.get(item.risk_label, 3),
+        -score,
+        -item.sample_races,
+        -roi,
+        -hit,
+        points,
+    )
+
+
+def _mark_audit_adopted(strategy_id: str, reason: str) -> None:
+    for audit in LAST_MATCH_AUDIT:
+        if audit.get("strategy_id") == strategy_id:
+            audit["adopted"] = True
+            audit["adopted_reason"] = reason
+            audit["non_adoption_reason"] = ""
+
+
+def _mark_audit_not_adopted(strategy_id: str, reason: str) -> None:
+    for audit in LAST_MATCH_AUDIT:
+        if audit.get("strategy_id") == strategy_id and not audit.get("adopted"):
+            audit["non_adoption_reason"] = reason
+
+
+def _with_adopted_reason(item: BettingRecommendation, reason: str) -> BettingRecommendation:
+    audit = dict(item.audit)
+    audit["adopted"] = True
+    audit["adopted_reason"] = reason
+    return BettingRecommendation(
+        ticket_type=item.ticket_type,
+        label=item.label,
+        stars=item.stars,
+        expected_roi=item.expected_roi,
+        condition=item.condition,
+        reason=item.reason,
+        source=item.source,
+        risk_label=item.risk_label,
+        strategy_id=item.strategy_id,
+        hit_rate=item.hit_rate,
+        sample_races=item.sample_races,
+        ticket_count=item.ticket_count,
+        tickets=item.tickets,
+        ticket_numbers=item.ticket_numbers,
+        ticket_horses=item.ticket_horses,
+        matched_conditions=item.matched_conditions,
+        unmatched_conditions=item.unmatched_conditions,
+        adopted_reason=reason,
+        audit=audit,
+    )
 
 
 def is_displayable_payload_item(item: dict[str, Any]) -> bool:
@@ -189,27 +317,67 @@ def match_payload_item(current: pd.DataFrame, item: dict[str, Any]) -> BettingRe
     kind = str(item.get("recommendation_kind") or item.get("kind") or "")
     if kind == "ticket_strategy" or item.get("role_pattern"):
         return match_ticket_strategy_item(current, item)
-    if item.get("conditions"):
-        return match_purchase_condition_item(current, item)
     return None
 
 
-def match_ticket_strategy_item(current: pd.DataFrame, item: dict[str, Any]) -> BettingRecommendation | None:
+def match_ticket_strategy_item(
+    current: pd.DataFrame,
+    item: dict[str, Any],
+    *,
+    base_audit: dict[str, Any] | None = None,
+) -> BettingRecommendation | None:
     ticket_type = str(item.get("ticket_type") or "")
     pattern = item.get("role_pattern")
     if not ticket_type or not isinstance(pattern, dict):
         return None
     tickets = build_tickets_for_race(current, pattern, ticket_type)
+    matched_conditions, unmatched_conditions = ticket_condition_status(current, pattern, ticket_type, tickets)
+    audit = dict(base_audit or {})
+    audit.update(
+        {
+            "strategy_id": str(item.get("strategy_id") or item.get("label") or ""),
+            "recommendation_kind": "ticket_strategy",
+            "ticket_type": ticket_type,
+            "label": str(item.get("label") or ""),
+            "json_conditions": item.get("condition_labels") or pattern,
+            "matched_conditions": list(matched_conditions),
+            "unmatched_conditions": list(unmatched_conditions),
+            "generated_tickets": format_ticket_lines(tickets, ticket_type),
+            "purchase_points": len(tickets),
+            "target_horses": ticket_horse_labels(current, tickets),
+            "reliability_score": to_float(item.get("reliability_score")) or 0.0,
+            "matched": False,
+        }
+    )
     if not tickets:
+        audit["non_adoption_reason"] = "現在レースで買い目が作れない"
+        if base_audit is not None:
+            base_audit.update(audit)
+        return None
+    min_points, max_points = POINT_LIMITS.get(ticket_type, (1, 999))
+    if len(tickets) < min_points:
+        audit["unmatched_conditions"].append(f"購入点数が不足（{len(tickets)}点）")
+        audit["non_adoption_reason"] = "必要点数不足"
+        if base_audit is not None:
+            base_audit.update(audit)
+        return None
+    if len(tickets) > max_points:
+        audit["unmatched_conditions"].append(f"購入点数が多すぎます（{len(tickets)}点）")
+        audit["non_adoption_reason"] = "購入点数上限超過"
+        if base_audit is not None:
+            base_audit.update(audit)
         return None
     picks = format_tickets(tickets, ticket_type)
     roi = to_float(item.get("return_rate"))
     risk = str(item.get("risk_label") or "")
     condition = str(item.get("label") or "")
+    hit_rate = to_float(item.get("hit_rate"))
+    sample_races = int(to_float(item.get("purchase_races")) or 0)
     note = str(item.get("current_odds_note") or "保存HTMLのレース前オッズ基準。最終オッズで条件外となる可能性があります。")
+    audit["matched"] = True
     reason = (
-        f"{risk} / 過去実績 {int(to_float(item.get('purchase_races')) or 0)}R"
-        f" / 的中率 {to_float(item.get('hit_rate')) or 0:.1f}%"
+        f"{risk} / 過去実績 {sample_races}R"
+        f" / 的中率 {hit_rate or 0:.1f}%"
         f" / 買い目 {picks}"
         f" / {note}"
     )
@@ -222,6 +390,16 @@ def match_ticket_strategy_item(current: pd.DataFrame, item: dict[str, Any]) -> B
         reason=reason,
         source="analysis_json",
         risk_label=risk,
+        strategy_id=str(item.get("strategy_id") or item.get("label") or ""),
+        hit_rate=hit_rate,
+        sample_races=sample_races,
+        ticket_count=len(tickets),
+        tickets=tuple(format_ticket_lines(tickets, ticket_type)),
+        ticket_numbers=tuple(sorted(tickets, key=ticket_sort_key)),
+        ticket_horses=tuple(ticket_horse_labels(current, tickets)),
+        matched_conditions=tuple(matched_conditions),
+        unmatched_conditions=tuple(unmatched_conditions),
+        audit=audit,
     )
 
 
@@ -253,7 +431,105 @@ def match_purchase_condition_item(current: pd.DataFrame, item: dict[str, Any]) -
         ),
         source="analysis_json",
         risk_label=str(item.get("ranking_type") or ""),
+        strategy_id=str(item.get("strategy_id") or "purchase_condition"),
     )
+
+
+def ticket_condition_status(
+    current: pd.DataFrame,
+    pattern: dict[str, Any],
+    ticket_type: str,
+    tickets: set[tuple[str, ...]],
+) -> tuple[list[str], list[str]]:
+    matched: list[str] = []
+    unmatched: list[str] = []
+    kind = str(pattern.get("type", ""))
+
+    def role_line(role: str) -> None:
+        count = len(unique_nums(role_numbers(current, [role])))
+        label = role_label(role)
+        if count > 0:
+            matched.append(f"{label}が{count}頭")
+        else:
+            unmatched.append(f"{label}が不在")
+
+    if kind == "single":
+        for role in pattern.get("roles", []):
+            role_line(str(role))
+    elif kind == "pair":
+        for role in [*pattern.get("left_roles", []), *pattern.get("right_roles", [])]:
+            role_line(str(role))
+        if tickets:
+            matched.append(f"{ticket_type}の組み合わせが成立")
+        else:
+            unmatched.append(f"{ticket_type}の組み合わせが不成立")
+    elif kind == "exacta":
+        for role in [*pattern.get("first_roles", []), *pattern.get("second_roles", [])]:
+            role_line(str(role))
+        if tickets:
+            matched.append("馬単の順序付き組み合わせが成立")
+        else:
+            unmatched.append("馬単の組み合わせが不成立")
+    elif kind == "box":
+        roles = [str(role) for role in pattern.get("roles", [])]
+        nums = unique_nums(role_numbers(current, roles))
+        size = int(pattern.get("size", 3) or 3)
+        if len(nums) >= size:
+            matched.append(f"BOX対象が{len(nums)}頭")
+        else:
+            unmatched.append(f"BOX対象が{size}頭未満")
+        for role in roles:
+            role_line(role)
+    elif kind == "trifecta":
+        for role in [*pattern.get("first_roles", []), *pattern.get("second_roles", []), *pattern.get("third_roles", [])]:
+            role_line(str(role))
+        if tickets:
+            matched.append("三連単の順序付き組み合わせが成立")
+        else:
+            unmatched.append("三連単の組み合わせが不成立")
+    else:
+        unmatched.append("未対応の買い方条件")
+    return matched, unmatched
+
+
+def role_label(role: str) -> str:
+    if role.startswith("AI"):
+        rank = role.replace("AI", "")
+        return f"AI{rank}位"
+    return role
+
+
+def format_ticket_lines(tickets: set[tuple[str, ...]], ticket_type: str) -> list[str]:
+    sep = "→" if ticket_type in {"馬単", "三連単"} else "-"
+    return [sep.join(ticket) for ticket in sorted(tickets, key=ticket_sort_key)]
+
+
+def ticket_sort_key(ticket: tuple[str, ...]) -> tuple[int, ...]:
+    out: list[int] = []
+    for value in ticket:
+        try:
+            out.append(int(value))
+        except (TypeError, ValueError):
+            out.append(999)
+    return tuple(out)
+
+
+def ticket_horse_labels(current: pd.DataFrame, tickets: set[tuple[str, ...]]) -> list[str]:
+    numbers = unique_nums(no for ticket in tickets for no in ticket)
+    by_no = {str(row.get("horse_no_eval")): horse_label(row) for _, row in current.iterrows()}
+    return [by_no.get(no, no) for no in numbers]
+
+
+def adoption_map_from_recommendations(recommendations: list[BettingRecommendation]) -> dict[str, list[str]]:
+    mapping: dict[str, list[str]] = {}
+    for item in recommendations:
+        label = f"{item.ticket_type} {item.label}".strip()
+        for ticket in item.ticket_numbers:
+            for no in ticket:
+                mapping.setdefault(str(no), [])
+                if label not in mapping[str(no)]:
+                    mapping[str(no)].append(label)
+    return mapping
 
 
 def build_fixed_betting_recommendations(table: pd.DataFrame, *, max_items: int = 3) -> list[BettingRecommendation]:
@@ -297,7 +573,7 @@ def _build(rule: dict[str, Any], reason: str) -> BettingRecommendation:
 
 
 def format_tickets(tickets: set[tuple[str, ...]], ticket_type: str) -> str:
-    sample = sorted(tickets, key=lambda ticket: tuple(int(x) for x in ticket))[:5]
+    sample = sorted(tickets, key=ticket_sort_key)[:5]
     sep = "→" if ticket_type in {"馬単", "三連単"} else "-"
     labels = [sep.join(ticket) for ticket in sample]
     if len(tickets) > len(sample):

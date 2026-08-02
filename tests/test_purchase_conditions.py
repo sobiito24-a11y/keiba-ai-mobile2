@@ -152,6 +152,54 @@ class PurchaseConditionTest(unittest.TestCase):
 
         self.assertEqual(recommendations, [])
 
+    def test_purchase_condition_recommendations_are_limited_to_betting_adopted_horses(self) -> None:
+        payload = {
+            "recommendations": [
+                {
+                    "ticket_type": "単勝候補",
+                    "stars": "★★★★☆",
+                    "condition_score": 72.0,
+                    "ranking_type": "正式",
+                    "condition_labels": ["AI順位2位"],
+                    "conditions": [ConditionSpec("ai2", "AI順位2位", "ai_rank", "AI順位", "eq", 2).to_dict()],
+                    "target_horses": 35,
+                    "target_races": 25,
+                    "win_rate": 18.0,
+                    "place_rate": 36.0,
+                    "win_roi": 155.0,
+                    "place_roi": 112.0,
+                }
+            ]
+        }
+        table = pd.DataFrame(
+            [
+                {"馬番": 1, "馬名": "Axis", "AI順位": 1, "オッズ": 3.0},
+                {"馬番": 2, "馬名": "Value", "AI順位": 2, "オッズ": 9.5},
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "purchase_condition_ranked.json"
+            path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            no_adoption = build_purchase_condition_recommendations(
+                table,
+                json_path=path,
+                adopted_horse_numbers={"1"},
+                adoption_map={"1": ["ワイド SS-B"]},
+            )
+            adopted = build_purchase_condition_recommendations(
+                table,
+                json_path=path,
+                adopted_horse_numbers={"2"},
+                adoption_map={"2": ["単勝 AI2", "複勝 AI2"]},
+            )
+
+        self.assertEqual(no_adoption, [])
+        self.assertEqual(len(adopted), 1)
+        self.assertEqual(adopted[0].horse_no, "2")
+        self.assertEqual(adopted[0].recommended_ticket_types, ["単勝", "複勝"])
+        self.assertEqual(adopted[0].adopted_betting_labels, ["単勝 AI2", "複勝 AI2"])
+
 
 def make_records(races: int) -> pd.DataFrame:
     rows = []
