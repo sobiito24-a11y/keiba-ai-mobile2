@@ -10,6 +10,12 @@ from typing import Any, Iterable
 import pandas as pd
 
 from .betting_recommendation import BettingRecommendation, build_fixed_betting_recommendations
+from .final_betting_context import (
+    build_final_betting_context,
+    build_ticket_alignment,
+    context_summary_lines,
+    ticket_alignment_lines,
+)
 from .horse_trust import build_horse_trust_for_numbers, compact_trust_lines, trust_rows_to_audit_text
 from .purchase_conditions import ASSETS_ANALYSIS_DIR, clean_text, enrich_current_table, horse_no, to_float
 from .ticket_strategy_analysis import pair_key, unique_nums
@@ -57,6 +63,10 @@ class InvestmentDecision:
     horse_trust: tuple[dict[str, Any], ...] = ()
     horse_trust_summary: tuple[str, ...] = ()
     ticket_rationale: dict[str, Any] = field(default_factory=dict)
+    final_betting_context: tuple[dict[str, Any], ...] = ()
+    final_context_summary: tuple[str, ...] = ()
+    ticket_alignment: tuple[dict[str, Any], ...] = ()
+    ticket_alignment_summary: tuple[str, ...] = ()
 
 
 def build_investment_decision(
@@ -134,16 +144,39 @@ def build_investment_decision(
     selected_numbers = unique_nums(no for ticket in selected.ticket_numbers for no in ticket)
     horse_trust = build_horse_trust_for_numbers(current, race_type, selected_numbers)
     horse_trust_summary = compact_trust_lines(horse_trust)
+    final_context = build_final_betting_context(current, race_type, ticket_numbers=selected_numbers)
+    final_context_summary = context_summary_lines(final_context)
+    ticket_alignment = build_ticket_alignment(
+        final_context,
+        selected.ticket_numbers,
+        strategy_id=selected.strategy_id,
+        strategy_label=selected.label,
+    )
+    ticket_alignment_summary = ticket_alignment_lines(ticket_alignment)
     ticket_rationale = build_ticket_rationale(selected)
     selected_audit = {
         **selected.audit,
         "horse_trust": list(horse_trust),
         "horse_trust_summary": list(horse_trust_summary),
         "horse_trust_audit_text": trust_rows_to_audit_text(horse_trust),
+        "final_betting_context": list(final_context),
+        "final_context_summary": list(final_context_summary),
+        "ticket_alignment": list(ticket_alignment),
+        "ticket_alignment_summary": list(ticket_alignment_summary),
         "ticket_rationale": ticket_rationale,
     }
     selected = with_audit(selected, selected_audit)
-    audit_rows = attach_selected_trust_to_audit_rows(audit_rows, selected.strategy_id, horse_trust, horse_trust_summary, ticket_rationale)
+    audit_rows = attach_selected_context_to_audit_rows(
+        audit_rows,
+        selected.strategy_id,
+        horse_trust,
+        horse_trust_summary,
+        final_context,
+        final_context_summary,
+        ticket_alignment,
+        ticket_alignment_summary,
+        ticket_rationale,
+    )
 
     judgement = selected.audit.get("judgement") or JUDGEMENT_HOLD
     total_stake = selected.ticket_count * STAKE_PER_POINT
@@ -163,6 +196,10 @@ def build_investment_decision(
         horse_trust=horse_trust,
         horse_trust_summary=horse_trust_summary,
         ticket_rationale=ticket_rationale,
+        final_betting_context=final_context,
+        final_context_summary=final_context_summary,
+        ticket_alignment=ticket_alignment,
+        ticket_alignment_summary=ticket_alignment_summary,
     )
 
 
@@ -241,12 +278,25 @@ def build_missing_json_fallback(
     selected_numbers = unique_nums(no for ticket in selected.ticket_numbers for no in ticket)
     horse_trust = build_horse_trust_for_numbers(current, race_type, selected_numbers)
     horse_trust_summary = compact_trust_lines(horse_trust)
+    final_context = build_final_betting_context(current, race_type, ticket_numbers=selected_numbers)
+    final_context_summary = context_summary_lines(final_context)
+    ticket_alignment = build_ticket_alignment(
+        final_context,
+        selected.ticket_numbers,
+        strategy_id=selected.strategy_id,
+        strategy_label=selected.label,
+    )
+    ticket_alignment_summary = ticket_alignment_lines(ticket_alignment)
     ticket_rationale = build_ticket_rationale(selected)
     audit = {
         **audit,
         "horse_trust": list(horse_trust),
         "horse_trust_summary": list(horse_trust_summary),
         "horse_trust_audit_text": trust_rows_to_audit_text(horse_trust),
+        "final_betting_context": list(final_context),
+        "final_context_summary": list(final_context_summary),
+        "ticket_alignment": list(ticket_alignment),
+        "ticket_alignment_summary": list(ticket_alignment_summary),
         "ticket_rationale": ticket_rationale,
     }
     selected = with_audit(selected, audit)
@@ -263,6 +313,10 @@ def build_missing_json_fallback(
         horse_trust=horse_trust,
         horse_trust_summary=horse_trust_summary,
         ticket_rationale=ticket_rationale,
+        final_betting_context=final_context,
+        final_context_summary=final_context_summary,
+        ticket_alignment=ticket_alignment,
+        ticket_alignment_summary=ticket_alignment_summary,
     )
 
 
@@ -415,11 +469,15 @@ def build_ticket_rationale(item: BettingRecommendation) -> dict[str, Any]:
     }
 
 
-def attach_selected_trust_to_audit_rows(
+def attach_selected_context_to_audit_rows(
     audit_rows: list[dict[str, Any]],
     strategy_id: str,
     horse_trust: tuple[dict[str, Any], ...],
     horse_trust_summary: tuple[str, ...],
+    final_context: tuple[dict[str, Any], ...],
+    final_context_summary: tuple[str, ...],
+    ticket_alignment: tuple[dict[str, Any], ...],
+    ticket_alignment_summary: tuple[str, ...],
     ticket_rationale: dict[str, Any],
 ) -> tuple[dict[str, Any], ...]:
     updated: list[dict[str, Any]] = []
@@ -429,6 +487,10 @@ def attach_selected_trust_to_audit_rows(
             item["horse_trust"] = list(horse_trust)
             item["horse_trust_summary"] = list(horse_trust_summary)
             item["horse_trust_audit_text"] = trust_rows_to_audit_text(horse_trust)
+            item["final_betting_context"] = list(final_context)
+            item["final_context_summary"] = list(final_context_summary)
+            item["ticket_alignment"] = list(ticket_alignment)
+            item["ticket_alignment_summary"] = list(ticket_alignment_summary)
             item["ticket_rationale"] = ticket_rationale
         updated.append(item)
     return tuple(updated)

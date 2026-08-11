@@ -76,6 +76,10 @@ def sample_result(mode: str = "jra") -> PredictionResult:
                 "★条件": "今回と同条件",
                 "調教評価": "B",
                 "状態": "上昇",
+                "近3走傾向": "連続上昇",
+                "4角予想": "好位",
+                "直線評価": "勝ち負け",
+                "展開タイプ": "先行有利",
                 "補足": "初ブリンカー",
             },
             {
@@ -85,6 +89,10 @@ def sample_result(mode: str = "jra") -> PredictionResult:
                 "AI順位": 2,
                 "表示印": "○",
                 "display_group": "A",
+                "能力評価値": 72.0,
+                "近3走傾向": "下降",
+                "4角予想": "後方",
+                "直線評価": "評価保留",
             },
         ]
     )
@@ -127,6 +135,12 @@ class PredictionHistoryTest(unittest.TestCase):
         horse7 = next(item for item in snapshot["horses"] if str(item["horse_no"]) == "7")
         self.assertIn("指数", horse7["horse_trust_summary"])
         self.assertIn("調教", horse7["horse_trust_summary"])
+        self.assertEqual(horse7["gauge"], 85)
+        self.assertEqual(horse7["trend"], "連続上昇")
+        self.assertEqual(horse7["corner4_evaluation"], "好位")
+        self.assertEqual(horse7["straight_evaluation"], "勝ち負け")
+        self.assertTrue(snapshot["investment_decision"]["ticket_alignment"])
+        self.assertTrue(snapshot["investment_decision"]["ticket_alignment_summary"])
         self.assertEqual(len(rows), 2)
         self.assertEqual(list(result.overall_table.columns), before_columns)
         with zipfile.ZipFile(BytesIO(zipped)) as archive:

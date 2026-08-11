@@ -12,6 +12,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
+from .final_betting_context import build_final_betting_context
 from .horse_trust import build_horse_trust_materials, build_horse_trust_summary
 from .models import PredictionResult
 from .purchase_conditions import clean_text, horse_no, to_float
@@ -138,10 +139,13 @@ def summary_text(snapshot: Mapping[str, Any]) -> str:
                 _join_nonempty(investment.get("tickets", []), sep=" / ") or "買い目なし",
                 "",
                 "【今回の馬の根拠】",
-                _join_nonempty(investment.get("horse_trust_summary", []), sep="\n") or "記録なし",
+                _join_nonempty(investment.get("final_context_summary", []) or investment.get("horse_trust_summary", []), sep="\n") or "記録なし",
                 "",
                 "【馬券側の根拠】",
                 _ticket_rationale_text(investment),
+                "",
+                "【今回評価との一致】",
+                _join_nonempty(investment.get("ticket_alignment_summary", []), sep="\n") or "記録なし",
             ]
         )
     else:
@@ -230,12 +234,20 @@ def _race_info(result: PredictionResult) -> dict[str, Any]:
 
 def _horse_snapshots(result: PredictionResult, race_type: str) -> list[dict[str, Any]]:
     merged = _merged_horse_rows(result)
+    context_by_no = {
+        clean_text(item.get("horse_number")): item
+        for item in build_final_betting_context(pd.DataFrame(merged), race_type)
+    }
     rows: list[dict[str, Any]] = []
     for row in merged:
         trust = build_horse_trust_materials(row, race_type)
+        number = horse_no(_pick(row, "馬番", "horse_no", "horse_number", "馬"))
+        final_context = context_by_no.get(number, {})
+        momentum = final_context.get("momentum") if isinstance(final_context.get("momentum"), Mapping) else {}
+        race_shape = final_context.get("race_shape") if isinstance(final_context.get("race_shape"), Mapping) else {}
         rows.append(
             {
-                "horse_no": horse_no(_pick(row, "馬番", "horse_no", "horse_number", "馬")),
+                "horse_no": number,
                 "horse_name": _pick(row, "馬名", "horse_name", "name"),
                 "sex_age": _pick(row, "馬年齢", "性齢", "馬齢"),
                 "age": _age_number(_pick(row, "馬年齢", "性齢", "馬齢")),
@@ -281,6 +293,18 @@ def _horse_snapshots(result: PredictionResult, race_type: str) -> list[dict[str,
                 },
                 "horse_trust": trust,
                 "horse_trust_summary": build_horse_trust_summary(row, race_type),
+                "final_betting_context": final_context,
+                "gauge": momentum.get("gauge"),
+                "trend": momentum.get("trend"),
+                "trend_label": momentum.get("trend_label"),
+                "start_evaluation": race_shape.get("start_evaluation"),
+                "corner4_evaluation": race_shape.get("corner4_evaluation"),
+                "corner4_rank": race_shape.get("corner4_rank"),
+                "straight_evaluation": race_shape.get("straight_evaluation"),
+                "straight_rank": race_shape.get("straight_rank"),
+                "pace_fit": race_shape.get("pace_fit"),
+                "front_survival_flag": race_shape.get("front_survival_flag"),
+                "race_comment_role": race_shape.get("race_comment_role"),
             }
         )
     return rows
@@ -294,6 +318,10 @@ def _investment_snapshot(decision: Any) -> dict[str, Any]:
     audit = getattr(selected, "audit", {}) if selected is not None else {}
     horse_trust = getattr(decision, "horse_trust", ()) or audit.get("horse_trust", ())
     horse_trust_summary = list(getattr(decision, "horse_trust_summary", ()) or audit.get("horse_trust_summary", ()) or [])
+    final_context = list(getattr(decision, "final_betting_context", ()) or audit.get("final_betting_context", ()) or [])
+    final_context_summary = list(getattr(decision, "final_context_summary", ()) or audit.get("final_context_summary", ()) or [])
+    ticket_alignment = list(getattr(decision, "ticket_alignment", ()) or audit.get("ticket_alignment", ()) or [])
+    ticket_alignment_summary = list(getattr(decision, "ticket_alignment_summary", ()) or audit.get("ticket_alignment_summary", ()) or [])
     return {
         "decision": judgement,
         "decision_label": getattr(decision, "judgement", ""),
@@ -308,6 +336,10 @@ def _investment_snapshot(decision: Any) -> dict[str, Any]:
         "investment": getattr(decision, "total_stake", 0),
         "horse_trust": horse_trust,
         "horse_trust_summary": horse_trust_summary,
+        "final_betting_context": final_context,
+        "final_context_summary": final_context_summary,
+        "ticket_alignment": ticket_alignment,
+        "ticket_alignment_summary": ticket_alignment_summary,
         "ticket_rationale": audit.get("ticket_rationale", {}),
         "matched_conditions": list(getattr(selected, "matched_conditions", ()) if selected is not None else ()),
         "reason_lines": list(getattr(decision, "reason_lines", ()) or []),

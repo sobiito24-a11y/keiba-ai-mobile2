@@ -1456,10 +1456,12 @@ def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
     confidence = confidence_label(score if isinstance(score, (int, float)) else None)
     tickets = "<br>".join(plain_text_to_html(line) for line in selected.tickets) or "買い目なし"
     matched = "<br>".join(plain_text_to_html("✓ " + line) for line in selected.matched_conditions) or "✓ 条件成立"
+    context_lines = decision.final_context_summary or decision.horse_trust_summary
     horse_basis = "<br>".join(
-        plain_text_to_html("・" + line) for line in decision.horse_trust_summary
+        plain_text_to_html("・" + line) for line in context_lines
     ) or "・対象馬の根拠は未取得"
     ticket_basis = investment_ticket_basis_html(decision)
+    alignment_basis = investment_alignment_html(decision)
     caution = ""
     if decision.source_note:
         caution = f"<br>{plain_text_to_html(decision.source_note)}"
@@ -1469,8 +1471,9 @@ def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
         f'<div class="ka-dashboard-value">{plain_text_to_html(selected.ticket_type)} {plain_text_to_html(selected.label)}</div>'
         f'<div class="ka-note">実際の買い目<br>{tickets}<br><br>'
         f'{selected.ticket_count}点 / 合計{decision.total_stake}円（1点100円）<br><br>'
-        f'【今回の馬の根拠】<br>{horse_basis}<br><br>'
+        f'【今回の中心馬・相手馬】<br>{horse_basis}<br><br>'
         f'【馬券側の根拠】<br>{ticket_basis}<br><br>'
+        f'【今回評価との一致】<br>{alignment_basis}<br><br>'
         f'過去実績<br>対象{selected.sample_races}R / 的中率{(selected.hit_rate or 0):.1f}% / '
         f'回収率{(selected.expected_roi or 0):.1f}%<br>'
         f'信頼度：{plain_text_to_html(confidence)}<br><br>'
@@ -1481,6 +1484,15 @@ def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
     )
     render_investment_audit(decision)
     return decision
+
+
+def investment_alignment_html(decision: InvestmentDecision) -> str:
+    lines = decision.ticket_alignment_summary
+    if not lines and decision.selected is not None:
+        lines = tuple(decision.selected.audit.get("ticket_alignment_summary", ()) or ())
+    if not lines:
+        return "今回評価との照合データは未取得"
+    return "<br>".join(plain_text_to_html(line) for line in lines)
 
 
 def investment_ticket_basis_html(decision: InvestmentDecision) -> str:
@@ -1508,12 +1520,16 @@ def render_investment_target_horses(result: PredictionResult, decision: Investme
     if selected is None or not selected.ticket_horses:
         return
     st.subheader("今回の対象馬")
+    context_by_no = {
+        clean_text(item.get("horse_number")): clean_text(item.get("display_summary"))
+        for item in decision.final_betting_context
+    }
     trust_by_no = {clean_text(item.get("horse_no")): clean_text(item.get("summary")) for item in decision.horse_trust}
     horse_lines_list = []
     for label in selected.ticket_horses:
         no_match = re.search(r"(?<!\d)(\d{1,2})(?!\d)", clean_text(label))
         no = no_match.group(1) if no_match else ""
-        trust = trust_by_no.get(no, "")
+        trust = context_by_no.get(no, "") or trust_by_no.get(no, "")
         horse_lines_list.append(f"{label}\n{trust}" if trust else label)
     horse_lines = "<br><br>".join(plain_text_to_html(line) for line in horse_lines_list)
     matched = "<br>".join(plain_text_to_html("・" + line) for line in selected.matched_conditions) or "・条件成立"
