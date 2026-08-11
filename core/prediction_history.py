@@ -26,12 +26,25 @@ HISTORY_ROOT = Path("prediction_history")
 
 def build_prediction_snapshot(result: PredictionResult, investment_decision: Any = None) -> dict[str, Any]:
     race_type = "nar" if clean_text(result.race_mode).lower() == "nar" else "jra"
+    logic_version = clean_text(getattr(result, "logic_version", "v3")) or "v3"
+    if investment_decision is None and logic_version == "v4":
+        from .investment_decision import build_investment_decision
+
+        table = result.overall_table
+        if table is None or not isinstance(table, pd.DataFrame) or table.empty:
+            table = result.horse_evaluation
+        investment_decision = build_investment_decision(
+            table,
+            race_type,
+            race_info=result.race_info,
+            prediction_logic_version="v4",
+        )
     race_info = _race_info(result)
     horses = _horse_snapshots(result, race_type, race_info)
     investment = _investment_snapshot(investment_decision)
-    return _json_ready(
-        {
+    payload = {
             "schema_version": 1,
+            "logic_version": logic_version,
             "race_info": race_info,
             "horses": horses,
             "prediction": {
@@ -50,13 +63,16 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
                 "app_version": result.version or APP_VERSION,
                 "commit_hash": "",
                 "race_mode": race_type,
+                "logic_version": logic_version,
                 "source_files": result.source_files,
                 "status": result.status,
                 "message": result.message,
             },
             "result_file": result_stub_schema(race_info),
         }
-    )
+    if logic_version == "v4":
+        payload["ver4_summary"] = getattr(result, "ver4_summary", {}) or {}
+    return _json_ready(payload)
 
 
 def result_stub_schema(race_info: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -106,6 +122,7 @@ def prediction_csv_rows(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
             {
                 "race_id": race_info.get("race_id", ""),
                 "race_type": race_info.get("race_type", ""),
+                "logic_version": snapshot.get("logic_version", "v3"),
                 "date": race_info.get("date", ""),
                 "venue": race_info.get("venue", ""),
                 "race_number": race_info.get("race_number", ""),
@@ -127,6 +144,8 @@ def summary_text(snapshot: Mapping[str, Any]) -> str:
     race_info = snapshot.get("race_info") if isinstance(snapshot.get("race_info"), Mapping) else {}
     investment = snapshot.get("investment_decision") if isinstance(snapshot.get("investment_decision"), Mapping) else {}
     horses = [horse for horse in snapshot.get("horses", []) or [] if isinstance(horse, Mapping)]
+    if clean_text(snapshot.get("logic_version")).lower() == "v4":
+        return _ver4_summary_text(race_info, investment, horses)
     lines = [
         _join_nonempty([race_info.get("venue"), race_info.get("race_number"), race_info.get("race_name")], sep=" "),
         "",
@@ -165,6 +184,47 @@ def summary_text(snapshot: Mapping[str, Any]) -> str:
                     horse.get("horse_name"),
                     f"AI点{prediction.get('ai_score')}" if prediction.get("ai_score") not in (None, "") else "",
                     f"能力{prediction.get('ability_value')}" if prediction.get("ability_value") not in (None, "") else "",
+                ],
+                sep=" ",
+            )
+        )
+    return "\n".join(line for line in lines if line is not None)
+
+
+def _ver4_summary_text(
+    race_info: Mapping[str, Any],
+    investment: Mapping[str, Any],
+    horses: list[Mapping[str, Any]],
+) -> str:
+    lines = [
+        _join_nonempty([race_info.get("venue"), race_info.get("race_number"), race_info.get("race_name")], sep=" "),
+        "",
+        f"Ver4判断：{investment.get('decision_v4') or 'SKIP'}",
+        f"互換判定：{investment.get('legacy_decision') or investment.get('decision') or 'SKIP'}",
+        f"軸Score：{investment.get('axis_score', '')}",
+        f"軸信頼度：{investment.get('axis_confidence_v4', '') or 'なし'}",
+        f"買い候補Score：{investment.get('ticket_candidate_score', '')}",
+    ]
+    if investment.get("ticket_veto_reason"):
+        lines.append(f"VETO：{investment.get('ticket_veto_reason')}")
+    lines.extend(["", "今回の買い目"])
+    lines.append(_join_nonempty(investment.get("tickets", []), sep=" / ") or "買い目なし")
+    lines.extend(["", "【Horse Score上位】"])
+    ranked = sorted(
+        horses,
+        key=lambda item: to_float((_mapping(item.get("ver4"))).get("race_rank_v4")) or 999,
+    )
+    for horse in ranked[:5]:
+        ver4 = _mapping(horse.get("ver4"))
+        lines.append(
+            _join_nonempty(
+                [
+                    ver4.get("mark_v4"),
+                    horse.get("horse_no"),
+                    horse.get("horse_name"),
+                    f"Score {ver4.get('horse_score_v4')}" if ver4.get("horse_score_v4") not in (None, "") else "",
+                    f"Rank {ver4.get('race_rank_v4')}" if ver4.get("race_rank_v4") not in (None, "") else "",
+                    ver4.get("group_v4"),
                 ],
                 sep=" ",
             )
@@ -274,6 +334,35 @@ def _horse_snapshots(
                     "mark": _pick(row, "表示印", "display_mark", "最終印", "印", "mark"),
                     "display_group": _pick(row, "グループ", "display_group"),
                     "original_mark": _pick(row, "original_mark", "old_final_mark", "元印"),
+                    "horse_score_v4": _pick(row, "horse_score_v4"),
+                    "race_rank_v4": _pick(row, "race_rank_v4"),
+                    "group_v4": _pick(row, "group_v4"),
+                    "mark_v4": _pick(row, "mark_v4"),
+                },
+                "ver4": {
+                    "horse_score_v4": _pick(row, "horse_score_v4"),
+                    "race_rank_v4": _pick(row, "race_rank_v4"),
+                    "base_ability_score": _pick(row, "base_ability_score"),
+                    "condition_score": _pick(row, "condition_score"),
+                    "jockey_score": _pick(row, "jockey_score"),
+                    "age_weight_score": _pick(row, "age_weight_score"),
+                    "training_score": _pick(row, "training_score"),
+                    "momentum_score_v4": _pick(row, "momentum_score_v4"),
+                    "race_shape_score": _pick(row, "race_shape_score"),
+                    "condition_fit_mark": _pick(row, "condition_fit_mark"),
+                    "condition_fit_level": _pick(row, "condition_fit_level"),
+                    "condition_matched_quality": _pick(row, "condition_matched_quality"),
+                    "group_v4": _pick(row, "group_v4"),
+                    "mark_v4": _pick(row, "mark_v4"),
+                    "warning_reason": _pick(row, "warning_reason"),
+                    "positive_reasons": _pick(row, "positive_reasons_v4"),
+                    "negative_reasons": _pick(row, "negative_reasons_v4"),
+                    "watch_reason": _pick(row, "watch_reason_v4"),
+                    "axis_score": _pick(row, "axis_score"),
+                    "axis_confidence": _pick(row, "axis_confidence_v4"),
+                    "ticket_candidate_score": _pick(row, "ticket_candidate_score"),
+                    "opponent_eligible": _pick(row, "opponent_eligible_v4"),
+                    "opponent_veto_reason": _pick(row, "opponent_veto_reason_v4"),
                 },
                 "indices": {
                     "distance_index": _pick(row, "距離指数", "distance_index"),
@@ -320,6 +409,13 @@ def _horse_snapshots(
                 "race_comment_role": race_shape.get("race_comment_role"),
             }
         )
+    if clean_text(getattr(result, "logic_version", "v3")).lower() != "v4":
+        for snapshot in rows:
+            snapshot.pop("ver4", None)
+            prediction = snapshot.get("prediction")
+            if isinstance(prediction, dict):
+                for key in ("horse_score_v4", "race_rank_v4", "group_v4", "mark_v4"):
+                    prediction.pop(key, None)
     return rows
 
 
@@ -335,7 +431,7 @@ def _investment_snapshot(decision: Any) -> dict[str, Any]:
     final_context_summary = list(getattr(decision, "final_context_summary", ()) or audit.get("final_context_summary", ()) or [])
     ticket_alignment = list(getattr(decision, "ticket_alignment", ()) or audit.get("ticket_alignment", ()) or [])
     ticket_alignment_summary = list(getattr(decision, "ticket_alignment_summary", ()) or audit.get("ticket_alignment_summary", ()) or [])
-    return {
+    payload = {
         "decision": judgement,
         "decision_label": getattr(decision, "judgement", ""),
         "selected_strategy": getattr(selected, "label", "") if selected is not None else "",
@@ -362,6 +458,20 @@ def _investment_snapshot(decision: Any) -> dict[str, Any]:
         "avoid_conditions": audit.get("avoid_matched", []),
         "audit_rows": list(getattr(decision, "audit_rows", ()) or []),
     }
+    logic_version = clean_text(getattr(decision, "logic_version", "v3")) or "v3"
+    if logic_version == "v4":
+        payload.update(
+            {
+                "logic_version": logic_version,
+                "decision_v4": clean_text(getattr(decision, "decision_v4", "")),
+                "legacy_decision": judgement,
+                "axis_score": getattr(decision, "axis_score", 0.0),
+                "axis_confidence_v4": getattr(decision, "axis_confidence_v4", ""),
+                "ticket_candidate_score": getattr(decision, "ticket_candidate_score", 0.0),
+                "ticket_veto_reason": getattr(decision, "ticket_veto_reason", ""),
+            }
+        )
+    return payload
 
 
 def _merged_horse_rows(result: PredictionResult) -> list[dict[str, Any]]:
@@ -423,6 +533,10 @@ def _pick(row: Mapping[str, Any], *names: str) -> Any:
         if not _missing(value):
             return value
     return ""
+
+
+def _mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
 
 
 def _missing(value: Any) -> bool:

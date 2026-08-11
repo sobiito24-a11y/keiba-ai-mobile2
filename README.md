@@ -19,6 +19,25 @@ iPhone Safari から地方競馬・中央競馬の予想結果を確認し、ス
 - PNG保存
 - 次レース用リセット
 
+## 予想ロジック Ver4 / Ver3
+
+画面上部の「予想ロジック」で、絶対評価のVer4と従来のVer3を切り替えられます。
+
+- Ver4: 結果・払戻・レース内min/maxを使わない0〜100の `horse_score_v4` と、レース内順位の `race_rank_v4` を別々に生成
+- Ver3: 従来Notebook移植ロジックをそのまま実行
+- Ver4は元のVer3列を上書きせず、`*_v4` 列と監査情報をPredictionResultのコピーへ追加
+- Ver4の買い判断は `BUY / LIGHT / WATCH / SKIP`、旧画面向けには `BUY / HOLD / SKIP` へ互換変換
+
+保存済みPrediction Historyの回帰確認は次のツールで行えます。実着順JSONはVer4計算後にだけ結合されます。
+
+```bash
+python tools/analyze_ver4_regression.py prediction1.zip prediction2.zip \
+  --results-json work/results.json \
+  --output work/ver4_analysis
+```
+
+`work/` はGit管理外です。比較CSV、コンポーネントCSV、判断サマリー、監査Markdownが生成されます。
+
 ## フォルダ構成
 
 ```text

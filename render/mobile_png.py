@@ -200,9 +200,9 @@ class _Canvas:
         if not rows:
             return
         first = rows[0]
-        gap = _clean(_pick(first, "能力差", "ability_gap_level"))
-        difficulty = _clean(_pick(first, "レース難易度", "race_difficulty"))
-        reason = _clean(_pick(first, "レース難易度理由", "race_difficulty_reason"))
+        gap = _clean(_pick(first, "race_competitiveness_v4", "能力差", "ability_gap_level"))
+        difficulty = _clean(_pick(first, "axis_confidence_v4", "レース難易度", "race_difficulty"))
+        reason = _clean(_pick(first, "warning_reason", "レース難易度理由", "race_difficulty_reason"))
         if not gap and not difficulty:
             return
         self.section("レース難易度")
@@ -227,8 +227,8 @@ class _Canvas:
             name = _pick(row, "馬名")
             odds = _format_odds(_pick(row, "単勝オッズ", "オッズ", "単勝"))
             style = _display_running_style(row)
-            total = _format_number(_pick(row, "総合評価", "総合評価点", "補正AI点"))
-            ability_value = _format_number(_pick(row, "能力評価値", "ability_display_score", "raw_score"))
+            total = _format_number(_pick(row, "horse_score_v4", "総合評価", "総合評価点", "補正AI点"))
+            ability_value = _format_number(_pick(row, "horse_score_v4", "能力評価値", "ability_display_score", "raw_score"))
             ability_band = _clean(_pick(row, "能力帯", "ability_band"))
             training_grade = _clean(_pick(row, "調教評価", "追切評価")) if result.race_mode == "jra" else ""
             class_shift = _pick(row, "クラス変動") or "-"
@@ -315,7 +315,7 @@ class _Canvas:
             weight_detail = _pick(row, "斤量詳細")
             jockey_detail = _pick(row, "騎手詳細") or jockey
             odds = _format_odds(_pick(row, "単勝オッズ", "オッズ", "単勝"))
-            ability_value = _format_number(_pick(row, "能力評価値", "ability_display_score", "raw_score"))
+            ability_value = _format_number(_pick(row, "horse_score_v4", "能力評価値", "ability_display_score", "raw_score"))
             state = _clean(_pick(row, "状態", "form_state", "近3走傾向", "recent3_trend")) or "判定なし"
             star = _format_number(_pick(row, "★最高指数", "star_max_index"))
             distance = _format_number(_pick(row, "距離指数"))
@@ -789,6 +789,8 @@ def _conclusion_rows(result: PredictionResult) -> list[dict[str, Any]]:
 
 
 def _display_mark(row: dict[str, Any]) -> str:
+    if "mark_v4" in row:
+        return _clean(row.get("mark_v4"))
     if "表示印" in row:
         return _clean(row.get("表示印"))
     if "display_mark" in row:
@@ -797,7 +799,7 @@ def _display_mark(row: dict[str, Any]) -> str:
 
 
 def _display_group(row: dict[str, Any]) -> str:
-    group = _clean(_pick(row, "グループ", "display_group"))
+    group = _clean(_pick(row, "group_v4", "グループ", "display_group"))
     if group in {"SS", "A", "B", "C", "Z"}:
         return group
     mark = _display_mark(row)

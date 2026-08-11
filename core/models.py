@@ -51,3 +51,5 @@ class PredictionResult:
     message: str = ""
     raw_output: str = ""
     debug_info: dict[str, Any] = field(default_factory=dict)
+    logic_version: str = "v3"
+    ver4_summary: dict[str, Any] = field(default_factory=dict)

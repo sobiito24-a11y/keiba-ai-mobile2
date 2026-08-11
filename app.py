@@ -57,6 +57,7 @@ from core.recent_races import (
 )
 from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION
+from core.ver4_engine import prediction_logic_version as normalize_prediction_logic_version
 from render.mobile_png import MobilePngRenderError, render_mobile_png
 
 
@@ -317,6 +318,19 @@ def main() -> None:
     )
     mode: RaceMode = "nar" if mode_label == "地方" else "jra"
 
+    logic_label = st.radio(
+        "予想ロジック",
+        options=["Ver4（絶対評価）", "Ver3（従来）"],
+        index=0,
+        horizontal=True,
+        key="prediction_logic_label",
+        help="Ver4と従来のVer3は別レイヤーです。Ver3の計算結果は変更しません。",
+    )
+    selected_logic_version = "v4" if logic_label.startswith("Ver4") else "v3"
+    if st.session_state.prediction_logic_version != selected_logic_version:
+        clear_prediction_state(keep_input=True)
+    st.session_state.prediction_logic_version = selected_logic_version
+
     if mode == "nar":
         render_nar_json_flow()
     else:
@@ -334,6 +348,7 @@ def _init_state() -> None:
     st.session_state.setdefault("fetch_failures", [])
     st.session_state.setdefault("fetch_race_id", "")
     st.session_state.setdefault("input_signature", "")
+    st.session_state.setdefault("prediction_logic_version", "v4")
 
 
 def render_nar_json_flow() -> None:
@@ -1046,12 +1061,15 @@ def run_prediction(
     mode: RaceMode,
     html_files: dict[str, str],
     file_names: dict[str, str],
+    prediction_logic_version: str | None = None,
 ) -> PredictionResult:
+    version = prediction_logic_version
+    if version is None:
+        version = st.session_state.get("prediction_logic_version", "v4")
+    version = normalize_prediction_logic_version(version)
     if mode == "nar":
-        return predict_nar(html_files, file_names)
-    return predict_jra(html_files, file_names)
-
-
+        return predict_nar(html_files, file_names, prediction_logic_version=version)
+    return predict_jra(html_files, file_names, prediction_logic_version=version)
 def validate_result(result: PredictionResult) -> None:
     if result.status != "ok":
         raise RuntimeError(result.message or "PredictionResultが正常状態ではありません。")
@@ -1213,6 +1231,29 @@ AUDIT_EVALUATION_COLUMNS = [
     "check_summary",
     "補足",
     "supplement_note",
+    "horse_score_v4",
+    "race_rank_v4",
+    "base_ability_score",
+    "condition_score",
+    "jockey_score",
+    "age_weight_score",
+    "training_score",
+    "momentum_score_v4",
+    "race_shape_score",
+    "condition_fit_mark",
+    "condition_fit_level",
+    "condition_matched_quality",
+    "group_v4",
+    "mark_v4",
+    "warning_reason",
+    "positive_reasons_v4",
+    "negative_reasons_v4",
+    "watch_reason_v4",
+    "axis_score",
+    "axis_confidence_v4",
+    "ticket_candidate_score",
+    "opponent_eligible_v4",
+    "opponent_veto_reason_v4",
 ]
 
 
@@ -1251,6 +1292,7 @@ def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
                 "mode": result.race_mode,
                 "race_name": result.race_name,
                 "status": result.status,
+                "logic_version": getattr(result, "logic_version", "v3"),
             }
         )
 
@@ -1396,6 +1438,21 @@ def render_race_summary(result: PredictionResult) -> None:
     if not rows:
         return
     first = rows[0]
+    if getattr(result, "logic_version", "v3") == "v4":
+        summary = dict(getattr(result, "ver4_summary", {}) or {})
+        st.markdown(
+            '<div class="ka-dashboard-card">'
+            '<div class="ka-dashboard-title">レースサマリー Ver4</div>'
+            f'<div><span class="ka-chip">{plain_text_to_html("軸信頼度：" + clean_text(summary.get("axis_confidence") or "なし"))}</span>'
+            f'<span class="ka-chip">{plain_text_to_html("上位差：" + format_number(summary.get("top_score_gap")))}</span>'
+            f'<span class="ka-chip">{plain_text_to_html(clean_text(summary.get("race_competitiveness")) or "未判定")}</span></div>'
+            f'<div class="ka-note">判断：{plain_text_to_html(clean_text(summary.get("decision_v4")) or "SKIP")} / '
+            f'軸馬：{plain_text_to_html(clean_text(summary.get("axis_horse_no")) or "—")} / '
+            f'軸Score：{plain_text_to_html(format_number(summary.get("axis_score")) or "—")}</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
     difficulty = clean_text(pick(first, "レース難易度", "race_difficulty")) or "-"
     difficulty_reason = clean_text(pick(first, "レース難易度理由", "race_difficulty_reason")) or "-"
     gap = clean_text(pick(first, "能力差", "ability_gap_level")) or "-"
@@ -1422,8 +1479,17 @@ def result_prediction_table(result: PredictionResult) -> pd.DataFrame | None:
 
 def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
     table = result_prediction_table(result)
-    decision = build_investment_decision(table, result.race_mode, race_info=result.race_info)
+    decision = build_investment_decision(
+        table,
+        result.race_mode,
+        race_info=result.race_info,
+        prediction_logic_version=getattr(result, "logic_version", "v3"),
+    )
     st.subheader("今回買うべき馬券")
+
+    if getattr(result, "logic_version", "v3") == "v4":
+        render_ver4_investment_decision(decision)
+        return decision
 
     source_race_count = decision.source_race_count
     race_label = "地方" if decision.race_type == "nar" else "中央"
@@ -1488,6 +1554,40 @@ def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
     )
     render_investment_audit(decision)
     return decision
+
+
+def render_ver4_investment_decision(decision: InvestmentDecision) -> None:
+    decision_v4 = clean_text(getattr(decision, "decision_v4", "")) or "SKIP"
+    label = {"BUY": "買い", "LIGHT": "軽め", "WATCH": "様子見", "SKIP": "見送り"}.get(decision_v4, decision_v4)
+    chip_class = {"BUY": "ss", "LIGHT": "a", "WATCH": "b", "SKIP": "z"}.get(decision_v4, "z")
+    selected = decision.selected
+    if selected is None:
+        reasons = "<br>".join(plain_text_to_html("・" + line) for line in decision.reason_lines) or "・買い条件不成立"
+        st.markdown(
+            '<div class="ka-dashboard-card">'
+            f'<div><span class="ka-chip {chip_class}">Ver4判断：{plain_text_to_html(label)}</span></div>'
+            f'<div class="ka-dashboard-value">軸信頼度：{plain_text_to_html(clean_text(decision.axis_confidence_v4) or "なし")}</div>'
+            f'<div class="ka-note">軸Score：{plain_text_to_html(format_number(decision.axis_score) or "—")}<br>'
+            f'買い候補Score：{plain_text_to_html(format_number(decision.ticket_candidate_score) or "—")}<br><br>'
+            f'{reasons}</div></div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    tickets = "<br>".join(plain_text_to_html(ticket) for ticket in selected.tickets)
+    st.markdown(
+        '<div class="ka-dashboard-card">'
+        f'<div><span class="ka-chip {chip_class}">Ver4判断：{plain_text_to_html(label)}</span></div>'
+        f'<div class="ka-dashboard-value">{plain_text_to_html(selected.ticket_type)}　{plain_text_to_html(selected.label)}</div>'
+        f'<div class="ka-note">実際の買い目<br>{tickets}<br><br>'
+        f'{selected.ticket_count}点 / 合計{decision.total_stake}円（1点100円）<br><br>'
+        f'軸Score：{plain_text_to_html(format_number(decision.axis_score) or "—")}<br>'
+        f'軸信頼度：{plain_text_to_html(clean_text(decision.axis_confidence_v4) or "—")}<br>'
+        f'買い候補Score：{plain_text_to_html(format_number(decision.ticket_candidate_score) or "—")}<br><br>'
+        'Horse Scoreと適性で軸・相手を決め、相手VETO通過後に低点数で構成しています。'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
 
 
 def investment_alignment_html(decision: InvestmentDecision) -> str:
@@ -1738,7 +1838,7 @@ def merged_card_source(row: dict[str, Any], index_row: dict[str, Any]) -> dict[s
 
 
 def ability_value_for_card(row: dict[str, Any], index_row: dict[str, Any]) -> Any:
-    return card_pick(row, index_row, "能力評価値", "ability_display_score", "raw_score", "_raw_score")
+    return card_pick(row, index_row, "horse_score_v4", "能力評価値", "ability_display_score", "raw_score", "_raw_score")
 
 
 def clamp_ability_display_value(value: Any) -> int | None:
@@ -1932,6 +2032,10 @@ def horse_summary_card_html(
         f"条件実績：{condition_badge}" if condition_badge else "",
         f"状態：{state}",
     ]
+    horse_score_v4 = card_pick(row, index_row, "horse_score_v4")
+    race_rank_v4 = card_pick(row, index_row, "race_rank_v4")
+    if not is_missing_value(horse_score_v4):
+        quick_items.insert(0, f"Horse Score：{format_number(horse_score_v4)}（Race Rank {format_number(race_rank_v4)}）")
     if recent_summary:
         quick_items.append(f"近3走\n{recent_summary}")
     if corner4:
@@ -1973,6 +2077,19 @@ def horse_summary_card_html(
         f"コメント：{short_comment_from_row(row)}",
         f"穴候補：{'該当' if truthy_display(pick(row, '穴候補', 'hole_candidate')) else '—'}　注意馬：{'該当' if truthy_display(pick(row, '注意馬', 'watch_horse')) else '—'}",
     ]
+    if not is_missing_value(horse_score_v4):
+        positive_reasons = card_pick(row, index_row, "positive_reasons_v4")
+        negative_reasons = card_pick(row, index_row, "negative_reasons_v4")
+        detail_lines.extend(
+            [
+                "",
+                f"Horse Score Ver4：{format_number(horse_score_v4)}",
+                f"Race Rank Ver4：{format_number(race_rank_v4)}",
+                f"評価理由：{reason_list_text(positive_reasons) or '—'}",
+                f"注意理由：{reason_list_text(negative_reasons) or '—'}",
+                f"✓理由：{clean_text(card_pick(row, index_row, 'watch_reason_v4')) or '—'}",
+            ]
+        )
     if race_mode == "jra":
         detail_lines.extend(
             [
@@ -2014,7 +2131,7 @@ def sorted_display_rows(result: PredictionResult) -> list[dict[str, Any]]:
     def sort_key(row: dict[str, Any]) -> tuple[int, int, float, int, str]:
         group = display_group_from_row(row)
         mark = display_mark_from_row(row)
-        score = to_float(pick(row, "総合評価監査点", "final_mark_score", "総合評価点", "_最終印点", "AI点", "normalized_ai_score"))
+        score = to_float(pick(row, "horse_score_v4", "総合評価監査点", "final_mark_score", "総合評価点", "_最終印点", "AI点", "normalized_ai_score"))
         horse_no = to_float(pick(row, "馬番", "馬"))
         return (
             group_order.get(group, 9),
@@ -2107,7 +2224,7 @@ def truthy_display(value: Any) -> bool:
 
 
 def display_group_from_row(row: dict[str, Any]) -> str:
-    group = clean_text(pick(row, "グループ", "display_group"))
+    group = clean_text(pick(row, "group_v4", "グループ", "display_group"))
     if group in {"SS", "A", "B", "C", "Z"}:
         return group
     return display_group_from_mark(display_mark_from_row(row))
@@ -2590,11 +2707,19 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
 
 
 def display_mark_from_row(row: dict[str, Any]) -> str:
+    if "mark_v4" in row and not is_missing_value(row.get("mark_v4")):
+        return clean_text(row.get("mark_v4"))
     if "表示印" in row:
         return clean_text(row.get("表示印"))
     if "display_mark" in row:
         return clean_text(row.get("display_mark"))
     return clean_text(pick(row, "印", "最終印"))
+
+
+def reason_list_text(value: Any) -> str:
+    if isinstance(value, (list, tuple)):
+        return " / ".join(clean_text(item) for item in value if clean_text(item))
+    return clean_text(value)
 
 
 def display_running_style_from_row(row: dict[str, Any]) -> str:

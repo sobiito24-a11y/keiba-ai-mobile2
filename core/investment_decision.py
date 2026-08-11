@@ -67,6 +67,12 @@ class InvestmentDecision:
     final_context_summary: tuple[str, ...] = ()
     ticket_alignment: tuple[dict[str, Any], ...] = ()
     ticket_alignment_summary: tuple[str, ...] = ()
+    logic_version: str = "v3"
+    decision_v4: str = ""
+    axis_score: float = 0.0
+    axis_confidence_v4: str = ""
+    ticket_candidate_score: float = 0.0
+    ticket_veto_reason: str = ""
 
 
 def build_investment_decision(
@@ -75,6 +81,7 @@ def build_investment_decision(
     *,
     json_paths: list[Path] | None = None,
     race_info: Mapping[str, Any] | None = None,
+    prediction_logic_version: str = "v3",
 ) -> InvestmentDecision:
     """Select exactly one betting strategy for display.
 
@@ -84,6 +91,13 @@ def build_investment_decision(
     """
 
     race_type = "nar" if str(race_mode).lower() == "nar" else "jra"
+    if str(prediction_logic_version).lower() == "v4":
+        from .ver4_engine import build_ver4_investment_decision, evaluate_ver4_table
+
+        current = table
+        if isinstance(table, pd.DataFrame) and "horse_score_v4" not in table.columns:
+            current = evaluate_ver4_table(table, race_type, race_info)
+        return build_ver4_investment_decision(current, race_type)
     if table is None or not isinstance(table, pd.DataFrame) or table.empty:
         return InvestmentDecision(
             race_type=race_type,
