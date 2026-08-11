@@ -5,6 +5,7 @@ from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
+from .condition_fit import evaluate_condition_fit
 from .horse_trust import build_horse_trust_materials, rows_by_horse_number
 from .purchase_conditions import clean_text, horse_no, to_float
 from .ticket_strategy_analysis import unique_nums
@@ -31,6 +32,7 @@ def build_final_betting_context(
     race_type: str = "jra",
     *,
     ticket_numbers: Iterable[Any] | None = None,
+    race_info: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], ...]:
     """Collect current-race judgement materials without changing predictions.
 
@@ -48,7 +50,7 @@ def build_final_betting_context(
         if wanted and number not in wanted:
             continue
         row = by_no[number]
-        contexts.append(_context_for_row(row, race_type))
+        contexts.append(_context_for_row(row, race_type, race_info))
     return tuple(contexts)
 
 
@@ -131,7 +133,11 @@ def ticket_alignment_lines(rows: Iterable[Mapping[str, Any]]) -> tuple[str, ...]
     return tuple(out)
 
 
-def _context_for_row(row: Mapping[str, Any], race_type: str) -> dict[str, Any]:
+def _context_for_row(
+    row: Mapping[str, Any],
+    race_type: str,
+    race_info: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     number = horse_no(_pick(row, "horse_no_eval", "馬番", "horse_no", "horse_number", "馬"))
     ability = _number(row, "能力評価値", "ability_display_score", "raw_score", "_raw_score")
     gauge = _gauge_from_existing_ability(ability)
@@ -143,6 +149,7 @@ def _context_for_row(row: Mapping[str, Any], race_type: str) -> dict[str, Any]:
     running_style = _pick(row, "脚質", "running_style", "style")
     start_group = _start_group_from_style(running_style)
     trust_materials = build_horse_trust_materials(row, race_type)
+    condition_fit = evaluate_condition_fit(row, race_info)
     return {
         "horse_number": number,
         "horse_name": _pick(row, "horse_name_eval", "馬名", "horse_name", "name"),
@@ -164,6 +171,13 @@ def _context_for_row(row: Mapping[str, Any], race_type: str) -> dict[str, Any]:
             if item.get("key")
         },
         "trust_summary": " / ".join(item["display"] for item in trust_materials[:5] if clean_text(item.get("display"))),
+        "condition_fit": {
+            "mark": condition_fit.get("condition_fit_mark"),
+            "level": condition_fit.get("condition_fit_level"),
+            "label": condition_fit.get("condition_fit_label"),
+            "reason": condition_fit.get("condition_fit_reason"),
+            "matched_past_runs": condition_fit.get("matched_past_runs", []),
+        },
         "momentum": {
             "gauge": gauge,
             "gauge_source": "能力評価値" if ability is not None else None,
@@ -190,7 +204,7 @@ def _context_for_row(row: Mapping[str, Any], race_type: str) -> dict[str, Any]:
             "robustness": None,
             "historical_samples": None,
         },
-        "display_summary": _display_summary(number, row, trust_materials, gauge, trend_label, corner, straight),
+        "display_summary": _display_summary(number, row, trust_materials, gauge, trend_label, corner, straight, condition_fit),
     }
 
 
@@ -244,6 +258,7 @@ def _summary_lines_for_context(context: Mapping[str, Any]) -> list[str]:
     base = context.get("base") if isinstance(context.get("base"), Mapping) else {}
     momentum = context.get("momentum") if isinstance(context.get("momentum"), Mapping) else {}
     shape = context.get("race_shape") if isinstance(context.get("race_shape"), Mapping) else {}
+    condition_fit = context.get("condition_fit") if isinstance(context.get("condition_fit"), Mapping) else {}
     header = " ".join(
         part
         for part in [
@@ -267,6 +282,9 @@ def _summary_lines_for_context(context: Mapping[str, Any]) -> list[str]:
     lines = [header]
     if trust:
         lines.append(trust)
+    condition_label = _condition_fit_display(condition_fit)
+    if condition_label:
+        lines.append(condition_label)
     lines.append(" / ".join(part for part in [f"ゲージ {gauge}" if gauge is not None else "", trend] if clean_text(part)))
     if shape_line:
         lines.append(shape_line)
@@ -281,12 +299,24 @@ def _display_summary(
     trend: Any,
     corner: Any,
     straight: Any,
+    condition_fit: Mapping[str, Any] | None = None,
 ) -> str:
     header = " ".join(part for part in [_pick(row, "表示印", "mark_eval", "mark"), number, _pick(row, "馬名", "horse_name_eval")] if clean_text(part))
     trust = " / ".join(item["display"] for item in materials[:5] if clean_text(item.get("display")))
     momentum = " / ".join(part for part in [f"ゲージ {gauge}" if gauge is not None else "", _trend_display(trend)] if clean_text(part))
     shape = " / ".join(part for part in [f"4角 {clean_text(corner)}" if clean_text(corner) else "", f"直線 {clean_text(straight)}" if clean_text(straight) else ""] if part)
-    return "\n".join(line for line in [header, trust, momentum, shape] if clean_text(line))
+    condition = _condition_fit_display(condition_fit or {})
+    return "\n".join(line for line in [header, trust, condition, momentum, shape] if clean_text(line))
+
+
+def _condition_fit_display(condition_fit: Mapping[str, Any]) -> str:
+    mark = clean_text(condition_fit.get("mark"))
+    label = clean_text(condition_fit.get("label"))
+    reason = clean_text(condition_fit.get("reason"))
+    if not mark and not label and not reason:
+        return ""
+    head = f"{mark}{label}" if mark else f"—{label or '条件実績なし'}"
+    return f"条件実績 {head}" + (f" / {reason}" if reason else "")
 
 
 def _trend_display(value: Any) -> str:

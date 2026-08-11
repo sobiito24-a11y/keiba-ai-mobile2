@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from .condition_fit import evaluate_condition_fit
 from .form_rank import add_form_rank_columns
 
 
@@ -48,6 +49,10 @@ AUDIT_OUTPUT_COLUMNS = [
     "star_max_surface",
     "star_max_turn",
     "star_match_level",
+    "condition_fit_mark",
+    "condition_fit_level",
+    "condition_fit_reason",
+    "matched_past_runs",
     "old_ai_score",
     "raw_score",
     "ability_display_score",
@@ -111,6 +116,10 @@ AUDIT_EXPORT_COLUMNS = [
     "star_max_surface",
     "star_max_turn",
     "star_match_level",
+    "condition_fit_mark",
+    "condition_fit_level",
+    "condition_fit_reason",
+    "matched_past_runs",
     "old_ai_score",
     "raw_score",
     "ability_display_score",
@@ -261,6 +270,11 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
         star_source = _text_series(result, "★最高指数の取得元")
     result["star_max_source"] = star_source.where(star_source.astype(str).str.len().gt(0), "missing")
     result["★最高指数の取得元"] = result["star_max_source"]
+    condition_fit_rows = [evaluate_condition_fit(row.to_dict()) for _, row in result.iterrows()]
+    result["condition_fit_mark"] = [item.get("condition_fit_mark", "") for item in condition_fit_rows]
+    result["condition_fit_level"] = [item.get("condition_fit_level", "none") for item in condition_fit_rows]
+    result["condition_fit_reason"] = [item.get("condition_fit_reason", "") for item in condition_fit_rows]
+    result["matched_past_runs"] = [item.get("matched_past_runs", []) for item in condition_fit_rows]
 
     axis_context = _axis_context(result["raw_score"])
     axis_values: list[str] = []

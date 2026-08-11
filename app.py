@@ -24,6 +24,7 @@ from core.betting_recommendation import (
     adoption_map_from_recommendations,
     build_betting_recommendations,
 )
+from core.condition_fit import condition_fit_badge_text, evaluate_condition_fit
 from core.investment_decision import (
     InvestmentDecision,
     build_investment_decision,
@@ -1421,7 +1422,7 @@ def result_prediction_table(result: PredictionResult) -> pd.DataFrame | None:
 
 def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
     table = result_prediction_table(result)
-    decision = build_investment_decision(table, result.race_mode)
+    decision = build_investment_decision(table, result.race_mode, race_info=result.race_info)
     st.subheader("今回買うべき馬券")
 
     source_race_count = decision.source_race_count
@@ -1708,7 +1709,7 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
 
     def card_html(row: dict[str, Any]) -> str:
         horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
-        return horse_summary_card_html(row, result.race_mode, overall_rows_by_horse.get(horse_key, {}))
+        return horse_summary_card_html(row, result.race_mode, overall_rows_by_horse.get(horse_key, {}), getattr(result, "race_info", {}) or {})
 
     st.subheader("馬別サマリーカード")
     visible = [row for row in rows if display_group_from_row(row) != "Z"]
@@ -1884,6 +1885,7 @@ def horse_summary_card_html(
     row: dict[str, Any],
     race_mode: str,
     overall_row: dict[str, Any] | None = None,
+    race_info: dict[str, Any] | None = None,
 ) -> str:
     index_row = row if overall_row is None else overall_row
     recent_source = merged_card_source(row, index_row)
@@ -1902,6 +1904,8 @@ def horse_summary_card_html(
     state = state_label_from_row(row)
     recent_summary = recent_races_summary_text(recent_source)
     recent_detail = rich_recent_races_detail_text(recent_source)
+    condition_fit = evaluate_condition_fit(recent_source, race_info)
+    condition_badge = condition_fit_badge_text(recent_source, race_info)
     legacy_recent_detail = recent3_detail_text(index_row)
     if clean_text(legacy_recent_detail):
         if clean_text(recent_detail) and "データなし" not in clean_text(recent_detail):
@@ -1925,6 +1929,7 @@ def horse_summary_card_html(
         star,
         distance,
         course,
+        f"条件実績：{condition_badge}" if condition_badge else "",
         f"状態：{state}",
     ]
     if recent_summary:
@@ -1955,6 +1960,9 @@ def horse_summary_card_html(
         "",
         f"★該当走：{clean_text(pick(index_row, '★該当走', 'star_max_race')) or '—'}",
         f"★条件：{star_condition_text_from_row(index_row) or '—'}",
+        f"条件実績：{condition_badge or '—条件実績なし'}",
+        f"条件実績理由：{clean_text(condition_fit.get('condition_fit_reason')) or '—'}",
+        f"条件実績該当走：{condition_fit_matched_runs_text(condition_fit)}",
         f"能力評価値：{format_number(ability_raw) or '—'}",
         f"能力評価表示：{ability_display if ability_display is not None else '—'}",
         f"表示材料：{material_labels or '—'}",
@@ -2066,6 +2074,27 @@ def star_condition_text_from_row(row: dict[str, Any]) -> str:
         return condition
     level = clean_text(pick(row, "star_match_level"))
     return "今回と同条件" if level and level != "none" else ""
+
+
+def condition_fit_matched_runs_text(condition_fit: dict[str, Any]) -> str:
+    runs = condition_fit.get("matched_past_runs") if isinstance(condition_fit, dict) else []
+    if not isinstance(runs, list) or not runs:
+        return "—"
+    labels: list[str] = []
+    for run in runs[:3]:
+        if not isinstance(run, dict):
+            continue
+        label = clean_text(run.get("label"))
+        venue = clean_text(run.get("venue"))
+        distance = clean_text(run.get("distance"))
+        distance_text = f"{distance}m" if distance and distance.isdigit() else distance
+        finish = clean_text(run.get("finish"))
+        index = clean_text(run.get("time_index"))
+        parts = [label, venue, distance_text, finish, f"指数{index}" if index else ""]
+        text = " ".join(part for part in parts if part)
+        if text:
+            labels.append(text)
+    return " / ".join(labels) if labels else "—"
 
 
 def truthy_display(value: Any) -> bool:

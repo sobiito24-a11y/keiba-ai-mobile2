@@ -12,6 +12,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
+from .condition_fit import evaluate_condition_fit
 from .final_betting_context import build_final_betting_context
 from .horse_trust import build_horse_trust_materials, build_horse_trust_summary
 from .models import PredictionResult
@@ -26,7 +27,7 @@ HISTORY_ROOT = Path("prediction_history")
 def build_prediction_snapshot(result: PredictionResult, investment_decision: Any = None) -> dict[str, Any]:
     race_type = "nar" if clean_text(result.race_mode).lower() == "nar" else "jra"
     race_info = _race_info(result)
-    horses = _horse_snapshots(result, race_type)
+    horses = _horse_snapshots(result, race_type, race_info)
     investment = _investment_snapshot(investment_decision)
     return _json_ready(
         {
@@ -233,11 +234,15 @@ def _race_info(result: PredictionResult) -> dict[str, Any]:
     }
 
 
-def _horse_snapshots(result: PredictionResult, race_type: str) -> list[dict[str, Any]]:
+def _horse_snapshots(
+    result: PredictionResult,
+    race_type: str,
+    race_info: Mapping[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     merged = _merged_horse_rows(result)
     context_by_no = {
         clean_text(item.get("horse_number")): item
-        for item in build_final_betting_context(pd.DataFrame(merged), race_type)
+        for item in build_final_betting_context(pd.DataFrame(merged), race_type, race_info=race_info)
     }
     rows: list[dict[str, Any]] = []
     for row in merged:
@@ -247,6 +252,7 @@ def _horse_snapshots(result: PredictionResult, race_type: str) -> list[dict[str,
         momentum = final_context.get("momentum") if isinstance(final_context.get("momentum"), Mapping) else {}
         race_shape = final_context.get("race_shape") if isinstance(final_context.get("race_shape"), Mapping) else {}
         recent_races = build_recent_races(row)
+        condition_fit = evaluate_condition_fit(row, race_info)
         rows.append(
             {
                 "horse_no": number,
@@ -296,6 +302,10 @@ def _horse_snapshots(result: PredictionResult, race_type: str) -> list[dict[str,
                 "horse_trust": trust,
                 "horse_trust_summary": build_horse_trust_summary(row, race_type),
                 "recent_races": recent_races,
+                "condition_fit_mark": condition_fit.get("condition_fit_mark"),
+                "condition_fit_level": condition_fit.get("condition_fit_level"),
+                "condition_fit_reason": condition_fit.get("condition_fit_reason"),
+                "matched_past_runs": condition_fit.get("matched_past_runs", []),
                 "final_betting_context": final_context,
                 "gauge": momentum.get("gauge"),
                 "trend": momentum.get("trend"),

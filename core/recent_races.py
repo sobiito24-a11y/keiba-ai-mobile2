@@ -33,13 +33,19 @@ RUN_LABEL_ORDER = {
 def build_recent_races(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Return existing recent-race data as a stable display/history structure."""
 
+    flattened = _flattened_records(row)
     nested = _nested_runs(row)
     if nested:
         records = [_normalize_nested_run(run) for run in nested if isinstance(run, Mapping)]
+        records = [_merge_run_material(record, flattened) for record in records]
         records = [record for record in records if _has_material(record)]
         records.sort(key=lambda record: RUN_LABEL_ORDER.get(clean_text(record.get("label")), 99))
         return records[:3]
 
+    return flattened
+
+
+def _flattened_records(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     records = [
         _flattened_run(row, "前走", ["race1", "last"], ["前走", "蜑崎ｵｰ", "race1", "last_index"]),
         _flattened_run(row, "2走前", ["race2", "two_back"], ["2走前", "2襍ｰ蜑・", "race2", "two_back_index"]),
@@ -69,6 +75,7 @@ def recent_races_summary_text(row: Mapping[str, Any]) -> str:
         label = clean_text(run.get("label")) or ("前走" if index == 0 else f"{index + 1}走前")
         parts = [
             clean_text(run.get("venue")),
+            clean_text(run.get("surface")),
             clean_text(run.get("distance")),
             clean_text(run.get("finish")),
             _index_text(run),
@@ -142,6 +149,25 @@ def _normalize_nested_run(run: Mapping[str, Any]) -> dict[str, Any]:
         "passing_order": _pick(run, "passing_order", "passing", "通過順位", "通過"),
         "running_style": _pick(run, "running_style", "style", "脚質"),
     }
+
+
+def _merge_run_material(record: dict[str, Any], flattened: list[dict[str, Any]]) -> dict[str, Any]:
+    order = RUN_LABEL_ORDER.get(clean_text(record.get("label")), 99)
+    fallback = next(
+        (
+            item
+            for item in flattened
+            if RUN_LABEL_ORDER.get(clean_text(item.get("label")), 99) == order
+        ),
+        {},
+    )
+    if not fallback:
+        return record
+    merged = dict(record)
+    for key, value in fallback.items():
+        if _missing(merged.get(key)) and not _missing(value):
+            merged[key] = value
+    return merged
 
 
 def _flattened_run(

@@ -26,6 +26,9 @@ class FinalBettingContextTest(unittest.TestCase):
                     "距離指数": 64,
                     "コース指数": 61,
                     "調教評価": "B",
+                    "_past_runs": [
+                        {"label": "前走", "racecourse": "東京", "distance": 1600, "direction": "左", "value": 80}
+                    ],
                 },
                 {
                     "馬番": 1,
@@ -40,7 +43,7 @@ class FinalBettingContextTest(unittest.TestCase):
         )
         before = table.copy(deep=True)
 
-        contexts = build_final_betting_context(table, "jra")
+        contexts = build_final_betting_context(table, "jra", race_info={"venue": "東京", "distance": 1600, "turn": "左"})
         axis = next(item for item in contexts if item["horse_number"] == "4")
 
         self.assertEqual(axis["momentum"]["gauge"], 86)
@@ -48,6 +51,8 @@ class FinalBettingContextTest(unittest.TestCase):
         self.assertEqual(axis["race_shape"]["corner4_evaluation"], "好位")
         self.assertEqual(axis["race_shape"]["straight_evaluation"], "勝ち負け")
         self.assertIn("training", axis["trust"])
+        self.assertEqual(axis["condition_fit"]["mark"], "★")
+        self.assertEqual(axis["condition_fit"]["level"], "same_venue_distance")
         pd.testing.assert_frame_equal(table, before)
 
     def test_ticket_alignment_records_match_and_mismatch_without_changing_ticket(self) -> None:

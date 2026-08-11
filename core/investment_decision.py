@@ -5,7 +5,7 @@ import itertools
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
@@ -74,6 +74,7 @@ def build_investment_decision(
     race_mode: str,
     *,
     json_paths: list[Path] | None = None,
+    race_info: Mapping[str, Any] | None = None,
 ) -> InvestmentDecision:
     """Select exactly one betting strategy for display.
 
@@ -92,7 +93,7 @@ def build_investment_decision(
 
     payload, diagnostic = load_strategy_payload(race_type, json_paths=json_paths)
     if payload is None:
-        return build_missing_json_fallback(table, race_type, diagnostic)
+        return build_missing_json_fallback(table, race_type, diagnostic, race_info=race_info)
 
     current = enrich_current_table(table)
     strategies = payload.get("strategies") or payload.get("recommendations") or []
@@ -144,7 +145,7 @@ def build_investment_decision(
     selected_numbers = unique_nums(no for ticket in selected.ticket_numbers for no in ticket)
     horse_trust = build_horse_trust_for_numbers(current, race_type, selected_numbers)
     horse_trust_summary = compact_trust_lines(horse_trust)
-    final_context = build_final_betting_context(current, race_type, ticket_numbers=selected_numbers)
+    final_context = build_final_betting_context(current, race_type, ticket_numbers=selected_numbers, race_info=race_info)
     final_context_summary = context_summary_lines(final_context)
     ticket_alignment = build_ticket_alignment(
         final_context,
@@ -242,6 +243,8 @@ def build_missing_json_fallback(
     table: pd.DataFrame,
     race_type: str,
     diagnostic: dict[str, Any],
+    *,
+    race_info: Mapping[str, Any] | None = None,
 ) -> InvestmentDecision:
     if race_type != "jra":
         return InvestmentDecision(
@@ -278,7 +281,7 @@ def build_missing_json_fallback(
     selected_numbers = unique_nums(no for ticket in selected.ticket_numbers for no in ticket)
     horse_trust = build_horse_trust_for_numbers(current, race_type, selected_numbers)
     horse_trust_summary = compact_trust_lines(horse_trust)
-    final_context = build_final_betting_context(current, race_type, ticket_numbers=selected_numbers)
+    final_context = build_final_betting_context(current, race_type, ticket_numbers=selected_numbers, race_info=race_info)
     final_context_summary = context_summary_lines(final_context)
     ticket_alignment = build_ticket_alignment(
         final_context,

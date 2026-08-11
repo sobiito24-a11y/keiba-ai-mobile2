@@ -58,9 +58,9 @@ class RecentRacesTest(unittest.TestCase):
         self.assertEqual(runs[0]["time_index"], "82")
         self.assertIn("前走 新潟 芝 1600m 3着", recent_race_preview_text(row))
         summary = recent_races_summary_text(row)
-        self.assertIn("前走：新潟 1600m 3着 指数82", summary)
-        self.assertIn("2走前：東京 1600m 1着 指数88", summary)
-        self.assertIn("3走前：中山 1800m 6着 指数76", summary)
+        self.assertIn("前走：新潟 芝 1600m 3着 指数82", summary)
+        self.assertIn("2走前：東京 芝 1600m 1着 指数88", summary)
+        self.assertIn("3走前：中山 芝 1800m 6着 指数76", summary)
         detail = recent_races_detail_text(row)
         self.assertIn("2026-08-01 / 新潟 / 芝 / 1600m", detail)
         self.assertIn("通過6-6", detail)
@@ -91,6 +91,30 @@ class RecentRacesTest(unittest.TestCase):
         self.assertEqual(runs[0]["finish"], "2着")
         self.assertEqual(runs[0]["popularity"], "4人気")
         self.assertEqual(runs[1]["time_index"], "49")
+
+    def test_nested_runs_are_backfilled_from_flattened_existing_fields(self) -> None:
+        row = {
+            "_past_runs": [
+                {"label": "前走", "value": 24},
+                {"label": "2走前", "value": 14},
+                {"label": "3走前", "value": 17},
+            ],
+            "race1_venue": "門別",
+            "race1_distance": 1200,
+            "race1_finish": "2",
+            "race2_venue": "門別",
+            "race2_distance": 1200,
+            "race2_finish": "4",
+            "race3_venue": "大井",
+            "race3_distance": 1200,
+            "race3_finish": "3",
+        }
+
+        summary = recent_races_summary_text(row)
+
+        self.assertIn("前走：門別 1200m 2着 指数24", summary)
+        self.assertIn("2走前：門別 1200m 4着 指数14", summary)
+        self.assertIn("3走前：大井 1200m 3着 指数17", summary)
 
     def test_missing_recent_races_are_safe(self) -> None:
         self.assertEqual(build_recent_races({}), [])
