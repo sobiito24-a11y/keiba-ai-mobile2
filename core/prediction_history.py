@@ -16,6 +16,7 @@ from .final_betting_context import build_final_betting_context
 from .horse_trust import build_horse_trust_materials, build_horse_trust_summary
 from .models import PredictionResult
 from .purchase_conditions import clean_text, horse_no, to_float
+from .recent_races import build_recent_races
 from .version import APP_VERSION
 
 
@@ -245,6 +246,7 @@ def _horse_snapshots(result: PredictionResult, race_type: str) -> list[dict[str,
         final_context = context_by_no.get(number, {})
         momentum = final_context.get("momentum") if isinstance(final_context.get("momentum"), Mapping) else {}
         race_shape = final_context.get("race_shape") if isinstance(final_context.get("race_shape"), Mapping) else {}
+        recent_races = build_recent_races(row)
         rows.append(
             {
                 "horse_no": number,
@@ -293,6 +295,7 @@ def _horse_snapshots(result: PredictionResult, race_type: str) -> list[dict[str,
                 },
                 "horse_trust": trust,
                 "horse_trust_summary": build_horse_trust_summary(row, race_type),
+                "recent_races": recent_races,
                 "final_betting_context": final_context,
                 "gauge": momentum.get("gauge"),
                 "trend": momentum.get("trend"),

@@ -442,6 +442,56 @@ class HorseSummaryCardTest(unittest.TestCase):
         ):
             self.assertIn(expected, html)
 
+    def test_horse_summary_card_uses_existing_recent_race_records(self) -> None:
+        horse_row = {
+            "馬番": "8",
+            "馬名": "近走馬",
+            "表示印": "◎",
+            "display_group": "SS",
+            "ability_display_score": 88,
+            "近3走傾向": "連続上昇",
+            "4角予想": "好位",
+            "直線評価": "勝ち負け",
+        }
+        overall_row = {
+            "馬番": "8",
+            "平均指数": 81,
+            "_past_runs": [
+                {
+                    "label": "前走",
+                    "race_date": "2026-08-01",
+                    "racecourse": "新潟",
+                    "surface": "芝",
+                    "distance": 1600,
+                    "position": 3,
+                    "popularity": 4,
+                    "value": 82,
+                    "passing_order": "6-6",
+                },
+                {
+                    "label": "2走前",
+                    "race_date": "2026-07-15",
+                    "racecourse": "東京",
+                    "surface": "芝",
+                    "distance": 1600,
+                    "position": 1,
+                    "popularity": 2,
+                    "value": 88,
+                },
+            ],
+        }
+
+        html = self.app.horse_summary_card_html(horse_row, "jra", overall_row)
+
+        self.assertIn("近3走", html)
+        self.assertIn("前走", html)
+        self.assertIn("新潟", html)
+        self.assertIn("指数82", html)
+        self.assertIn("通過6-6", html)
+        self.assertIn("2走前", html)
+        self.assertIn("4角", html)
+        self.assertIn("直線", html)
+
     def test_ability_bar_clamps_display_without_mutating_source_values(self) -> None:
         horse_row = {
             "馬番": "1",
@@ -572,6 +622,12 @@ class DisplayGroupViewTest(unittest.TestCase):
             "render_betting_consideration(result)",
             inspect.getsource(self.app.render_colab_style_result),
         )
+        result_source = inspect.getsource(self.app.render_colab_style_result)
+        self.assertLess(result_source.index("render_race_summary"), result_source.index("render_power_map"))
+        self.assertLess(result_source.index("render_power_map"), result_source.index("render_horse_summary_cards"))
+        self.assertLess(result_source.index("render_horse_summary_cards"), result_source.index("render_race_flow"))
+        self.assertLess(result_source.index("render_race_flow"), result_source.index("render_investment_decision"))
+        self.assertNotIn("render_investment_target_horses", result_source)
 
         self.streamlit.markdown_calls.clear()
         self.streamlit.expander_labels.clear()

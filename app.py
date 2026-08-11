@@ -50,6 +50,10 @@ from core.prediction_history import (
     prediction_zip_filename,
     save_prediction_history,
 )
+from core.recent_races import (
+    recent_race_preview_text,
+    recent_races_detail_text as rich_recent_races_detail_text,
+)
 from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION
 from render.mobile_png import MobilePngRenderError, render_mobile_png
@@ -1283,11 +1287,10 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
 def render_colab_style_result(result: PredictionResult) -> InvestmentDecision:
     render_race_header(result)
     render_race_summary(result)
-    investment_decision = render_investment_decision(result)
-    render_investment_target_horses(result, investment_decision)
     render_power_map(result)
-    render_race_flow(result)
     render_horse_summary_cards(result)
+    render_race_flow(result)
+    investment_decision = render_investment_decision(result)
     render_overall_table(result)
     with st.expander("監査・補足情報", expanded=False):
         render_raw_text_section(
@@ -1725,6 +1728,14 @@ def card_pick(row: dict[str, Any], index_row: dict[str, Any], *names: str) -> An
     return pick(index_row, *names)
 
 
+def merged_card_source(row: dict[str, Any], index_row: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(index_row or {})
+    for key, value in (row or {}).items():
+        if not is_missing_value(value):
+            merged[key] = value
+    return merged
+
+
 def ability_value_for_card(row: dict[str, Any], index_row: dict[str, Any]) -> Any:
     return card_pick(row, index_row, "能力評価値", "ability_display_score", "raw_score", "_raw_score")
 
@@ -1875,6 +1886,7 @@ def horse_summary_card_html(
     overall_row: dict[str, Any] | None = None,
 ) -> str:
     index_row = row if overall_row is None else overall_row
+    recent_source = merged_card_source(row, index_row)
     mark = display_mark_from_row(row)
     no = clean_text(pick(row, "馬番", "馬"))
     name = clean_text(pick(row, "馬名"))
@@ -1888,6 +1900,16 @@ def horse_summary_card_html(
     distance = index_summary_text("距離", pick(index_row, "距離指数"))
     course = index_summary_text("コース", pick(index_row, "コース指数"))
     state = state_label_from_row(row)
+    recent_preview = recent_race_preview_text(recent_source)
+    recent_detail = rich_recent_races_detail_text(recent_source)
+    legacy_recent_detail = recent3_detail_text(index_row)
+    if clean_text(legacy_recent_detail):
+        if clean_text(recent_detail) and "データなし" not in clean_text(recent_detail):
+            recent_detail = f"{recent_detail}\n\n{legacy_recent_detail}"
+        else:
+            recent_detail = legacy_recent_detail
+    corner4 = clean_text(card_pick(row, index_row, "4隗剃ｺ域Φ", "4角予想", "4角評価", "corner4_evaluation"))
+    straight = clean_text(card_pick(row, index_row, "逶ｴ邱夊ｩ穂ｾ｡", "直線評価", "straight_evaluation"))
     ability_raw = ability_value_for_card(row, index_row)
     ability_display = clamp_ability_display_value(ability_raw)
     ability_bar = ability_bar_html(row, index_row)
@@ -1905,6 +1927,12 @@ def horse_summary_card_html(
         course,
         f"状態：{state}",
     ]
+    if recent_preview:
+        quick_items.append(f"近3走：{recent_preview}")
+    if corner4:
+        quick_items.append(f"4角：{corner4}")
+    if straight:
+        quick_items.append(f"直線：{straight}")
     quick = "<br>".join(plain_text_to_html(item) for item in quick_items if clean_text(item))
     central_lines = central_card_lines(row) if race_mode == "jra" else []
     detail_lines = [
@@ -1922,7 +1950,7 @@ def horse_summary_card_html(
         f"状態：{state}",
         "",
         "近3走",
-        recent3_detail_text(index_row),
+        recent_detail,
         f"3走平均：{format_index_value(pick(index_row, '平均指数', '3走平均', '近3走平均'))}",
         "",
         f"★該当走：{clean_text(pick(index_row, '★該当走', 'star_max_race')) or '—'}",
@@ -1932,7 +1960,8 @@ def horse_summary_card_html(
         f"表示材料：{material_labels or '—'}",
         "数値補正：なし（既存の能力評価値をそのまま表示）",
         "二重補正回避：年齢・距離・コース・斤量・騎手は通常カードの材料表示のみ",
-        f"近3走：{recent3_text_from_row(index_row, row)}",
+        f"近3走指数推移：{recent3_text_from_row(index_row, row)}",
+        f"4角：{corner4 or '—'}　直線：{straight or '—'}",
         f"コメント：{short_comment_from_row(row)}",
         f"穴候補：{'該当' if truthy_display(pick(row, '穴候補', 'hole_candidate')) else '—'}　注意馬：{'該当' if truthy_display(pick(row, '注意馬', 'watch_horse')) else '—'}",
     ]

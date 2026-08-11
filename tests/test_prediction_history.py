@@ -81,6 +81,29 @@ def sample_result(mode: str = "jra") -> PredictionResult:
                 "直線評価": "勝ち負け",
                 "展開タイプ": "先行有利",
                 "補足": "初ブリンカー",
+                "_past_runs": [
+                    {
+                        "label": "前走",
+                        "race_date": "2026-08-01",
+                        "racecourse": "新潟",
+                        "surface": "芝",
+                        "distance": 1600,
+                        "position": 3,
+                        "popularity": 4,
+                        "value": 62,
+                        "passing_order": "6-6",
+                    },
+                    {
+                        "label": "2走前",
+                        "race_date": "2026-07-15",
+                        "racecourse": "東京",
+                        "surface": "芝",
+                        "distance": 1600,
+                        "position": 1,
+                        "popularity": 2,
+                        "value": 55,
+                    },
+                ],
             },
             {
                 "馬番": 3,
@@ -139,6 +162,10 @@ class PredictionHistoryTest(unittest.TestCase):
         self.assertEqual(horse7["trend"], "連続上昇")
         self.assertEqual(horse7["corner4_evaluation"], "好位")
         self.assertEqual(horse7["straight_evaluation"], "勝ち負け")
+        self.assertEqual(horse7["recent_races"][0]["label"], "前走")
+        self.assertEqual(horse7["recent_races"][0]["venue"], "新潟")
+        self.assertEqual(horse7["recent_races"][0]["time_index"], "62")
+        self.assertIn("recent_races", rows[0])
         self.assertTrue(snapshot["investment_decision"]["ticket_alignment"])
         self.assertTrue(snapshot["investment_decision"]["ticket_alignment_summary"])
         self.assertEqual(len(rows), 2)
