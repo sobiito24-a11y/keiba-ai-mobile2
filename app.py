@@ -51,8 +51,8 @@ from core.prediction_history import (
     save_prediction_history,
 )
 from core.recent_races import (
-    recent_race_preview_text,
     recent_races_detail_text as rich_recent_races_detail_text,
+    recent_races_summary_text,
 )
 from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION
@@ -1900,7 +1900,7 @@ def horse_summary_card_html(
     distance = index_summary_text("距離", pick(index_row, "距離指数"))
     course = index_summary_text("コース", pick(index_row, "コース指数"))
     state = state_label_from_row(row)
-    recent_preview = recent_race_preview_text(recent_source)
+    recent_summary = recent_races_summary_text(recent_source)
     recent_detail = rich_recent_races_detail_text(recent_source)
     legacy_recent_detail = recent3_detail_text(index_row)
     if clean_text(legacy_recent_detail):
@@ -1927,8 +1927,8 @@ def horse_summary_card_html(
         course,
         f"状態：{state}",
     ]
-    if recent_preview:
-        quick_items.append(f"近3走：{recent_preview}")
+    if recent_summary:
+        quick_items.append(f"近3走\n{recent_summary}")
     if corner4:
         quick_items.append(f"4角：{corner4}")
     if straight:

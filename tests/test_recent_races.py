@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import unittest
 
-from core.recent_races import build_recent_races, recent_race_preview_text, recent_races_detail_text
+from core.recent_races import (
+    build_recent_races,
+    recent_race_preview_text,
+    recent_races_detail_text,
+    recent_races_summary_text,
+)
 
 
 class RecentRacesTest(unittest.TestCase):
@@ -52,7 +57,12 @@ class RecentRacesTest(unittest.TestCase):
         self.assertEqual(runs[0]["venue"], "新潟")
         self.assertEqual(runs[0]["time_index"], "82")
         self.assertIn("前走 新潟 芝 1600m 3着", recent_race_preview_text(row))
+        summary = recent_races_summary_text(row)
+        self.assertIn("前走：新潟 1600m 3着 指数82", summary)
+        self.assertIn("2走前：東京 1600m 1着 指数88", summary)
+        self.assertIn("3走前：中山 1800m 6着 指数76", summary)
         detail = recent_races_detail_text(row)
+        self.assertIn("2026-08-01 / 新潟 / 芝 / 1600m", detail)
         self.assertIn("通過6-6", detail)
         self.assertIn("脚質差し", detail)
 
@@ -85,6 +95,7 @@ class RecentRacesTest(unittest.TestCase):
     def test_missing_recent_races_are_safe(self) -> None:
         self.assertEqual(build_recent_races({}), [])
         self.assertEqual(recent_race_preview_text({}), "")
+        self.assertEqual(recent_races_summary_text({}), "")
         self.assertIn("データなし", recent_races_detail_text({}))
 
 

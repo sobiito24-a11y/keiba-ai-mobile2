@@ -60,6 +60,24 @@ def recent_race_preview_text(row: Mapping[str, Any]) -> str:
     return " ".join(part for part in parts if part)
 
 
+def recent_races_summary_text(row: Mapping[str, Any]) -> str:
+    runs = build_recent_races(row)
+    if not runs:
+        return ""
+    lines: list[str] = []
+    for index, run in enumerate(runs[:3]):
+        label = clean_text(run.get("label")) or ("前走" if index == 0 else f"{index + 1}走前")
+        parts = [
+            clean_text(run.get("venue")),
+            clean_text(run.get("distance")),
+            clean_text(run.get("finish")),
+            _index_text(run),
+        ]
+        body = " ".join(part for part in parts if part)
+        lines.append(f"{label}：{body or '-'}")
+    return "\n".join(lines)
+
+
 def recent_races_detail_text(row: Mapping[str, Any]) -> str:
     runs = build_recent_races(row)
     if not runs:
@@ -67,7 +85,7 @@ def recent_races_detail_text(row: Mapping[str, Any]) -> str:
     blocks: list[str] = []
     for run in runs:
         label = clean_text(run.get("label")) or "-"
-        condition = _condition_text(run) or "-"
+        condition = _detail_condition_text(run) or "-"
         details = [
             _finish_popularity_text(run),
             _index_text(run),
@@ -284,6 +302,18 @@ def _condition_text(run: Mapping[str, Any]) -> str:
         clean_text(run.get("turn")),
     ]
     return " ".join(piece for piece in pieces if piece)
+
+
+def _detail_condition_text(run: Mapping[str, Any]) -> str:
+    pieces = [
+        clean_text(run.get("date")),
+        clean_text(run.get("venue")),
+        clean_text(run.get("surface")),
+        clean_text(run.get("distance")),
+        clean_text(run.get("turn")),
+        clean_text(run.get("race_name")),
+    ]
+    return " / ".join(piece for piece in pieces if piece)
 
 
 def _finish_popularity_text(run: Mapping[str, Any]) -> str:

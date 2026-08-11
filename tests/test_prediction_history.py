@@ -103,6 +103,16 @@ def sample_result(mode: str = "jra") -> PredictionResult:
                         "popularity": 2,
                         "value": 55,
                     },
+                    {
+                        "label": "3走前",
+                        "race_date": "2026-07-01",
+                        "racecourse": "中山",
+                        "surface": "芝",
+                        "distance": 1800,
+                        "position": 5,
+                        "popularity": 6,
+                        "value": 50,
+                    },
                 ],
             },
             {
@@ -165,6 +175,8 @@ class PredictionHistoryTest(unittest.TestCase):
         self.assertEqual(horse7["recent_races"][0]["label"], "前走")
         self.assertEqual(horse7["recent_races"][0]["venue"], "新潟")
         self.assertEqual(horse7["recent_races"][0]["time_index"], "62")
+        self.assertEqual(len(horse7["recent_races"]), 3)
+        self.assertEqual(horse7["recent_races"][2]["label"], "3走前")
         self.assertIn("recent_races", rows[0])
         self.assertTrue(snapshot["investment_decision"]["ticket_alignment"])
         self.assertTrue(snapshot["investment_decision"]["ticket_alignment_summary"])

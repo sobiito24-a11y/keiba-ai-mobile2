@@ -478,6 +478,16 @@ class HorseSummaryCardTest(unittest.TestCase):
                     "popularity": 2,
                     "value": 88,
                 },
+                {
+                    "label": "3走前",
+                    "race_date": "2026-07-01",
+                    "racecourse": "中山",
+                    "surface": "芝",
+                    "distance": 1800,
+                    "position": 6,
+                    "popularity": 3,
+                    "value": 76,
+                },
             ],
         }
 
@@ -485,10 +495,15 @@ class HorseSummaryCardTest(unittest.TestCase):
 
         self.assertIn("近3走", html)
         self.assertIn("前走", html)
+        self.assertIn("前走：新潟 1600m 3着 指数82", html)
+        self.assertIn("2走前：東京 1600m 1着 指数88", html)
+        self.assertIn("3走前：中山 1800m 6着 指数76", html)
+        self.assertNotIn("近3走：前走", html)
         self.assertIn("新潟", html)
         self.assertIn("指数82", html)
         self.assertIn("通過6-6", html)
         self.assertIn("2走前", html)
+        self.assertIn("3走前", html)
         self.assertIn("4角", html)
         self.assertIn("直線", html)
 
