@@ -10,6 +10,7 @@ from typing import Any, Iterable
 import pandas as pd
 
 from .betting_recommendation import BettingRecommendation, build_fixed_betting_recommendations
+from .horse_trust import build_horse_trust_for_numbers, compact_trust_lines, trust_rows_to_audit_text
 from .purchase_conditions import ASSETS_ANALYSIS_DIR, clean_text, enrich_current_table, horse_no, to_float
 from .ticket_strategy_analysis import pair_key, unique_nums
 
@@ -53,6 +54,9 @@ class InvestmentDecision:
     fallback_used: bool = False
     total_stake: int = 0
     target_horses: tuple[str, ...] = ()
+    horse_trust: tuple[dict[str, Any], ...] = ()
+    horse_trust_summary: tuple[str, ...] = ()
+    ticket_rationale: dict[str, Any] = field(default_factory=dict)
 
 
 def build_investment_decision(
@@ -127,6 +131,20 @@ def build_investment_decision(
             source_note=source_note,
         )
 
+    selected_numbers = unique_nums(no for ticket in selected.ticket_numbers for no in ticket)
+    horse_trust = build_horse_trust_for_numbers(current, race_type, selected_numbers)
+    horse_trust_summary = compact_trust_lines(horse_trust)
+    ticket_rationale = build_ticket_rationale(selected)
+    selected_audit = {
+        **selected.audit,
+        "horse_trust": list(horse_trust),
+        "horse_trust_summary": list(horse_trust_summary),
+        "horse_trust_audit_text": trust_rows_to_audit_text(horse_trust),
+        "ticket_rationale": ticket_rationale,
+    }
+    selected = with_audit(selected, selected_audit)
+    audit_rows = attach_selected_trust_to_audit_rows(audit_rows, selected.strategy_id, horse_trust, horse_trust_summary, ticket_rationale)
+
     judgement = selected.audit.get("judgement") or JUDGEMENT_HOLD
     total_stake = selected.ticket_count * STAKE_PER_POINT
     return InvestmentDecision(
@@ -142,6 +160,9 @@ def build_investment_decision(
         source_note=source_note,
         total_stake=total_stake,
         target_horses=tuple(selected.ticket_horses),
+        horse_trust=horse_trust,
+        horse_trust_summary=horse_trust_summary,
+        ticket_rationale=ticket_rationale,
     )
 
 
@@ -216,6 +237,18 @@ def build_missing_json_fallback(
         "purchase_points": selected.ticket_count,
         "total_stake": selected.ticket_count * STAKE_PER_POINT,
     }
+    current = enrich_current_table(table)
+    selected_numbers = unique_nums(no for ticket in selected.ticket_numbers for no in ticket)
+    horse_trust = build_horse_trust_for_numbers(current, race_type, selected_numbers)
+    horse_trust_summary = compact_trust_lines(horse_trust)
+    ticket_rationale = build_ticket_rationale(selected)
+    audit = {
+        **audit,
+        "horse_trust": list(horse_trust),
+        "horse_trust_summary": list(horse_trust_summary),
+        "horse_trust_audit_text": trust_rows_to_audit_text(horse_trust),
+        "ticket_rationale": ticket_rationale,
+    }
     selected = with_audit(selected, audit)
     return InvestmentDecision(
         race_type=race_type,
@@ -227,6 +260,9 @@ def build_missing_json_fallback(
         fallback_used=True,
         total_stake=selected.ticket_count * STAKE_PER_POINT,
         target_horses=tuple(selected.ticket_horses),
+        horse_trust=horse_trust,
+        horse_trust_summary=horse_trust_summary,
+        ticket_rationale=ticket_rationale,
     )
 
 
@@ -359,6 +395,43 @@ def evaluate_strategy(
         audit={**audit, "adopted_reason_lines": matched_conditions},
     )
     return recommendation, audit
+
+
+def build_ticket_rationale(item: BettingRecommendation) -> dict[str, Any]:
+    audit = item.audit or {}
+    return {
+        "strategy": item.label,
+        "ticket_type": item.ticket_type,
+        "sample_races": item.sample_races,
+        "hits": int(to_float(audit.get("hits")) or 0),
+        "hit_rate": item.hit_rate,
+        "return_rate": item.expected_roi,
+        "max_losing_streak": audit.get("max_losing_streak"),
+        "max_drawdown": audit.get("max_drawdown"),
+        "max_payout_contribution": audit.get("max_payout_contribution"),
+        "strategy_score": audit.get("strategy_score"),
+        "risk_label": item.risk_label,
+        "ticket_count": item.ticket_count,
+    }
+
+
+def attach_selected_trust_to_audit_rows(
+    audit_rows: list[dict[str, Any]],
+    strategy_id: str,
+    horse_trust: tuple[dict[str, Any], ...],
+    horse_trust_summary: tuple[str, ...],
+    ticket_rationale: dict[str, Any],
+) -> tuple[dict[str, Any], ...]:
+    updated: list[dict[str, Any]] = []
+    for row in audit_rows:
+        item = dict(row)
+        if item.get("strategy_id") == strategy_id:
+            item["horse_trust"] = list(horse_trust)
+            item["horse_trust_summary"] = list(horse_trust_summary)
+            item["horse_trust_audit_text"] = trust_rows_to_audit_text(horse_trust)
+            item["ticket_rationale"] = ticket_rationale
+        updated.append(item)
+    return tuple(updated)
 
 
 def normalize_conditions(value: Any) -> list[dict[str, Any]]:

@@ -29,10 +29,10 @@ def write_payload(tmp: str, strategies: list[dict]) -> Path:
 
 def sample_table(*, ai1_odds: float = 3.0, with_b: bool = True) -> pd.DataFrame:
     rows = [
-        {"horse_no": 5, "horse_name": "Axis", "display_group": "SS", "ai_rank": 1, "ai_score": 98.0, "odds": ai1_odds, "popularity": 1},
-        {"horse_no": 2, "horse_name": "Main", "display_group": "A", "ai_rank": 2, "ai_score": 95.0, "odds": 4.0, "popularity": 2},
-        {"horse_no": 7, "horse_name": "Third", "display_group": "B" if with_b else "Z", "ai_rank": 3, "ai_score": 92.0, "odds": 12.0, "popularity": 6},
-        {"horse_no": 9, "horse_name": "Blue", "display_group": "B" if with_b else "Z", "ai_rank": 4, "ai_score": 88.0, "odds": 16.0, "popularity": 7},
+        {"horse_no": 5, "horse_name": "Axis", "display_group": "SS", "ai_rank": 1, "ai_score": 98.0, "odds": ai1_odds, "popularity": 1, "近3走最高": 70, "馬年齢": "牡5", "騎手詳細": "騎手A【継続】"},
+        {"horse_no": 2, "horse_name": "Main", "display_group": "A", "ai_rank": 2, "ai_score": 95.0, "odds": 4.0, "popularity": 2, "近3走最高": 62, "馬年齢": "牝4", "騎手詳細": "騎手B【継続】"},
+        {"horse_no": 7, "horse_name": "Third", "display_group": "B" if with_b else "Z", "ai_rank": 3, "ai_score": 92.0, "odds": 12.0, "popularity": 6, "近3走最高": 58, "馬年齢": "牡3", "騎手詳細": "騎手C【乗り替わり】"},
+        {"horse_no": 9, "horse_name": "Blue", "display_group": "B" if with_b else "Z", "ai_rank": 4, "ai_score": 88.0, "odds": 16.0, "popularity": 7, "近3走最高": 52, "馬年齢": "牡6", "騎手詳細": "騎手D【継続】"},
     ]
     return pd.DataFrame(rows)
 
@@ -84,6 +84,9 @@ class InvestmentDecisionTest(unittest.TestCase):
         self.assertEqual(decision.selected.tickets, ("5-7", "5-9"))
         self.assertEqual(decision.selected.ticket_count, 2)
         self.assertEqual(decision.total_stake, 200)
+        self.assertEqual([item["horse_no"] for item in decision.horse_trust], ["5", "7", "9"])
+        self.assertTrue(any("指数" in line for line in decision.horse_trust_summary))
+        self.assertIn("horse_trust", decision.selected.audit)
         self.assertTrue(all("7" in " ".join(decision.target_horses) or "9" in " ".join(decision.target_horses) for _ in [0]))
 
     def test_avoid_condition_blocks_strategy(self) -> None:

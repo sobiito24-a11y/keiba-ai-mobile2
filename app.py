@@ -45,6 +45,11 @@ from core.nar_json_input import (
     build_nar_prediction_inputs_from_uploads,
 )
 from core.nar_predictor import predict_nar
+from core.prediction_history import (
+    prediction_zip_bytes,
+    prediction_zip_filename,
+    save_prediction_history,
+)
 from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION
 from render.mobile_png import MobilePngRenderError, render_mobile_png
@@ -1207,7 +1212,7 @@ AUDIT_EVALUATION_COLUMNS = [
 
 
 def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
-    render_colab_style_result(result)
+    investment_decision = render_colab_style_result(result)
     render_audit_details(result)
     render_nar_previous_jockey_result_trace(result)
     render_nar_star_result_trace(result)
@@ -1222,6 +1227,16 @@ def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
         mime="image/png",
         use_container_width=True,
     )
+    st.download_button(
+        "予想結果ファイル出力",
+        data=prediction_zip_bytes(result, investment_decision),
+        file_name=prediction_zip_filename(result),
+        mime="application/zip",
+        use_container_width=True,
+    )
+    if st.button("予想履歴をローカル保存", use_container_width=True):
+        saved_path = save_prediction_history(result, investment_decision)
+        st.success(f"予想履歴を保存しました: {saved_path}")
 
     with st.expander("PredictionResult簡易確認", expanded=False):
         st.write(
@@ -1265,7 +1280,7 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
-def render_colab_style_result(result: PredictionResult) -> None:
+def render_colab_style_result(result: PredictionResult) -> InvestmentDecision:
     render_race_header(result)
     render_race_summary(result)
     investment_decision = render_investment_decision(result)
@@ -1283,6 +1298,7 @@ def render_colab_style_result(result: PredictionResult) -> None:
             "展開予想",
             extract_raw_section(result, ["展開予想"]),
         )
+    return investment_decision
 
 
 def append_nar_star_display_trace(
@@ -1440,6 +1456,10 @@ def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
     confidence = confidence_label(score if isinstance(score, (int, float)) else None)
     tickets = "<br>".join(plain_text_to_html(line) for line in selected.tickets) or "買い目なし"
     matched = "<br>".join(plain_text_to_html("✓ " + line) for line in selected.matched_conditions) or "✓ 条件成立"
+    horse_basis = "<br>".join(
+        plain_text_to_html("・" + line) for line in decision.horse_trust_summary
+    ) or "・対象馬の根拠は未取得"
+    ticket_basis = investment_ticket_basis_html(decision)
     caution = ""
     if decision.source_note:
         caution = f"<br>{plain_text_to_html(decision.source_note)}"
@@ -1449,6 +1469,8 @@ def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
         f'<div class="ka-dashboard-value">{plain_text_to_html(selected.ticket_type)} {plain_text_to_html(selected.label)}</div>'
         f'<div class="ka-note">実際の買い目<br>{tickets}<br><br>'
         f'{selected.ticket_count}点 / 合計{decision.total_stake}円（1点100円）<br><br>'
+        f'【今回の馬の根拠】<br>{horse_basis}<br><br>'
+        f'【馬券側の根拠】<br>{ticket_basis}<br><br>'
         f'過去実績<br>対象{selected.sample_races}R / 的中率{(selected.hit_rate or 0):.1f}% / '
         f'回収率{(selected.expected_roi or 0):.1f}%<br>'
         f'信頼度：{plain_text_to_html(confidence)}<br><br>'
@@ -1461,12 +1483,39 @@ def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
     return decision
 
 
+def investment_ticket_basis_html(decision: InvestmentDecision) -> str:
+    selected = decision.selected
+    if selected is None:
+        return "記録なし"
+    rationale = decision.ticket_rationale or selected.audit.get("ticket_rationale", {})
+    lines = [
+        f"{selected.ticket_type} {selected.label}",
+        f"過去{selected.sample_races}件",
+        f"{int(to_float(rationale.get('hits')) or 0)}的中" if rationale.get("hits") not in (None, "") else "",
+        f"ROI {(selected.expected_roi or 0):.1f}%",
+    ]
+    max_dependency = rationale.get("max_payout_contribution")
+    max_losing = rationale.get("max_losing_streak")
+    if max_dependency not in (None, ""):
+        lines.append(f"高配当依存 {format_number(max_dependency)}%")
+    if max_losing not in (None, ""):
+        lines.append(f"最大連敗 {format_number(max_losing)}")
+    return "<br>".join(plain_text_to_html(line) for line in lines if clean_text(line)) or "記録なし"
+
+
 def render_investment_target_horses(result: PredictionResult, decision: InvestmentDecision) -> None:
     selected = decision.selected
     if selected is None or not selected.ticket_horses:
         return
     st.subheader("今回の対象馬")
-    horse_lines = "<br>".join(plain_text_to_html(label) for label in selected.ticket_horses)
+    trust_by_no = {clean_text(item.get("horse_no")): clean_text(item.get("summary")) for item in decision.horse_trust}
+    horse_lines_list = []
+    for label in selected.ticket_horses:
+        no_match = re.search(r"(?<!\d)(\d{1,2})(?!\d)", clean_text(label))
+        no = no_match.group(1) if no_match else ""
+        trust = trust_by_no.get(no, "")
+        horse_lines_list.append(f"{label}\n{trust}" if trust else label)
+    horse_lines = "<br><br>".join(plain_text_to_html(line) for line in horse_lines_list)
     matched = "<br>".join(plain_text_to_html("・" + line) for line in selected.matched_conditions) or "・条件成立"
     ticket_lines = " / ".join(selected.tickets)
     st.markdown(
