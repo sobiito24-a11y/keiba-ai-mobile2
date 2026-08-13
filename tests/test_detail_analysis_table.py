@@ -258,12 +258,84 @@ class DetailAnalysisTableTest(unittest.TestCase):
         )
         self.assertIn("◎ 10 アイビーサムライオ", html)
         self.assertIn("能力3位・今回1位", html)
-        self.assertIn("A｜2.3倍｜牡4｜能力3位・今回1位", html)
+        self.assertIn("A｜2.3倍｜牡4｜能力値90.0｜能力3位・今回1位", html)
         self.assertIn("先団 → 先団 → 中団", html)
         self.assertNotIn("top=", html)
         self.assertNotIn("left=", html)
         self.assertNotIn("未校正", html)
         self.assertNotIn("AI適正", html)
+
+    def test_market_card_shows_ability_value_for_unmarked_horse_with_one_decimal(self) -> None:
+        html = self.app.market_horse_card_html(
+            {
+                "馬番": 9,
+                "馬名": "リュウノギフト",
+                "sex_age": "牡3",
+                "ability_band_v2": "B",
+                "market_ability_score": 36.0,
+                "market_ability_rank": 6,
+                "current_evaluation_rank": 6,
+                "ai_current_mark": "",
+                "actual_odds": 62.6,
+            },
+            "nar",
+        )
+
+        self.assertIn("<b>B｜62.6倍｜牡3｜能力値36.0｜能力6位・今回6位</b>", html)
+        self.assertIn("9 リュウノギフト", html)
+
+    def test_market_compare_normal_flow_hides_band_price_and_ai_evaluation_tables(self) -> None:
+        result = SimpleNamespace(
+            race_mode="jra",
+            overall_table=pd.DataFrame(
+                [
+                    {
+                        "馬番": 1,
+                        "馬名": "表示確認",
+                        "ability_band_v2": "A",
+                        "market_ability_score": 73.2,
+                        "market_ability_rank": 1,
+                        "current_evaluation_rank": 1,
+                    }
+                ]
+            ),
+            horse_evaluation=pd.DataFrame(),
+            debug_info={},
+        )
+        calls: list[str] = []
+        originals = {
+            name: getattr(self.app, name)
+            for name in (
+                "render_race_header",
+                "render_market_race_facts",
+                "render_market_band_prices",
+                "render_market_ai_evaluation",
+                "render_market_horse_cards",
+                "render_market_full_table",
+                "render_market_user_selection",
+                "render_market_audit_details",
+            )
+        }
+
+        def forbidden(*_args, **_kwargs):
+            raise AssertionError("通常UIでは表示しないセクションです")
+
+        try:
+            self.app.render_race_header = lambda _result: calls.append("header")
+            self.app.render_market_race_facts = lambda _result, _table: calls.append("facts")
+            self.app.render_market_band_prices = forbidden
+            self.app.render_market_ai_evaluation = forbidden
+            self.app.render_market_horse_cards = lambda _table, _mode: calls.append("cards")
+            self.app.render_market_full_table = lambda _table, _mode: calls.append("full")
+            self.app.render_market_user_selection = lambda _result, _table: calls.append("selection")
+            self.app.render_market_audit_details = lambda _result, _table: calls.append("audit")
+
+            self.app.render_market_compare_result(result)
+        finally:
+            for name, func in originals.items():
+                setattr(self.app, name, func)
+
+        self.assertEqual(calls, ["header", "facts", "cards", "full", "selection", "audit"])
 
     def test_market_ai_evaluation_appends_existing_sex_age_to_horse_name(self) -> None:
         self.streamlit.last_dataframe = None

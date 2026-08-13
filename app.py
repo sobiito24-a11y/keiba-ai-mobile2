@@ -1540,8 +1540,6 @@ def render_market_compare_result(result: PredictionResult) -> None:
         "オッズ・人気・騎手・斤量・間隔・展開/コース・＋－材料では能力値・順位・帯を動かしません。"
     )
     render_market_race_facts(result, table)
-    render_market_band_prices(table)
-    render_market_ai_evaluation(table, result.race_mode)
     render_market_horse_cards(table, result.race_mode)
     render_market_full_table(table, result.race_mode)
     render_market_user_selection(result, table)
@@ -1660,6 +1658,16 @@ def market_horse_age_text(row: dict[str, Any]) -> str:
     )
     numeric = re.fullmatch(r"(\d{1,2})(?:\.0+)?", value)
     return f"{numeric.group(1)}歳" if numeric else value
+
+
+def market_ability_value_text(row: dict[str, Any]) -> str:
+    """Display the existing Ver3 ability value without changing the stored value."""
+
+    value = pick(row, "market_ability_score", "能力評価値", "ability_score")
+    number = to_float(value)
+    if number is None:
+        return clean_text(value) or "—"
+    return f"{number:.1f}"
 
 
 def market_training_text(row: dict[str, Any], race_mode: str, *, with_prefix: bool = True) -> str:
@@ -1828,6 +1836,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     odds = format_odds(pick(row, "actual_odds")) or "—"
     mark = clean_text(pick(row, "ai_current_mark"))
     age = market_horse_age_text(row)
+    ability_value = market_ability_value_text(row)
     ability_rank = clean_text(pick(row, "market_ability_rank")) or "—"
     current_rank = clean_text(pick(row, "current_evaluation_rank")) or "—"
     state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_label_market")], sep=" ")
@@ -1899,8 +1908,9 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         '<div class="ka-horse-card"><details>'
         '<summary>'
         f'<div class="ka-market-card-title">{plain_text_to_html(mark)} {plain_text_to_html(number)} {plain_text_to_html(name)}</div>'
-        f'<div class="ka-market-card-line">{plain_text_to_html(band)}｜{plain_text_to_html(odds)}'
-        f'{("｜" + plain_text_to_html(age)) if age else ""}｜能力{plain_text_to_html(ability_rank)}位・今回{plain_text_to_html(current_rank)}位</div>'
+        f'<div class="ka-market-card-line"><b>{plain_text_to_html(band)}｜{plain_text_to_html(odds)}'
+        f'{("｜" + plain_text_to_html(age)) if age else ""}｜能力値{plain_text_to_html(ability_value)}'
+        f'｜能力{plain_text_to_html(ability_rank)}位・今回{plain_text_to_html(current_rank)}位</b></div>'
         f'<div class="ka-market-card-line">{plain_text_to_html(quick)}</div>'
         f'{material_lines}'
         '</summary>'
