@@ -1920,10 +1920,34 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
 
 def render_market_horse_cards(table: pd.DataFrame, race_mode: str) -> None:
     st.subheader("馬別コンパクトカード")
-    ordered = table.copy()
-    ordered = ordered.sort_values(["current_evaluation_rank", "market_ability_rank"], ascending=[True, True])
+    ordered = market_horse_cards_ordered(table)
     for row in ordered.to_dict("records"):
         st.markdown(market_horse_card_html(row, race_mode), unsafe_allow_html=True)
+
+
+def market_horse_cards_ordered(table: pd.DataFrame) -> pd.DataFrame:
+    """Display cards by existing ability value; do not change prediction ranks."""
+
+    ordered = table.copy()
+    ordered["_card_ability_value_sort"] = pd.to_numeric(
+        ordered["market_ability_score"] if "market_ability_score" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+        errors="coerce",
+    )
+    ordered["_card_ability_rank_sort"] = pd.to_numeric(
+        ordered["market_ability_rank"] if "market_ability_rank" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+        errors="coerce",
+    )
+    ordered["_card_current_rank_sort"] = pd.to_numeric(
+        ordered["current_evaluation_rank"] if "current_evaluation_rank" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+        errors="coerce",
+    )
+    ordered = ordered.sort_values(
+        ["_card_ability_value_sort", "_card_ability_rank_sort", "_card_current_rank_sort"],
+        ascending=[False, True, True],
+        na_position="last",
+        kind="mergesort",
+    )
+    return ordered.drop(columns=["_card_ability_value_sort", "_card_ability_rank_sort", "_card_current_rank_sort"])
 
 
 def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
@@ -2001,13 +2025,18 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         material_lines += f'<div class="ka-market-card-line {css}">{plain_text_to_html(sign + training_display_text)}</div>'
     if stable_summary:
         material_lines += f'<div class="ka-market-card-line">{plain_text_to_html(stable_summary)}</div>'
+    main_parts = [
+        mark,
+        odds,
+        age,
+        f"能力値{ability_value}",
+        f"能力{ability_rank}位・今回{current_rank}位",
+    ]
     return (
         '<div class="ka-horse-card"><details>'
         '<summary>'
-        f'<div class="ka-market-card-title">{plain_text_to_html(mark)} {plain_text_to_html(number)} {plain_text_to_html(name)}</div>'
-        f'<div class="ka-market-card-line"><b>{plain_text_to_html(band)}｜{plain_text_to_html(odds)}'
-        f'{("｜" + plain_text_to_html(age)) if age else ""}｜能力値{plain_text_to_html(ability_value)}'
-        f'｜能力{plain_text_to_html(ability_rank)}位・今回{plain_text_to_html(current_rank)}位</b></div>'
+        f'<div class="ka-market-card-title">{plain_text_to_html(band)} {plain_text_to_html(number)} {plain_text_to_html(name)}</div>'
+        f'<div class="ka-market-card-line"><b>{plain_text_to_html("｜".join(part for part in main_parts if clean_text(part)))}</b></div>'
         f'<div class="ka-market-card-line">{plain_text_to_html(quick)}</div>'
         f'{material_lines}'
         '</summary>'

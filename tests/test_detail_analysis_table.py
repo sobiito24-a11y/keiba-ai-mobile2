@@ -256,9 +256,9 @@ class DetailAnalysisTableTest(unittest.TestCase):
             },
             "nar",
         )
-        self.assertIn("◎ 10 アイビーサムライオ", html)
+        self.assertIn("A 10 アイビーサムライオ", html)
         self.assertIn("能力3位・今回1位", html)
-        self.assertIn("A｜2.3倍｜牡4｜能力値90.0｜能力3位・今回1位", html)
+        self.assertIn("◎｜2.3倍｜牡4｜能力値90.0｜能力3位・今回1位", html)
         self.assertIn("先団 → 先団 → 中団", html)
         self.assertNotIn("top=", html)
         self.assertNotIn("left=", html)
@@ -281,8 +281,42 @@ class DetailAnalysisTableTest(unittest.TestCase):
             "nar",
         )
 
-        self.assertIn("<b>B｜62.6倍｜牡3｜能力値36.0｜能力6位・今回6位</b>", html)
-        self.assertIn("9 リュウノギフト", html)
+        self.assertIn("B 9 リュウノギフト", html)
+        self.assertIn("<b>62.6倍｜牡3｜能力値36.0｜能力6位・今回6位</b>", html)
+
+    def test_market_horse_cards_are_displayed_by_ability_value(self) -> None:
+        self.streamlit.markdown_calls = []
+        table = pd.DataFrame(
+            [
+                {
+                    "馬番": 1,
+                    "馬名": "今回一位",
+                    "ability_band_v2": "A",
+                    "market_ability_score": 42.0,
+                    "market_ability_rank": 3,
+                    "current_evaluation_rank": 1,
+                    "ai_current_mark": "◎",
+                    "actual_odds": 2.0,
+                },
+                {
+                    "馬番": 2,
+                    "馬名": "能力一位",
+                    "ability_band_v2": "A",
+                    "market_ability_score": 51.0,
+                    "market_ability_rank": 1,
+                    "current_evaluation_rank": 2,
+                    "ai_current_mark": "○",
+                    "actual_odds": 4.0,
+                },
+            ]
+        )
+
+        self.app.render_market_horse_cards(table, "nar")
+
+        cards = [html for html in self.streamlit.markdown_calls if "ka-horse-card" in html]
+        self.assertGreaterEqual(len(cards), 2)
+        self.assertIn("A 2 能力一位", cards[0])
+        self.assertIn("A 1 今回一位", cards[1])
 
     def test_market_compare_normal_flow_hides_band_price_and_ai_evaluation_tables(self) -> None:
         result = SimpleNamespace(
