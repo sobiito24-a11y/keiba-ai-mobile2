@@ -1810,7 +1810,6 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "2走前": format_index_value(pick(row, "2走前")),
             "前走": format_index_value(pick(row, "前走")),
             "平均": format_index_value(pick(row, "平均指数", "3走平均")),
-            "最高": format_index_value(pick(row, "過去1年最高指数", "最高指数")),
             "＋材料": clean_text(pick(row, "plus_materials_display")),
             "－材料": clean_text(pick(row, "minus_materials_display")),
         }

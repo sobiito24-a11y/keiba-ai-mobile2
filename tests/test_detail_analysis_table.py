@@ -455,6 +455,52 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertNotIn("83.5", result.to_string())
         pd.testing.assert_frame_equal(source, before)
 
+    def test_market_full_table_hides_year_max_but_keeps_starred_recent_runs_and_core_values(self) -> None:
+        self.streamlit.last_dataframe = None
+        source = pd.DataFrame(
+            [
+                {
+                    "馬番": 12,
+                    "馬名": "フレマチスノーブル",
+                    "馬年齢": "牡3",
+                    "ai_current_mark": "☆",
+                    "current_evaluation_rank": 5,
+                    "ability_band_v2": "B",
+                    "market_ability_rank": 4,
+                    "market_ability_score": 37.4,
+                    "actual_odds": 37.8,
+                    "jockey_display_market": "安藤洋一（継続）",
+                    "weight_market": "54.0kg",
+                    "3走前": "★24",
+                    "2走前": "14",
+                    "前走": "★17",
+                    "平均指数": 18.3,
+                    "過去1年最高指数": 72,
+                    "最高指数": 72,
+                    "value_signal": True,
+                }
+            ]
+        )
+        before = source.copy(deep=True)
+
+        self.app.render_market_full_table(source, "nar")
+        result = self.streamlit.last_dataframe
+
+        self.assertIsNotNone(result)
+        self.assertNotIn("最高", result.columns)
+        self.assertEqual(result.loc[0, "3走前"], "★24")
+        self.assertEqual(result.loc[0, "前走"], "★17")
+        for column in (
+            "market_ability_score",
+            "market_ability_rank",
+            "ability_band_v2",
+            "current_evaluation_rank",
+            "ai_current_mark",
+            "value_signal",
+        ):
+            self.assertEqual(source.loc[0, column], before.loc[0, column])
+        pd.testing.assert_frame_equal(source, before)
+
     def test_market_horse_card_summarizes_training_and_stable_comment(self) -> None:
         html = self.app.market_horse_card_html(
             {
