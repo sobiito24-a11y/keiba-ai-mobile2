@@ -513,6 +513,15 @@ class DetailAnalysisTableTest(unittest.TestCase):
 
         self.assertEqual(self.app.market_jockey_display_text(row), "和田譲（継続・複30%）")
 
+    def test_market_jockey_display_reads_place_rate_from_market_stats(self) -> None:
+        row = {
+            "騎手詳細": "和田譲【継続】",
+            "jockey_market": "和田譲",
+            "jockey_course_stats_market": "大井ダ1600｜10%-20%-30%",
+        }
+
+        self.assertEqual(self.app.market_jockey_display_text(row), "和田譲（継続・複30%）")
+
     def test_market_jockey_display_shows_previous_to_current_with_place_rate(self) -> None:
         row = {
             "騎手詳細": "団野大成 → 川田将雅【乗り替わり】",
@@ -544,6 +553,38 @@ class DetailAnalysisTableTest(unittest.TestCase):
         )
 
         self.assertIn("差｜和田譲（継続・複30%）｜54.0kg", html)
+
+    def test_market_source_table_merges_jockey_detail_from_sibling_table_for_display(self) -> None:
+        result = SimpleNamespace(
+            overall_table=pd.DataFrame(
+                [
+                    {
+                        "馬番": 12,
+                        "馬名": "サンバフレイバー",
+                        "ability_band_v2": "A",
+                        "market_ability_score": 51.7,
+                        "market_ability_rank": 2,
+                        "current_evaluation_rank": 1,
+                        "jockey_market": "和田譲",
+                    }
+                ]
+            ),
+            horse_evaluation=pd.DataFrame(
+                [
+                    {
+                        "馬番": 12,
+                        "騎手詳細": "和田譲【継続】",
+                        "_jockey_course_place_rate": 30,
+                    }
+                ]
+            ),
+        )
+
+        table = self.app.market_source_table(result)
+        html = self.app.market_horse_card_html(table.iloc[0].to_dict(), "nar")
+
+        self.assertEqual(table.loc[0, "騎手詳細"], "和田譲【継続】")
+        self.assertIn("和田譲（継続・複30%）", html)
 
     def test_market_horse_card_summarizes_training_and_stable_comment(self) -> None:
         html = self.app.market_horse_card_html(

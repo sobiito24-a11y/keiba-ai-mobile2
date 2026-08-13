@@ -1549,8 +1549,57 @@ def render_market_compare_result(result: PredictionResult) -> None:
 def market_source_table(result: PredictionResult) -> pd.DataFrame:
     for table in (result.overall_table, result.horse_evaluation):
         if isinstance(table, pd.DataFrame) and not table.empty and "ability_band_v2" in table.columns:
-            return table.copy()
+            return merge_market_display_supplements(table.copy(), result)
     return pd.DataFrame()
+
+
+MARKET_DISPLAY_SUPPLEMENT_COLUMNS = (
+    "騎手詳細",
+    "jockey_detail",
+    "騎手継続/乗替",
+    "jockey_change",
+    "_display_previous_jockey",
+    "_previous_jockey",
+    "前走騎手",
+    "previous_jockey",
+    "_display_current_jockey",
+    "_current_jockey",
+    "_jockey_course_place_rate",
+    "jockey_course_place_rate",
+    "騎手コース複勝率",
+    "jockey_course_stats_market",
+    "jockey_course_sample_market",
+    "★最高指数",
+    "star_max_index",
+    "★最高",
+)
+
+
+def merge_market_display_supplements(table: pd.DataFrame, result: PredictionResult) -> pd.DataFrame:
+    """Fill display-only fields from the sibling prediction table by horse number."""
+
+    merged = table.copy()
+    sources = [getattr(result, "overall_table", None), getattr(result, "horse_evaluation", None)]
+    for source in sources:
+        if source is None or not isinstance(source, pd.DataFrame) or source.empty or source is table:
+            continue
+        supplemental = {
+            horse_no(pick(row, "馬番", "馬", "horse_no", "horse_number")): row
+            for row in source.to_dict("records")
+        }
+        for index, row in merged.iterrows():
+            key = horse_no(pick(row.to_dict(), "馬番", "馬", "horse_no", "horse_number"))
+            if not key or key not in supplemental:
+                continue
+            extra = supplemental[key]
+            for column in MARKET_DISPLAY_SUPPLEMENT_COLUMNS:
+                if column not in extra:
+                    continue
+                if column not in merged.columns:
+                    merged[column] = pd.Series([None] * len(merged), index=merged.index, dtype="object")
+                if is_missing_value(merged.at[index, column]):
+                    merged.at[index, column] = extra[column]
+    return merged
 
 
 def render_market_band_prices(table: pd.DataFrame) -> None:
@@ -1732,6 +1781,13 @@ def normalize_jockey_display_text(text: str) -> str:
 
 def jockey_place_rate_text(row: dict[str, Any]) -> str:
     rate = to_float(pick(row, "_jockey_course_place_rate", "jockey_course_place_rate", "騎手コース複勝率"))
+    if rate is None:
+        stats = clean_text(pick(row, "jockey_course_stats_market", "騎手コース成績"))
+        matches = re.findall(r"(\d+(?:\.\d+)?)\s*%", stats)
+        if len(matches) >= 3:
+            rate = to_float(matches[2])
+        elif len(matches) == 1 and "複" in stats:
+            rate = to_float(matches[0])
     if rate is None:
         return ""
     label = f"{rate:.0f}" if float(rate).is_integer() else f"{rate:.1f}"
