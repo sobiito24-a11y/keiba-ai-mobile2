@@ -18,6 +18,7 @@ from .horse_trust import build_horse_trust_materials, build_horse_trust_summary
 from .models import PredictionResult
 from .purchase_conditions import clean_text, horse_no, to_float
 from .recent_races import build_recent_races
+from .value_support import attach_value_signals
 from .version import APP_VERSION
 
 
@@ -386,6 +387,10 @@ def _horse_snapshots(
     race_info: Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     merged = _merged_horse_rows(result)
+    value_by_no = {
+        horse_no(_pick(item, "馬番", "馬", "horse_no", "horse_number")): item
+        for item in attach_value_signals(merged, race_type)
+    }
     context_by_no = {
         clean_text(item.get("horse_number")): item
         for item in build_final_betting_context(pd.DataFrame(merged), race_type, race_info=race_info)
@@ -394,6 +399,7 @@ def _horse_snapshots(
     for row in merged:
         trust = build_horse_trust_materials(row, race_type)
         number = horse_no(_pick(row, "馬番", "horse_no", "horse_number", "馬"))
+        value_support = value_by_no.get(number, {})
         final_context = context_by_no.get(number, {})
         momentum = final_context.get("momentum") if isinstance(final_context.get("momentum"), Mapping) else {}
         race_shape = final_context.get("race_shape") if isinstance(final_context.get("race_shape"), Mapping) else {}
@@ -473,9 +479,36 @@ def _horse_snapshots(
                     "weight_material": _material_detail(trust, "weight"),
                     "first_blinker": bool(_material_detail(trust, "first_blinker")) if race_type == "jra" else False,
                     "supplement": _pick(row, "補足", "supplement_note", "評価／検討材料", "評価/検討材料"),
+                    "value_signal": bool(value_support.get("value_signal")),
+                    "value_reason": value_support.get("value_reason", ""),
+                    "value_odds_at_decision": value_support.get("value_odds_at_decision"),
+                    "value_ability_band": value_support.get("value_ability_band"),
+                    "value_ability_rank": value_support.get("value_ability_rank"),
+                    "value_current_rank": value_support.get("value_current_rank"),
+                    "value_mark": value_support.get("value_mark"),
+                    "value_plus_materials": list(value_support.get("value_plus_materials") or []),
+                    "value_minus_materials": list(value_support.get("value_minus_materials") or []),
+                    "training_display": value_support.get("training_display", ""),
+                    "stable_comment_display": value_support.get("stable_comment_display", ""),
+                    "course_material_label": value_support.get("course_material_label", ""),
+                    "netkeiba_favorable_label": value_support.get("netkeiba_favorable_label", ""),
                 },
                 "horse_trust": trust,
                 "horse_trust_summary": build_horse_trust_summary(row, race_type),
+                "value_support": {
+                    "value_signal": bool(value_support.get("value_signal")),
+                    "value_candidate": bool(value_support.get("value_candidate")),
+                    "value_reason": value_support.get("value_reason", ""),
+                    "value_score": value_support.get("value_score"),
+                    "odds_at_decision": value_support.get("value_odds_at_decision"),
+                    "ability_band": value_support.get("value_ability_band"),
+                    "ability_rank": value_support.get("value_ability_rank"),
+                    "current_rank": value_support.get("value_current_rank"),
+                    "mark": value_support.get("value_mark"),
+                    "plus_materials": list(value_support.get("value_plus_materials") or []),
+                    "minus_materials": list(value_support.get("value_minus_materials") or []),
+                    "audit": value_support.get("value_audit", {}),
+                },
                 "recent_races": recent_races,
                 "condition_fit_mark": condition_fit.get("condition_fit_mark"),
                 "condition_fit_level": condition_fit.get("condition_fit_level"),

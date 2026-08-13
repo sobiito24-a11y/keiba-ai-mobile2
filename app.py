@@ -70,6 +70,12 @@ from core.recent_races import (
     recent_races_summary_text,
 )
 from core.star_trace import log_star_trace, star_trace_row
+from core.value_support import (
+    VALUE_FIELD_NAMES,
+    attach_value_signals,
+    current_mark_reference,
+    value_reference_rows,
+)
 from core.version import APP_VERSION
 from core.ver4_engine import prediction_logic_version as normalize_prediction_logic_version
 from render.mobile_png import MobilePngRenderError, render_mobile_png
@@ -1502,6 +1508,7 @@ def render_colab_style_result(result: PredictionResult) -> Any:
     render_race_summary(result)
     render_power_map(result)
     render_horse_summary_cards(result)
+    render_backtest_reference(result)
     render_race_flow(result)
     investment_decision = render_investment_decision(result)
     render_overall_table(result)
@@ -2359,7 +2366,7 @@ def render_race_flow(result: PredictionResult) -> None:
 
 
 def render_horse_summary_cards(result: PredictionResult) -> None:
-    rows = sorted_display_rows(result)
+    rows = sorted_display_rows_with_value_support(result)
     if not rows:
         st.info("馬別サマリーは未取得です。")
         return
@@ -2378,6 +2385,57 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
         with st.expander("Zグループの馬も表示", expanded=False):
             for row in hidden:
                 st.markdown(card_html(row), unsafe_allow_html=True)
+
+
+def render_backtest_reference(result: PredictionResult) -> None:
+    rows = sorted_display_rows_with_value_support(result)
+    references = value_reference_rows()
+    honmei = next((row for row in rows if display_mark_from_row(row) == "◎"), None)
+    current_ref = current_mark_reference(honmei) if honmei else None
+    blocks: list[str] = []
+    for item in references:
+        blocks.append(backtest_reference_line(item))
+    if current_ref:
+        blocks.append("現在◎参考： " + backtest_reference_line(current_ref))
+    value_rows = [row for row in rows if truthy_display(pick(row, "value_signal"))]
+    if value_rows:
+        value_bits = []
+        for row in value_rows:
+            value_bits.append(
+                join_nonempty(
+                    [
+                        pick(row, "馬番", "馬"),
+                        pick(row, "馬名"),
+                        clean_text(pick(row, "value_reason")),
+                    ],
+                    sep=" ",
+                )
+            )
+        blocks.append("妙味あり候補： " + " / ".join(value_bits))
+    if not blocks:
+        return
+    st.subheader("過去検証参考")
+    st.caption("現行印を過去データで続けた場合の参考値です。予想順位・印・能力値には反映していません。")
+    body = "<br>".join(plain_text_to_html(block) for block in blocks if clean_text(block))
+    st.markdown(f'<div class="ka-dashboard-card"><div class="ka-note">{body}</div></div>', unsafe_allow_html=True)
+
+
+def backtest_reference_line(item: dict[str, Any]) -> str:
+    label = clean_text(item.get("label")) or "参考"
+    sample = item.get("sample")
+    hit_rate = item.get("hit_rate")
+    roi = item.get("roi")
+    top1 = item.get("top1_excluded_roi")
+    category = clean_text(item.get("category")) or "未校正"
+    parts = [
+        label,
+        f"{int(to_float(sample) or 0)}件",
+        f"的中{format_number(hit_rate)}%" if to_float(hit_rate) is not None else "",
+        f"回収{format_number(roi)}%" if to_float(roi) is not None else "",
+        f"最大除外{format_number(top1)}%" if to_float(top1) is not None else "",
+        f"→ {category}",
+    ]
+    return "｜".join(part for part in parts if clean_text(part))
 
 
 def card_pick(row: dict[str, Any], index_row: dict[str, Any], *names: str) -> Any:
@@ -2581,6 +2639,15 @@ def horse_summary_card_html(
     material_badges_markup = material_badges_html(material_badges)
     material_labels = " ／ ".join(label for label, _tone in material_badges)
     first_blinker_source = initial_blinker_source(row, race_mode, index_row)
+    training_label = clean_text(card_pick(row, index_row, "training_display"))
+    stable_comment = clean_text(card_pick(row, index_row, "stable_comment_display"))
+    course_material = clean_text(card_pick(row, index_row, "course_material_label"))
+    course_material_detail = clean_text(card_pick(row, index_row, "course_material_detail"))
+    netkeiba_favorable = clean_text(card_pick(row, index_row, "netkeiba_favorable_label"))
+    value_signal = truthy_display(card_pick(row, index_row, "value_signal"))
+    value_reason = clean_text(card_pick(row, index_row, "value_reason"))
+    value_plus = card_pick(row, index_row, "value_plus_materials")
+    value_minus = card_pick(row, index_row, "value_minus_materials")
     mark_part = mark if mark else ""
     quick_items = [
         f"{age}　{weight}" if weight else age,
@@ -2592,6 +2659,14 @@ def horse_summary_card_html(
         f"条件実績：{condition_badge}" if condition_badge else "",
         f"状態：{state}",
     ]
+    if training_label:
+        quick_items.append(training_label)
+    if course_material:
+        quick_items.append(f"展開/コース：{course_material}")
+    if netkeiba_favorable:
+        quick_items.append(netkeiba_favorable)
+    if value_signal:
+        quick_items.append(f"妙味あり：{value_reason}")
     horse_score_v4 = card_pick(row, index_row, "horse_score_v4")
     race_rank_v4 = card_pick(row, index_row, "race_rank_v4")
     if not is_missing_value(horse_score_v4):
@@ -2636,6 +2711,15 @@ def horse_summary_card_html(
         f"表示材料：{material_labels or '—'}",
         "数値補正：なし（既存の能力評価値をそのまま表示）",
         "二重補正回避：年齢・距離・コース・斤量・騎手は通常カードの材料表示のみ",
+        f"調教表示：{training_label or '—'}",
+        f"厩舎コメント：{stable_comment or '—'}",
+        f"展開/コース：{course_material or '—'}",
+        f"展開/コース監査：{course_material_detail or '—'}",
+        f"netkeiba推定：{netkeiba_favorable or '—'}",
+        f"妙味あり：{'該当' if value_signal else '—'}",
+        f"妙味理由：{value_reason or '—'}",
+        f"妙味＋材料：{reason_list_text(value_plus) or '—'}",
+        f"妙味－材料：{reason_list_text(value_minus) or '—'}",
         f"近3走指数推移：{recent3_text_from_row(index_row, row)}",
         f"4角：{corner4 or '—'}　直線：{straight or '—'}",
         f"コメント：{short_comment_from_row(row)}",
@@ -2706,6 +2790,26 @@ def sorted_display_rows(result: PredictionResult) -> list[dict[str, Any]]:
         )
 
     return sorted(rows, key=sort_key)
+
+
+def sorted_display_rows_with_value_support(result: PredictionResult) -> list[dict[str, Any]]:
+    rows = sorted_display_rows(result)
+    if not rows:
+        return []
+    overall_rows_by_horse = build_overall_rows_by_horse(result.overall_table)
+    merged_rows: list[dict[str, Any]] = []
+    for row in rows:
+        horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
+        merged_rows.append(merged_card_source(row, overall_rows_by_horse.get(horse_key, {})))
+    enriched = attach_value_signals(merged_rows, result.race_mode)
+    out: list[dict[str, Any]] = []
+    for row, value_row in zip(rows, enriched, strict=False):
+        copied = dict(row)
+        for field in VALUE_FIELD_NAMES:
+            if field in value_row:
+                copied[field] = value_row[field]
+        out.append(copied)
+    return out
 
 
 def _horse_count_text(result: PredictionResult) -> str:
@@ -3058,8 +3162,8 @@ def render_overall_table(result: PredictionResult) -> None:
 
     overall_rows_by_horse = build_overall_rows_by_horse(table)
 
-    rows = sorted_display_rows(result)
-    display_table = build_detail_analysis_table(rows, overall_rows_by_horse)
+    rows = sorted_display_rows_with_value_support(result)
+    display_table = build_detail_analysis_table(rows, overall_rows_by_horse, result.race_mode)
     append_nar_star_display_trace(result, "11 Streamlit detail table before st.dataframe", display_table)
     st.dataframe(display_table, use_container_width=True, hide_index=True)
 
@@ -3067,6 +3171,7 @@ def render_overall_table(result: PredictionResult) -> None:
 def build_detail_analysis_table(
     rows: list[dict[str, Any]],
     overall_rows_by_horse: dict[str, dict[str, Any]] | None = None,
+    race_mode: str = "jra",
 ) -> pd.DataFrame:
     records: list[dict[str, Any]] = []
     for row in rows:
@@ -3077,26 +3182,35 @@ def build_detail_analysis_table(
         else:
             horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
             index_row = overall_rows_by_horse.get(horse_key, {})
-        records.append(
-            {
-                "グループ": display_group_from_row(row),
-                "馬": join_nonempty([no, name], sep=" "),
-                "オッズ": format_odds(pick(row, "単勝オッズ", "オッズ", "単勝")) or "—",
-                "年齢": clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—",
-                "騎手": compact_table_jockey_text(row),
-                "斤量": compact_weight_text(row).replace("kg", "") or "—",
-                "脚質": short_running_style(row),
-                "距離": format_index_value(pick(index_row, "距離指数")),
-                "コース": format_index_value(pick(index_row, "コース指数")),
-                "★": format_star_value(pick(index_row, "★最高指数", "star_max_index")),
-                "3走前": format_index_value(pick(index_row, "3走前")),
-                "2走前": format_index_value(pick(index_row, "2走前")),
-                "前走": format_index_value(pick(index_row, "前走")),
-                "3走平均": format_index_value(pick(index_row, "平均指数", "3走平均", "近3走平均")),
-                "状態": state_label_from_row(row),
-                "コメント": short_comment_from_row(row),
-            }
-        )
+        record = {
+            "グループ": display_group_from_row(row),
+            "馬": join_nonempty([no, name], sep=" "),
+            "オッズ": format_odds(pick(row, "単勝オッズ", "オッズ", "単勝")) or "—",
+            "年齢": clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—",
+            "騎手": compact_table_jockey_text(row),
+            "斤量": compact_weight_text(row).replace("kg", "") or "—",
+            "脚質": short_running_style(row),
+            "展開/コース": clean_text(pick(row, "course_material_label")) or "—",
+            "netkeiba推定": clean_text(pick(row, "netkeiba_favorable_label")) or "—",
+            "距離": format_index_value(pick(index_row, "距離指数")),
+            "コース": format_index_value(pick(index_row, "コース指数")),
+            "★": format_star_value(pick(index_row, "★最高指数", "star_max_index")),
+            "3走前": format_index_value(pick(index_row, "3走前")),
+            "2走前": format_index_value(pick(index_row, "2走前")),
+            "前走": format_index_value(pick(index_row, "前走")),
+            "3走平均": format_index_value(pick(index_row, "平均指数", "3走平均", "近3走平均")),
+            "状態": state_label_from_row(row),
+            "妙味": "妙味あり" if truthy_display(pick(row, "value_signal")) else "—",
+            "コメント": short_comment_from_row(row),
+        }
+        if race_mode == "jra":
+            insert_after = list(record.items())
+            record = {}
+            for key, value in insert_after:
+                record[key] = value
+                if key == "脚質":
+                    record["調教"] = clean_text(pick(row, "training_display")) or "—"
+        records.append(record)
     return pd.DataFrame.from_records(records)
 
 
@@ -3181,6 +3295,10 @@ def render_audit_details(result: PredictionResult) -> None:
         return
     with st.expander("監査モード：評価値詳細", expanded=False):
         st.dataframe(audit_table, use_container_width=True, hide_index=True)
+        course_rows = course_material_audit_rows(result)
+        if course_rows:
+            st.caption("展開/コース材料監査（netkeiba推定有利馬とは別表示）")
+            st.dataframe(pd.DataFrame(course_rows), use_container_width=True, hide_index=True)
         col1, col2, col3 = st.columns(3)
         base_name = make_download_file_name(result).replace(".png", "")
         col1.download_button(
@@ -3204,6 +3322,26 @@ def render_audit_details(result: PredictionResult) -> None:
             mime="text/markdown",
             use_container_width=True,
         )
+
+
+def course_material_audit_rows(result: PredictionResult) -> list[dict[str, Any]]:
+    rows = sorted_display_rows_with_value_support(result)
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        out.append(
+            {
+                "馬番": pick(row, "馬番", "馬"),
+                "馬名": pick(row, "馬名"),
+                "展開/コース": pick(row, "course_material_label"),
+                "展開/コース詳細": pick(row, "course_material_detail"),
+                "netkeiba推定": pick(row, "netkeiba_favorable_label"),
+                "netkeiba元値": pick(row, "netkeiba_favorable_source"),
+                "推定位置": pick(row, "estimated_position_label"),
+                "妙味": "妙味あり" if truthy_display(pick(row, "value_signal")) else "",
+                "妙味理由": pick(row, "value_reason"),
+            }
+        )
+    return out
 
 
 def render_attention_horses(result: PredictionResult) -> None:
