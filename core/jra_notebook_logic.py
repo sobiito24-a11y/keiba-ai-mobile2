@@ -1014,6 +1014,10 @@ def parse_jra_newspaper_html(newspaper_html):
     columns = [
         "馬番", "_新聞馬名", "_新聞単勝オッズ", "_新聞人気", "_新聞脚質",
         "_新聞レース間隔", "_新聞斤量", "_新聞騎手", "_新聞騎手変更", "新聞コメント",
+        "_新聞馬体重", "_新聞馬体重値", "_新聞馬体重増減", "_新聞過去走",
+        "_新聞今回クラス順位", "_新聞今回クラス", "_新聞前走クラス順位", "_新聞前走クラス",
+        "_新聞最高クラス順位", "_新聞最高クラス", "_新聞過去クラス", "_新聞クラス変動",
+        "_新聞前走間隔日数",
         "調教コメント", "調教評価", "_調教評価記号", "_調教評価文",
         "推定前半3F", "推定後半3F",
     ]
@@ -1029,6 +1033,16 @@ def parse_jra_newspaper_html(newspaper_html):
     # HorseList is the pre-race source for the current entry facts. Parse it
     # separately so these facts survive changes to the surrounding tables.
     soup = BeautifulSoup(newspaper_html, "html.parser")
+    current_race_date = parse_race_date_from_text(
+        " ".join(
+            [
+                text_of(soup.title),
+                str((soup.select_one("meta[name='description']") or {}).get("content", "")),
+                str((soup.select_one("meta[property='og:description']") or {}).get("content", "")),
+            ]
+        )
+    )
+    current_class_rank, current_class_label = race_class_info_from_soup(soup)
     for horse_row in soup.select("dl.HorseList"):
         horse_no = parse_int_from_text(text_of(horse_row.select_one("dt.Waku_Horse")))
         if horse_no is None:
@@ -1044,6 +1058,14 @@ def parse_jra_newspaper_html(newspaper_html):
         jockey = text_of(jockey_cell.select_one("a")) if jockey_cell is not None else ""
         jockey_change = text_of(jockey_cell.select_one("a .Change")) if jockey_cell is not None else ""
         jockey = re.sub(r"^(?:替|継)\s*", "", jockey)
+        body_weight, body_weight_value, body_weight_change = _jra_newspaper_body_weight(horse_row)
+        newspaper_past_runs = _jra_newspaper_past_runs(horse_row, current_race_date)
+        previous_run = newspaper_past_runs[0] if newspaper_past_runs else {}
+        ranked_runs = [run for run in newspaper_past_runs if run.get("class_rank") is not None]
+        best_run = max(ranked_runs, key=lambda run: run.get("class_rank")) if ranked_runs else {}
+        previous_class_rank = previous_run.get("class_rank")
+        previous_class_label = norm_text(str(previous_run.get("class_label") or ""))
+        days_since_last = days_between(current_race_date, previous_run.get("race_date"))
         current_load = None
         if jockey_cell is not None:
             for span in reversed(jockey_cell.find_all("span", recursive=False)):
@@ -1067,6 +1089,33 @@ def parse_jra_newspaper_html(newspaper_html):
             record["_新聞騎手"] = jockey
         if jockey_change:
             record["_新聞騎手変更"] = jockey_change
+        if body_weight:
+            record["_新聞馬体重"] = body_weight
+            record["_新聞馬体重値"] = body_weight_value
+            record["_新聞馬体重増減"] = body_weight_change
+        if newspaper_past_runs:
+            record["_新聞過去走"] = newspaper_past_runs
+        if current_class_rank is not None:
+            record["_新聞今回クラス順位"] = current_class_rank
+            record["_新聞今回クラス"] = current_class_label
+        if previous_class_rank is not None:
+            record["_新聞前走クラス順位"] = previous_class_rank
+            record["_新聞前走クラス"] = previous_class_label
+        if best_run:
+            record["_新聞最高クラス順位"] = best_run.get("class_rank")
+            record["_新聞最高クラス"] = best_run.get("class_label")
+        past_class_labels = [
+            norm_text(str(run.get("class_label") or ""))
+            for run in newspaper_past_runs
+            if norm_text(str(run.get("class_label") or ""))
+        ]
+        if past_class_labels:
+            record["_新聞過去クラス"] = past_class_labels
+        class_shift = class_shift_label(current_class_rank, previous_class_rank)
+        if class_shift:
+            record["_新聞クラス変動"] = class_shift
+        if days_since_last is not None:
+            record["_新聞前走間隔日数"] = days_since_last
 
     for df in tables:
         horse_col = find_column_by_keywords(df, "馬", "番")
@@ -1161,6 +1210,65 @@ def parse_jra_newspaper_html(newspaper_html):
         if column not in result.columns:
             result[column] = ""
     return result[columns].drop_duplicates("馬番")
+
+
+def _jra_newspaper_body_weight(horse_row):
+    text = text_of(horse_row.select_one(".Horse_Info .Horse07 .Weight"))
+    match = re.search(r"(\d{3})\s*(?:kg)?\s*\(([+-]?\d+)\)", text, flags=re.I)
+    if not match:
+        return "", None, None
+    value = int(match.group(1))
+    change = int(match.group(2))
+    display = f"{value}({change:+d})" if change else f"{value}(0)"
+    return display, value, change
+
+
+def _jra_newspaper_past_runs(horse_row, current_race_date):
+    result = []
+    labels = ("前走", "2走前", "3走前")
+    for index, past in enumerate(horse_row.select(".Past_Wrapper li.Past")[:3]):
+        grade = past.select_one("[class*='GradeType'], [class*='GradeIcon'], [class*='Icon_Grade']")
+        grade_text = text_of(grade)
+        if grade_text.upper() == "L":
+            grade_text = "(L)"
+        grade_classes = " ".join(grade.get("class", [])) if grade is not None else ""
+        class_rank, class_label = race_class_info(
+            " ".join(
+                part
+                for part in (grade_classes, grade_text, text_of(past.select_one(".Data03")))
+                if part
+            )
+        )
+        result.append(
+            {
+                "label": labels[index],
+                "race_name": text_of(past.select_one(".RaceName")),
+                "race_date": _jra_newspaper_month_day(text_of(past.select_one(".Data01")), current_race_date),
+                "class_rank": class_rank,
+                "class_label": class_label,
+                "position": parse_int_from_text(text_of(past.select_one(".Data04 .Num"))),
+            }
+        )
+    return result
+
+
+def _jra_newspaper_month_day(value, current_race_date):
+    match = re.search(r"(\d{1,2})[./-](\d{1,2})", norm_text(str(value or "")))
+    if not match or not current_race_date:
+        return None
+    month = int(match.group(1))
+    day = int(match.group(2))
+    year = current_race_date.year
+    try:
+        parsed = date(year, month, day)
+    except ValueError:
+        return None
+    if parsed > current_race_date:
+        try:
+            parsed = date(year - 1, month, day)
+        except ValueError:
+            return None
+    return parsed
 
 
 def build_jra_newspaper_materials(row):
@@ -1315,6 +1423,7 @@ def apply_jra_newspaper_html_features(df, newspaper_html):
         "_新聞レース間隔": "レース間隔",
         "_新聞斤量": "斤量",
         "_新聞騎手": "騎手",
+        "_新聞馬体重": "馬体重",
     }
     numeric_fact_targets = {"オッズ", "人気", "斤量"}
 
@@ -1349,6 +1458,36 @@ def apply_jra_newspaper_html_features(df, newspaper_html):
 
     for source, target in fact_columns.items():
         assign_present_fact_values(source, target)
+
+    newspaper_scalar_fields = {
+        "_新聞馬体重値": "_body_weight",
+        "_新聞馬体重増減": "_body_weight_change",
+        "_新聞今回クラス順位": "_current_class_rank",
+        "_新聞今回クラス": "_current_class_label",
+        "_新聞前走クラス順位": "_previous_class_rank",
+        "_新聞前走クラス": "_previous_class_label",
+        "_新聞最高クラス順位": "_best_past_class_rank",
+        "_新聞最高クラス": "_best_past_class_label",
+        "_新聞過去クラス": "_past_class_labels",
+        "_新聞クラス変動": "_class_shift",
+        "_新聞前走間隔日数": "_days_since_last",
+    }
+    for source, target in newspaper_scalar_fields.items():
+        if source not in result.columns:
+            continue
+        if target not in result.columns:
+            result[target] = pd.Series([None] * len(result), index=result.index, dtype="object")
+        for index, value in result[source].items():
+            if _jra_newspaper_value_present(value) and not _jra_newspaper_value_present(result.at[index, target]):
+                result.at[index, target] = value
+
+    if "_新聞過去走" in result.columns:
+        if "_past_runs" not in result.columns:
+            result["_past_runs"] = pd.Series([[] for _ in range(len(result))], index=result.index, dtype="object")
+        result["_past_runs"] = result.apply(
+            lambda row: _merge_jra_past_run_evidence(row.get("_past_runs"), row.get("_新聞過去走")),
+            axis=1,
+        )
     if "_新聞斤量" in result.columns:
         if "_current_load_weight" not in result.columns:
             result["_current_load_weight"] = pd.NA
@@ -1382,6 +1521,48 @@ def apply_jra_newspaper_html_features(df, newspaper_html):
         for base_score, late_score in zip([item[1] for item in material_rows], late3f_scores)
     ]
     return result
+
+
+def _jra_newspaper_value_present(value):
+    if value is None:
+        return False
+    if isinstance(value, (list, tuple, dict, set)):
+        return bool(value)
+    try:
+        if pd.isna(value):
+            return False
+    except Exception:
+        pass
+    return norm_text(str(value)) not in {"", "nan", "None"}
+
+
+def _merge_jra_past_run_evidence(existing, newspaper):
+    base = [dict(run) for run in existing if isinstance(run, dict)] if isinstance(existing, list) else []
+    additions = [dict(run) for run in newspaper if isinstance(run, dict)] if isinstance(newspaper, list) else []
+    by_role = {_jra_past_run_role(run): run for run in base if _jra_past_run_role(run)}
+    for run in additions:
+        role = _jra_past_run_role(run)
+        target = by_role.get(role)
+        if target is None:
+            base.append(run)
+            if role:
+                by_role[role] = run
+            continue
+        for key, value in run.items():
+            if _jra_newspaper_value_present(value) and not _jra_newspaper_value_present(target.get(key)):
+                target[key] = value
+    order = {"3走前": 0, "2走前": 1, "前走": 2}
+    return sorted(base, key=lambda run: order.get(_jra_past_run_role(run), 9))
+
+
+def _jra_past_run_role(run):
+    label = norm_text(str((run or {}).get("label") or (run or {}).get("key") or (run or {}).get("run_key") or ""))
+    aliases = {
+        "前走": "前走", "last": "前走", "race1": "前走", "1走前": "前走",
+        "2走前": "2走前", "2back": "2走前", "race2": "2走前",
+        "3走前": "3走前", "3back": "3走前", "race3": "3走前",
+    }
+    return aliases.get(label, "")
 
 
 
@@ -10347,6 +10528,7 @@ def _run_jra_notebook_body(
         "_current_class_rank", "_current_class_label", "_previous_class_rank",
         "_previous_class_label", "_best_past_class_rank", "_best_past_class_label",
         "_past_class_labels", "_past_runs", "_days_since_last",
+        "馬体重", "_body_weight", "_body_weight_change",
         "_current_load_weight", "_previous_load_weight", "_load_weight_change",
         "_ver3_ability_core", "_market_non_ability_adjustment",
         "_current_jockey", "_previous_jockey", "_jockey_changed",

@@ -1000,11 +1000,24 @@ def parse_nar_newspaper_feature_html(html):
     )
     if not info.get("going"):
         info["going"] = parse_going_from_text(full_text)
+    class_fallback_text = " ".join(
+        norm_text(str(value or ""))
+        for value in (race.get("race_name"), race.get("race_data_1"), race.get("race_data_2"))
+        if value
+    )
+    if hasattr(soup, "select"):
+        current_class_rank, current_class_label = race_class_info_from_soup(soup, class_fallback_text)
+    else:
+        current_class_rank, current_class_label = race_class_info(class_fallback_text)
+    current_race_date = parse_race_date_from_race_id(str(data.get("race_id") or html))
     info.update(
         {
             "race_name": race.get("race_name") or text_of(soup.select_one(".RaceName")),
             "race_data": race.get("race_data_1") or text_of(soup.select_one(".RaceData01")),
             "race_data2": race.get("race_data_2") or text_of(soup.select_one(".RaceData02")),
+            "class_rank": current_class_rank,
+            "class_label": current_class_label,
+            "race_date": current_race_date,
         }
     )
 
@@ -1023,6 +1036,16 @@ def parse_nar_newspaper_feature_html(html):
         )
         current_jockey = norm_text(str(item.get("jockey") or ""))
         previous_jockey = norm_text(str(item.get("previous_jockey") or item.get("前走騎手") or ""))
+        newspaper_past_runs = _nar_newspaper_past_runs(item, current_race_date)
+        previous_run = newspaper_past_runs[0] if newspaper_past_runs else {}
+        previous_class_rank = previous_run.get("class_rank")
+        previous_class_label = norm_text(str(previous_run.get("class_label") or ""))
+        ranked_runs = [
+            run for run in newspaper_past_runs
+            if run.get("class_rank") is not None and norm_text(str(run.get("class_label") or ""))
+        ]
+        best_run = max(ranked_runs, key=lambda run: run.get("class_rank")) if ranked_runs else {}
+        days_since_last = days_between(current_race_date, previous_run.get("race_date"))
 
         record = {
             "馬番": int(horse_no),
@@ -1030,6 +1053,21 @@ def parse_nar_newspaper_feature_html(html):
             "馬体重": body_display,
             "_body_weight": body_value,
             "_body_weight_change": body_change,
+            "レース間隔": norm_text(str(item.get("race_interval") or "")),
+            "_newspaper_past_runs": newspaper_past_runs,
+            "_current_class_rank": current_class_rank,
+            "_current_class_label": current_class_label,
+            "_previous_class_rank": previous_class_rank,
+            "_previous_class_label": previous_class_label,
+            "_best_past_class_rank": best_run.get("class_rank"),
+            "_best_past_class_label": norm_text(str(best_run.get("class_label") or "")),
+            "_past_class_labels": [
+                norm_text(str(run.get("class_label") or ""))
+                for run in newspaper_past_runs
+                if norm_text(str(run.get("class_label") or ""))
+            ],
+            "_class_shift": class_shift_label(current_class_rank, previous_class_rank),
+            "_days_since_last": days_since_last,
         }
         if current_weight is not None:
             record["_display_current_load_weight"] = current_weight
@@ -1049,6 +1087,71 @@ def parse_nar_newspaper_feature_html(html):
     if not newspaper_df.empty:
         newspaper_df = newspaper_df.drop_duplicates("馬番")
     return info, newspaper_df
+
+
+def _nar_newspaper_past_runs(item, current_race_date):
+    source_runs = item.get("past_runs") or item.get("recent_runs") or []
+    if not isinstance(source_runs, list):
+        return []
+    result = []
+    seen = set()
+    labels = ("前走", "2走前", "3走前")
+    for index, raw in enumerate(source_runs[:3]):
+        if not isinstance(raw, dict):
+            continue
+        run = dict(raw)
+        identity = (
+            norm_text(str(raw.get("previous_date") or raw.get("前走日付") or "")),
+            norm_text(str(raw.get("previous_race") or raw.get("前走レース") or "")),
+        )
+        if identity != ("", "") and identity in seen:
+            continue
+        seen.add(identity)
+        class_rank, class_label = race_class_info(
+            " ".join(
+                value
+                for value in (
+                    norm_text(str(raw.get("class_text") or "")),
+                    norm_text(str(raw.get("previous_race") or raw.get("前走レース") or "")),
+                )
+                if value
+            )
+        )
+        race_date = _nar_newspaper_date(raw.get("previous_date") or raw.get("前走日付"), current_race_date)
+        position = parse_int_from_text(str(raw.get("previous_finish") or raw.get("前走着順") or ""))
+        run.update(
+            {
+                "label": labels[index],
+                "race_date": race_date,
+                "class_rank": class_rank,
+                "class_label": class_label,
+                "position": position,
+            }
+        )
+        result.append(run)
+    return result
+
+
+def _nar_newspaper_date(value, current_race_date):
+    text = norm_text(str(value or ""))
+    match = re.search(r"(?:(\d{4})[./-])?(\d{1,2})[./-](\d{1,2})", text)
+    if not match:
+        return None
+    year = int(match.group(1)) if match.group(1) else getattr(current_race_date, "year", 0)
+    month = int(match.group(2))
+    day = int(match.group(3))
+    if not year:
+        return None
+    try:
+        parsed = date(year, month, day)
+    except ValueError:
+        return None
+    if current_race_date and parsed > current_race_date and not match.group(1):
+        try:
+            parsed = date(year - 1, month, day)
+        except ValueError:
+            return None
+    return parsed
 
 
 def _coalesce_newspaper_column(result, column):
@@ -1083,6 +1186,11 @@ def apply_nar_newspaper_html_features(df, race_info, newspaper_html):
         result = recompute_same_going_features(result, race_info)
     else:
         result = add_condition_context_features(result, race_info)
+    if parsed_info.get("class_label") and not race_info.get("class_label"):
+        race_info["class_label"] = parsed_info.get("class_label")
+        race_info["class_rank"] = parsed_info.get("class_rank")
+    if parsed_info.get("race_date") and not race_info.get("race_date"):
+        race_info["race_date"] = parsed_info.get("race_date")
 
     if not newspaper_df.empty:
         result = result.merge(
@@ -1095,6 +1203,16 @@ def apply_nar_newspaper_html_features(df, race_info, newspaper_html):
             "馬体重",
             "_body_weight",
             "_body_weight_change",
+            "レース間隔",
+            "_current_class_rank",
+            "_current_class_label",
+            "_previous_class_rank",
+            "_previous_class_label",
+            "_best_past_class_rank",
+            "_best_past_class_label",
+            "_past_class_labels",
+            "_class_shift",
+            "_days_since_last",
             "_display_current_load_weight",
             "_display_previous_load_weight",
             "_display_load_weight_change",
@@ -1103,6 +1221,18 @@ def apply_nar_newspaper_html_features(df, race_info, newspaper_html):
             "_display_jockey_changed",
         ):
             result = _coalesce_newspaper_column(result, column)
+
+        if "_newspaper_past_runs" in result.columns:
+            if "_past_runs" not in result.columns:
+                result["_past_runs"] = pd.Series([[] for _ in range(len(result))], index=result.index, dtype="object")
+            result["_past_runs"] = result.apply(
+                lambda row: _merge_nar_past_run_evidence(
+                    row.get("_past_runs"),
+                    row.get("_newspaper_past_runs"),
+                ),
+                axis=1,
+            )
+            result = result.drop(columns=["_newspaper_past_runs"])
 
         newspaper_info["body_count"] = int(result["馬体重"].astype(str).str.len().gt(0).sum())
         previous_cols = [
@@ -1118,6 +1248,37 @@ def apply_nar_newspaper_html_features(df, race_info, newspaper_html):
                 axis=1,
             )
     return result, race_info, newspaper_info
+
+
+def _merge_nar_past_run_evidence(existing, newspaper):
+    """Supplement speed-index runs with saved-newspaper facts by run role."""
+
+    base = [dict(run) for run in existing if isinstance(run, dict)] if isinstance(existing, list) else []
+    additions = [dict(run) for run in newspaper if isinstance(run, dict)] if isinstance(newspaper, list) else []
+    by_role = {_nar_past_run_role(run): run for run in base if _nar_past_run_role(run)}
+    for run in additions:
+        role = _nar_past_run_role(run)
+        target = by_role.get(role)
+        if target is None:
+            base.append(run)
+            if role:
+                by_role[role] = run
+            continue
+        for key, value in run.items():
+            if value not in (None, "", []) and target.get(key) in (None, "", []):
+                target[key] = value
+    order = {"3走前": 0, "2走前": 1, "前走": 2}
+    return sorted(base, key=lambda run: order.get(_nar_past_run_role(run), 9))
+
+
+def _nar_past_run_role(run):
+    label = norm_text(str((run or {}).get("label") or (run or {}).get("key") or (run or {}).get("run_key") or ""))
+    aliases = {
+        "前走": "前走", "last": "前走", "race1": "前走", "1走前": "前走",
+        "2走前": "2走前", "2back": "2走前", "race2": "2走前",
+        "3走前": "3走前", "3back": "3走前", "race3": "3走前",
+    }
+    return aliases.get(label, label if label in {"前走", "2走前", "3走前"} else "")
 
 
 def parse_nar_speed_table(html, session, fetch_past_detail=True, sleep_sec=0.35):
@@ -10878,6 +11039,7 @@ def _run_nar_notebook_body(
         "_current_class_rank", "_current_class_label", "_previous_class_rank",
         "_previous_class_label", "_best_past_class_rank", "_best_past_class_label",
         "_past_class_labels", "_past_runs", "_days_since_last",
+        "馬体重", "_body_weight", "_body_weight_change",
         "_current_load_weight", "_previous_load_weight", "_load_weight_change",
         "_ver3_ability_core", "_market_non_ability_adjustment",
         "_current_jockey", "_previous_jockey", "_jockey_changed",

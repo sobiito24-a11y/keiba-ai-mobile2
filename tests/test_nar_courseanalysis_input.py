@@ -9,6 +9,7 @@ from core.html_classifier import classify_html, required_kinds
 from core.audit_features import add_audit_evaluation_columns, build_audit_export_table
 from core.nar_courseanalysis_parser import parse_courseanalysis_html
 from core.nar_newspaper_parser import parse_nar_newspaper_html
+from core.nar_predictor import predict_nar
 from core.nar_json_input import (
     NarJsonDataError,
     build_nar_prediction_inputs_from_uploads,
@@ -312,6 +313,7 @@ def newspaper_html(race_id: str = "202644072106") -> str:
                     <span class="Place">大井</span>
                     <a href="https://nar.netkeiba.com/race/result.html?race_id=202644070101">前走A</a>
                     <span class="Finish">2着</span>
+                    <span class="RaceClass">C1</span>
                     <span class="Jockey"><a href="/jockey/jp1">前走騎手A</a></span>
                     <span class="LoadWeight">55.0</span>
                     <span class="HorseWeight">500(+2)</span>
@@ -341,6 +343,7 @@ def newspaper_html(race_id: str = "202644072106") -> str:
                   <span class="Date">2026/07/02</span>
                   <span class="Place">船橋</span>
                   <span class="Finish">5着</span>
+                  <span class="RaceClass">C2</span>
                   <span class="Jockey"><a href="/jockey/j2">騎手B</a></span>
                   <span class="LoadWeight">54.0</span>
                   <span class="HorseWeight">478(0)</span>
@@ -397,12 +400,15 @@ def newspaper_vertical_html(race_id: str = "202644072106") -> str:
                 <span class="Place">大井</span>
                 <a href="https://nar.netkeiba.com/race/result.html?race_id=202644070101">前走A</a>
                 <span class="Finish">2着</span>
+                <span class="RaceClass">C1</span>
                 <span class="Jockey"><a href="https://db.netkeiba.com/jockey/result/recent/jp1/">前走騎手A</a></span>
                 <span class="LoadWeight">55.0</span>
                 <span class="HorseWeight">500(+2)</span>
               </div>
               <div class="PastRunItem">
                 <span class="Date">2026/06/01</span>
+                <span class="RaceClass">C2</span>
+                <span class="Finish">3着</span>
                 <span class="Jockey"><a href="https://db.netkeiba.com/jockey/result/recent/old1/">古い騎手</a></span>
                 <span class="LoadWeight">54.0</span>
               </div>
@@ -435,6 +441,7 @@ def newspaper_vertical_html(race_id: str = "202644072106") -> str:
                 <span class="Date">2026/07/02</span>
                 <span class="Place">船橋</span>
                 <span class="Finish">5着</span>
+                <span class="RaceClass">C2</span>
                 <span class="Jockey"><a href="https://db.netkeiba.com/jockey/result/recent/j2/">騎手B</a></span>
                 <span class="LoadWeight">54.0</span>
                 <span class="HorseWeight">478(0)</span>
@@ -868,6 +875,7 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(first["previous_jockey"], "前走騎手A")
         self.assertEqual(first["previous_weight"], "55.0")
         self.assertEqual(first["previous_body_weight"], "500(+2)")
+        self.assertIn("C1", first["class_text"])
 
     def test_parse_nar_newspaper_vertical_html_extracts_all_horses(self) -> None:
         data = parse_nar_newspaper_html(newspaper_vertical_html())
@@ -893,11 +901,35 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(first["previous_weight"], "55.0")
         self.assertEqual(first["前走騎手"], "前走騎手A")
         self.assertEqual(first["前走斤量"], "55.0")
+        self.assertIn("C1", first["class_text"])
         second = data["horses"][1]
         self.assertEqual(second["running_style"], "差")
         self.assertEqual(second["horse_weight"], "478(0)")
         self.assertEqual(second["previous_jockey"], "騎手B")
         self.assertEqual(second["previous_weight"], "54.0")
+
+    def test_market_mode_uses_optional_newspaper_class_interval_and_body_weight(self) -> None:
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("entry.json", base_json("entry")),
+                upload("speed.json", base_json("speed")),
+                upload("courseanalysis.html", course_html(["先", "差"], horse_styles={"1": "先", "2": "差"})),
+                upload("newspaper.html", newspaper_vertical_html()),
+            ]
+        )
+        result = predict_nar(
+            package.html_files,
+            package.file_names,
+            prediction_logic_version="market",
+        )
+        first = result.overall_table.loc[result.overall_table["馬番"].eq(1)].iloc[0]
+        self.assertEqual(first["race_interval_market"], "中2週")
+        self.assertEqual(first["body_weight_market"], "501kg（+31）")
+        self.assertEqual(first["current_class_market"], "C2")
+        self.assertEqual(first["previous_class_market"], "C1")
+        self.assertEqual(first["class_shift_market"], "クラス降級")
+        self.assertIn("C2経験あり", first["class_basis_market"])
+        self.assertIn("C2好走歴", first["class_basis_market"])
 
     def test_nar_newspaper_previous_run_keeps_horse_row_mapping(self) -> None:
         data = parse_nar_newspaper_html(spiritual_newspaper_html())

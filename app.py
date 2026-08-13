@@ -1894,6 +1894,8 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "騎手": market_jockey_display_text(row),
             "斤量": weight,
             "クラス": clean_text(pick(row, "current_class_market")),
+            "クラス変動": clean_text(pick(row, "class_shift_market")),
+            "クラス実績": clean_text(pick(row, "class_basis_market")),
             "間隔": clean_text(pick(row, "race_interval_market")),
             "状態": state,
             "脚質": clean_text(pick(row, "running_style_market")),
@@ -1963,13 +1965,19 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_label_market")], sep=" ")
     jockey = market_jockey_display_text(row)
     weight = clean_text(pick(row, "weight_market"))
+    body_weight = clean_text(pick(row, "body_weight_market"))
+    if body_weight == "未取得":
+        body_weight = ""
     interval = clean_text(pick(row, "race_interval_market"))
     current_class = clean_text(pick(row, "current_class_market"))
+    class_shift = clean_text(pick(row, "class_shift_market"))
+    class_basis = clean_text(pick(row, "class_basis_market"))
     quick = join_nonempty(
         [
             clean_text(pick(row, "running_style_market")),
             jockey,
             weight,
+            body_weight,
             interval,
             f"今回{current_class}" if current_class and current_class != "未取得" else "",
         ],
@@ -1990,6 +1998,18 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     ]
     if state:
         detail_lines.append(f"状態：{state}（{clean_text(pick(row, 'state_transition'))}）")
+    if interval and interval not in {"未取得", "未確認"}:
+        detail_lines.append(f"レース間隔：{interval}")
+    class_parts = [
+        current_class if current_class not in {"", "未取得"} else "",
+        class_shift if class_shift not in {"", "判定保留"} else "",
+    ]
+    if any(class_parts):
+        detail_lines.append(f"クラス：{'｜'.join(part for part in class_parts if part)}")
+    if class_basis and class_basis not in {"取得不能", "未取得"}:
+        detail_lines.append(f"クラス実績：{class_basis}")
+    if body_weight:
+        detail_lines.append(f"馬体重：{body_weight}")
     if position_path:
         detail_lines.append(f"想定位置：{position_path}")
     if pace:

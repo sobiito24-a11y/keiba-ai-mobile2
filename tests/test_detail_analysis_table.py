@@ -237,8 +237,11 @@ class DetailAnalysisTableTest(unittest.TestCase):
                 "actual_odds": 2.3,
                 "jockey_display_market": "笹川翼（複50%）",
                 "weight_market": "56.0kg",
+                "body_weight_market": "494kg（-2）",
                 "race_interval_market": "休み明け",
                 "current_class_market": "B3",
+                "class_shift_market": "クラス降級",
+                "class_basis_market": "今回B3 / 前走A2 / B3経験あり",
                 "running_style_market": "先",
                 "state_arrow": "↗",
                 "state_label_market": "持ち直し",
@@ -260,6 +263,10 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("能力3位・今回1位", html)
         self.assertIn("◎｜2.3倍｜牡4｜能力値90.0｜能力3位・今回1位", html)
         self.assertIn("先団 → 先団 → 中団", html)
+        self.assertIn("494kg（-2）", html)
+        self.assertIn("レース間隔：休み明け", html)
+        self.assertIn("クラス：B3｜クラス降級", html)
+        self.assertIn("クラス実績：今回B3 / 前走A2 / B3経験あり", html)
         self.assertNotIn("top=", html)
         self.assertNotIn("left=", html)
         self.assertNotIn("未校正", html)
@@ -437,6 +444,8 @@ class DetailAnalysisTableTest(unittest.TestCase):
                         "actual_odds": 3.5,
                         "jockey_display_market": "矢野貴之（複58%）",
                         "weight_market": "56.0kg",
+                        "class_shift_market": "同級",
+                        "class_basis_market": "今回B3 / 前走B3 / B3経験あり",
                     }
                 ]
             ),
@@ -449,6 +458,8 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertEqual(columns[odds_index + 1 : odds_index + 3], ["騎手", "斤量"])
         self.assertNotIn("AI適正", columns)
         self.assertEqual(result.loc[0, "騎手"], "矢野貴之（複58%）")
+        self.assertEqual(result.loc[0, "クラス変動"], "同級")
+        self.assertEqual(result.loc[0, "クラス実績"], "今回B3 / 前走B3 / B3経験あり")
 
     def test_market_full_table_separates_course_favorable_and_hides_raw_training(self) -> None:
         self.streamlit.last_dataframe = None

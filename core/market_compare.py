@@ -24,7 +24,7 @@ from .course_materials import JOCKEY_COURSE_MIN_STARTS
 from .purchase_conditions import clean_text, horse_no, to_float
 
 
-MARKET_COMPARE_VERSION = "market-compare-1.3"
+MARKET_COMPARE_VERSION = "market-compare-1.4"
 MARKET_HISTORY_ROOT = Path("prediction_history") / "market_compare"
 
 # AA is deliberately exceptional: a race-leading raw ability value must clear
@@ -94,6 +94,8 @@ MARKET_OUTPUT_COLUMNS = (
     "jockey_course_source_market",
     "weight_market",
     "weight_change_market",
+    "body_weight_market",
+    "body_weight_change_market",
     "condition_mark_market",
     "condition_reason_market",
     "training_market",
@@ -167,6 +169,8 @@ SNAPSHOT_COLUMNS = (
     "jockey_course_source_market",
     "weight_market",
     "weight_change_market",
+    "body_weight_market",
+    "body_weight_change_market",
     "距離指数",
     "コース指数",
     "condition_mark_market",
@@ -306,6 +310,7 @@ def evaluate_market_table(
         class_info = _class_info(row, race_info)
         interval = _interval(row)
         weight, weight_change = _weight(row)
+        body_weight, body_weight_change = _body_weight(row)
         jockey, previous_jockey, jockey_change = _jockey(row)
         provider_pace = clean_text(_pick(row, "_netkeiba_pace")).upper()
         pace_mark, pace_reason = _human_pace_for_horse(style, provider_pace, pace)
@@ -373,6 +378,8 @@ def evaluate_market_table(
                 "jockey_course_source_market": jockey_course["source"],
                 "weight_market": weight,
                 "weight_change_market": weight_change,
+                "body_weight_market": body_weight,
+                "body_weight_change_market": body_weight_change,
                 "condition_mark_market": condition.get("condition_fit_mark") or "",
                 "condition_reason_market": condition.get("condition_fit_reason") or "未取得",
                 "training_market": training,
@@ -709,23 +716,53 @@ def _state(row: Mapping[str, Any]) -> dict[str, str]:
 
 
 def _class_info(row: Mapping[str, Any], race_info: Mapping[str, Any]) -> dict[str, str]:
-    current = clean_text(_pick(row, "_current_class_label", "今回クラス", "current_class"))
+    current = _known_text(_pick(row, "_current_class_label", "今回クラス", "current_class"))
     if not current:
-        current = clean_text(_pick(race_info, "class_label", "class", "race_class", "クラス"))
-    previous = clean_text(_pick(row, "_previous_class_label", "前走クラス", "previous_class"))
-    best = clean_text(_pick(row, "_best_past_class_label", "近3走最高クラス", "best_recent_class"))
-    shift = clean_text(_pick(row, "クラス変動", "_class_shift", "class_shift"))
+        current = _known_text(_pick(race_info, "class_label", "class", "race_class", "クラス"))
+    previous = _known_text(_pick(row, "_previous_class_label", "前走クラス", "previous_class"))
+    best = _known_text(_pick(row, "_best_past_class_label", "近3走最高クラス", "best_recent_class"))
+    shift = _known_text(_pick(row, "クラス変動", "_class_shift", "class_shift"))
     past_labels = _as_text_list(row.get("_past_class_labels"))
-    past_runs = row.get("_past_runs") if isinstance(row.get("_past_runs"), list) else []
-    if not previous and past_runs:
-        previous = clean_text((past_runs[-1] if isinstance(past_runs[-1], Mapping) else {}).get("class_label"))
+    past_runs = _market_past_runs(row)
+    previous_run = next((run for run in past_runs if _market_past_run_role(run) == "前走"), None)
+    if previous_run is None and past_runs:
+        previous_run = past_runs[-1]
+    if not previous and isinstance(previous_run, Mapping):
+        previous = _known_text(previous_run.get("class_label"))
     if not past_labels:
-        past_labels = [clean_text(run.get("class_label")) for run in past_runs if isinstance(run, Mapping) and clean_text(run.get("class_label"))]
-    if not best and past_labels:
-        best = clean_text(_pick(row, "_best_past_class_label")) or past_labels[0]
-    experienced = bool(current and current in past_labels)
+        past_labels = [
+            _known_text(run.get("class_label"))
+            for run in past_runs
+            if isinstance(run, Mapping) and _known_text(run.get("class_label"))
+        ]
+    ranked_runs = [
+        (to_float(run.get("class_rank")), _known_text(run.get("class_label")))
+        for run in past_runs
+        if isinstance(run, Mapping)
+        and to_float(run.get("class_rank")) is not None
+        and _known_text(run.get("class_label"))
+    ]
+    if not best:
+        best = max(ranked_runs, key=lambda item: item[0])[1] if ranked_runs else (past_labels[0] if past_labels else "")
+    current_rank = to_float(_pick(row, "_current_class_rank"))
+    if current_rank is None:
+        current_rank = to_float(_pick(race_info, "class_rank"))
+    previous_rank = to_float(_pick(row, "_previous_class_rank"))
+    if previous_rank is None and isinstance(previous_run, Mapping):
+        previous_rank = to_float(previous_run.get("class_rank"))
+    current_key = _class_label_key(current)
+    previous_key = _class_label_key(previous)
+    if current_rank is not None and previous_rank is not None and current_key and previous_key and current_key != previous_key:
+        difference = current_rank - previous_rank
+        derived_shift = "クラス昇級" if difference > 0 else "クラス降級" if difference < 0 else "同級"
+        if shift in {"", "同級", "同級近辺"}:
+            shift = derived_shift
+    elif not shift and current_rank is not None and previous_rank is not None:
+        shift = "同級"
+    experienced = bool(current_key and any(_class_label_key(label) == current_key for label in past_labels))
     good_at_class = any(
-        clean_text(run.get("class_label")) == current and (_index_number(run.get("position")) or 99) <= 3
+        _class_label_key(run.get("class_label")) == current_key
+        and (_class_finish_position(run) or 99) <= 3
         for run in past_runs
         if isinstance(run, Mapping)
     )
@@ -757,8 +794,56 @@ def _class_info(row: Mapping[str, Any], race_info: Mapping[str, Any]) -> dict[st
     }
 
 
+def _known_text(value: Any) -> str:
+    text = clean_text(value)
+    return "" if text in {"-", "—", "未取得", "未確認", "取得不能", "判定保留", "None", "nan"} else text
+
+
+def _market_past_runs(row: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    result: list[Mapping[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for key in ("_past_runs", "_newspaper_past_runs", "_新聞過去走", "past_runs", "recent_runs"):
+        runs = row.get(key)
+        if not isinstance(runs, list):
+            continue
+        for raw in runs:
+            if not isinstance(raw, Mapping):
+                continue
+            identity = (
+                _market_past_run_role(raw),
+                _known_text(raw.get("race_id") or raw.get("race_name") or raw.get("previous_race")),
+                _known_text(raw.get("race_date") or raw.get("previous_date")),
+            )
+            if identity in seen:
+                continue
+            seen.add(identity)
+            result.append(raw)
+    return result
+
+
+def _market_past_run_role(run: Mapping[str, Any]) -> str:
+    label = _known_text(run.get("label") or run.get("key") or run.get("run_key"))
+    return {
+        "前走": "前走", "last": "前走", "race1": "前走", "1走前": "前走",
+        "2走前": "2走前", "2back": "2走前", "race2": "2走前",
+        "3走前": "3走前", "3back": "3走前", "race3": "3走前",
+    }.get(label, "")
+
+
+def _class_label_key(value: Any) -> str:
+    return re.sub(r"\s+", "", _known_text(value)).upper()
+
+
+def _class_finish_position(run: Mapping[str, Any]) -> float | None:
+    for key in ("position", "finish", "finish_position", "previous_finish", "前走着順"):
+        position = _index_number(run.get(key))
+        if position is not None:
+            return position
+    return None
+
+
 def _interval(row: Mapping[str, Any]) -> str:
-    direct = clean_text(_pick(row, "レース間隔", "間隔", "race_interval"))
+    direct = _known_text(_pick(row, "レース間隔", "間隔", "race_interval"))
     if direct:
         return direct
     days = to_float(_pick(row, "_days_since_last", "レース間隔日数", "days_since_last"))
@@ -1131,6 +1216,36 @@ def _weight(row: Mapping[str, Any]) -> tuple[str, float | None]:
             token = match.group(1).replace("±", "").replace(" ", "")
             change = to_float(token)
     return display, change
+
+
+def _body_weight(row: Mapping[str, Any]) -> tuple[str, float | None]:
+    """Read only uploaded/parser-provided body weight and its change."""
+
+    raw = _known_text(_pick(row, "馬体重", "body_weight", "horse_weight"))
+    value = to_float(_pick(row, "_body_weight", "body_weight_value", "horse_weight_value"))
+    change = to_float(
+        _pick(
+            row,
+            "_body_weight_change",
+            "body_weight_change",
+            "horse_weight_diff",
+            "馬体重増減",
+        )
+    )
+    match = re.search(r"(\d{3})\s*(?:kg)?\s*[（(]\s*([+\-−]?\d+)\s*[）)]", raw)
+    if match:
+        if value is None:
+            value = to_float(match.group(1))
+        if change is None:
+            change = to_float(match.group(2).replace("−", "-"))
+    if value is None:
+        value = to_float(raw)
+    if value is None:
+        return "未取得", change
+    if change is None:
+        return f"{value:.0f}kg", None
+    change_text = "±0" if abs(change) < 0.0001 else f"{change:+.0f}"
+    return f"{value:.0f}kg（{change_text}）", change
 
 
 def _training(row: Mapping[str, Any], race_type: str) -> str:

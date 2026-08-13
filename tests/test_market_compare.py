@@ -177,6 +177,46 @@ class MarketCompareTest(unittest.TestCase):
         self.assertIn("休み明け", result.loc[2, "negative_materials"])
         self.assertEqual(result.loc[0, "market_ability_score"], 90.0)
 
+    def test_saved_class_runs_and_interval_are_used_when_display_value_is_unconfirmed(self) -> None:
+        source = row(
+            1,
+            90.0,
+            4.0,
+            **{
+                "レース間隔": "未確認",
+                "_days_since_last": 35,
+                "_current_class_rank": 45,
+                "_current_class_label": "B3",
+                "_previous_class_rank": 40,
+                "_previous_class_label": "C1",
+                "_class_shift": "同級",
+                "_past_class_labels": [],
+                "_past_runs": [
+                    {"label": "前走", "class_rank": 40, "class_label": "C1", "position": 1},
+                    {"label": "2走前", "class_rank": 45, "class_label": "B3", "position": 2},
+                    {"label": "3走前", "class_rank": 40, "class_label": "C1", "position": 4},
+                ],
+            },
+        )
+        result = evaluate_market_table(pd.DataFrame([source]), "nar", RACE_INFO)
+        self.assertEqual(result.loc[0, "race_interval_market"], "中4週")
+        self.assertEqual(result.loc[0, "class_shift_market"], "クラス昇級")
+        self.assertIn("B3経験あり", result.loc[0, "class_basis_market"])
+        self.assertIn("B3好走歴", result.loc[0, "class_basis_market"])
+
+    def test_body_weight_is_display_only_and_preserves_ability(self) -> None:
+        original = pd.DataFrame([row(1, 90.0, 4.0, **{"馬体重": "501(+31)", "_body_weight": 501, "_body_weight_change": 31})])
+        changed = original.copy(deep=True)
+        changed["馬体重"] = "470(-5)"
+        changed["_body_weight"] = 470
+        changed["_body_weight_change"] = -5
+        left = evaluate_market_table(original, "nar", RACE_INFO)
+        right = evaluate_market_table(changed, "nar", RACE_INFO)
+        self.assertEqual(left.loc[0, "body_weight_market"], "501kg（+31）")
+        self.assertEqual(right.loc[0, "body_weight_market"], "470kg（-5）")
+        for column in ("market_ability_score", "market_ability_rank", "ability_band_v2"):
+            self.assertEqual(left[column].tolist(), right[column].tolist())
+
     def test_fair_odds_is_explicitly_uncalibrated(self) -> None:
         result = evaluate_market_table(pd.DataFrame([row(1, 90.0, 4.0)]), "nar", RACE_INFO)
         self.assertEqual(result.loc[0, "fair_odds_display"], "未校正")

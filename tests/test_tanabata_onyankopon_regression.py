@@ -55,6 +55,12 @@ class TanabataOnyankoponRegressionTest(unittest.TestCase):
         self.assertEqual(self.onyankopon["_新聞レース間隔"], "中1週")
         self.assertEqual(self.onyankopon["_新聞斤量"], 54.0)
         self.assertEqual(self.onyankopon["_新聞騎手"], "吉田豊")
+        self.assertEqual(self.onyankopon["_新聞馬体重"], "468(-8)")
+        self.assertEqual(self.onyankopon["_新聞今回クラス"], "G3")
+        self.assertEqual(self.onyankopon["_新聞前走クラス"], "G3")
+        self.assertEqual(self.onyankopon["_新聞クラス変動"], "同級")
+        self.assertEqual(self.onyankopon["_新聞前走間隔日数"], 14)
+        self.assertEqual(self.onyankopon["_新聞過去クラス"], ["G3", "G3", "L"])
         self.assertEqual(self.onyankopon["調教評価"], "B 復調気配")
         self.assertIn("もともとの地力がある馬", self.onyankopon["新聞コメント"])
 
@@ -75,6 +81,12 @@ class TanabataOnyankoponRegressionTest(unittest.TestCase):
         self.assertEqual(row["人気"], 15)
         self.assertEqual(row["斤量"], 54.0)
         self.assertEqual(row["騎手"], "吉田豊")
+        self.assertEqual(row["馬体重"], "468(-8)")
+        self.assertEqual(row["_body_weight"], 468)
+        self.assertEqual(row["_body_weight_change"], -8)
+        self.assertEqual(row["_current_class_label"], "G3")
+        self.assertEqual(row["_previous_class_label"], "G3")
+        self.assertEqual(row["_days_since_last"], 14)
         self.assertEqual(row["調教評価"], "B 復調気配")
 
     def test_newspaper_zero_match_does_not_assign_empty_strings_to_int_columns(self) -> None:

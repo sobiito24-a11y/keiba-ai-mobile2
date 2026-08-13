@@ -453,6 +453,10 @@ def _extract_past_run_from_segment(segment: str) -> dict[str, Any]:
         "previous_jockey": previous_jockey,
         "previous_weight": _extract_past_load_weight(segment),
         "previous_body_weight": _extract_body_weight(text),
+        # Keep only the class evidence that is actually present in this
+        # saved past-run block.  The NAR/JRA-specific rank conversion is done
+        # later by the prediction parser; this layer never guesses a class.
+        "class_text": _extract_previous_class_text(segment, text),
         "racecourse": previous_track,
         "venue": previous_track,
         "track": previous_track,
@@ -475,6 +479,36 @@ def _extract_past_run_from_segment(segment: str) -> dict[str, Any]:
     }
     record.update({key: value for key, value in aliases.items() if value})
     return {key: value for key, value in record.items() if value not in (None, "")}
+
+
+def _extract_previous_class_text(segment: str, visible_text: str) -> str:
+    """Return provider class/grade evidence from one past-run fragment."""
+
+    parts: list[str] = []
+
+    def add(value: str) -> None:
+        value = _clean_text(value)
+        if value and value not in parts:
+            parts.append(value)
+
+    for match in re.finditer(
+        r"<(?P<tag>[a-z0-9]+)\b(?P<attrs>[^>]*)class=['\"](?P<class>[^'\"]*(?:Grade|Class|Kumi)[^'\"]*)['\"](?P<rest>[^>]*)>(?P<body>[\s\S]*?)</(?P=tag)>",
+        segment or "",
+        flags=re.I,
+    ):
+        add(" ".join([match.group("class") or "", _clean_text(match.group("body") or "")]))
+
+    # Local-class race names often contain the only usable evidence (B3, C2,
+    # A級など), so retain those literal tokens without assigning a rank here.
+    token_source = " ".join(parts + [_extract_previous_race(segment)])
+    for match in re.finditer(
+        r"(?<![A-Za-z0-9])(?:Jpn[123]|G(?:I{1,3}|[123])|L|OP|OPEN|重賞|準重賞|"
+        r"[ABCＡＢＣ]\s*(?:級\s*)?\d{1,2}|[ABCＡＢＣ]\s*級|\d勝クラス)(?!\d)",
+        token_source,
+        flags=re.I,
+    ):
+        add(match.group(0))
+    return " ".join(parts)
 
 
 def _extract_previous_date(text: str) -> str:
