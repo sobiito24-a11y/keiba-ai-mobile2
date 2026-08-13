@@ -475,6 +475,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
                     "2走前": "14",
                     "前走": "★17",
                     "平均指数": 18.3,
+                    "★最高指数": 51.7,
                     "過去1年最高指数": 72,
                     "最高指数": 72,
                     "value_signal": True,
@@ -488,6 +489,8 @@ class DetailAnalysisTableTest(unittest.TestCase):
 
         self.assertIsNotNone(result)
         self.assertNotIn("最高", result.columns)
+        self.assertIn("★", result.columns)
+        self.assertEqual(result.loc[0, "★"], "51.7")
         self.assertEqual(result.loc[0, "3走前"], "★24")
         self.assertEqual(result.loc[0, "前走"], "★17")
         for column in (
@@ -500,6 +503,47 @@ class DetailAnalysisTableTest(unittest.TestCase):
         ):
             self.assertEqual(source.loc[0, column], before.loc[0, column])
         pd.testing.assert_frame_equal(source, before)
+
+    def test_market_jockey_display_falls_back_to_detail_and_place_rate(self) -> None:
+        row = {
+            "騎手詳細": "和田譲【継続】",
+            "jockey_market": "和田譲",
+            "_jockey_course_place_rate": 30,
+        }
+
+        self.assertEqual(self.app.market_jockey_display_text(row), "和田譲（継続・複30%）")
+
+    def test_market_jockey_display_shows_previous_to_current_with_place_rate(self) -> None:
+        row = {
+            "騎手詳細": "団野大成 → 川田将雅【乗り替わり】",
+            "jockey_market": "川田将雅",
+            "_jockey_course_place_rate": 58,
+        }
+
+        self.assertEqual(self.app.market_jockey_display_text(row), "団野大成 → 川田将雅（複58%）")
+
+    def test_market_card_restores_jockey_change_and_place_rate_when_market_display_is_plain(self) -> None:
+        html = self.app.market_horse_card_html(
+            {
+                "馬番": 12,
+                "馬名": "サンバフレイバー",
+                "sex_age": "牝7",
+                "ability_band_v2": "A",
+                "market_ability_score": 51.7,
+                "market_ability_rank": 2,
+                "current_evaluation_rank": 1,
+                "ai_current_mark": "◎",
+                "actual_odds": 6.9,
+                "running_style_market": "差",
+                "jockey_market": "和田譲",
+                "騎手詳細": "和田譲【継続】",
+                "_jockey_course_place_rate": 30,
+                "weight_market": "54.0kg",
+            },
+            "nar",
+        )
+
+        self.assertIn("差｜和田譲（継続・複30%）｜54.0kg", html)
 
     def test_market_horse_card_summarizes_training_and_stable_comment(self) -> None:
         html = self.app.market_horse_card_html(

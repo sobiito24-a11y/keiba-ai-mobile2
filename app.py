@@ -1701,8 +1701,49 @@ def market_stable_comment_text(row: dict[str, Any], race_mode: str) -> str:
 
 
 def market_jockey_display_text(row: dict[str, Any]) -> str:
-    text = clean_text(pick(row, "jockey_display_market", "jockey_market"))
-    return text.replace("（継）", "（継続）")
+    display = clean_text(pick(row, "jockey_display_market"))
+    detail = clean_text(pick(row, "騎手詳細", "jockey_detail", "騎手継続/乗替", "jockey_change"))
+    current = clean_text(pick(row, "jockey_market", "騎手", "jockey"))
+    text = display
+    if not text or (current and text == current and has_jockey_change_context(detail)):
+        text = detail or current
+    text = normalize_jockey_display_text(text or current)
+    return append_jockey_place_rate(text, jockey_place_rate_text(row))
+
+
+def has_jockey_change_context(text: str) -> bool:
+    value = clean_text(text)
+    return any(token in value for token in ("継続", "乗替", "乗り替", "替", "→"))
+
+
+def normalize_jockey_display_text(text: str) -> str:
+    value = clean_text(text)
+    if not value:
+        return ""
+    value = value.replace("【継続】", "（継続）")
+    value = value.replace("（継）", "（継続）")
+    value = value.replace("【乗り替わり】", "（乗替）")
+    value = value.replace("【乗替】", "（乗替）")
+    value = value.replace("【替】", "（乗替）")
+    if "→" in value:
+        value = value.replace("（乗替）", "")
+    return value
+
+
+def jockey_place_rate_text(row: dict[str, Any]) -> str:
+    rate = to_float(pick(row, "_jockey_course_place_rate", "jockey_course_place_rate", "騎手コース複勝率"))
+    if rate is None:
+        return ""
+    label = f"{rate:.0f}" if float(rate).is_integer() else f"{rate:.1f}"
+    return f"複{label}%"
+
+
+def append_jockey_place_rate(text: str, rate: str) -> str:
+    if not text or not rate or "複" in text:
+        return text
+    if text.endswith("）") and "（" in text:
+        return f"{text[:-1]}・{rate}）"
+    return f"{text}（{rate}）"
 
 
 def market_position_path_text(row: dict[str, Any]) -> str:
@@ -1810,6 +1851,7 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "2走前": format_index_value(pick(row, "2走前")),
             "前走": format_index_value(pick(row, "前走")),
             "平均": format_index_value(pick(row, "平均指数", "3走平均")),
+            "★": format_star_value(pick(row, "★最高指数", "star_max_index", "★最高")),
             "＋材料": clean_text(pick(row, "plus_materials_display")),
             "－材料": clean_text(pick(row, "minus_materials_display")),
         }
