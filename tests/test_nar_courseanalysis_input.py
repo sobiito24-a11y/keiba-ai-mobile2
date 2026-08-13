@@ -912,6 +912,8 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         self.assertEqual(package.entry_source, "nar_newspaper_html")
         self.assertEqual(package.entry_count, 2)
         self.assertEqual(package.horse_style_count, 2)
+        self.assertEqual(package.html_files["newspaper_context"], newspaper_html().strip())
+        self.assertEqual(package.file_names["newspaper_context"], "newspaper.html")
         self.assertIn("テストホースA", package.html_files["shutuba"])
         self.assertIn('<td class="DataTitle_Cell">先</td>', package.html_files["style"])
         self.assertIn('data-display-previous-load-weight="55.0"', package.html_files["speed"])

@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import re
+from copy import deepcopy
 from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
 
-from .purchase_conditions import clean_text, to_float
+from .purchase_conditions import clean_text, horse_no, to_float
 from .recent_races import build_recent_races
 
 
@@ -18,6 +19,67 @@ CONDITION_FIT_LABELS = {
     "none": ("", "条件実績なし"),
 }
 CONDITION_FIT_PRIORITY = ("same_venue_distance", "same_turn_distance", "same_distance")
+CONDITION_FIT_LEVEL_ALIASES = {
+    "same_venue_distance": "same_venue_distance",
+    "same_turn_distance": "same_turn_distance",
+    "same_distance": "same_distance",
+    "none": "none",
+    # Legacy star_match_level values all prove the same venue + distance.
+    # They do not encode the Ver4 ☆/※ concepts and must not be mapped to them.
+    "venue_distance": "same_venue_distance",
+    "venue_distance_surface": "same_venue_distance",
+    "venue_distance_surface_turn": "same_venue_distance",
+}
+
+
+def canonical_condition_fit_level(value: Any, mark: Any = "") -> str | None:
+    """Translate only condition levels whose semantics are explicitly known."""
+
+    text = clean_text(value).lower()
+    if text in CONDITION_FIT_LEVEL_ALIASES:
+        return CONDITION_FIT_LEVEL_ALIASES[text]
+    if not text:
+        return {"★": "same_venue_distance", "☆": "same_turn_distance", "※": "same_distance"}.get(
+            clean_text(mark)
+        )
+    return None
+
+
+def extract_condition_fit_sources(table: Any) -> dict[str, dict[str, Any]]:
+    """Copy result_df-only condition facts into an immutable horse-number map.
+
+    The returned mapping is suitable for ``PredictionResult.debug_info``.  It
+    deliberately contains no result/payoff fields and does not mutate the
+    source DataFrame.
+    """
+
+    if table is None or not isinstance(table, pd.DataFrame) or table.empty:
+        return {}
+    source_fields = (
+        "_past_runs",
+        "recent_runs",
+        "past_runs",
+        "condition_fit_mark",
+        "condition_fit_level",
+        "condition_fit_reason",
+        "condition_fit_data_status",
+        "matched_past_runs",
+        "star_match_level",
+    )
+    result: dict[str, dict[str, Any]] = {}
+    for _, raw in table.iterrows():
+        record = raw.to_dict()
+        key = horse_no(_first_present(record, ("馬番", "horse_no", "horse_number", "馬")))
+        if not key:
+            continue
+        values = {
+            name: deepcopy(record.get(name))
+            for name in source_fields
+            if name in record and not _missing(record.get(name))
+        }
+        if values:
+            result[key] = values
+    return result
 
 
 def evaluate_condition_fit(
@@ -43,8 +105,12 @@ def evaluate_condition_fit(
         if current_distance is None or run_distance is None or current_distance != run_distance:
             continue
         run_record = _matched_run_record(run)
-        same_venue = bool(current.get("venue") and _venue_key(current.get("venue")) == _venue_key(run.get("venue")))
-        same_turn = bool(current.get("turn") and _turn_key(current.get("turn")) == _turn_key(run.get("turn")))
+        current_venue = _venue_key(current.get("venue"))
+        run_venue = _venue_key(run.get("venue"))
+        current_turn = _turn_key(current.get("turn"))
+        run_turn = _turn_key(run.get("turn"))
+        same_venue = bool(current_venue and run_venue and current_venue == run_venue)
+        same_turn = bool(current_turn and run_turn and current_turn == run_turn)
         if same_venue:
             matched_by_level["same_venue_distance"].append(run_record)
         elif same_turn:
@@ -60,23 +126,54 @@ def evaluate_condition_fit(
             matched = matched_by_level[candidate]
             break
 
+    if level != "none":
+        data_status = "ok"
+    elif _condition_source_is_complete(current_distance, runs):
+        data_status = "no_match"
+    else:
+        data_status = "missing_source_data"
+
     mark, label = CONDITION_FIT_LABELS[level]
-    reason = _reason(level, current, matched)
+    reason = _reason(level, current, matched, data_status)
     return {
-        "condition_fit_mark": mark,
+        "condition_fit_mark": mark or None,
         "condition_fit_level": level,
         "condition_fit_label": label,
         "condition_fit_reason": reason,
+        "condition_fit_data_status": data_status,
         "matched_past_runs": matched,
         "current_condition": current,
     }
+
+
+def resolved_condition_fit(
+    row: Mapping[str, Any],
+    race_info: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Prefer already-plumbed diagnostics, otherwise evaluate source runs."""
+
+    mark = clean_text(row.get("condition_fit_mark"))
+    level = canonical_condition_fit_level(row.get("condition_fit_level"), mark)
+    status = clean_text(row.get("condition_fit_data_status"))
+    if level is not None and status in {"ok", "no_match", "missing_source_data"}:
+        return {
+            "condition_fit_mark": mark or None,
+            "condition_fit_level": level,
+            "condition_fit_label": CONDITION_FIT_LABELS[level][1],
+            "condition_fit_reason": clean_text(row.get("condition_fit_reason")),
+            "condition_fit_data_status": status,
+            "matched_past_runs": deepcopy(row.get("matched_past_runs"))
+            if isinstance(row.get("matched_past_runs"), list)
+            else [],
+        }
+    return evaluate_condition_fit(row, race_info)
 
 
 def condition_fit_badge_text(
     row: Mapping[str, Any],
     race_info: Mapping[str, Any] | None = None,
 ) -> str:
-    result = evaluate_condition_fit(row, race_info)
+    result = resolved_condition_fit(row, race_info)
     mark = clean_text(result.get("condition_fit_mark"))
     label = clean_text(result.get("condition_fit_label"))
     if mark:
@@ -154,8 +251,15 @@ def _matched_run_record(run: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _reason(level: str, current: Mapping[str, Any], matched: list[dict[str, Any]]) -> str:
+def _reason(
+    level: str,
+    current: Mapping[str, Any],
+    matched: list[dict[str, Any]],
+    data_status: str,
+) -> str:
     if level == "none":
+        if data_status == "missing_source_data":
+            return "条件適性判定に必要な過去走条件データ不足"
         distance = f"{current.get('distance')}m" if current.get("distance") is not None else "今回距離"
         return f"{distance}の近3走実績なし"
     first = matched[0] if matched else {}
@@ -196,6 +300,19 @@ def _turn_key(value: Any) -> str:
     if "直" in text:
         return "直"
     return text
+
+
+def _condition_source_is_complete(current_distance: int | None, runs: list[dict[str, Any]]) -> bool:
+    if current_distance is None or not runs:
+        return False
+    return all(_distance_int(run.get("distance")) is not None for run in runs)
+
+
+def _first_present(row: Mapping[str, Any], names: tuple[str, ...]) -> Any:
+    for name in names:
+        if name in row and not _missing(row.get(name)):
+            return row.get(name)
+    return ""
 
 
 def _missing(value: Any) -> bool:

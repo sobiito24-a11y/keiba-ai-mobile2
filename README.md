@@ -6,6 +6,11 @@ iPhone Safari から地方競馬・中央競馬の予想結果を確認し、ス
 
 ## 現在できること
 
+- 能力×価格比較モード（既定）
+- AA/A/B/C/Z能力帯と帯内オッズ比較
+- クラス・間隔・状態矢印・展開/コース・騎手・斤量・条件適性・＋／－材料の全頭比較
+- 保存済み競馬新聞HTMLからコース条件、提供元ペース、3時点の推定位置、4角位置別複勝率、有利位置ラベル等を独立表示
+- ユーザー選択と理由の保存、結果前SHA-256固定
 - 地方／中央の切替
 - 地方競馬のショートカットJSONアップロード
 - 地方競馬のHTML直接アップロード fallback
@@ -19,14 +24,31 @@ iPhone Safari から地方競馬・中央競馬の予想結果を確認し、ス
 - PNG保存
 - 次レース用リセット
 
-## 予想ロジック Ver4 / Ver3
+## PCブラウザからHTMLを直接アップロード
 
-画面上部の「予想ロジック」で、絶対評価のVer4と従来のVer3を切り替えられます。
+PCとスマホは同じHTML分類・Parser経路を使用します。JRAは「中央データ追加」、NARは「地方データ追加」内の「詳細設定：HTMLを直接アップロード」から、同じ1レースのHTMLをまとめて選択してください。
 
+- 必須: タイム指数、競馬新聞、脚質分析（`data_list.html?mode=courseanalysis`）
+- 任意（JRA）: 調教・追い切り
+- 判定順: canonical / `og:url` → alternate・JSON-LDのページURL → ページ固有DOM → title → ファイル名
+- race_idとJRA/NARが一致しない組合せは予想を開始しません
+- 判定不能ファイルは「不明なHTML」と表示し、Parserへ渡しません
+- 同じkindが複数ある場合は上書きせず、使用する1件を画面で選択します
+
+## 予想ロジック
+
+画面上部の「予想ロジック」で切り替えます。
+
+- 能力×価格比較（既定）: 補正前のVer3タイム指数コアから能力帯を作り、斤量・状態・騎手・展開と実オッズは独立表示。購入結論は出さない
+- 実戦モード: 従来のVer3印＋保守的BUY/WATCH（互換用）
 - Ver4: 結果・払戻・レース内min/maxを使わない0〜100の `horse_score_v4` と、レース内順位の `race_rank_v4` を別々に生成
 - Ver3: 従来Notebook移植ロジックをそのまま実行
 - Ver4は元のVer3列を上書きせず、`*_v4` 列と監査情報をPredictionResultのコピーへ追加
 - Ver4の買い判断は `BUY / LIGHT / WATCH / SKIP`、旧画面向けには `BUY / HOLD / SKIP` へ互換変換
+
+能力×価格比較モードのAI適正オッズは現在「未校正」です。同梱188Rは本命1頭/レースだけで全頭確率を校正できないため、恣意的な点数→勝率変換は行いません。設計・監査詳細は [AUDIT_MARKET_COMPARE.md](AUDIT_MARKET_COMPARE.md)、能力の依存経路と回帰テストは [ABILITY_INDEPENDENCE.md](ABILITY_INDEPENDENCE.md) を参照してください。
+
+競馬新聞の展開/コース情報はMarket Compareの表示材料だけに使用します。提供元ペース、推定位置、4角傾向、有利馬は相関する派生情報として1グループにまとめ、重複加点しません。トラックバイアス、ラップ、AI見解、前半/後半3Fは保存HTML内の実値・完全性・カバレッジを確認し、ダミーや部分表示を補完しません。騎手コース成績も勝率・連対率・複勝率・出走回数が明示された場合だけ表示し、20走未満や率/参考順位だけの場合は強評価しません。詳細は [COURSE_DATA_AUDIT.md](COURSE_DATA_AUDIT.md) と [FINAL_PRE_PUSH_AUDIT.md](FINAL_PRE_PUSH_AUDIT.md) を参照してください。
 
 保存済みPrediction Historyの回帰確認は次のツールで行えます。実着順JSONはVer4計算後にだけ結合されます。
 
@@ -46,6 +68,7 @@ keiba_ai_mobile/
   app.py
   core/
     html_classifier.py
+    course_materials.py
     jra_notebook_logic.py
     jra_predictor.py
     models.py
@@ -74,6 +97,17 @@ requests
 pillow
 numpy
 ```
+
+## 完全回帰テスト
+
+テストには `unittest.TestCase` 形式とpytest関数形式の両方があります。`unittest discover`ではpytest関数形式を収集しないため、完全回帰は必ずpytestで実行してください。
+
+```bash
+pip install -r requirements-test.txt
+python -m pytest -q
+```
+
+PC/スマホHTML Routing追加時点の基準は `184 passed, 14 subtests passed`、展開/コース独立表示追加後は `200 passed, 14 subtests passed` です。テスト追加時はこの件数以上で、失敗がないことを確認します。
 
 ## ローカル起動
 

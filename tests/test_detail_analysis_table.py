@@ -89,6 +89,7 @@ def load_app_module():
             classify_many=noop,
             kind_label=noop,
             required_kinds=noop,
+            validate_upload_bundle=noop,
         ),
         "core.nar_json_input": stub_module(
             "core.nar_json_input",

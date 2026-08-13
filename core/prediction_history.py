@@ -12,7 +12,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from .condition_fit import evaluate_condition_fit
+from .condition_fit import resolved_condition_fit
 from .final_betting_context import build_final_betting_context
 from .horse_trust import build_horse_trust_materials, build_horse_trust_summary
 from .models import PredictionResult
@@ -27,7 +27,7 @@ HISTORY_ROOT = Path("prediction_history")
 def build_prediction_snapshot(result: PredictionResult, investment_decision: Any = None) -> dict[str, Any]:
     race_type = "nar" if clean_text(result.race_mode).lower() == "nar" else "jra"
     logic_version = clean_text(getattr(result, "logic_version", "v3")) or "v3"
-    if investment_decision is None and logic_version == "v4":
+    if investment_decision is None and logic_version in {"v4", "v4.1", "practical"}:
         from .investment_decision import build_investment_decision
 
         table = result.overall_table
@@ -37,7 +37,7 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
             table,
             race_type,
             race_info=result.race_info,
-            prediction_logic_version="v4",
+            prediction_logic_version=logic_version,
         )
     race_info = _race_info(result)
     horses = _horse_snapshots(result, race_type, race_info)
@@ -70,8 +70,25 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
             },
             "result_file": result_stub_schema(race_info),
         }
-    if logic_version == "v4":
+    if logic_version in {"v4", "v4.1"}:
         payload["ver4_summary"] = getattr(result, "ver4_summary", {}) or {}
+    if logic_version == "practical":
+        payload["practical_summary"] = (
+            ((getattr(result, "debug_info", {}) or {}).get("practical") or {}).get("summary", {})
+        )
+    if logic_version == "market":
+        market = ((getattr(result, "debug_info", {}) or {}).get("market_compare") or {})
+        payload["market_compare"] = {
+            "version": market.get("version", ""),
+            "ability_band_rules": market.get("ability_band_rules", {}),
+            "ability_source": market.get("ability_source", ""),
+            "calibration": market.get("calibration", {}),
+            "pace": market.get("pace", {}),
+            "race_summary": market.get("race_summary", []),
+            "prediction_signature": market.get("prediction_signature", ""),
+            "horses": market.get("horses", []),
+            "user_selection": market.get("user_selection", {}),
+        }
     return _json_ready(payload)
 
 
@@ -134,6 +151,10 @@ def prediction_csv_rows(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "selected_strategy": investment.get("selected_strategy", ""),
                 "strategy_score": investment.get("strategy_score", ""),
                 "expected_roi": investment.get("expected_roi", ""),
+                "buy_reason": investment.get("buy_reason", ""),
+                "watch_reason": investment.get("watch_reason", ""),
+                "recommended_ticket": investment.get("ticket_type", ""),
+                "investment": investment.get("investment", 0),
                 **_flatten_for_csv(horse),
             }
         )
@@ -144,8 +165,13 @@ def summary_text(snapshot: Mapping[str, Any]) -> str:
     race_info = snapshot.get("race_info") if isinstance(snapshot.get("race_info"), Mapping) else {}
     investment = snapshot.get("investment_decision") if isinstance(snapshot.get("investment_decision"), Mapping) else {}
     horses = [horse for horse in snapshot.get("horses", []) or [] if isinstance(horse, Mapping)]
-    if clean_text(snapshot.get("logic_version")).lower() == "v4":
+    logic_version = clean_text(snapshot.get("logic_version")).lower()
+    if logic_version in {"v4", "v4.1"}:
         return _ver4_summary_text(race_info, investment, horses)
+    if logic_version == "practical":
+        return _practical_summary_text(race_info, investment, horses)
+    if logic_version == "market":
+        return _market_summary_text(snapshot, race_info)
     lines = [
         _join_nonempty([race_info.get("venue"), race_info.get("race_number"), race_info.get("race_name")], sep=" "),
         "",
@@ -232,6 +258,61 @@ def _ver4_summary_text(
     return "\n".join(line for line in lines if line is not None)
 
 
+def _practical_summary_text(
+    race_info: Mapping[str, Any],
+    investment: Mapping[str, Any],
+    horses: list[Mapping[str, Any]],
+) -> str:
+    decision = clean_text(investment.get("decision")) or "WATCH"
+    lines = [
+        _join_nonempty([race_info.get("venue"), race_info.get("race_number"), race_info.get("race_name")], sep=" "),
+        "",
+        f"実戦判定：{decision}",
+        f"理由：{investment.get('buy_reason') or investment.get('watch_reason') or '記録なし'}",
+        f"主推奨：{investment.get('ticket_type') or '購入なし'}",
+        f"投資額：{investment.get('investment') or 0}円",
+        "",
+        "【Ver3印】",
+    ]
+    for horse in horses:
+        prediction = _mapping(horse.get("prediction"))
+        mark = clean_text(prediction.get("mark"))
+        if mark:
+            lines.append(
+                _join_nonempty(
+                    [mark, horse.get("horse_no"), horse.get("horse_name"), horse.get("condition_fit_mark")],
+                    sep=" ",
+                )
+            )
+    return "\n".join(line for line in lines if line is not None)
+
+
+def _market_summary_text(snapshot: Mapping[str, Any], race_info: Mapping[str, Any]) -> str:
+    market = snapshot.get("market_compare") if isinstance(snapshot.get("market_compare"), Mapping) else {}
+    lines = [
+        _join_nonempty([race_info.get("venue"), race_info.get("race_number"), race_info.get("race_name")], sep=" "),
+        "",
+        "能力×市場価格×今日の条件×展開 比較",
+        f"予測signature：{market.get('prediction_signature') or '未生成'}",
+        "",
+    ]
+    lines.extend(str(line) for line in market.get("race_summary", []) or [])
+    calibration = market.get("calibration") if isinstance(market.get("calibration"), Mapping) else {}
+    lines.extend(["", calibration.get("display") or "AI適正オッズ：未校正"])
+    selection = market.get("user_selection") if isinstance(market.get("user_selection"), Mapping) else {}
+    if selection:
+        lines.extend(
+            [
+                "",
+                "【ユーザー選択】",
+                "選択馬：" + _join_nonempty(selection.get("horses", []), sep=" / "),
+                "理由：" + clean_text(selection.get("reason")),
+                "券種：" + clean_text(selection.get("ticket")),
+            ]
+        )
+    return "\n".join(line for line in lines if line is not None)
+
+
 def prediction_zip_bytes(result: PredictionResult, investment_decision: Any = None) -> bytes:
     snapshot = build_prediction_snapshot(result, investment_decision)
     buffer = io.BytesIO()
@@ -239,6 +320,11 @@ def prediction_zip_bytes(result: PredictionResult, investment_decision: Any = No
         archive.writestr("prediction.json", json.dumps(snapshot, ensure_ascii=False, indent=2))
         archive.writestr("prediction.csv", prediction_csv_bytes(snapshot))
         archive.writestr("summary.txt", summary_text(snapshot).encode("utf-8"))
+        if clean_text(snapshot.get("logic_version")) in {"practical", "market"}:
+            archive.writestr(
+                "result_template.json",
+                json.dumps(snapshot.get("result_file", {}), ensure_ascii=False, indent=2),
+            )
     return buffer.getvalue()
 
 
@@ -312,7 +398,7 @@ def _horse_snapshots(
         momentum = final_context.get("momentum") if isinstance(final_context.get("momentum"), Mapping) else {}
         race_shape = final_context.get("race_shape") if isinstance(final_context.get("race_shape"), Mapping) else {}
         recent_races = build_recent_races(row)
-        condition_fit = evaluate_condition_fit(row, race_info)
+        condition_fit = resolved_condition_fit(row, race_info)
         rows.append(
             {
                 "horse_no": number,
@@ -394,6 +480,7 @@ def _horse_snapshots(
                 "condition_fit_mark": condition_fit.get("condition_fit_mark"),
                 "condition_fit_level": condition_fit.get("condition_fit_level"),
                 "condition_fit_reason": condition_fit.get("condition_fit_reason"),
+                "condition_fit_data_status": condition_fit.get("condition_fit_data_status"),
                 "matched_past_runs": condition_fit.get("matched_past_runs", []),
                 "final_betting_context": final_context,
                 "gauge": momentum.get("gauge"),
@@ -409,7 +496,7 @@ def _horse_snapshots(
                 "race_comment_role": race_shape.get("race_comment_role"),
             }
         )
-    if clean_text(getattr(result, "logic_version", "v3")).lower() != "v4":
+    if clean_text(getattr(result, "logic_version", "v3")).lower() not in {"v4", "v4.1"}:
         for snapshot in rows:
             snapshot.pop("ver4", None)
             prediction = snapshot.get("prediction")
@@ -471,6 +558,29 @@ def _investment_snapshot(decision: Any) -> dict[str, Any]:
                 "ticket_veto_reason": getattr(decision, "ticket_veto_reason", ""),
             }
         )
+    elif logic_version == "practical":
+        practical_decision = clean_text(getattr(decision, "practical_decision", "")) or "WATCH"
+        practical_reason = clean_text(getattr(decision, "practical_reason", ""))
+        payload.update(
+            {
+                "logic_version": "practical",
+                "decision": practical_decision,
+                "decision_label": practical_decision,
+                "buy_reason": practical_reason if practical_decision == "BUY" else "",
+                "watch_reason": practical_reason if practical_decision == "WATCH" else "",
+                "reason_lines": list(
+                    getattr(decision, "practical_reason_lines", ()) or getattr(decision, "reason_lines", ()) or ()
+                ),
+                "practical_config_version": getattr(decision, "practical_config_version", ""),
+                "honmei_horse_no": getattr(decision, "honmei_horse_no", ""),
+                "honmei_horse_name": getattr(decision, "honmei_horse_name", ""),
+                "ticket_type": getattr(selected, "ticket_type", "") if selected is not None else "",
+                "tickets": list(getattr(selected, "tickets", ()) if selected is not None else ()),
+                "purchase_points": getattr(selected, "ticket_count", 0) if selected is not None else 0,
+                "investment": getattr(decision, "total_stake", 0),
+                "expected_roi": None,
+            }
+        )
     return payload
 
 
@@ -511,7 +621,7 @@ def _ticket_rationale_text(investment: Mapping[str, Any]) -> str:
     pieces = [
         clean_text(investment.get("selected_strategy")),
         f"{investment.get('purchase_points', 0)}点",
-        f"ROI {investment.get('expected_roi')}%" if investment.get("expected_roi") not in (None, "") else "",
+        f"回収率 {investment.get('expected_roi')}%" if investment.get("expected_roi") not in (None, "") else "",
         f"対象{rationale.get('sample_races')}R" if rationale.get("sample_races") not in (None, "") else "",
         f"的中率{rationale.get('hit_rate')}%" if rationale.get("hit_rate") not in (None, "") else "",
     ]

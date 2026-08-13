@@ -73,6 +73,12 @@ class InvestmentDecision:
     axis_confidence_v4: str = ""
     ticket_candidate_score: float = 0.0
     ticket_veto_reason: str = ""
+    practical_decision: str = ""
+    practical_reason: str = ""
+    practical_reason_lines: tuple[str, ...] = ()
+    practical_config_version: str = ""
+    honmei_horse_no: str = ""
+    honmei_horse_name: str = ""
 
 
 def build_investment_decision(
@@ -91,7 +97,11 @@ def build_investment_decision(
     """
 
     race_type = "nar" if str(race_mode).lower() == "nar" else "jra"
-    if str(prediction_logic_version).lower() == "v4":
+    if str(prediction_logic_version).lower() == "practical":
+        from .practical_mode import build_practical_decision
+
+        return build_practical_decision(table, race_type, race_info=race_info)
+    if str(prediction_logic_version).lower() in {"v4", "v4.1"}:
         from .ver4_engine import build_ver4_investment_decision, evaluate_ver4_table
 
         current = table

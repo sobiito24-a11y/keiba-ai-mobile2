@@ -1,0 +1,30 @@
+{
+  "status": "predictions_frozen_before_results",
+  "race_count": 188,
+  "config_version": "practical-1.0",
+  "rules": {
+    "prediction_basis": "Ver3 display marks",
+    "axis_confidence_required": "A",
+    "accepted_ability_gaps": [
+      "大",
+      "中"
+    ],
+    "minimum_recent_indexes": 2,
+    "blocked_recent_trends": [
+      "連続下降",
+      "下降傾向",
+      "下降",
+      "急落"
+    ],
+    "accepted_jra_training_grades": [
+      "S",
+      "A",
+      "B"
+    ],
+    "condition_mark_required": false,
+    "stake_yen": 100,
+    "primary_ticket": "◎単勝"
+  },
+  "prediction_csv_sha256": "36ed8678c83efa647d1972ccbc4be1762cb4924b8135b19a5a81f8fe14e96c97",
+  "result_source_read_in_phase_a": false
+}

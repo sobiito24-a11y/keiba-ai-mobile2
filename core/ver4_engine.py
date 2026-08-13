@@ -15,7 +15,7 @@ from typing import Any
 
 import pandas as pd
 
-from .condition_fit import evaluate_condition_fit
+from .condition_fit import canonical_condition_fit_level, evaluate_condition_fit
 from .purchase_conditions import clean_text, horse_no, to_float
 
 
@@ -76,12 +76,20 @@ V4_OUTPUT_COLUMNS = (
     "opponent_veto_reason_v4",
     "ticket_candidate_score",
 )
+V41_OUTPUT_COLUMNS = (*V4_OUTPUT_COLUMNS, "condition_fit_data_status")
 
 
 def prediction_logic_version(value: Any) -> str:
-    """Return the only supported public logic version labels."""
+    """Return a supported logic label while preserving the Ver4 baseline."""
 
-    return "v4" if clean_text(value).lower() == "v4" else "v3"
+    normalized = clean_text(value).lower().replace("ver", "v")
+    if normalized in {"market", "market-compare", "能力×価格比較", "能力価格比較", "比較モード"}:
+        return "market"
+    if normalized in {"practical", "実戦", "実戦モード"}:
+        return "practical"
+    if normalized in {"v4.1", "v41"}:
+        return "v4.1"
+    return "v4" if normalized == "v4" else "v3"
 
 
 def validate_component_weights(race_type: str) -> bool:
@@ -140,12 +148,14 @@ def evaluate_ver4_table(
     table: pd.DataFrame | Sequence[Mapping[str, Any]] | None,
     race_type: str,
     race_info: Mapping[str, Any] | None = None,
+    *,
+    condition_fit_plumbing: bool = False,
 ) -> pd.DataFrame:
     """Calculate Ver4 output columns from existing, result-free horse facts."""
 
     frame = _as_frame(table)
     if frame.empty:
-        return _empty_result(frame)
+        return _empty_result(frame, V41_OUTPUT_COLUMNS if condition_fit_plumbing else V4_OUTPUT_COLUMNS)
     race_type = "nar" if clean_text(race_type).lower() == "nar" else "jra"
     if not validate_component_weights(race_type):
         raise ValueError(f"Ver4 component weights do not sum to 1.0: {race_type}")
@@ -153,7 +163,12 @@ def evaluate_ver4_table(
     evaluated: list[dict[str, Any]] = []
     for _, source in frame.iterrows():
         row = source.to_dict()
-        components, diagnostics = component_scores(row, race_type, race_info)
+        components, diagnostics = component_scores(
+            row,
+            race_type,
+            race_info,
+            condition_fit_plumbing=condition_fit_plumbing,
+        )
         weights = weights_for_race_type(race_type)
         score = round(sum(components[name] * weight for name, weight in weights.items()), 1)
         evaluated.append({**row, **components, **diagnostics, "horse_score_v4": score})
@@ -175,11 +190,18 @@ def component_scores(
     row: Mapping[str, Any],
     race_type: str,
     race_info: Mapping[str, Any] | None = None,
+    *,
+    condition_fit_plumbing: bool = False,
 ) -> tuple[dict[str, float], dict[str, Any]]:
     race_type = "nar" if clean_text(race_type).lower() == "nar" else "jra"
-    fit = _condition_fit(row, race_info)
+    fit = _condition_fit(row, race_info, plumbing_fix=condition_fit_plumbing)
     base = _base_ability_score(row, race_type)
-    condition, matched_quality, distance_score, course_score = _condition_score(row, race_type, fit)
+    condition, matched_quality, distance_score, course_score = _condition_score(
+        row,
+        race_type,
+        fit,
+        plumbing_fix=condition_fit_plumbing,
+    )
     jockey = _jockey_score(row)
     age_weight = _age_weight_score(row)
     momentum = _momentum_score(row, race_type)
@@ -197,12 +219,19 @@ def component_scores(
     if training is not None:
         components["training_score"] = training
 
-    positives, negatives = _component_reasons(components, fit, row, race_type)
+    positives, negatives = _component_reasons(
+        components,
+        fit,
+        row,
+        race_type,
+        plumbing_fix=condition_fit_plumbing,
+    )
     warning = " / ".join(negatives[:3])
     diagnostics = {
         "condition_fit_mark": fit.get("condition_fit_mark", ""),
         "condition_fit_level": fit.get("condition_fit_level", "none"),
         "condition_fit_reason": fit.get("condition_fit_reason", ""),
+        "condition_fit_data_status": fit.get("condition_fit_data_status", ""),
         "matched_past_runs": fit.get("matched_past_runs", []),
         "condition_matched_quality": matched_quality,
         "condition_distance_score": distance_score,
@@ -399,6 +428,29 @@ def apply_ver4_to_result(result: Any) -> Any:
 
     merged = merge_prediction_tables(result)
     evaluated = evaluate_ver4_table(merged, getattr(result, "race_mode", "jra"), getattr(result, "race_info", {}) or {})
+    return _attach_ver4_result(result, evaluated, "v4", V4_OUTPUT_COLUMNS)
+
+
+def apply_ver41_to_result(result: Any) -> Any:
+    """Attach Ver4.1 using result_df condition sources and unchanged Ver4 rules."""
+
+    merged = merge_prediction_tables(result)
+    merged = attach_condition_fit_sources(merged, getattr(result, "debug_info", {}) or {})
+    evaluated = evaluate_ver4_table(
+        merged,
+        getattr(result, "race_mode", "jra"),
+        getattr(result, "race_info", {}) or {},
+        condition_fit_plumbing=True,
+    )
+    return _attach_ver4_result(result, evaluated, "v4.1", V41_OUTPUT_COLUMNS)
+
+
+def _attach_ver4_result(
+    result: Any,
+    evaluated: pd.DataFrame,
+    logic_version: str,
+    output_columns: Sequence[str],
+) -> Any:
     by_no = {
         horse_no(_pick(row, "馬番", "horse_no", "horse_number", "馬", "horse_no_key_v4")): row
         for row in evaluated.to_dict("records")
@@ -408,30 +460,74 @@ def apply_ver4_to_result(result: Any) -> Any:
         if source is None or not isinstance(source, pd.DataFrame):
             continue
         target = source.copy()
-        for column in V4_OUTPUT_COLUMNS:
+        for column in output_columns:
             if column not in target.columns:
                 target[column] = None
         for index, raw in target.iterrows():
             key = horse_no(_pick(raw.to_dict(), "馬番", "horse_no", "horse_number", "馬"))
             values = by_no.get(key, {})
-            for column in V4_OUTPUT_COLUMNS:
+            for column in output_columns:
                 if column in values:
                     target.at[index, column] = values[column]
         setattr(result, attr, target)
     summary = build_ver4_race_summary(evaluated)
-    result.logic_version = "v4"
+    result.logic_version = logic_version
     result.ver4_summary = summary
     debug = dict(getattr(result, "debug_info", {}) or {})
-    debug["ver4"] = {"summary": summary, "horses": evaluated.to_dict("records")}
+    debug_key = "ver4_1" if logic_version == "v4.1" else "ver4"
+    debug[debug_key] = {"summary": summary, "horses": evaluated.to_dict("records")}
     result.debug_info = debug
     return result
 
 
 def apply_prediction_logic(result: Any, version: Any = "v3") -> Any:
     version = prediction_logic_version(version)
+    if version == "market":
+        from .market_compare import apply_market_compare_to_result
+
+        return apply_market_compare_to_result(result)
+    if version == "practical":
+        from .practical_mode import apply_practical_to_result
+
+        return apply_practical_to_result(result)
+    if version == "v4.1":
+        return apply_ver41_to_result(result)
     if version == "v4":
         return apply_ver4_to_result(result)
     result.logic_version = "v3"
+    return result
+
+
+def attach_condition_fit_sources(
+    frame: pd.DataFrame,
+    debug_info: Mapping[str, Any],
+) -> pd.DataFrame:
+    """Return an ephemeral frame enriched with result_df-only past runs."""
+
+    sources = debug_info.get("condition_fit_sources")
+    if frame.empty or not isinstance(sources, Mapping):
+        return frame.copy()
+    result = frame.copy()
+    source_columns = sorted(
+        {
+            str(name)
+            for source in sources.values()
+            if isinstance(source, Mapping)
+            for name in source
+        }
+    )
+    for column in source_columns:
+        if column not in result.columns:
+            result[column] = pd.Series([None] * len(result), index=result.index, dtype="object")
+    for index, raw in result.iterrows():
+        key = horse_no(_pick(raw.to_dict(), "馬番", "horse_no", "horse_number", "馬", "horse_no_key_v4"))
+        source = sources.get(key)
+        if not isinstance(source, Mapping):
+            continue
+        for name, value in source.items():
+            if name == "_past_runs" or _missing(result.at[index, name]):
+                if not _missing(value):
+                    result.at[index, name] = value
     return result
 
 
@@ -457,7 +553,11 @@ def _base_ability_score(row: Mapping[str, Any], race_type: str) -> float:
 
 
 def _condition_score(
-    row: Mapping[str, Any], race_type: str, fit: Mapping[str, Any]
+    row: Mapping[str, Any],
+    race_type: str,
+    fit: Mapping[str, Any],
+    *,
+    plumbing_fix: bool = False,
 ) -> tuple[float, float, float, float]:
     matched = fit.get("matched_past_runs") if isinstance(fit.get("matched_past_runs"), list) else []
     quality_values = [normalize_index(item.get("time_index"), race_type) for item in matched if isinstance(item, Mapping)]
@@ -470,7 +570,8 @@ def _condition_score(
     elif level != "none":
         matched_quality = 50.0 * factor
     else:
-        matched_quality = 50.0 if shallow else 30.0
+        data_missing = clean_text(fit.get("condition_fit_data_status")) == "missing_source_data"
+        matched_quality = 50.0 if shallow or (plumbing_fix and data_missing) else 30.0
     distance = _normal(row, ("距離指数", "distance_index"), race_type)
     course = _normal(row, ("コース指数", "course_index"), race_type)
     distance_score = distance if distance is not None else (50.0 if shallow else 45.0)
@@ -559,7 +660,12 @@ def _training_score(row: Mapping[str, Any]) -> float:
 
 
 def _component_reasons(
-    components: Mapping[str, float], fit: Mapping[str, Any], row: Mapping[str, Any], race_type: str
+    components: Mapping[str, float],
+    fit: Mapping[str, Any],
+    row: Mapping[str, Any],
+    race_type: str,
+    *,
+    plumbing_fix: bool = False,
 ) -> tuple[list[str], list[str]]:
     positives: list[str] = []
     negatives: list[str] = []
@@ -580,7 +686,13 @@ def _component_reasons(
     mark = clean_text(fit.get("condition_fit_mark"))
     if mark:
         positives.insert(0, f"条件実績{mark}")
-    elif not _career_shallow(row):
+    elif (
+        not _career_shallow(row)
+        and (
+            not plumbing_fix
+            or clean_text(fit.get("condition_fit_data_status")) == "no_match"
+        )
+    ):
         negatives.append("近3走に同距離条件実績なし")
     if race_type == "jra" and components.get("training_score", 50.0) == 50.0:
         # Missing training is neutral, never invented as a positive/negative.
@@ -717,7 +829,37 @@ def _add_opponent_context(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def _condition_fit(row: Mapping[str, Any], race_info: Mapping[str, Any] | None) -> dict[str, Any]:
+def _condition_fit(
+    row: Mapping[str, Any],
+    race_info: Mapping[str, Any] | None,
+    *,
+    plumbing_fix: bool = False,
+) -> dict[str, Any]:
+    if plumbing_fix:
+        evaluated = evaluate_condition_fit(row, race_info)
+        if clean_text(evaluated.get("condition_fit_data_status")) != "missing_source_data":
+            return evaluated
+
+        existing_mark = clean_text(row.get("condition_fit_mark"))
+        level = canonical_condition_fit_level(row.get("condition_fit_level"), existing_mark)
+        if level is None:
+            level = canonical_condition_fit_level(row.get("star_match_level"), existing_mark)
+        existing_runs = row.get("matched_past_runs")
+        if level and level != "none":
+            mark = existing_mark or {"same_venue_distance": "★", "same_turn_distance": "☆", "same_distance": "※"}.get(
+                level,
+                "",
+            )
+            return {
+                "condition_fit_mark": mark or None,
+                "condition_fit_level": level,
+                "condition_fit_reason": clean_text(row.get("condition_fit_reason"))
+                or "既存の構造化条件一致情報から接続",
+                "condition_fit_data_status": "ok",
+                "matched_past_runs": existing_runs if isinstance(existing_runs, list) else [],
+            }
+        return evaluated
+
     existing_level = clean_text(row.get("condition_fit_level"))
     existing_mark = clean_text(row.get("condition_fit_mark"))
     existing_runs = row.get("matched_past_runs")
@@ -764,9 +906,9 @@ def _as_frame(table: pd.DataFrame | Sequence[Mapping[str, Any]] | None) -> pd.Da
     return pd.DataFrame([dict(row) for row in table])
 
 
-def _empty_result(frame: pd.DataFrame) -> pd.DataFrame:
+def _empty_result(frame: pd.DataFrame, output_columns: Sequence[str] = V4_OUTPUT_COLUMNS) -> pd.DataFrame:
     result = frame.copy()
-    for column in V4_OUTPUT_COLUMNS:
+    for column in output_columns:
         if column not in result.columns:
             result[column] = pd.Series(dtype="object")
     return result

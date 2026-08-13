@@ -50,8 +50,9 @@ class ConditionFitTest(unittest.TestCase):
             {"venue": "門別", "distance": 1200, "turn": "右"},
         )
 
-        self.assertEqual(result["condition_fit_mark"], "")
+        self.assertIsNone(result["condition_fit_mark"])
         self.assertEqual(result["condition_fit_level"], "none")
+        self.assertEqual(result["condition_fit_data_status"], "no_match")
         self.assertEqual(result["matched_past_runs"], [])
 
     def test_priority_prefers_star_over_other_marks(self) -> None:

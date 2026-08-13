@@ -15,8 +15,10 @@ import requests
 from bs4 import BeautifulSoup
 
 from .audit_features import add_audit_evaluation_columns
+from .condition_fit import extract_condition_fit_sources
 from .nar_newspaper_parser import parse_nar_newspaper_html as parse_uploaded_nar_newspaper_html
 from .star_index import build_star_max_result, star_match_level
+from .ver3_ability import calculate_ver3_ability_core
 from .star_trace import candidate_summary, clear_star_trace, get_star_trace, log_star_trace, star_trace_row
 
 
@@ -1669,9 +1671,13 @@ def add_scores_and_comments(df):
     df["_地方指数データ不足"] = _nar_local_index_data_shortage_mask(df)
 
     raw_scores = []
+    ver3_ability_cores = []
+    market_non_ability_adjustments = []
     for idx, row in df.iterrows():
         if bool(df.at[idx, "_地方指数データ不足"]):
             raw_scores.append(pd.NA)
+            ver3_ability_cores.append(pd.NA)
+            market_non_ability_adjustments.append(pd.NA)
             continue
         avg3 = safe_num(row["3走平均"], field_avg3)
         dist = safe_num(row["距離指数"], avg3)
@@ -1691,19 +1697,25 @@ def add_scores_and_comments(df):
                 condition_bonus = 0.7
             else:
                 condition_bonus = 0.3
-        raw = (
-            avg3 * 0.15
-            + star_component * 0.30
-            + best_recent * 0.20
-            + latest * 0.15
-            + dist * 0.10
-            + course * 0.10
-            + weight_adjustment
-            + condition_bonus
+        ability_core = calculate_ver3_ability_core(
+            recent_average=avg3,
+            star_index=star_component,
+            recent_best=best_recent,
+            latest_index=latest,
+            distance_index=dist,
+            course_index=course,
         )
+        raw = ability_core + weight_adjustment + condition_bonus
         raw_scores.append(raw)
+        ver3_ability_cores.append(ability_core)
+        # Legacy Ver3 compatibility keeps these terms in _raw_score. Market
+        # mode reads _ver3_ability_core directly; this adjustment column exists
+        # only to audit legacy values and old saved snapshots.
+        market_non_ability_adjustments.append(weight_adjustment + condition_bonus)
 
     df["_raw_score"] = raw_scores
+    df["_ver3_ability_core"] = ver3_ability_cores
+    df["_market_non_ability_adjustment"] = market_non_ability_adjustments
     raw_numeric = pd.to_numeric(df["_raw_score"], errors="coerce")
     valid_score_mask = (~df["_地方指数データ不足"]) & raw_numeric.notna()
     min_raw = raw_numeric.loc[valid_score_mask].min()
@@ -10859,6 +10871,18 @@ def _run_nar_notebook_body(
 
 
     display_cols = ["表示印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "過去1年最高指数", "★最高指数", "★該当走", "★条件", "★最高指数の取得元", "評価/検討材料", "能力評価値", "能力帯", "能力差", "レース難易度", "レース難易度理由", "表示コメント", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "star_max_index", "star_max_race", "star_max_venue", "star_max_distance", "star_max_surface", "star_max_turn", "star_match_level", "star_max_source", "axis_confidence", "axis_confidence_reason", "ability_band", "ability_gap_level", "race_difficulty", "race_difficulty_reason", "display_comment", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
+    # Keep result-free parser evidence available to the independent
+    # ability/price comparison layer.  These columns are not shown by the
+    # legacy table and never change Ver3 scoring.
+    display_cols.extend([
+        "_current_class_rank", "_current_class_label", "_previous_class_rank",
+        "_previous_class_label", "_best_past_class_rank", "_best_past_class_label",
+        "_past_class_labels", "_past_runs", "_days_since_last",
+        "_current_load_weight", "_previous_load_weight", "_load_weight_change",
+        "_ver3_ability_core", "_market_non_ability_adjustment",
+        "_current_jockey", "_previous_jockey", "_jockey_changed",
+        "厩舎コメント", "新聞コメント", "対戦", "対戦評価", "対戦材料",
+    ])
     print(f"レース: {race_info.get('race_name', '')} / {race_info.get('race_data', '')}")
     print(f"抽出頭数: {len(result_df)}")
     print_venue_profile(detected_venue, venue_profile, bool(style_html_input))
@@ -11043,6 +11067,7 @@ def predict_nar_from_html(
         ),
     )
     debug_info = {
+        "condition_fit_sources": extract_condition_fit_sources(result_df),
         "nar_star_trace": get_star_trace(),
         "nar_previous_jockey_trace": _ka_build_nar_previous_jockey_prediction_trace(
             result_df,

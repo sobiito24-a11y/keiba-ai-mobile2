@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 import traceback
 from dataclasses import dataclass
@@ -24,13 +25,14 @@ from core.betting_recommendation import (
     adoption_map_from_recommendations,
     build_betting_recommendations,
 )
-from core.condition_fit import condition_fit_badge_text, evaluate_condition_fit
+from core.condition_fit import condition_fit_badge_text, resolved_condition_fit
+from core.course_materials import four_corner_rates_display
 from core.investment_decision import (
     InvestmentDecision,
     build_investment_decision,
     confidence_label,
 )
-from core.purchase_conditions import build_purchase_condition_recommendations
+from core.purchase_conditions import build_purchase_condition_recommendations, horse_no
 from core.jra_predictor import predict_jra
 from core.html_classifier import (
     DISPLAY_ORDER,
@@ -38,8 +40,15 @@ from core.html_classifier import (
     classify_many,
     kind_label,
     required_kinds,
+    validate_upload_bundle,
 )
-from core.models import ClassifiedHtml, PredictionResult, RaceMode
+from core.models import ClassifiedHtml, PredictionResult, RaceMode, UploadBundleValidation
+from core.market_compare import (
+    build_race_summary as build_market_race_summary,
+    freeze_market_prediction,
+    price_band_rows,
+    race_pace_snapshot,
+)
 from core.nar_json_input import (
     NarJsonDataError,
     NarJsonPredictionInput,
@@ -50,6 +59,11 @@ from core.prediction_history import (
     prediction_zip_bytes,
     prediction_zip_filename,
     save_prediction_history,
+)
+from core.practical_validation import (
+    freeze_practical_prediction,
+    practical_validation_summary,
+    settle_practical_result,
 )
 from core.recent_races import (
     recent_races_detail_text as rich_recent_races_detail_text,
@@ -268,6 +282,32 @@ MOBILE_CSS = """
     font-size: 0.92rem;
     line-height: 1.55;
   }
+  .ka-market-band {
+    display: grid;
+    grid-template-columns: 2.4rem 1fr;
+    gap: 0.55rem;
+    align-items: start;
+    border-top: 1px solid #eef2f6;
+    padding: 0.5rem 0;
+  }
+  .ka-market-band:first-child { border-top: none; }
+  .ka-market-band-label {
+    font-weight: 900;
+    color: #101828;
+    font-size: 1rem;
+  }
+  .ka-market-price {
+    display: inline-block;
+    margin: 0 0.35rem 0.25rem 0;
+    font-weight: 800;
+    color: #1d2939;
+    white-space: nowrap;
+  }
+  .ka-market-fair { color: #667085; font-weight: 500; font-size: 0.78rem; }
+  .ka-market-card-title { font-size: 1rem; font-weight: 900; color: #101828; }
+  .ka-market-card-line { color: #344054; font-size: 0.88rem; line-height: 1.55; }
+  .ka-market-plus { color: #047857; }
+  .ka-market-minus { color: #b42318; }
   div[data-testid="stRadio"] label {
     align-items: flex-start;
   }
@@ -320,13 +360,28 @@ def main() -> None:
 
     logic_label = st.radio(
         "予想ロジック",
-        options=["Ver4（絶対評価）", "Ver3（従来）"],
+        options=[
+            "能力×価格比較（推奨）",
+            "実戦モード（Ver3印＋保守的BUY）",
+            "Ver3（従来）",
+            "Ver4.1（研究用）",
+            "Ver4（baseline）",
+        ],
         index=0,
-        horizontal=True,
+        horizontal=False,
         key="prediction_logic_label",
-        help="Ver4と従来のVer3は別レイヤーです。Ver3の計算結果は変更しません。",
+        help="能力×価格比較はVer3能力を固定し、オッズ・条件・展開を独立表示します。自動BUYは行いません。",
     )
-    selected_logic_version = "v4" if logic_label.startswith("Ver4") else "v3"
+    if logic_label.startswith("能力×価格"):
+        selected_logic_version = "market"
+    elif logic_label.startswith("実戦"):
+        selected_logic_version = "practical"
+    elif logic_label.startswith("Ver4.1"):
+        selected_logic_version = "v4.1"
+    elif logic_label.startswith("Ver4"):
+        selected_logic_version = "v4"
+    else:
+        selected_logic_version = "v3"
     if st.session_state.prediction_logic_version != selected_logic_version:
         clear_prediction_state(keep_input=True)
     st.session_state.prediction_logic_version = selected_logic_version
@@ -348,7 +403,7 @@ def _init_state() -> None:
     st.session_state.setdefault("fetch_failures", [])
     st.session_state.setdefault("fetch_race_id", "")
     st.session_state.setdefault("input_signature", "")
-    st.session_state.setdefault("prediction_logic_version", "v4")
+    st.session_state.setdefault("prediction_logic_version", "market")
 
 
 def render_nar_json_flow() -> None:
@@ -394,11 +449,22 @@ def render_nar_json_flow() -> None:
     fallback_ready = False
     with st.expander("詳細設定：HTMLを直接アップロード", expanded=False):
         st.caption("JSONを作れない場合だけ使用してください。競馬新聞HTML、タイム指数HTML、脚質分析HTMLをまとめて選択します。")
-        fallback_selected, fallback_grouped, has_fallback_uploads, fallback_missing = render_upload_input(
+        (
+            fallback_selected,
+            fallback_grouped,
+            has_fallback_uploads,
+            fallback_missing,
+            fallback_validation,
+        ) = render_upload_input(
             "nar",
             key_prefix="nar_json_direct",
         )
-        fallback_ready = has_fallback_uploads and not fallback_missing and bool(fallback_selected)
+        fallback_ready = (
+            has_fallback_uploads
+            and not fallback_missing
+            and fallback_validation.is_valid
+            and bool(fallback_selected)
+        )
         if fallback_ready:
             st.info("直接アップロードHTMLを使用して予想できます。JSONが揃っている場合はJSONを優先します。")
 
@@ -496,11 +562,11 @@ def render_nar_legacy_url_flow() -> None:
     fallback_ready = False
     with st.expander("詳細設定：HTMLを直接アップロード", expanded=False):
         st.caption("URL自動取得に失敗する場合だけ使用してください。")
-        fallback_selected, fallback_grouped, has_uploads, missing = render_upload_input(
+        fallback_selected, fallback_grouped, has_uploads, missing, validation = render_upload_input(
             "nar",
             key_prefix="nar_fallback",
         )
-        fallback_ready = has_uploads and not missing and bool(fallback_selected)
+        fallback_ready = has_uploads and not missing and validation.is_valid and bool(fallback_selected)
         if fallback_ready:
             st.info("直接アップロードHTMLを使用して予想します。")
 
@@ -531,10 +597,10 @@ def render_upload_flow(mode: RaceMode) -> None:
     if mode == "jra":
         st.caption("iPhone Safariで保存した中央競馬HTMLをまとめて選択してください。")
         st.caption("タイム指数 / 競馬新聞 / 脚質分析が必須です。調教HTMLは任意で反映します。")
-    selected, grouped, has_uploads, missing = render_upload_input(mode, key_prefix=mode)
+    selected, grouped, has_uploads, missing, validation = render_upload_input(mode, key_prefix=mode)
 
     st.subheader("予想")
-    can_predict = has_uploads and not missing and bool(selected)
+    can_predict = has_uploads and not missing and validation.is_valid and bool(selected)
     if st.button("予想する", disabled=not can_predict, type="primary", use_container_width=True):
         clear_prediction_state(keep_input=True)
         result, png_bytes = run_upload_prediction_with_progress(mode, selected, grouped)
@@ -546,7 +612,13 @@ def render_upload_flow(mode: RaceMode) -> None:
 def render_upload_input(
     mode: RaceMode,
     key_prefix: str,
-) -> tuple[dict[str, ClassifiedHtml], dict[str, list[ClassifiedHtml]], bool, list[str]]:
+) -> tuple[
+    dict[str, ClassifiedHtml],
+    dict[str, list[ClassifiedHtml]],
+    bool,
+    list[str],
+    UploadBundleValidation,
+]:
     uploader_label = "iPhoneショートカットで保存した中央競馬ファイルを選択" if mode == "jra" and key_prefix == "jra" else "HTMLを直接アップロード"
     uploaded_files = st.file_uploader(
         uploader_label,
@@ -560,10 +632,16 @@ def render_upload_input(
     has_uploads = bool(uploaded_files)
     if uploaded_files:
         grouped = classify_many([(file.name, file.getvalue()) for file in uploaded_files], mode)
+    validation = validate_upload_bundle(grouped, mode)
 
     st.markdown("#### 認識結果")
     allow_expanders = "fallback" not in key_prefix
-    selected = render_recognition(grouped, mode, allow_expanders=allow_expanders)
+    selected = render_recognition(
+        grouped,
+        mode,
+        allow_expanders=allow_expanders,
+        key_prefix=key_prefix,
+    )
     missing = [kind for kind in required_kinds(mode) if kind not in selected]
 
     if not uploaded_files:
@@ -574,17 +652,27 @@ def render_upload_input(
                 f'<div class="ka-card"><span class="ka-ng">× {kind_label(kind)}HTMLが不足しています</span></div>',
                 unsafe_allow_html=True,
             )
-    elif selected:
+    elif selected and validation.is_valid:
         st.success("必要なHTMLが揃いました。")
 
+    if validation.race_id and validation.detected_mode:
+        st.caption(
+            f"検証済み: race_id={validation.race_id} / {validation.detected_mode.upper()}"
+        )
+    for message in validation.errors:
+        st.error(message)
+    for message in validation.warnings:
+        st.warning(message)
+
     render_unknown_files(grouped, allow_expander=allow_expanders)
-    return selected, grouped, has_uploads, missing
+    return selected, grouped, has_uploads, missing, validation
 
 
 def render_recognition(
     grouped: dict[str, list[ClassifiedHtml]],
     mode: RaceMode,
     allow_expanders: bool = True,
+    key_prefix: str = "upload",
 ) -> dict[str, ClassifiedHtml]:
     selected: dict[str, ClassifiedHtml] = {}
     if not grouped:
@@ -602,19 +690,22 @@ def render_recognition(
             continue
 
         st.markdown(
-            f'<div class="ka-card"><span class="ka-ok">✓ {label}</span><br>'
-            f'同じ種類のHTMLが{len(candidates)}件あります</div>',
+            f'<div class="ka-card"><span class="ka-ng">! {label}</span><br>'
+            f'同じ種類のHTMLが{len(candidates)}件あります。自動上書きしません。</div>',
             unsafe_allow_html=True,
         )
-        options = [item.file_name for item in candidates]
-        chosen_name = st.radio(
+        options = list(range(len(candidates)))
+        chosen_index = st.radio(
             f"{label}HTMLを選択",
             options=options,
-            key=f"{mode}_{kind}_duplicate",
+            format_func=lambda index: (
+                f"{index + 1}. {candidates[index].file_name} "
+                f"(race_id={candidates[index].meta.race_id or '未確認'})"
+            ),
+            key=f"{key_prefix}_{mode}_{kind}_duplicate",
             label_visibility="visible",
         )
-        item = next(candidate for candidate in candidates if candidate.file_name == chosen_name)
-        selected[kind] = item
+        selected[kind] = candidates[chosen_index]
 
     extra_kinds = [
         kind
@@ -654,7 +745,7 @@ def render_recognized_item(label: str, item: ClassifiedHtml) -> None:
 def render_unknown_files(grouped: dict[str, list[ClassifiedHtml]], allow_expander: bool = True) -> None:
     unknowns = grouped.get("unknown", [])
     if allow_expander:
-        with st.expander("判定できなかったHTML", expanded=False):
+        with st.expander("不明なHTML（解析しません）", expanded=False):
             if unknowns:
                 for item in unknowns:
                     st.write(item.file_name)
@@ -662,7 +753,7 @@ def render_unknown_files(grouped: dict[str, list[ClassifiedHtml]], allow_expande
                 st.write("なし")
         return
 
-    st.markdown("判定できなかったHTML")
+    st.markdown("不明なHTML（解析しません）")
     if unknowns:
         for item in unknowns:
             st.write(item.file_name)
@@ -1029,9 +1120,6 @@ def run_upload_prediction_with_progress(
         step(20, "1. HTML整理中")
         html_files = {kind: item.html_text for kind, item in selected.items()}
         file_names = {kind: item.file_name for kind, item in selected.items()}
-        if mode == "jra" and "oikiri" in grouped and grouped["oikiri"]:
-            html_files["oikiri"] = grouped["oikiri"][0].html_text
-            file_names["oikiri"] = grouped["oikiri"][0].file_name
         step(45, "2. AI予想中")
         result = run_prediction(mode, html_files, file_names)
         step(65, "3. 結果整理中")
@@ -1065,7 +1153,7 @@ def run_prediction(
 ) -> PredictionResult:
     version = prediction_logic_version
     if version is None:
-        version = st.session_state.get("prediction_logic_version", "v4")
+        version = st.session_state.get("prediction_logic_version", "market")
     version = normalize_prediction_logic_version(version)
     if mode == "nar":
         return predict_nar(html_files, file_names, prediction_logic_version=version)
@@ -1264,15 +1352,27 @@ def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
     render_nar_star_result_trace(result)
 
     st.divider()
-    st.subheader("スマホ用PNG")
-    st.image(png_bytes, use_container_width=True)
-    st.download_button(
-        "PNGを保存",
-        data=png_bytes,
-        file_name=make_download_file_name(result),
-        mime="image/png",
-        use_container_width=True,
-    )
+    if getattr(result, "logic_version", "v3") == "market":
+        with st.expander("旧評価の互換PNG", expanded=False):
+            st.caption("比較モードの主画面は上の能力帯×価格・全頭表・カードです。このPNGは旧評価の研究互換用です。")
+            st.image(png_bytes, use_container_width=True)
+            st.download_button(
+                "互換PNGを保存",
+                data=png_bytes,
+                file_name=make_download_file_name(result),
+                mime="image/png",
+                use_container_width=True,
+            )
+    else:
+        st.subheader("スマホ用PNG")
+        st.image(png_bytes, use_container_width=True)
+        st.download_button(
+            "PNGを保存",
+            data=png_bytes,
+            file_name=make_download_file_name(result),
+            mime="image/png",
+            use_container_width=True,
+        )
     st.download_button(
         "予想結果ファイル出力",
         data=prediction_zip_bytes(result, investment_decision),
@@ -1280,7 +1380,19 @@ def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
         mime="application/zip",
         use_container_width=True,
     )
-    if st.button("予想履歴をローカル保存", use_container_width=True):
+    if getattr(result, "logic_version", "v3") == "practical":
+        if st.button("予想を固定保存（100R検証）", use_container_width=True):
+            saved_path = save_prediction_history(result, investment_decision)
+            fixed_path = freeze_practical_prediction(result, investment_decision)
+            st.success(f"予想を変更不可の状態で固定しました: {fixed_path}")
+            st.caption(f"通常履歴: {saved_path}")
+        render_practical_validation_status(result)
+    elif getattr(result, "logic_version", "v3") == "market":
+        if st.button("比較データを固定保存", use_container_width=True):
+            fixed_path = freeze_market_prediction(result)
+            st.success(f"能力・価格・条件・展開とユーザー選択を固定しました: {fixed_path}")
+            st.caption("確定結果はprediction.jsonへ混ぜず、別フェーズで保存してください。")
+    elif st.button("予想履歴をローカル保存", use_container_width=True):
         saved_path = save_prediction_history(result, investment_decision)
         st.success(f"予想履歴を保存しました: {saved_path}")
 
@@ -1305,6 +1417,46 @@ def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
         st.rerun()
 
 
+def render_practical_validation_status(result: PredictionResult) -> None:
+    summary = practical_validation_summary()
+    overall = (summary.get("scopes") or {}).get("ALL", {})
+    st.markdown(
+        '<div class="ka-dashboard-card">'
+        '<div class="ka-dashboard-title">新規100R 固定検証</div>'
+        f'<div class="ka-dashboard-value">{int(summary.get("prediction_count") or 0)} / 100R 固定済み</div>'
+        f'<div class="ka-note">結果照合 {int(summary.get("settled_count") or 0)}R / '
+        f'BUY {int(overall.get("buy_count") or 0)}R / '
+        f'投資額 {int(overall.get("investment_yen") or 0):,}円 / '
+        f'払戻額 {int(overall.get("payout_yen") or 0):,}円 / '
+        f'収支 {int(overall.get("profit_yen") or 0):+,}円 / '
+        f'回収率 {format_rate(overall.get("return_rate"))}</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    with st.expander("レース終了後のresult.json照合", expanded=False):
+        st.caption("先に予想を固定保存してください。結果はprediction.jsonへ上書きせず別ファイルで照合します。")
+        uploaded = st.file_uploader(
+            "確定着順・単勝払戻を含むresult.json",
+            type=["json"],
+            accept_multiple_files=False,
+            key="practical_result_json",
+        )
+        if uploaded is not None and st.button("固定予想へ結果を照合", use_container_width=True):
+            try:
+                payload = json.loads(uploaded.getvalue().decode("utf-8-sig"))
+                race_id = clean_text(payload.get("race_id")) or clean_text((result.race_info or {}).get("race_id"))
+                settled_path = settle_practical_result(race_id, payload)
+                st.success(f"結果を照合しました: {settled_path}")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"結果照合に失敗しました: {exc}")
+
+
+def format_rate(value: Any) -> str:
+    number = to_float(value)
+    return "—" if number is None else f"{number:.1f}%"
+
+
 def render_nar_previous_jockey_result_trace(result: PredictionResult) -> None:
     if result.race_mode != "nar":
         return
@@ -1327,7 +1479,10 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
-def render_colab_style_result(result: PredictionResult) -> InvestmentDecision:
+def render_colab_style_result(result: PredictionResult) -> Any:
+    if getattr(result, "logic_version", "v3") == "market":
+        render_market_compare_result(result)
+        return None
     render_race_header(result)
     render_race_summary(result)
     render_power_map(result)
@@ -1345,6 +1500,291 @@ def render_colab_style_result(result: PredictionResult) -> InvestmentDecision:
             extract_raw_section(result, ["展開予想"]),
         )
     return investment_decision
+
+
+def render_market_compare_result(result: PredictionResult) -> None:
+    """Human-decision-first view: ability, price, conditions, and pace."""
+
+    render_race_header(result)
+    table = market_source_table(result)
+    if table.empty:
+        st.info("能力×価格比較に必要な全頭データを取得できませんでした。")
+        return
+    st.caption(
+        "能力はVer3の6項目（近3走平均15%・★最高30%・近3走最高20%・前走15%・距離10%・コース10%）だけ。"
+        "オッズ・人気・騎手・斤量・間隔・展開/コース・＋－材料では能力値・順位・帯を動かしません。"
+    )
+    render_market_band_prices(table)
+    render_market_race_facts(result, table)
+    render_market_full_table(table, result.race_mode)
+    render_market_horse_cards(table, result.race_mode)
+    render_market_user_selection(result, table)
+    with st.expander("旧評価・印・自動馬券（互換表示）", expanded=False):
+        st.caption("研究・比較用です。新しいメイン画面の能力帯や＋－材料には加算していません。")
+        legacy_columns = existing_columns(
+            table,
+            ["表示印", "最終印", "グループ", "AI点", "総合評価", "単勝期待値", "軸信頼度"],
+        )
+        if legacy_columns:
+            st.dataframe(table.loc[:, legacy_columns], use_container_width=True, hide_index=True)
+        render_raw_text_section("旧AIレース考察", result.ai_race_review)
+        render_raw_text_section("旧馬券構成", result.betting_structure)
+
+
+def market_source_table(result: PredictionResult) -> pd.DataFrame:
+    for table in (result.overall_table, result.horse_evaluation):
+        if isinstance(table, pd.DataFrame) and not table.empty and "ability_band_v2" in table.columns:
+            return table.copy()
+    return pd.DataFrame()
+
+
+def render_market_band_prices(table: pd.DataFrame) -> None:
+    st.subheader("能力帯 × 単勝オッズ")
+    rows_by_band = price_band_rows(table)
+    blocks = []
+    for band in ("AA", "A", "B", "C", "Z"):
+        horse_bits = []
+        for item in rows_by_band.get(band, []):
+            odds = "—" if item.get("odds") is None else f"{float(item['odds']):.1f}倍"
+            fair = clean_text(item.get("fair_odds")) or "未校正"
+            horse_bits.append(
+                '<span class="ka-market-price">'
+                f"{plain_text_to_html(item.get('horse_no') or '—')} {plain_text_to_html(odds)}"
+                f'<span class="ka-market-fair">｜適正 {plain_text_to_html(fair)}</span>'
+                "</span>"
+            )
+        body = "".join(horse_bits) or '<span class="ka-muted">該当なし</span>'
+        blocks.append(
+            '<div class="ka-market-band">'
+            f'<div class="ka-market-band-label">{band}</div><div>{body}</div>'
+            "</div>"
+        )
+    st.markdown('<div class="ka-dashboard-card">' + "".join(blocks) + "</div>", unsafe_allow_html=True)
+    st.caption("帯内はオッズ順です。価格差を数値で示すだけで、買い・VALUE等の判定は行いません。")
+
+
+def render_market_race_facts(result: PredictionResult, table: pd.DataFrame) -> None:
+    st.subheader("レースの事実整理")
+    all_debug = getattr(result, "debug_info", {}) or {}
+    debug = (all_debug.get("market_compare") or {})
+    summary = list(debug.get("race_summary") or build_market_race_summary(table))
+    st.markdown(
+        '<div class="ka-dashboard-card">' + "<br>".join(plain_text_to_html(line) for line in summary) + "</div>",
+        unsafe_allow_html=True,
+    )
+    course = all_debug.get("course_materials") if isinstance(all_debug.get("course_materials"), dict) else {}
+    if course:
+        course_lines = [
+            f"取得状態：{clean_text(course.get('source_status')) or 'html内に存在しない'}",
+            f"コース条件：{clean_text(course.get('course_condition')) or '未取得'}",
+            f"netkeibaペース：{clean_text(course.get('pace')) or '未取得'}",
+            f"推定位置カバー：スタート {int((course.get('position_coverage') or {}).get('start', 0))}/"
+            f"{course.get('horse_count') or '?'}・3角 {int((course.get('position_coverage') or {}).get('corner3', 0))}/"
+            f"{course.get('horse_count') or '?'}・4角 {int((course.get('position_coverage') or {}).get('corner4', 0))}/"
+            f"{course.get('horse_count') or '?'}",
+            f"4角有利位置：{clean_text(course.get('favorable_position_label')) or '未取得'}",
+            f"トラックバイアス：{clean_text(course.get('track_bias_status')) or 'html内に存在しない'}",
+            f"ラップ予測：{clean_text(course.get('lap_prediction_status')) or 'html内に存在しない'}",
+            f"前半/後半3F：{course.get('predicted_3f_coverage', 0)}/{course.get('horse_count') or '?'}"
+            + ("（比較利用可）" if course.get("predicted_3f_usable") else "（頭数不足・評価不使用）"),
+            f"騎手コース率：{clean_text(course.get('jockey_course_stats_status')) or 'html内に実値なし'}",
+        ]
+        matrix = four_corner_rates_display(course.get("four_corner_place_rates"))
+        if matrix:
+            course_lines.insert(4, f"4角位置別複勝率：{matrix}")
+        opinion = clean_text(course.get("ai_opinion"))
+        if opinion:
+            completeness = "全文" if course.get("ai_opinion_complete") else "一部取得"
+            course_lines.append(f"AI見解（{completeness}）：{shorten_text(opinion, 180)}")
+        st.markdown(
+            '<div class="ka-section"><b>保存HTMLの展開/コース情報</b><br>'
+            + "<br>".join(plain_text_to_html(line) for line in course_lines)
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+    pace = debug.get("pace") or race_pace_snapshot(table)
+    horses = pace.get("horses") or {}
+    pace_lines = []
+    for style in ("逃", "先", "差", "追"):
+        numbers = "・".join(str(value) for value in horses.get(style, []) or []) or "—"
+        pace_lines.append(f"{style}：{numbers}")
+    st.markdown(
+        '<div class="ka-section">'
+        f"想定：{plain_text_to_html(pace.get('scenario') or '判定保留')}<br>"
+        + "<br>".join(plain_text_to_html(line) for line in pace_lines)
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+    calibration = debug.get("calibration") or {}
+    st.info(calibration.get("display") or "AI適正オッズ：未校正")
+    if calibration.get("reason"):
+        st.caption(calibration.get("reason"))
+
+
+def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
+    st.subheader("全頭横比較表")
+    records = []
+    for row in table.to_dict("records"):
+        no = horse_no(pick(row, "馬番", "馬"))
+        state = join_nonempty(
+            [clean_text(pick(row, "state_arrow")), clean_text(pick(row, "state_transition"))],
+            sep=" ",
+        )
+        class_text = join_nonempty(
+            [
+                f"今回{clean_text(pick(row, 'current_class_market'))}",
+                f"前走{clean_text(pick(row, 'previous_class_market'))}",
+                clean_text(pick(row, "class_shift_market")),
+            ],
+            sep=" / ",
+        )
+        weight_change = to_float(pick(row, "weight_change_market"))
+        weight = clean_text(pick(row, "weight_market"))
+        if weight_change is not None:
+            weight = f"{weight} ({weight_change:+.1f})"
+        condition = join_nonempty(
+            [pick(row, "condition_mark_market"), pick(row, "condition_reason_market")], sep=" "
+        )
+        record = {
+            "馬": join_nonempty([no, pick(row, "馬名")], sep=" "),
+            "馬齢": clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—",
+            "能力帯": clean_text(pick(row, "ability_band_v2")) or "Z",
+            "能力値": format_index_value(pick(row, "market_ability_score")),
+            "実オッズ": format_odds(pick(row, "actual_odds")) or "—",
+            "AI適正": clean_text(pick(row, "fair_odds_display")) or "未校正",
+            "人気": clean_text(pick(row, "人気", "popularity")) or "—",
+            "クラス": class_text or "未取得",
+            "間隔": clean_text(pick(row, "race_interval_market")) or "未取得",
+            "脚質": clean_text(pick(row, "running_style_market")) or "未取得",
+            "展開": join_nonempty([pick(row, "pace_mark_market"), pick(row, "pace_reason_market")], sep=" "),
+            "コース条件": clean_text(pick(row, "course_condition_market")) or "未取得",
+            "展開/コース材料": join_nonempty(
+                [pick(row, "course_development_mark"), pick(row, "course_development_reason")], sep=" "
+            ),
+            "推定位置(始/3/4角)": join_nonempty(
+                [pick(row, "position_start_market"), pick(row, "position_corner3_market"), pick(row, "position_corner4_market")],
+                sep=" / ",
+            ),
+            "騎手": join_nonempty([pick(row, "jockey_market"), pick(row, "jockey_change_market")], sep=" "),
+            "騎手コース": join_nonempty(
+                [pick(row, "jockey_course_mark_market"), pick(row, "jockey_course_stats_market"), pick(row, "jockey_course_sample_market")],
+                sep=" ",
+            ),
+            "斤量": weight or "未取得",
+            "状態": state or "？",
+            "距離": format_index_value(pick(row, "距離指数")),
+            "コース": format_index_value(pick(row, "コース指数")),
+            "条件": condition or "—",
+            "3走前": format_index_value(pick(row, "3走前")),
+            "2走前": format_index_value(pick(row, "2走前")),
+            "前走": format_index_value(pick(row, "前走")),
+            "平均": format_index_value(pick(row, "平均指数", "3走平均")),
+            "最高": format_index_value(pick(row, "過去1年最高指数", "最高指数")),
+            "＋材料": clean_text(pick(row, "plus_materials_display")) or "—",
+            "－材料": clean_text(pick(row, "minus_materials_display")) or "—",
+        }
+        if race_mode == "jra":
+            record["調教"] = clean_text(pick(row, "training_market")) or "未取得"
+        records.append(record)
+    comparison = pd.DataFrame.from_records(records)
+    st.dataframe(comparison, use_container_width=True, hide_index=True)
+
+
+def render_market_horse_cards(table: pd.DataFrame, race_mode: str) -> None:
+    st.subheader("馬別コンパクトカード")
+    ordered = table.copy()
+    ordered["_market_band_order"] = ordered["ability_band_v2"].map({"AA": 0, "A": 1, "B": 2, "C": 3, "Z": 4}).fillna(9)
+    ordered["_market_odds_order"] = pd.to_numeric(ordered.get("actual_odds"), errors="coerce").fillna(99999)
+    ordered = ordered.sort_values(["_market_band_order", "_market_odds_order", "market_ability_rank"])
+    for row in ordered.to_dict("records"):
+        st.markdown(market_horse_card_html(row, race_mode), unsafe_allow_html=True)
+
+
+def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
+    number = horse_no(pick(row, "馬番", "馬")) or "—"
+    name = clean_text(pick(row, "馬名")) or "名称未取得"
+    band = clean_text(pick(row, "ability_band_v2")) or "Z"
+    odds = format_odds(pick(row, "actual_odds")) or "—"
+    state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_transition")], sep=" ") or "？"
+    quick = join_nonempty(
+        [
+            clean_text(pick(row, "running_style_market")),
+            state,
+            join_nonempty([pick(row, "jockey_market"), pick(row, "jockey_change_market")], sep=""),
+            pick(row, "race_interval_market"),
+            join_nonempty([pick(row, "course_development_mark"), pick(row, "course_development_reason")], sep=""),
+            f"今回{clean_text(pick(row, 'current_class_market'))}",
+        ],
+        sep="｜",
+    )
+    plus = clean_text(pick(row, "plus_materials_display")) or "—"
+    minus = clean_text(pick(row, "minus_materials_display")) or "—"
+    detail_lines = [
+        f"能力値：{format_index_value(pick(row, 'market_ability_score'))}（能力順位 {clean_text(pick(row, 'market_ability_rank')) or '—'}）",
+        f"実オッズ：{odds}｜AI適正：{clean_text(pick(row, 'fair_odds_display')) or '未校正'}",
+        f"クラス：{clean_text(pick(row, 'class_basis_market')) or '取得不能'}",
+        f"斤量：{clean_text(pick(row, 'weight_market')) or '未取得'} / 増減：{format_signed_number(pick(row, 'weight_change_market'))}",
+        f"騎手：{clean_text(pick(row, 'jockey_market')) or '未取得'} / {clean_text(pick(row, 'jockey_change_market')) or '未取得'}",
+        f"騎手コース：{clean_text(pick(row, 'jockey_course_mark_market')) or '—'} "
+        f"{clean_text(pick(row, 'jockey_course_stats_market')) or '取得不能'} / "
+        f"{clean_text(pick(row, 'jockey_course_sample_market')) or 'HTML内に実値なし'} / "
+        f"取得元 {clean_text(pick(row, 'jockey_course_source_market')) or 'HTML内に実値なし'}",
+        f"展開：{clean_text(pick(row, 'pace_mark_market'))} {clean_text(pick(row, 'pace_reason_market'))}",
+        f"展開/コース：{clean_text(pick(row, 'course_development_mark')) or '±'} "
+        f"{clean_text(pick(row, 'course_development_reason')) or '取得不能'}（{clean_text(pick(row, 'course_development_source')) or '取得不能'}）",
+        f"コース条件：{clean_text(pick(row, 'course_condition_market')) or '未取得'} / "
+        f"netkeibaペース：{clean_text(pick(row, 'provider_pace_market')) or '未取得'}",
+        f"推定位置：始 {clean_text(pick(row, 'position_start_market')) or '未取得'} / "
+        f"3角 {clean_text(pick(row, 'position_corner3_market')) or '未取得'} / "
+        f"4角 {clean_text(pick(row, 'position_corner4_market')) or '未取得'}",
+        f"距離：{format_index_value(pick(row, '距離指数'))}｜コース：{format_index_value(pick(row, 'コース指数'))}",
+        f"条件：{join_nonempty([pick(row, 'condition_mark_market'), pick(row, 'condition_reason_market')], sep=' ')}",
+        f"近3走：{clean_text(pick(row, 'state_transition')) or '未取得'}｜平均 {format_index_value(pick(row, '平均指数', '3走平均'))}",
+    ]
+    if race_mode == "jra":
+        detail_lines.append(f"調教：{clean_text(pick(row, 'training_market')) or '未取得'}")
+        stable = clean_text(pick(row, "stable_comment_market"))
+        if stable:
+            detail_lines.append(f"厩舎コメント：{shorten_text(stable, 120)}")
+    detail = "<br>".join(plain_text_to_html(line) for line in detail_lines)
+    return (
+        '<div class="ka-horse-card"><details>'
+        '<summary>'
+        f'<div class="ka-market-card-title">{plain_text_to_html(number)} {plain_text_to_html(name)}｜{band}｜{plain_text_to_html(odds)}</div>'
+        f'<div class="ka-market-card-line">{plain_text_to_html(quick)}</div>'
+        f'<div class="ka-market-card-line ka-market-plus">＋ {plain_text_to_html(plus)}</div>'
+        f'<div class="ka-market-card-line ka-market-minus">－ {plain_text_to_html(minus)}</div>'
+        '</summary>'
+        f'<div class="ka-horse-detail">{detail}<br><b>数値補正：なし</b></div>'
+        '</details></div>'
+    )
+
+
+def render_market_user_selection(result: PredictionResult, table: pd.DataFrame) -> None:
+    st.subheader("自分の選択を保存")
+    debug = ((getattr(result, "debug_info", {}) or {}).get("market_compare") or {})
+    saved = debug.get("user_selection") if isinstance(debug.get("user_selection"), dict) else {}
+    options = [
+        join_nonempty([horse_no(pick(row, "馬番", "馬")), pick(row, "馬名")], sep=" ")
+        for row in table.to_dict("records")
+    ]
+    default_horses = [value for value in saved.get("horses", []) if value in options]
+    selected = st.multiselect("気になる馬・本命候補・相手候補", options, default=default_horses, key="market_user_horses")
+    reason = st.text_area("理由", value=clean_text(saved.get("reason")), placeholder="例：A帯7倍 / 同距離 / 状態↑", key="market_user_reason")
+    ticket = st.text_input("券種・買い方（自由入力）", value=clean_text(saved.get("ticket")), key="market_user_ticket")
+    if st.button("今回の選択を保存", use_container_width=True, key="save_market_user_selection"):
+        market = dict(debug)
+        market["user_selection"] = {"horses": list(selected), "reason": reason.strip(), "ticket": ticket.strip()}
+        all_debug = dict(getattr(result, "debug_info", {}) or {})
+        all_debug["market_compare"] = market
+        result.debug_info = all_debug
+        st.session_state.prediction_result = result
+        st.success("今回の選択を予測データへ保存しました。固定保存すると一緒に記録されます。")
+
+
+def format_signed_number(value: Any) -> str:
+    number = to_float(value)
+    return "未取得" if number is None else f"{number:+.1f}kg"
 
 
 def append_nar_star_display_trace(
@@ -1438,7 +1878,21 @@ def render_race_summary(result: PredictionResult) -> None:
     if not rows:
         return
     first = rows[0]
-    if getattr(result, "logic_version", "v3") == "v4":
+    if getattr(result, "logic_version", "v3") == "practical":
+        practical = ((getattr(result, "debug_info", {}) or {}).get("practical") or {}).get("summary", {})
+        st.markdown(
+            '<div class="ka-dashboard-card">'
+            '<div class="ka-dashboard-title">実戦モード</div>'
+            '<div><span class="ka-chip ss">Ver3印を固定</span>'
+            '<span class="ka-chip">★/☆/※は補助情報</span>'
+            '<span class="ka-chip">◎単勝100円固定</span></div>'
+            f'<div class="ka-note">購入判断：{plain_text_to_html(clean_text(practical.get("decision")) or "WATCH")} / '
+            '条件適性による順位の強制変更は行いません。</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+    if getattr(result, "logic_version", "v3") in {"v4", "v4.1"}:
         summary = dict(getattr(result, "ver4_summary", {}) or {})
         st.markdown(
             '<div class="ka-dashboard-card">'
@@ -1487,7 +1941,10 @@ def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
     )
     st.subheader("今回買うべき馬券")
 
-    if getattr(result, "logic_version", "v3") == "v4":
+    if getattr(result, "logic_version", "v3") == "practical":
+        render_practical_investment_decision(decision)
+        return decision
+    if getattr(result, "logic_version", "v3") in {"v4", "v4.1"}:
         render_ver4_investment_decision(decision)
         return decision
 
@@ -1556,6 +2013,26 @@ def render_investment_decision(result: PredictionResult) -> InvestmentDecision:
     return decision
 
 
+def render_practical_investment_decision(decision: InvestmentDecision) -> None:
+    is_buy = clean_text(decision.practical_decision) == "BUY"
+    label = "BUY" if is_buy else "WATCH"
+    chip_class = "ss" if is_buy else "z"
+    reason_lines = decision.practical_reason_lines or decision.reason_lines
+    reasons = "<br>".join(plain_text_to_html("✓ " + line) for line in reason_lines[:4]) or "判定理由なし"
+    honmei = join_nonempty([decision.honmei_horse_no, decision.honmei_horse_name], sep=" ") or "—"
+    ticket = "◎単勝 1点100円" if is_buy else "購入なし"
+    st.markdown(
+        '<div class="ka-dashboard-card">'
+        f'<div><span class="ka-chip {chip_class}">{label}</span></div>'
+        f'<div class="ka-dashboard-value">{plain_text_to_html(ticket)}</div>'
+        f'<div class="ka-note">◎ {plain_text_to_html(honmei)}<br><br>'
+        f'判定理由<br>{reasons}<br><br>'
+        '予想順位・◎○▲△✓はVer3のままです。★/☆/※は購入判断の補助情報で、必須条件ではありません。'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_ver4_investment_decision(decision: InvestmentDecision) -> None:
     decision_v4 = clean_text(getattr(decision, "decision_v4", "")) or "SKIP"
     label = {"BUY": "買い", "LIGHT": "軽め", "WATCH": "様子見", "SKIP": "見送り"}.get(decision_v4, decision_v4)
@@ -1608,7 +2085,7 @@ def investment_ticket_basis_html(decision: InvestmentDecision) -> str:
         f"{selected.ticket_type} {selected.label}",
         f"過去{selected.sample_races}件",
         f"{int(to_float(rationale.get('hits')) or 0)}的中" if rationale.get("hits") not in (None, "") else "",
-        f"ROI {(selected.expected_roi or 0):.1f}%",
+        f"回収率 {(selected.expected_roi or 0):.1f}%",
     ]
     max_dependency = rationale.get("max_payout_contribution")
     max_losing = rationale.get("max_losing_streak")
@@ -2004,8 +2481,10 @@ def horse_summary_card_html(
     state = state_label_from_row(row)
     recent_summary = recent_races_summary_text(recent_source)
     recent_detail = rich_recent_races_detail_text(recent_source)
-    condition_fit = evaluate_condition_fit(recent_source, race_info)
+    condition_fit = resolved_condition_fit(recent_source, race_info)
     condition_badge = condition_fit_badge_text(recent_source, race_info)
+    condition_status = clean_text(condition_fit.get("condition_fit_data_status")) or "—"
+    practical_warning = clean_text(card_pick(row, index_row, "practical_warning_reason"))
     legacy_recent_detail = recent3_detail_text(index_row)
     if clean_text(legacy_recent_detail):
         if clean_text(recent_detail) and "データなし" not in clean_text(recent_detail):
@@ -2038,6 +2517,8 @@ def horse_summary_card_html(
         quick_items.insert(0, f"Horse Score：{format_number(horse_score_v4)}（Race Rank {format_number(race_rank_v4)}）")
     if recent_summary:
         quick_items.append(f"近3走\n{recent_summary}")
+    if practical_warning:
+        quick_items.append(f"warning：{practical_warning}")
     if corner4:
         quick_items.append(f"4角：{corner4}")
     if straight:
@@ -2066,7 +2547,9 @@ def horse_summary_card_html(
         f"★条件：{star_condition_text_from_row(index_row) or '—'}",
         f"条件実績：{condition_badge or '—条件実績なし'}",
         f"条件実績理由：{clean_text(condition_fit.get('condition_fit_reason')) or '—'}",
+        f"condition data status：{condition_status}",
         f"条件実績該当走：{condition_fit_matched_runs_text(condition_fit)}",
+        f"warning：{practical_warning or '—'}",
         f"能力評価値：{format_number(ability_raw) or '—'}",
         f"能力評価表示：{ability_display if ability_display is not None else '—'}",
         f"表示材料：{material_labels or '—'}",

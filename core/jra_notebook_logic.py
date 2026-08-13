@@ -15,7 +15,9 @@ import requests
 from bs4 import BeautifulSoup
 
 from .audit_features import add_audit_evaluation_columns
+from .condition_fit import extract_condition_fit_sources
 from .star_index import build_star_max_result, star_match_level
+from .ver3_ability import calculate_ver3_ability_core
 
 
 USER_AGENT = (
@@ -1009,15 +1011,62 @@ def clean_cell_text(value):
 
 
 def parse_jra_newspaper_html(newspaper_html):
-    columns = ["馬番", "_新聞騎手", "新聞コメント", "調教コメント", "調教評価", "_調教評価記号", "_調教評価文", "推定前半3F", "推定後半3F"]
+    columns = [
+        "馬番", "_新聞馬名", "_新聞単勝オッズ", "_新聞人気", "_新聞脚質",
+        "_新聞レース間隔", "_新聞斤量", "_新聞騎手", "_新聞騎手変更", "新聞コメント",
+        "調教コメント", "調教評価", "_調教評価記号", "_調教評価文",
+        "推定前半3F", "推定後半3F",
+    ]
     if not newspaper_html:
         return pd.DataFrame(columns=columns)
     try:
         tables = [flatten_table_columns(df) for df in pd.read_html(StringIO(newspaper_html))]
     except Exception:
-        return pd.DataFrame(columns=columns)
+        tables = []
 
     records = {}
+
+    # HorseList is the pre-race source for the current entry facts. Parse it
+    # separately so these facts survive changes to the surrounding tables.
+    soup = BeautifulSoup(newspaper_html, "html.parser")
+    for horse_row in soup.select("dl.HorseList"):
+        horse_no = parse_int_from_text(text_of(horse_row.select_one("dt.Waku_Horse")))
+        if horse_no is None:
+            continue
+        record = records.setdefault(horse_no, {"馬番": horse_no})
+        horse_name = text_of(horse_row.select_one(".Horse_Info .Horse02 a"))
+        style = text_of(horse_row.select_one(".Horse_Info .Horse06 .Type span"))
+        horse06 = text_of(horse_row.select_one(".Horse_Info .Horse06"))
+        interval_match = re.search(r"(連闘|中\s*\d+\s*週|休み明け|長期休養)", horse06)
+        odds = parse_float_from_text(text_of(horse_row.select_one('[id^="odds-1_"]')))
+        popularity = parse_int_from_text(text_of(horse_row.select_one('[id^="ninki-1_"]')))
+        jockey_cell = horse_row.select_one("dd.Jockey")
+        jockey = text_of(jockey_cell.select_one("a")) if jockey_cell is not None else ""
+        jockey_change = text_of(jockey_cell.select_one("a .Change")) if jockey_cell is not None else ""
+        jockey = re.sub(r"^(?:替|継)\s*", "", jockey)
+        current_load = None
+        if jockey_cell is not None:
+            for span in reversed(jockey_cell.find_all("span", recursive=False)):
+                value = text_of(span)
+                if re.fullmatch(r"\d{2}(?:\.\d)?", value):
+                    current_load = parse_float_from_text(value)
+                    break
+        if horse_name:
+            record["_新聞馬名"] = horse_name
+        if odds is not None:
+            record["_新聞単勝オッズ"] = odds
+        if popularity is not None:
+            record["_新聞人気"] = popularity
+        if style:
+            record["_新聞脚質"] = style
+        if interval_match:
+            record["_新聞レース間隔"] = re.sub(r"\s+", "", interval_match.group(1))
+        if current_load is not None:
+            record["_新聞斤量"] = current_load
+        if jockey:
+            record["_新聞騎手"] = jockey
+        if jockey_change:
+            record["_新聞騎手変更"] = jockey_change
 
     for df in tables:
         horse_col = find_column_by_keywords(df, "馬", "番")
@@ -1250,6 +1299,42 @@ def apply_jra_newspaper_html_features(df, newspaper_html):
         if "騎手" not in result.columns:
             result["騎手"] = ""
         result.loc[newspaper_jockey.ne(""), "騎手"] = newspaper_jockey[newspaper_jockey.ne("")]
+
+    # Current newspaper facts are copied into their normal display/material
+    # columns after Ver3 scoring. They can therefore affect only the independent
+    # market/material view, never _ver3_ability_core.
+    fact_columns = {
+        "_新聞馬名": "馬名",
+        "_新聞単勝オッズ": "オッズ",
+        "_新聞人気": "人気",
+        "_新聞脚質": "脚質",
+        "_新聞レース間隔": "レース間隔",
+        "_新聞斤量": "斤量",
+        "_新聞騎手": "騎手",
+    }
+    for source, target in fact_columns.items():
+        if source not in result.columns:
+            continue
+        if target not in result.columns:
+            result[target] = pd.NA
+        source_values = result[source]
+        present = source_values.notna() & source_values.astype(str).str.strip().ne("")
+        result.loc[present, target] = source_values[present]
+    if "_新聞斤量" in result.columns:
+        if "_current_load_weight" not in result.columns:
+            result["_current_load_weight"] = pd.NA
+        load_present = pd.to_numeric(result["_新聞斤量"], errors="coerce").notna()
+        result.loc[load_present, "_current_load_weight"] = result.loc[load_present, "_新聞斤量"]
+    if "_新聞騎手" in result.columns:
+        if "_current_jockey" not in result.columns:
+            result["_current_jockey"] = ""
+        jockey_present = result["_新聞騎手"].fillna("").astype(str).str.strip().ne("")
+        result.loc[jockey_present, "_current_jockey"] = result.loc[jockey_present, "_新聞騎手"]
+    if "_新聞騎手変更" in result.columns:
+        if "_jockey_changed" not in result.columns:
+            result["_jockey_changed"] = False
+        changed = result["_新聞騎手変更"].fillna("").astype(str).str.contains("替")
+        result.loc[changed, "_jockey_changed"] = True
 
     material_rows = result.apply(build_jra_newspaper_materials, axis=1)
     late3f_materials, late3f_scores = build_jra_late3f_materials(result)
@@ -1824,6 +1909,8 @@ def add_scores_and_comments(df):
     )
 
     raw_scores = []
+    ver3_ability_cores = []
+    market_non_ability_adjustments = []
     for _, row in df.iterrows():
         avg3 = safe_num(row["3走平均"], field_avg3)
         dist = safe_num(row["距離指数"], avg3)
@@ -1860,10 +1947,25 @@ def add_scores_and_comments(df):
                 bonus += 0.3
 
         star_component = star_high if star_high is not None else field_avg3
-        raw = avg3 * 0.15 + star_component * 0.30 + best_recent * 0.20 + latest * 0.15 + dist * 0.10 + course * 0.10 + weight_adjustment + bonus
+        ability_core = calculate_ver3_ability_core(
+            recent_average=avg3,
+            star_index=star_component,
+            recent_best=best_recent,
+            latest_index=latest,
+            distance_index=dist,
+            course_index=course,
+        )
+        raw = ability_core + weight_adjustment + bonus
         raw_scores.append(raw)
+        ver3_ability_cores.append(ability_core)
+        # Legacy Ver3 compatibility keeps these terms in _raw_score. Market
+        # mode reads _ver3_ability_core directly; this adjustment column exists
+        # only to audit legacy values and old saved snapshots.
+        market_non_ability_adjustments.append(weight_adjustment + bonus)
 
     df["_raw_score"] = raw_scores
+    df["_ver3_ability_core"] = ver3_ability_cores
+    df["_market_non_ability_adjustment"] = market_non_ability_adjustments
     if "year_max_index" not in df.columns:
         df["year_max_index"] = df.get("_year_max_index", pd.Series(pd.NA, index=df.index))
     if "過去1年最高指数" not in df.columns:
@@ -10205,6 +10307,18 @@ def _run_jra_notebook_body(
 
 
     display_cols = ["表示印", "展開印", "馬番", "馬名", "馬年齢", "斤量", "騎手", "オッズ", "脚質", "レース間隔", "AI点", "総合評価", "市場反映勝率", "単勝期待値", "クラス変動", "クラス根拠", "馬場実績", "距離指数", "コース指数", "3走前", "2走前", "前走", "平均指数", "過去1年最高指数", "★最高指数", "★該当走", "★条件", "★最高指数の取得元", "調教/評価/検討材料", "能力評価値", "能力帯", "能力差", "レース難易度", "レース難易度理由", "表示コメント", "raw_score", "ability_display_score", "normalized_ai_score", "ai_rank", "final_mark_score", "market_score", "star_max_index", "star_max_race", "star_max_venue", "star_max_distance", "star_max_surface", "star_max_turn", "star_match_level", "star_max_source", "axis_confidence", "axis_confidence_reason", "ability_band", "ability_gap_level", "race_difficulty", "race_difficulty_reason", "display_comment", "old_final_mark", "old_watch_mark", "hole_candidate", "watch_horse"]
+    # Keep result-free parser evidence available to the independent
+    # ability/price comparison layer.  These columns are not shown by the
+    # legacy table and never change Ver3 scoring.
+    display_cols.extend([
+        "_current_class_rank", "_current_class_label", "_previous_class_rank",
+        "_previous_class_label", "_best_past_class_rank", "_best_past_class_label",
+        "_past_class_labels", "_past_runs", "_days_since_last",
+        "_current_load_weight", "_previous_load_weight", "_load_weight_change",
+        "_ver3_ability_core", "_market_non_ability_adjustment",
+        "_current_jockey", "_previous_jockey", "_jockey_changed",
+        "調教評価", "追切評価", "追切内容", "調教コメント", "厩舎コメント", "新聞コメント",
+    ])
     print(f"レース: {race_info.get('race_name', '')} / {race_info.get('race_data', '')}")
     print(f"抽出頭数: {len(result_df)}")
     print_jra_venue_profile(detected_venue, venue_profile, bool(style_html_input))
@@ -10322,4 +10436,5 @@ def predict_jra_from_html(
         status="ok",
         message="PredictionResult generated by Python module.",
         raw_output=raw_buffer.getvalue(),
+        debug_info={"condition_fit_sources": extract_condition_fit_sources(result_df)},
     )

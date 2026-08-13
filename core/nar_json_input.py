@@ -90,12 +90,20 @@ def build_nar_prediction_inputs_from_uploads(
         "speed": build_speed_html(speed_data, entry_data, merged_horses),
         "style": build_courseanalysis_html(courseanalysis_data, merged_horses),
     }
+    newspaper_source = _safe_text((classified.get("newspaper") or {}).get("_source_html"))
+    if newspaper_source:
+        # Keep the raw newspaper only for the independent course/development
+        # display parser.  The legacy NAR notebook path does not consume this
+        # key, so its prediction inputs remain unchanged.
+        html_files["newspaper_context"] = newspaper_source
     star_debug_logs.extend(_extract_speed_star_trace(html_files.get("speed", ""), "02b build_speed_html output attrs"))
     file_names = {
         "shutuba": _suggested_name(entry_data, race_id, "entry"),
         "speed": _suggested_name(speed_data, race_id, "speed"),
         "style": _suggested_name(courseanalysis_data, race_id, "courseanalysis"),
     }
+    if newspaper_source:
+        file_names["newspaper_context"] = _safe_text(classified["newspaper"].get("_uploaded_file_name"))
     return NarJsonPredictionInput(
         race_id=race_id,
         html_files=html_files,
@@ -232,6 +240,7 @@ def classify_nar_uploaded_files(uploaded_files: Iterable[tuple[str, bytes]]) -> 
             except NarNewspaperParseError as exc:
                 invalid_files.append(f"{file_name}: 競馬新聞HTMLの解析に失敗しました（{exc}）")
                 continue
+            newspaper_data["_source_html"] = text
             _add_classified_data(classified, duplicates, "newspaper", newspaper_data, file_name)
             continue
 
