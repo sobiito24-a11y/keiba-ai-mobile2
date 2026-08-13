@@ -73,7 +73,10 @@ from core.star_trace import log_star_trace, star_trace_row
 from core.value_support import (
     VALUE_FIELD_NAMES,
     attach_value_signals,
+    course_material_display,
     current_mark_reference,
+    stable_comment_display,
+    training_display,
     value_reference_rows,
 )
 from core.version import APP_VERSION
@@ -1538,7 +1541,7 @@ def render_market_compare_result(result: PredictionResult) -> None:
     )
     render_market_race_facts(result, table)
     render_market_band_prices(table)
-    render_market_ai_evaluation(table)
+    render_market_ai_evaluation(table, result.race_mode)
     render_market_horse_cards(table, result.race_mode)
     render_market_full_table(table, result.race_mode)
     render_market_user_selection(result, table)
@@ -1617,7 +1620,7 @@ def render_market_race_facts(result: PredictionResult, table: pd.DataFrame) -> N
     )
 
 
-def render_market_ai_evaluation(table: pd.DataFrame) -> None:
+def render_market_ai_evaluation(table: pd.DataFrame, race_mode: str = "jra") -> None:
     st.subheader("AI今回評価")
     ordered = table.sort_values(["current_evaluation_rank", "market_ability_rank"], ascending=[True, True])
     records = []
@@ -1633,7 +1636,7 @@ def render_market_ai_evaluation(table: pd.DataFrame) -> None:
                 "馬": horse_label,
                 "能力": f"{clean_text(pick(row, 'ability_band_v2'))}・{clean_text(pick(row, 'market_ability_rank'))}位",
                 "実オッズ": format_odds(pick(row, "actual_odds")) or "—",
-                "判断材料": clean_text(pick(row, "ai_current_reason")),
+                "判断材料": market_ai_material_text(row, race_mode),
             }
         )
     st.dataframe(pd.DataFrame.from_records(records), use_container_width=True, hide_index=True)
@@ -1659,6 +1662,107 @@ def market_horse_age_text(row: dict[str, Any]) -> str:
     return f"{numeric.group(1)}歳" if numeric else value
 
 
+def market_training_text(row: dict[str, Any], race_mode: str, *, with_prefix: bool = True) -> str:
+    """Display-only training summary; raw workout laps stay in audit data."""
+
+    if clean_text(race_mode).lower() != "jra":
+        return ""
+    existing = clean_text(pick(row, "training_display"))
+    if existing:
+        display = existing
+    else:
+        display = training_display(
+            {
+                "調教評価": pick(row, "training_market", "調教評価", "追切評価", "training_grade"),
+                "調教コメント": pick(row, "training_comment", "調教短評", "追切短評", "調教コメント"),
+            },
+            race_mode,
+        ).get("display", "")
+    if not display:
+        return ""
+    return display if with_prefix else re.sub(r"^調教", "", display)
+
+
+def market_stable_comment_text(row: dict[str, Any], race_mode: str) -> str:
+    if clean_text(race_mode).lower() != "jra":
+        return ""
+    existing = clean_text(pick(row, "stable_comment_display"))
+    if existing:
+        return existing
+    return stable_comment_display({"厩舎コメント": pick(row, "stable_comment_market", "厩舎コメント", "新聞コメント")}, race_mode)
+
+
+def market_jockey_display_text(row: dict[str, Any]) -> str:
+    text = clean_text(pick(row, "jockey_display_market", "jockey_market"))
+    return text.replace("（継）", "（継続）")
+
+
+def market_position_path_text(row: dict[str, Any]) -> str:
+    path = clean_text(pick(row, "position_path_market", "想定位置", "推定位置"))
+    if not path:
+        return "位置不明"
+    if "top=" in path or "left=" in path:
+        return "位置不明"
+    return path
+
+
+def market_course_material_text(row: dict[str, Any]) -> str:
+    mark = clean_text(pick(row, "course_development_mark"))
+    reason = clean_text(pick(row, "course_development_reason"))
+    if "推定有利馬" in reason:
+        return ""
+    if reason == "4角傾向フラット":
+        return ""
+    if mark in {"◎", "○"} and reason:
+        return f"＋ {reason}"
+    if mark in {"△", "×"} and reason:
+        return f"－ {reason}"
+    support = course_material_display(row)
+    label = clean_text(support.get("label"))
+    if label and "フラット" not in label and "推定有利馬" not in label:
+        return label
+    return ""
+
+
+def market_netkeiba_favorable_text(row: dict[str, Any]) -> str:
+    reason = clean_text(pick(row, "course_development_reason"))
+    if "推定有利馬" in reason:
+        return "○ 推定有利馬"
+    label = clean_text(course_material_display(row).get("netkeiba_label"))
+    return label
+
+
+def market_pace_material_text(row: dict[str, Any]) -> str:
+    text = join_nonempty([pick(row, "pace_mark_market"), pick(row, "pace_reason_market")], sep=" ")
+    if not text:
+        return ""
+    return text.replace("○ ", "＋ ", 1).replace("△ ", "－ ", 1)
+
+
+def market_ai_material_text(row: dict[str, Any], race_mode: str) -> str:
+    parts = [
+        clean_text(pick(row, "ai_current_reason")),
+        market_pace_material_text(row),
+        market_course_material_text(row),
+        market_netkeiba_favorable_text(row),
+        market_training_text(row, race_mode, with_prefix=False),
+        market_stable_comment_text(row, race_mode),
+    ]
+    return " / ".join(unique_nonempty(parts)) or "—"
+
+
+def unique_nonempty(values: list[Any]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = clean_text(value)
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+    return out
+
+
 def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
     st.subheader("全頭横比較表")
     records = []
@@ -1682,17 +1786,16 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "能力順位": clean_text(pick(row, "market_ability_rank")) or "—",
             "能力値": format_index_value(pick(row, "market_ability_score")),
             "実オッズ": format_odds(pick(row, "actual_odds")) or "—",
-            "騎手": clean_text(pick(row, "jockey_display_market", "jockey_market")),
+            "騎手": market_jockey_display_text(row),
             "斤量": weight,
             "クラス": clean_text(pick(row, "current_class_market")),
             "間隔": clean_text(pick(row, "race_interval_market")),
             "状態": state,
             "脚質": clean_text(pick(row, "running_style_market")),
-            "今回の展開": join_nonempty([pick(row, "pace_mark_market"), pick(row, "pace_reason_market")], sep=" "),
-            "今回のコース材料": join_nonempty(
-                [pick(row, "course_development_mark"), pick(row, "course_development_reason")], sep=" "
-            ),
-            "想定位置": clean_text(pick(row, "position_path_market")),
+            "今回の展開": market_pace_material_text(row) or "—",
+            "今回のコース材料": market_course_material_text(row) or "—",
+            "netkeiba推定": market_netkeiba_favorable_text(row) or "—",
+            "想定位置": market_position_path_text(row),
             "距離": format_index_value(pick(row, "距離指数")),
             "コース": format_index_value(pick(row, "コース指数")),
             "3走前": format_index_value(pick(row, "3走前")),
@@ -1704,7 +1807,7 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "－材料": clean_text(pick(row, "minus_materials_display")),
         }
         if race_mode == "jra":
-            record["調教"] = clean_text(pick(row, "training_market"))
+            record["調教"] = market_training_text(row, race_mode, with_prefix=False) or "—"
         records.append(record)
     comparison = pd.DataFrame.from_records(records)
     st.dataframe(comparison, use_container_width=True, hide_index=True)
@@ -1728,7 +1831,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     ability_rank = clean_text(pick(row, "market_ability_rank")) or "—"
     current_rank = clean_text(pick(row, "current_evaluation_rank")) or "—"
     state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_label_market")], sep=" ")
-    jockey = clean_text(pick(row, "jockey_display_market", "jockey_market"))
+    jockey = market_jockey_display_text(row)
     weight = clean_text(pick(row, "weight_market"))
     interval = clean_text(pick(row, "race_interval_market"))
     current_class = clean_text(pick(row, "current_class_market"))
@@ -1744,9 +1847,12 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     )
     plus = clean_text(pick(row, "plus_materials_display"))
     minus = clean_text(pick(row, "minus_materials_display"))
-    position_path = clean_text(pick(row, "position_path_market"))
-    pace = join_nonempty([pick(row, "pace_mark_market"), pick(row, "pace_reason_market")], sep=" ")
-    course = join_nonempty([pick(row, "course_development_mark"), pick(row, "course_development_reason")], sep=" ")
+    position_path = market_position_path_text(row)
+    pace = market_pace_material_text(row)
+    course = market_course_material_text(row)
+    netkeiba = market_netkeiba_favorable_text(row)
+    training_display_text = market_training_text(row, race_mode)
+    stable_summary = market_stable_comment_text(row, race_mode)
     detail_lines = [
         f"能力値：{format_index_value(pick(row, 'market_ability_score'))}（能力順位 {ability_rank}位）",
         f"実オッズ：{odds}",
@@ -1760,22 +1866,35 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         detail_lines.append(f"展開：{pace}")
     if course:
         detail_lines.append(f"コース：{course}")
+    if netkeiba:
+        detail_lines.append(f"netkeiba推定：{netkeiba}")
     detail_lines.append(
         f"距離：{format_index_value(pick(row, '距離指数'))}｜コース：{format_index_value(pick(row, 'コース指数'))}"
     )
     if race_mode == "jra":
-        training = clean_text(pick(row, "training_market"))
-        if training and training not in {"未取得", "対象外"}:
-            detail_lines.append(f"調教：{training}")
+        if training_display_text:
+            detail_lines.append(f"調教：{training_display_text}")
         stable = clean_text(pick(row, "stable_comment_market"))
+        if stable_summary:
+            detail_lines.append(stable_summary)
         if stable:
-            detail_lines.append(f"厩舎コメント：{shorten_text(stable, 120)}")
+            detail_lines.append(f"厩舎コメント全文：{shorten_text(stable, 120)}")
     detail = "<br>".join(plain_text_to_html(line) for line in detail_lines)
     material_lines = ""
     if plus:
         material_lines += f'<div class="ka-market-card-line ka-market-plus">＋ {plain_text_to_html(plus)}</div>'
     if minus:
         material_lines += f'<div class="ka-market-card-line ka-market-minus">－ {plain_text_to_html(minus)}</div>'
+    if course:
+        material_lines += f'<div class="ka-market-card-line ka-market-plus">{plain_text_to_html(course)}</div>'
+    if netkeiba:
+        material_lines += f'<div class="ka-market-card-line ka-market-plus">{plain_text_to_html(netkeiba)}</div>'
+    if training_display_text:
+        css = "ka-market-minus" if "D↓" in training_display_text else "ka-market-plus"
+        sign = "－ " if "D↓" in training_display_text else "＋ "
+        material_lines += f'<div class="ka-market-card-line {css}">{plain_text_to_html(sign + training_display_text)}</div>'
+    if stable_summary:
+        material_lines += f'<div class="ka-market-card-line">{plain_text_to_html(stable_summary)}</div>'
     return (
         '<div class="ka-horse-card"><details>'
         '<summary>'
@@ -2661,8 +2780,10 @@ def horse_summary_card_html(
     ]
     if training_label:
         quick_items.append(training_label)
+    if stable_comment:
+        quick_items.append(stable_comment)
     if course_material:
-        quick_items.append(f"展開/コース：{course_material}")
+        quick_items.append(f"コース：{course_material}")
     if netkeiba_favorable:
         quick_items.append(netkeiba_favorable)
     if value_signal:
@@ -3124,18 +3245,15 @@ def recent3_detail_text(row: dict[str, Any]) -> str:
 
 def central_card_lines(row: dict[str, Any]) -> list[str]:
     lines: list[str] = []
-    training = clean_text(pick(row, "調教評価", "追切評価"))
-    workout = clean_text(pick(row, "追切内容", "調教コメント", "training_comment"))
-    partner = clean_text(pick(row, "併せ馬情報", "training_partner"))
+    training = training_display(row, "jra").get("display", "")
     stable = clean_text(pick(row, "厩舎コメント", "新聞コメント", "stable_comment"))
     if training:
-        lines.append(f"調教：{training}")
-    if workout:
-        lines.append(f"追切：{shorten_text(workout, 80)}")
-    if partner:
-        lines.append(f"併せ：{shorten_text(partner, 60)}")
+        lines.append(f"調教表示：{training}")
     if stable:
-        lines.append(f"厩舎コメント：{shorten_text(stable, 90)}")
+        summary = stable_comment_display(row, "jra")
+        if summary:
+            lines.append(summary)
+        lines.append(f"厩舎コメント全文：{shorten_text(stable, 90)}")
     return lines
 
 
@@ -3190,8 +3308,10 @@ def build_detail_analysis_table(
             "騎手": compact_table_jockey_text(row),
             "斤量": compact_weight_text(row).replace("kg", "") or "—",
             "脚質": short_running_style(row),
-            "展開/コース": clean_text(pick(row, "course_material_label")) or "—",
+            "今回の展開": clean_text(pick(row, "pace_material_label", "pace_mark_market", "展開印")) or "—",
+            "今回のコース材料": clean_text(pick(row, "course_material_label")) or "—",
             "netkeiba推定": clean_text(pick(row, "netkeiba_favorable_label")) or "—",
+            "想定位置": clean_text(pick(row, "estimated_position_label", "position_path_market", "推定位置", "想定位置")) or "位置不明",
             "距離": format_index_value(pick(index_row, "距離指数")),
             "コース": format_index_value(pick(index_row, "コース指数")),
             "★": format_star_value(pick(index_row, "★最高指数", "star_max_index")),
@@ -3201,6 +3321,8 @@ def build_detail_analysis_table(
             "3走平均": format_index_value(pick(index_row, "平均指数", "3走平均", "近3走平均")),
             "状態": state_label_from_row(row),
             "妙味": "妙味あり" if truthy_display(pick(row, "value_signal")) else "—",
+            "＋材料": reason_list_text(pick(row, "value_plus_materials")) or "—",
+            "－材料": reason_list_text(pick(row, "value_minus_materials")) or "—",
             "コメント": short_comment_from_row(row),
         }
         if race_mode == "jra":

@@ -288,6 +288,32 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.loc[0, "馬"], "3 オーキッドレディ（牝5）")
 
+    def test_market_ai_evaluation_uses_short_training_without_raw_lap(self) -> None:
+        self.streamlit.last_dataframe = None
+        self.app.render_market_ai_evaluation(
+            pd.DataFrame(
+                [
+                    {
+                        "馬番": 5,
+                        "馬名": "ラップレス",
+                        "sex_age": "牡4",
+                        "current_evaluation_rank": 1,
+                        "market_ability_rank": 1,
+                        "ability_band_v2": "A",
+                        "ai_current_mark": "◎",
+                        "actual_odds": 4.1,
+                        "ai_current_reason": "能力Aを土台",
+                        "training_market": "B 83.5(16.3)67.2(15.0)",
+                    }
+                ]
+            ),
+            "jra",
+        )
+        result = self.streamlit.last_dataframe
+        self.assertIsNotNone(result)
+        self.assertIn("B↑ 仕上上々", result.loc[0, "判断材料"])
+        self.assertNotIn("83.5", result.loc[0, "判断材料"])
+
     def test_market_full_table_places_jockey_and_weight_after_actual_odds(self) -> None:
         self.streamlit.last_dataframe = None
         self.app.render_market_full_table(
@@ -317,6 +343,72 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertEqual(columns[odds_index + 1 : odds_index + 3], ["騎手", "斤量"])
         self.assertNotIn("AI適正", columns)
         self.assertEqual(result.loc[0, "騎手"], "矢野貴之（複58%）")
+
+    def test_market_full_table_separates_course_favorable_and_hides_raw_training(self) -> None:
+        self.streamlit.last_dataframe = None
+        source = pd.DataFrame(
+            [
+                {
+                    "馬番": 7,
+                    "馬名": "セブンライト",
+                    "馬年齢": "牡4",
+                    "ai_current_mark": "◎",
+                    "current_evaluation_rank": 1,
+                    "ability_band_v2": "A",
+                    "market_ability_rank": 1,
+                    "market_ability_score": 94,
+                    "actual_odds": 5.8,
+                    "jockey_display_market": "川田将雅（継）",
+                    "weight_market": "56.0kg",
+                    "pace_mark_market": "○",
+                    "pace_reason_market": "差し向き",
+                    "course_development_mark": "○",
+                    "course_development_reason": "推定有利馬（7）",
+                    "position_path_market": "中団→中団→中団",
+                    "training_market": "B 83.5(16.3)67.2(15.0)",
+                }
+            ]
+        )
+        before = source.copy(deep=True)
+
+        self.app.render_market_full_table(source, "jra")
+        result = self.streamlit.last_dataframe
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.loc[0, "騎手"], "川田将雅（継続）")
+        self.assertEqual(result.loc[0, "今回の展開"], "＋ 差し向き")
+        self.assertEqual(result.loc[0, "今回のコース材料"], "—")
+        self.assertEqual(result.loc[0, "netkeiba推定"], "○ 推定有利馬")
+        self.assertEqual(result.loc[0, "調教"], "B↑ 仕上上々")
+        self.assertNotIn("83.5", result.to_string())
+        pd.testing.assert_frame_equal(source, before)
+
+    def test_market_horse_card_summarizes_training_and_stable_comment(self) -> None:
+        html = self.app.market_horse_card_html(
+            {
+                "馬番": 4,
+                "馬名": "コメントスター",
+                "sex_age": "牡5",
+                "ability_band_v2": "A",
+                "market_ability_score": 91,
+                "market_ability_rank": 2,
+                "current_evaluation_rank": 1,
+                "ai_current_mark": "◎",
+                "ai_current_reason": "能力Aを土台",
+                "actual_odds": 3.7,
+                "jockey_display_market": "川田将雅（継）",
+                "weight_market": "56.0kg",
+                "running_style_market": "差し",
+                "training_market": "A 83.5(16.3)67.2(15.0)",
+                "stable_comment_market": "順調に仕上がって好気配。ここも期待できる。",
+            },
+            "jra",
+        )
+
+        self.assertIn("＋ 調教A↑ 動き抜群", html)
+        self.assertIn("厩舎コメント：↑ 好気配", html)
+        self.assertIn("厩舎コメント全文", html)
+        self.assertNotIn("83.5", html)
 
     def test_nar_optional_jockey_page_is_fetched_as_raw_html(self) -> None:
         race_id = "202647081305"

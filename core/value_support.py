@@ -256,26 +256,37 @@ def training_display(row: Mapping[str, Any], race_type: str = "jra") -> dict[str
     comment = _short_training_comment(
         _pick_text(row, "調教短評", "追切短評", "追切内容", "調教コメント", "training_comment")
     )
-    display = f"調教{rank}" + (f"・{comment}" if comment else "")
+    arrow, default_comment = _training_rank_display(rank)
+    comment = comment or default_comment
+    display = f"調教{rank}{arrow}" + (f" {comment}" if comment else "")
     return {"display": display, "rank": rank, "comment": comment, "source": raw}
 
 
 def stable_comment_display(row: Mapping[str, Any], race_type: str = "jra", *, max_length: int = 64) -> str:
     if clean_text(race_type).lower() == "nar":
         return ""
-    text = _pick_text(row, "厩舎コメント", "新聞コメント", "stable_comment", "一言コメント")
+    text = _pick_text(row, "厩舎コメント", "新聞コメント", "stable_comment", "stable_comment_market", "一言コメント")
     if not text:
         return ""
-    return text[:max_length] + ("…" if len(text) > max_length else "")
+    return _stable_comment_summary(text)
 
 
 def course_material_display(row: Mapping[str, Any]) -> dict[str, str]:
     raw_mark = _pick_text(row, "展開印", "pace_mark", "展開評価", "枠脚質評価", "枠順×脚質評価")
+    raw_reason = _pick_text(row, "course_development_reason", "コース材料理由", "course_material_reason")
     position = normalize_position(_pick_text(row, "推定位置", "想定位置", "position_band", "脚質", "running_style"))
-    netkeiba = _pick_text(row, "netkeiba推定有利馬", "推定有利馬", "有利馬", "netkeiba_favorable", "estimated_favorable")
+    netkeiba = _pick_text(
+        row,
+        "netkeiba推定有利馬",
+        "推定有利馬",
+        "有利馬",
+        "netkeiba_favorable",
+        "estimated_favorable",
+        "_position_favorable_horse",
+    )
     distance = _pick_text(row, "距離指数")
     course = _pick_text(row, "コース指数")
-    label = "± 4角傾向フラット"
+    label = ""
     tone = "neutral"
     short = ""
 
@@ -289,13 +300,24 @@ def course_material_display(row: Mapping[str, Any]) -> dict[str, str]:
         short = "展開注意"
     elif position:
         label = f"± {position}想定"
+    elif "推定有利馬" in raw_reason:
+        label = "○ 推定有利馬"
+    else:
+        condition_mark = _pick_text(row, "condition_fit_mark", "条件実績マーク")
+        if condition_mark == "★":
+            label = "＋ 同場同距離実績"
+        elif condition_mark == "☆":
+            label = "＋ 同回り同距離実績"
+        elif condition_mark == "※":
+            label = "＋ 同距離実績"
 
     netkeiba_label = ""
-    if netkeiba and netkeiba.lower() not in {"false", "0", "なし", "—", "-"}:
-        netkeiba_label = "netkeiba推定：有利馬"
+    if (netkeiba and netkeiba.lower() not in {"false", "0", "なし", "—", "-"}) or "推定有利馬" in raw_reason:
+        netkeiba_label = "○ 推定有利馬"
 
     detail_parts = [
         f"今回コース材料={raw_mark}" if raw_mark else "",
+        f"コース材料理由={raw_reason}" if raw_reason else "",
         f"推定位置={position}" if position else "",
         f"距離指数={distance}" if distance else "",
         f"コース指数={course}" if course else "",
@@ -432,14 +454,47 @@ def _extract_training_rank(raw: str) -> str:
     return ""
 
 
+def _training_rank_display(rank: str) -> tuple[str, str]:
+    mapping = {
+        "S": ("↑", "動き抜群"),
+        "A": ("↑", "動き抜群"),
+        "B": ("↑", "仕上上々"),
+        "C": ("→", "平行線"),
+        "D": ("↓", "物足りず"),
+    }
+    return mapping.get(clean_text(rank).upper(), ("", ""))
+
+
 def _short_training_comment(text: str) -> str:
     comment = clean_text(text)
     if not comment or _looks_like_lap_text(comment):
         return ""
-    keywords = ("上昇", "好調", "維持", "良化", "順調", "軽快", "気配", "伸び", "鋭", "迫力")
-    if not any(word in comment for word in keywords):
+    positive_strong = ("抜群", "鋭", "迫力", "絶好", "好時計", "伸び")
+    positive = ("上昇", "好調", "維持", "良化", "順調", "軽快", "気配", "上々", "仕上")
+    neutral = ("平行", "変わらず", "まずまず", "普通")
+    negative = ("物足", "重い", "一息", "不安", "遅れ")
+    if any(word in comment for word in positive_strong):
+        return "動き抜群"
+    if any(word in comment for word in positive):
+        return "仕上上々"
+    if any(word in comment for word in neutral):
+        return "平行線"
+    if any(word in comment for word in negative):
+        return "物足りず"
+    return ""
+
+
+def _stable_comment_summary(text: str) -> str:
+    comment = clean_text(text)
+    if not comment:
         return ""
-    return comment[:16] + ("…" if len(comment) > 16 else "")
+    positive = ("好気配", "順調", "良化", "上向", "上昇", "仕上", "期待", "力を出せ", "態勢", "充実")
+    negative = ("一息", "重い", "不安", "慎重", "使ってから", "良化途上", "時間", "割引", "厳しい", "物足")
+    if any(word in comment for word in positive):
+        return "厩舎コメント：↑ 好気配"
+    if any(word in comment for word in negative):
+        return "厩舎コメント：↓ 慎重"
+    return "厩舎コメント：→ 平常"
 
 
 def _looks_like_lap_text(text: str) -> bool:

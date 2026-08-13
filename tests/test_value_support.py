@@ -16,7 +16,7 @@ class ValueSupportTest(unittest.TestCase):
         raw_lap = training_display({"調教評価": "83.5(16.3)67.2(15.0)"}, "jra")
         nar = training_display({"調教評価": "A"}, "nar")
 
-        self.assertEqual(ranked["display"], "調教A・上昇気配あり")
+        self.assertEqual(ranked["display"], "調教A↑ 仕上上々")
         self.assertEqual(raw_lap["display"], "")
         self.assertEqual(nar["display"], "")
 
@@ -50,7 +50,13 @@ class ValueSupportTest(unittest.TestCase):
         display = course_material_display({"展開印": "○", "推定位置": "差し", "netkeiba推定有利馬": "有利"})
 
         self.assertIn("○", display["label"])
-        self.assertEqual(display["netkeiba_label"], "netkeiba推定：有利馬")
+        self.assertEqual(display["netkeiba_label"], "○ 推定有利馬")
+
+    def test_course_material_does_not_force_flat_text_without_horse_specific_data(self) -> None:
+        display = course_material_display({"course_development_reason": "4角傾向フラット"})
+
+        self.assertEqual(display["label"], "")
+        self.assertEqual(display["tone"], "neutral")
 
     def test_prediction_history_saves_value_support_without_mutating_result(self) -> None:
         table = pd.DataFrame(
