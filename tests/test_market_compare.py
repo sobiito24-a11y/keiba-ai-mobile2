@@ -183,6 +183,61 @@ class MarketCompareTest(unittest.TestCase):
         self.assertEqual(calibration_status()["status"], "uncalibrated")
         self.assertIn("development/holdout", calibration_status()["reason"])
 
+    def test_current_evaluation_rank_and_marks_are_separate_from_ability_rank(self) -> None:
+        table = pd.DataFrame(
+            [
+                row(1, 90.0, 2.0, "先", **{"レース間隔": "休み明け", "3走前": 80, "2走前": 70, "前走": 60}),
+                row(2, 88.0, 12.0, "差", **{"3走前": 60, "2走前": 68, "前走": 75, "_load_weight_change": -2}),
+                row(3, 80.0, 30.0, "追"),
+            ]
+        )
+        table["_course_context_status"] = "取得"
+        table["_netkeiba_pace"] = "H"
+        result = evaluate_market_table(table, "nar", RACE_INFO)
+        self.assertEqual(result.loc[0, "market_ability_rank"], 1)
+        self.assertEqual(result.loc[1, "current_evaluation_rank"], 1)
+        self.assertEqual(result.loc[1, "ai_current_mark"], "◎")
+        self.assertEqual(result.loc[0, "ability_band_v2"], "A")
+        self.assertEqual(result.loc[1, "ability_band_v2"], "A")
+
+    def test_odds_do_not_change_current_factor_balance_or_ability(self) -> None:
+        first = pd.DataFrame([row(1, 90.0, 2.0), row(2, 88.0, 50.0)])
+        second = first.copy(deep=True)
+        second["オッズ"] = [500.0, 1.1]
+        left = evaluate_market_table(first, "nar", RACE_INFO)
+        right = evaluate_market_table(second, "nar", RACE_INFO)
+        for column in (
+            "market_ability_score",
+            "market_ability_rank",
+            "ability_band_v2",
+            "current_evaluation_balance",
+        ):
+            self.assertEqual(left[column].tolist(), right[column].tolist())
+
+    def test_missing_jockey_stats_still_generates_ai_marks(self) -> None:
+        result = evaluate_market_table(
+            pd.DataFrame([row(1, 90.0, 4.0), row(2, 86.0, 8.0)]),
+            "nar",
+            RACE_INFO,
+        )
+        self.assertEqual(set(result["jockey_course_stats_market"]), {"取得不能"})
+        self.assertIn("◎", set(result["ai_current_mark"]))
+        self.assertTrue(result["current_evaluation_rank"].notna().all())
+
+    def test_high_jockey_rate_is_weak_and_cannot_rewrite_ability_band(self) -> None:
+        base = pd.DataFrame([row(1, 90.0, 4.0), row(2, 86.0, 8.0)])
+        stats = base.copy(deep=True)
+        stats["_jockey_course_win_rate"] = [28, 2]
+        stats["_jockey_course_quinella_rate"] = [46, 8]
+        stats["_jockey_course_place_rate"] = [58, 12]
+        stats["_jockey_course_starts"] = [459, 100]
+        left = evaluate_market_table(base, "nar", RACE_INFO)
+        right = evaluate_market_table(stats, "nar", RACE_INFO)
+        for column in ("market_ability_score", "market_ability_rank", "ability_band_v2"):
+            self.assertEqual(left[column].tolist(), right[column].tolist())
+        self.assertEqual(right.loc[0, "jockey_display_market"], "騎手1（複58%）")
+        self.assertLessEqual(abs(float(right.loc[0, "current_evaluation_balance"]) - float(left.loc[0, "current_evaluation_balance"])), 0.25)
+
     def test_result_columns_cannot_change_prediction_signature(self) -> None:
         base = pd.DataFrame([row(1, 90.0, 4.0), row(2, 86.0, 8.0)])
         leaked = base.copy(deep=True)

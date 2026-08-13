@@ -13,6 +13,7 @@ KIND_LABELS = {
     "speed": "タイム指数",
     "shutuba": "出馬表",
     "style": "脚質分析",
+    "jockey": "騎手コース成績",
     "newspaper": "競馬新聞",
     "oikiri": "調教",
     "odds": "オッズ",
@@ -25,8 +26,8 @@ REQUIRED_KINDS: dict[RaceMode, tuple[str, ...]] = {
 }
 
 DISPLAY_ORDER: dict[RaceMode, tuple[str, ...]] = {
-    "nar": ("speed", "newspaper", "style", "shutuba"),
-    "jra": ("speed", "newspaper", "style", "oikiri"),
+    "nar": ("speed", "newspaper", "style", "jockey", "shutuba"),
+    "jra": ("speed", "newspaper", "style", "jockey", "oikiri"),
 }
 
 EVIDENCE_TIERS = (
@@ -228,6 +229,8 @@ def _match_field(source_name: str, value: str, mode: RaceMode) -> list[tuple[str
             add("speed", "タイム指数")
         if "有利な脚質" in text or "脚質 データ分析" in text:
             add("style", "有利な脚質")
+        if "得意な騎手" in text or "騎手 データ分析" in text:
+            add("jockey", "得意な騎手")
         if "出馬表" in text or "出走表" in text:
             add("shutuba", "出馬表")
         if "競馬新聞" in text:
@@ -244,6 +247,8 @@ def _match_field(source_name: str, value: str, mode: RaceMode) -> list[tuple[str
                 add("newspaper", "newspaper")
             if "courseanalysis" in lower:
                 add("style", "courseanalysis")
+            if "jockey" in lower:
+                add("jockey", "jockey")
             if "oikiri" in lower or "training" in lower or "workout" in lower:
                 add("oikiri", "oikiri/training")
             if "shutuba" in lower:
@@ -253,7 +258,11 @@ def _match_field(source_name: str, value: str, mode: RaceMode) -> list[tuple[str
         if "/race/speed.html" in lower or "speed.html" in lower:
             add("speed", "speed.html")
         if "mode=courseanalysis" in lower:
-            add("style", "mode=courseanalysis")
+            cid_match = re.search(r"(?:[?&]|&amp;)cid=(\d+)", lower)
+            if cid_match and cid_match.group(1) == "1":
+                add("style", "mode=courseanalysis&cid=1")
+            elif cid_match and cid_match.group(1) == "2":
+                add("jockey", "mode=courseanalysis&cid=2")
         if "/race/shutuba.html" in lower or "shutuba.html" in lower:
             add("shutuba", "shutuba.html")
         if "newspaper" in lower:
@@ -270,8 +279,9 @@ def _match_field(source_name: str, value: str, mode: RaceMode) -> list[tuple[str
             add("newspaper", text)
         if _contains_any(lower, ("page_race_oikiri", "netkeiba_race_oikiri")):
             add("oikiri", "page_race_oikiri/Netkeiba_Race_Oikiri")
-        if _contains_any(lower, ("race_data_list", "courseanalysis")):
-            add("style", "race_data_list/CourseAnalysis")
+        # ``race_data_list`` is shared by courseanalysis cid=1 (running
+        # style) and cid=2 (jockey statistics), so it is not kind evidence.
+        # A specific URL, page title, or page-specific DOM must decide it.
         if _contains_any(lower, ("page_race_speed", "netkeiba_race_speed")):
             add("speed", "page_race_speed/Netkeiba_Race_Speed")
 

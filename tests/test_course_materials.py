@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from core.course_materials import attach_course_materials_to_result, parse_netkeiba_course_materials
+from core.course_materials import (
+    attach_course_materials_to_result,
+    parse_netkeiba_course_materials,
+    parse_netkeiba_jockey_course_stats,
+)
 from core.market_compare import evaluate_market_table
 from core.models import PredictionResult
 
@@ -81,6 +85,20 @@ def newspaper_html(*, mode: str = "jra", mobile: bool = False) -> str:
     </body></html>"""
 
 
+def jockey_html(*, mode: str = "jra", race_id: str = RACE_ID) -> str:
+    host = "nar" if mode == "nar" else "race"
+    return f"""<!doctype html><html><head>
+    <link rel="canonical" href="https://{host}.netkeiba.com/race/data_list.html?race_id={race_id}&amp;mode=courseanalysis&amp;cid=2">
+    <title>テストレース 大井ダ1600mが得意な騎手 データ分析</title></head><body class="race_data_list">
+    <table id="table_sort_back"><thead><tr class="Header">
+      <th>馬<br>番</th><th>印</th><th>項目</th><th>1着</th><th>2着</th><th>3着</th><th>4着以下</th>
+      <th>出走<br>回数</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収率</th><th>複勝回収率</th><th>馬名</th>
+    </tr></thead><tbody>
+      <tr class="HorseList"><td>1</td><td></td><td class="DataTitle_Cell">矢野貴之</td><td>132</td><td>81</td><td>54</td><td>192</td><td>459</td><td>28%</td><td>46%</td><td>58%</td><td>95%</td><td>83%</td><td>Horse1</td></tr>
+      <tr class="HorseList"><td>2</td><td></td><td class="DataTitle_Cell">御神本訓史</td><td>42</td><td>27</td><td>15</td><td>100</td><td>184</td><td>22%</td><td>37%</td><td>45%</td><td>61%</td><td>63%</td><td>Horse2</td></tr>
+    </tbody></table></body></html>"""
+
+
 def market_rows() -> pd.DataFrame:
     return pd.DataFrame(
         [
@@ -118,6 +136,34 @@ def test_jra_saved_newspaper_extracts_only_explicit_course_facts() -> None:
     assert parsed.position_coverage == {"start": 3, "corner3": 3, "corner4": 3}
     assert parsed.four_corner_place_rates["front"] == {"inner": 33, "middle": 80, "outer": 0}
     assert parsed.favorable_position_label == "中目有利"
+
+
+def test_position_coordinates_are_converted_by_relative_horizontal_order() -> None:
+    parsed = parse_netkeiba_course_materials(newspaper_html())
+    assert parsed.position_categories["start"] == {1: "逃げ", 2: "先団", 3: "中団"}
+    assert parsed.position_categories["corner4"] == {1: "逃げ", 2: "先団", 3: "中団"}
+
+
+def test_jockey_cid2_table_parses_real_rate_columns_for_jra_and_nar() -> None:
+    for mode in ("jra", "nar"):
+        parsed = parse_netkeiba_jockey_course_stats(jockey_html(mode=mode), expected_mode=mode)
+        assert parsed.source_status == "取得"
+        assert parsed.course_condition == "大井ダ1600m"
+        assert parsed.horses[1] == {
+            "horse_number": 1,
+            "horse_name": "Horse1",
+            "jockey_name": "矢野貴之",
+            "starts": 459,
+            "win_rate": 28.0,
+            "quinella_rate": 46.0,
+            "place_rate": 58.0,
+        }
+
+
+def test_style_cid1_is_not_accepted_as_jockey_stats() -> None:
+    parsed = parse_netkeiba_jockey_course_stats(jockey_html().replace("cid=2", "cid=1"))
+    assert parsed.source_status == "騎手コース成績HTMLではない"
+    assert parsed.horses == {}
 
 
 def test_real_tanabata_saved_html_regression() -> None:
@@ -196,6 +242,38 @@ def test_attachment_changes_no_existing_ability_column() -> None:
     pd.testing.assert_frame_equal(result.overall_table[before.columns], before)
     assert result.overall_table.loc[0, "_netkeiba_pace"] == "H"
     assert result.overall_table.loc[0, "_position_favorable_horse"] is True
+
+
+def test_optional_jockey_html_attaches_stats_without_touching_ability() -> None:
+    source = market_rows()
+    result = PredictionResult(
+        race_mode="jra",
+        race_info={"race_id": RACE_ID},
+        overall_table=source.copy(deep=True),
+        horse_evaluation=source.copy(deep=True),
+    )
+    before = result.overall_table.copy(deep=True)
+    attach_course_materials_to_result(
+        result,
+        {"newspaper": newspaper_html(), "jockey": jockey_html()},
+    )
+    pd.testing.assert_frame_equal(result.overall_table[before.columns], before)
+    assert result.overall_table.loc[0, "_jockey_course_starts"] == 459
+    assert result.overall_table.loc[0, "_jockey_course_place_rate"] == 58.0
+    assert result.overall_table.loc[0, "_estimated_position_path"] == "逃げ → 逃げ → 逃げ"
+
+
+def test_missing_jockey_html_is_not_an_error_and_leaves_rates_empty() -> None:
+    source = market_rows()
+    result = PredictionResult(
+        race_mode="nar",
+        race_info={"race_id": RACE_ID},
+        overall_table=source.copy(deep=True),
+        horse_evaluation=source.copy(deep=True),
+    )
+    attach_course_materials_to_result(result, {"newspaper": newspaper_html(mode="nar")})
+    assert result.debug_info["jockey_course_materials"]["source_status"] == "html内に存在しない"
+    assert result.overall_table["_jockey_course_place_rate"].isna().all()
 
 
 def test_race_id_mismatch_is_explicit_and_does_not_attach_rows() -> None:

@@ -8,6 +8,7 @@ the independent Market Compare display layer.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+import math
 import re
 from typing import Any, Mapping
 
@@ -38,6 +39,7 @@ class ParsedCourseMaterials:
     course_condition: str = ""
     pace: str = ""
     positions: dict[str, dict[int, dict[str, str]]] = field(default_factory=dict)
+    position_categories: dict[str, dict[int, str]] = field(default_factory=dict)
     position_coverage: dict[str, int] = field(default_factory=dict)
     horse_count: int = 0
     four_corner_place_rates: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -57,6 +59,18 @@ class ParsedCourseMaterials:
     lap_prediction: list[dict[str, Any]] = field(default_factory=list)
     jockey_course_ranking: list[dict[str, Any]] = field(default_factory=list)
     jockey_course_stats_status: str = "html内に勝率・連対率・複勝率・出走回数なし"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class ParsedJockeyCourseStats:
+    race_id: str = ""
+    detected_mode: str = ""
+    source_status: str = "html内に存在しない"
+    course_condition: str = ""
+    horses: dict[int, dict[str, Any]] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -126,6 +140,7 @@ def parse_netkeiba_course_materials(
         for corner in ("start", "corner3", "corner4")
     }
     parsed.horse_count = len(actual_horse_numbers) or max(parsed.position_coverage.values(), default=0)
+    parsed.position_categories = _position_categories(parsed.positions)
 
     parsed.four_corner_place_rates = _parse_four_corner_rates(soup)
     position_map = soup.select_one(".PositionMapImg")
@@ -178,6 +193,75 @@ def parse_netkeiba_course_materials(
     return parsed
 
 
+def parse_netkeiba_jockey_course_stats(
+    html: str,
+    *,
+    expected_mode: str = "",
+) -> ParsedJockeyCourseStats:
+    """Parse only the explicit per-horse course jockey-statistics table.
+
+    The saved ``data_list.html?mode=courseanalysis&cid=2`` page contains a
+    result-free table with starts and three rates.  A cid=1 style-analysis
+    page, a newspaper ranking preview, and chart-only placeholders are not
+    accepted as substitutes.
+    """
+
+    source = str(html or "")
+    parsed = ParsedJockeyCourseStats()
+    if not source.strip():
+        return parsed
+    parsed.race_id = _race_id(source)
+    parsed.detected_mode = _mode(source)
+    if expected_mode and parsed.detected_mode and parsed.detected_mode != expected_mode:
+        parsed.source_status = "JRA/NAR不一致"
+        return parsed
+    lowered = source[:300_000].lower().replace("&amp;", "&")
+    if not re.search(r"mode=courseanalysis(?:[^\"'<>])*[&?]cid=2(?:\D|$)", lowered):
+        parsed.source_status = "騎手コース成績HTMLではない"
+        return parsed
+
+    soup = BeautifulSoup(source, "html.parser")
+    table = soup.select_one("table#table_sort_back")
+    if table is None:
+        parsed.source_status = "騎手コース成績表がHTML内に存在しない"
+        return parsed
+    headers = [_normalize_header(_text(cell)) for cell in table.select("thead tr.Header th")]
+    required = ("馬番", "項目", "出走回数", "勝率", "連対率", "複勝率", "馬名")
+    indexes = {name: headers.index(name) for name in required if name in headers}
+    if any(name not in indexes for name in required):
+        parsed.source_status = "騎手コース成績表の列不足"
+        return parsed
+
+    title_text = _text(soup.select_one("title"))
+    condition_match = re.search(r"([^\s|_]+?[芝ダ]\d{3,4}m)が得意な騎手", title_text)
+    parsed.course_condition = condition_match.group(1) if condition_match else ""
+    for row in table.select("tbody tr.HorseList"):
+        cells = row.find_all("td", recursive=False)
+        if any(index >= len(cells) for index in indexes.values()):
+            continue
+        number_match = re.search(r"\d+", _text(cells[indexes["馬番"]]))
+        if not number_match:
+            continue
+        number = int(number_match.group(0))
+        starts = _integer_cell(cells[indexes["出走回数"]])
+        win = _percentage_cell(cells[indexes["勝率"]])
+        quinella = _percentage_cell(cells[indexes["連対率"]])
+        place = _percentage_cell(cells[indexes["複勝率"]])
+        if starts is None or any(value is None for value in (win, quinella, place)):
+            continue
+        parsed.horses[number] = {
+            "horse_number": number,
+            "horse_name": _text(cells[indexes["馬名"]]),
+            "jockey_name": _text(cells[indexes["項目"]]),
+            "starts": starts,
+            "win_rate": win,
+            "quinella_rate": quinella,
+            "place_rate": place,
+        }
+    parsed.source_status = "取得" if parsed.horses else "騎手コース成績表に実値なし"
+    return parsed
+
+
 def attach_course_materials_to_result(
     result: Any,
     html_files: Mapping[str, str] | None,
@@ -194,8 +278,18 @@ def attach_course_materials_to_result(
     expected_race_id = str(race_info.get("race_id") or "").strip()
     if expected_race_id and parsed.race_id and expected_race_id != parsed.race_id:
         parsed.source_status = "race_id不一致"
-        _store_debug(result, parsed)
+        _store_debug(result, parsed, ParsedJockeyCourseStats())
         return result
+
+    jockey_parsed = parse_netkeiba_jockey_course_stats(
+        files.get("jockey") or "",
+        expected_mode=str(getattr(result, "race_mode", "") or ""),
+    )
+    if expected_race_id and jockey_parsed.race_id and expected_race_id != jockey_parsed.race_id:
+        jockey_parsed.source_status = "race_id不一致"
+        jockey_by_number: dict[int, dict[str, Any]] = {}
+    else:
+        jockey_by_number = jockey_parsed.horses
 
     favorite_numbers = {
         int(item["horse_number"])
@@ -241,6 +335,16 @@ def attach_course_materials_to_result(
                 ("corner4", "_estimated_position_corner4"),
             ):
                 target.at[index, column] = position_display(parsed.positions.get(corner, {}).get(number))
+            for corner, column in (
+                ("start", "_estimated_position_start_label"),
+                ("corner3", "_estimated_position_corner3_label"),
+                ("corner4", "_estimated_position_corner4_label"),
+            ):
+                target.at[index, column] = parsed.position_categories.get(corner, {}).get(number, "")
+            target.at[index, "_estimated_position_path"] = position_path_display(
+                parsed.position_categories,
+                number,
+            )
             if number in favorite_numbers:
                 target.at[index, "_position_favorable_horse"] = True
             elif parsed.favorable_horses_complete:
@@ -252,9 +356,18 @@ def attach_course_materials_to_result(
             if parsed.predicted_3f_usable and number in parsed.predicted_3f:
                 target.at[index, "_ai_predicted_early3f"] = parsed.predicted_3f[number].get("early_3f")
                 target.at[index, "_ai_predicted_late3f"] = parsed.predicted_3f[number].get("late_3f")
+            jockey_stats = jockey_by_number.get(number)
+            if jockey_stats:
+                target.at[index, "_jockey_course_win_rate"] = jockey_stats.get("win_rate")
+                target.at[index, "_jockey_course_quinella_rate"] = jockey_stats.get("quinella_rate")
+                target.at[index, "_jockey_course_place_rate"] = jockey_stats.get("place_rate")
+                target.at[index, "_jockey_course_starts"] = jockey_stats.get("starts")
+                target.at[index, "_jockey_course_condition"] = jockey_parsed.course_condition
+                target.at[index, "_jockey_course_source"] = "netkeiba courseanalysis cid=2"
+                target.at[index, "_jockey_course_html_name"] = jockey_stats.get("jockey_name")
         setattr(result, attribute, target)
 
-    _store_debug(result, parsed)
+    _store_debug(result, parsed, jockey_parsed)
     return result
 
 
@@ -265,6 +378,10 @@ COURSE_CONTEXT_COLUMNS = (
     "_estimated_position_start",
     "_estimated_position_corner3",
     "_estimated_position_corner4",
+    "_estimated_position_start_label",
+    "_estimated_position_corner3_label",
+    "_estimated_position_corner4_label",
+    "_estimated_position_path",
     "_position_coverage",
     "_position_favorable_horse",
     "_favorable_position_label",
@@ -279,6 +396,13 @@ COURSE_CONTEXT_COLUMNS = (
     "_lap_prediction_status",
     "_jockey_course_rank",
     "_jockey_course_rank_name",
+    "_jockey_course_win_rate",
+    "_jockey_course_quinella_rate",
+    "_jockey_course_place_rate",
+    "_jockey_course_starts",
+    "_jockey_course_condition",
+    "_jockey_course_source",
+    "_jockey_course_html_name",
 )
 
 
@@ -290,6 +414,15 @@ def position_display(value: Mapping[str, str] | None) -> str:
     speed = str(value.get("speed_class") or "").strip()
     bits = [f"top={top}" if top else "", f"left={left}" if left else "", speed]
     return ", ".join(bit for bit in bits if bit)
+
+
+def position_path_display(categories: Mapping[str, Mapping[int, str]], horse_number: int) -> str:
+    labels = [
+        clean
+        for corner in ("start", "corner3", "corner4")
+        if (clean := str((categories.get(corner) or {}).get(horse_number) or "").strip())
+    ]
+    return " → ".join(labels) if len(labels) == 3 else ""
 
 
 def four_corner_rates_display(rates: Mapping[str, Mapping[str, Any]] | None) -> str:
@@ -380,6 +513,46 @@ def _parse_active_position_dom(soup: BeautifulSoup) -> dict[str, dict[int, dict[
             "source": "static_dom",
         }
     return {corner_name: records} if records else {}
+
+
+def _position_categories(
+    positions: Mapping[str, Mapping[int, Mapping[str, str]]],
+) -> dict[str, dict[int, str]]:
+    """Convert the visual left-to-right order into field-relative labels.
+
+    The position map explicitly draws the front at the left and the rear at
+    the right.  ``top`` only separates overlapping icons, so it is never used
+    as a pace/position signal.  Labels are based on each corner's relative
+    horizontal order; fewer than three explicit horses remains unknown.
+    """
+
+    categorized: dict[str, dict[int, str]] = {}
+    for corner in ("start", "corner3", "corner4"):
+        ordered: list[tuple[float, int]] = []
+        for number, values in (positions.get(corner) or {}).items():
+            match = re.search(r"-?\d+(?:\.\d+)?", str(values.get("left") or ""))
+            if match:
+                ordered.append((float(match.group(0)), int(number)))
+        ordered.sort(key=lambda item: (item[0], item[1]))
+        count = len(ordered)
+        if count < 3:
+            continue
+        front_cut = max(2, math.ceil(count / 3))
+        middle_cut = max(front_cut + 1, math.ceil(count * 2 / 3))
+        unique_leader = count == 1 or ordered[1][0] > ordered[0][0]
+        labels: dict[int, str] = {}
+        for rank, (_, number) in enumerate(ordered):
+            if rank == 0 and unique_leader:
+                label = "逃げ"
+            elif rank < front_cut:
+                label = "先団"
+            elif rank < middle_cut:
+                label = "中団"
+            else:
+                label = "後方"
+            labels[number] = label
+        categorized[corner] = labels
+    return categorized
 
 
 def _parse_four_corner_rates(soup: BeautifulSoup) -> dict[str, dict[str, int]]:
@@ -519,6 +692,20 @@ def _float_cell(cells: list[Any], index: int | None) -> float | None:
     return float(match.group(0)) if match else None
 
 
+def _integer_cell(cell: Any) -> int | None:
+    match = re.search(r"\d+", _text(cell).replace(",", ""))
+    return int(match.group(0)) if match else None
+
+
+def _percentage_cell(cell: Any) -> float | None:
+    match = re.search(r"\d+(?:\.\d+)?", _text(cell).replace(",", ""))
+    return float(match.group(0)) if match else None
+
+
+def _normalize_header(value: str) -> str:
+    return re.sub(r"\s+", "", str(value or ""))
+
+
 def _horse_number(row: Mapping[str, Any]) -> int | None:
     for key in ("馬番", "horse_no", "horse_number", "馬"):
         value = row.get(key)
@@ -566,7 +753,13 @@ def _text(node: Any) -> str:
     return re.sub(r"\s+", " ", node.get_text(" ", strip=True)).strip()
 
 
-def _store_debug(result: Any, parsed: ParsedCourseMaterials) -> None:
+def _store_debug(
+    result: Any,
+    parsed: ParsedCourseMaterials,
+    jockey_parsed: ParsedJockeyCourseStats | None = None,
+) -> None:
     debug = dict(getattr(result, "debug_info", {}) or {})
     debug["course_materials"] = parsed.to_dict()
+    if jockey_parsed is not None:
+        debug["jockey_course_materials"] = jockey_parsed.to_dict()
     result.debug_info = debug

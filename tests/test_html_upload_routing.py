@@ -21,17 +21,21 @@ def page_html(
         "newspaper": "newspaper.html",
         "speed": "speed.html",
         "style": "data_list.html",
+        "jockey": "data_list.html",
         "oikiri": "oikiri.html",
     }[kind]
     query = f"race_id={race_id}"
     if kind == "style":
         query += "&amp;mode=courseanalysis&amp;cid=1"
+    if kind == "jockey":
+        query += "&amp;mode=courseanalysis&amp;cid=2"
     url = f"https://{host}/race/{path}?{query}"
     mobile_url = f"https://{mobile_host}/race/{path}?{query}"
     titles = {
         "newspaper": "競馬新聞",
         "speed": "タイム指数",
         "style": "有利な脚質 データ分析",
+        "jockey": "大井ダ1600mが得意な騎手 データ分析",
         "oikiri": "調教タイム・追い切り",
     }
     title_text = title if title is not None else f"テストレース {titles[kind]} ({mode.upper()})"
@@ -47,6 +51,7 @@ def page_html(
         "newspaper": '<body id="Netkeiba_Race_Newspaper"><div data-is="riot-shutuba-past"></div></body>',
         "speed": '<body id="Netkeiba_Race_Speed"><table class="Speed_List"><tr></tr></table></body>',
         "style": '<body class="race_data_list"><div class="DataGraphWrap1"><canvas id="score1"></canvas></div></body>',
+        "jockey": '<body class="race_data_list"><table id="table_sort_back"><tr><th>複勝率</th></tr></table></body>',
         "oikiri": '<body id="Netkeiba_Race_Oikiri" class="page_race_oikiri"><table class="Oikiri_Table"></table></body>',
     }[kind]
     return f"<!doctype html><html><head><title>{title_text}</title>{canonical}{og_url}{self_url}</head>{body}</html>"
@@ -185,6 +190,32 @@ class HtmlUploadRoutingTest(unittest.TestCase):
         oikiri = classify_html("renamed.html", page_html("jra", "oikiri"), "jra")
         self.assertEqual(style.kind, "style")
         self.assertEqual(oikiri.kind, "oikiri")
+
+    def test_jockey_courseanalysis_is_optional_distinct_kind(self) -> None:
+        for mode in ("jra", "nar"):
+            with self.subTest(mode=mode):
+                grouped = classify_many(
+                    [
+                        ("renamed-a.html", page_html(mode, "newspaper").encode()),
+                        ("renamed-b.html", page_html(mode, "speed").encode()),
+                        ("renamed-c.html", page_html(mode, "style").encode()),
+                        ("renamed-d.html", page_html(mode, "jockey").encode()),
+                    ],
+                    mode,
+                )
+                self.assertEqual(set(grouped), {"newspaper", "speed", "style", "jockey"})
+                self.assertTrue(validate_upload_bundle(grouped, mode).is_valid)
+
+    def test_jockey_html_is_not_required(self) -> None:
+        grouped = classify_many(
+            [
+                ("a.html", page_html("nar", "newspaper").encode()),
+                ("b.html", page_html("nar", "speed").encode()),
+                ("c.html", page_html("nar", "style").encode()),
+            ],
+            "nar",
+        )
+        self.assertTrue(validate_upload_bundle(grouped, "nar").is_valid)
 
 
 if __name__ == "__main__":

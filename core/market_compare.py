@@ -24,7 +24,7 @@ from .course_materials import JOCKEY_COURSE_MIN_STARTS
 from .purchase_conditions import clean_text, horse_no, to_float
 
 
-MARKET_COMPARE_VERSION = "market-compare-1.2"
+MARKET_COMPARE_VERSION = "market-compare-1.3"
 MARKET_HISTORY_ROOT = Path("prediction_history") / "market_compare"
 
 # AA is deliberately exceptional: a race-leading raw ability value must clear
@@ -61,6 +61,10 @@ MARKET_OUTPUT_COLUMNS = (
     "position_start_market",
     "position_corner3_market",
     "position_corner4_market",
+    "position_start_label_market",
+    "position_corner3_label_market",
+    "position_corner4_label_market",
+    "position_path_market",
     "position_coverage_market",
     "favorable_position_label_market",
     "four_corner_place_rates_market",
@@ -80,6 +84,7 @@ MARKET_OUTPUT_COLUMNS = (
     "class_shift_market",
     "class_basis_market",
     "jockey_market",
+    "jockey_display_market",
     "jockey_change_market",
     "jockey_course_stats_market",
     "jockey_course_sample_market",
@@ -96,6 +101,12 @@ MARKET_OUTPUT_COLUMNS = (
     "negative_materials",
     "plus_materials_display",
     "minus_materials_display",
+    "current_evaluation_balance",
+    "current_evaluation_positive_count",
+    "current_evaluation_negative_count",
+    "current_evaluation_rank",
+    "ai_current_mark",
+    "ai_current_reason",
 )
 
 SNAPSHOT_COLUMNS = (
@@ -122,6 +133,10 @@ SNAPSHOT_COLUMNS = (
     "position_start_market",
     "position_corner3_market",
     "position_corner4_market",
+    "position_start_label_market",
+    "position_corner3_label_market",
+    "position_corner4_label_market",
+    "position_path_market",
     "position_coverage_market",
     "favorable_position_label_market",
     "four_corner_place_rates_market",
@@ -141,6 +156,7 @@ SNAPSHOT_COLUMNS = (
     "class_shift_market",
     "class_basis_market",
     "jockey_market",
+    "jockey_display_market",
     "jockey_change_market",
     "jockey_course_stats_market",
     "jockey_course_sample_market",
@@ -162,6 +178,12 @@ SNAPSHOT_COLUMNS = (
     "stable_comment_market",
     "positive_materials",
     "negative_materials",
+    "current_evaluation_balance",
+    "current_evaluation_positive_count",
+    "current_evaluation_negative_count",
+    "current_evaluation_rank",
+    "ai_current_mark",
+    "ai_current_reason",
 )
 
 _RESULT_FIELD_PATTERN = re.compile(
@@ -283,7 +305,8 @@ def evaluate_market_table(
         interval = _interval(row)
         weight, weight_change = _weight(row)
         jockey, jockey_change = _jockey(row)
-        pace_mark, pace_reason = _pace_for_horse(style, pace)
+        provider_pace = clean_text(_pick(row, "_netkeiba_pace")).upper()
+        pace_mark, pace_reason = _human_pace_for_horse(style, provider_pace, pace)
         course_development = _course_development(row, style, pace_mark, pace_reason)
         jockey_course = _jockey_course(row)
         training = _training(row, race_type)
@@ -307,10 +330,14 @@ def evaluate_market_table(
                 "pace_reason_market": pace_reason,
                 "race_interval_market": interval,
                 "course_condition_market": clean_text(_pick(row, "_course_condition_html")) or "未取得",
-                "provider_pace_market": clean_text(_pick(row, "_netkeiba_pace")) or "未取得",
+                "provider_pace_market": provider_pace or "未取得",
                 "position_start_market": clean_text(_pick(row, "_estimated_position_start")) or "未取得",
                 "position_corner3_market": clean_text(_pick(row, "_estimated_position_corner3")) or "未取得",
                 "position_corner4_market": clean_text(_pick(row, "_estimated_position_corner4")) or "未取得",
+                "position_start_label_market": clean_text(_pick(row, "_estimated_position_start_label")) or "位置不明",
+                "position_corner3_label_market": clean_text(_pick(row, "_estimated_position_corner3_label")) or "位置不明",
+                "position_corner4_label_market": clean_text(_pick(row, "_estimated_position_corner4_label")) or "位置不明",
+                "position_path_market": clean_text(_pick(row, "_estimated_position_path")),
                 "position_coverage_market": clean_text(_pick(row, "_position_coverage")) or "未取得",
                 "favorable_position_label_market": clean_text(_pick(row, "_favorable_position_label")) or "未取得",
                 "four_corner_place_rates_market": clean_text(_pick(row, "_four_corner_place_rates")) or "未取得",
@@ -329,6 +356,7 @@ def evaluate_market_table(
                 "class_shift_market": class_info["shift"],
                 "class_basis_market": class_info["basis"],
                 "jockey_market": jockey,
+                "jockey_display_market": _jockey_display(jockey, jockey_course),
                 "jockey_change_market": jockey_change,
                 "jockey_course_stats_market": jockey_course["display"],
                 "jockey_course_sample_market": jockey_course["sample"],
@@ -343,8 +371,8 @@ def evaluate_market_table(
                 "stable_comment_market": stable_comment,
                 "positive_materials": plus,
                 "negative_materials": minus,
-                "plus_materials_display": " / ".join(plus) if plus else "—",
-                "minus_materials_display": " / ".join(minus) if minus else "—",
+                "plus_materials_display": " / ".join(plus),
+                "minus_materials_display": " / ".join(minus),
             }
         )
     for column in MARKET_OUTPUT_COLUMNS:
@@ -354,7 +382,7 @@ def evaluate_market_table(
     # These columns were created before the row pass and should be retained.
     for column in row_outputs[0]:
         result[column] = [item.get(column) for item in row_outputs]
-    return result
+    return _attach_current_evaluation(result)
 
 
 def _ability_bands(values: pd.Series) -> tuple[pd.Series, pd.Series]:
@@ -445,36 +473,51 @@ def race_pace_snapshot(table: pd.DataFrame | None) -> dict[str, Any]:
 
 def build_race_summary(table: pd.DataFrame | None) -> list[str]:
     if table is None or not isinstance(table, pd.DataFrame) or table.empty:
-        return ["能力：データ不足。", "市場：オッズ未取得。", "展開：脚質データ不足。", "変化：判定保留。"]
+        return ["能力上位：データ不足", "A帯オッズ：未取得", "展開：脚質データ不足", "主な変化：判定保留"]
     ranked = table.sort_values(["market_ability_rank", "market_ability_score"], ascending=[True, False])
     top = ranked.head(3)
     labels = [f"{horse_no(_pick(row, '馬番', '馬'))}{clean_text(_pick(row, '馬名'))}" for row in top.to_dict("records")]
-    ability_line = "能力：" + "、".join(label for label in labels if label) + "が上位。"
+    ability_line = "能力上位：" + "、".join(label for label in labels if label)
     a_rows = price_band_rows(table).get("A", [])
     if a_rows:
         price_bits = [f"{item['horse_no']} {item['odds']:.1f}倍" for item in a_rows if item["odds"] is not None]
-        market_line = "市場：A帯 " + "、".join(price_bits) + "。" if price_bits else "市場：A帯のオッズ未取得。"
+        market_line = "A帯オッズ：" + "、".join(price_bits) if price_bits else "A帯オッズ：未取得"
     else:
-        market_line = "市場：A帯該当なし。"
+        market_line = "A帯オッズ：該当なし"
     pace = race_pace_snapshot(table)
     counts = pace.get("counts") or {}
-    pace_line = (
-        f"展開：逃{counts.get('逃', 0)}・先{counts.get('先', 0)}・差{counts.get('差', 0)}・追{counts.get('追', 0)}。"
-        f"{pace.get('scenario', '判定保留')}。"
-    )
+    provider_values = [
+        clean_text(value).upper()
+        for value in table.get("provider_pace_market", pd.Series("", index=table.index))
+        if clean_text(value).upper() in {"H", "M", "S"}
+    ]
+    provider_pace = provider_values[0] if provider_values else ""
+    front_count = int(counts.get("逃", 0)) + int(counts.get("先", 0))
+    if provider_pace == "H":
+        pace_detail = "先行馬多数 → 前半は流れやすく、差し馬に展開利の可能性" if front_count >= 3 else "前半は流れやすい想定"
+        pace_line = f"展開：想定ペース H / {pace_detail}"
+    elif provider_pace == "M":
+        pace_line = "展開：想定ペース M / 極端な偏りなし"
+    elif provider_pace == "S":
+        pace_line = "展開：想定ペース S / 前残りの可能性"
+    else:
+        pace_line = f"展開：{pace.get('scenario', '判定保留')}（逃{counts.get('逃', 0)}・先{counts.get('先', 0)}）"
     changes: list[str] = []
     for row in table.to_dict("records"):
         number = horse_no(_pick(row, "馬番", "馬"))
         state = clean_text(_pick(row, "state_arrow"))
         weight_change = to_float(_pick(row, "weight_change_market"))
         jockey_change = clean_text(_pick(row, "jockey_change_market"))
+        interval = clean_text(_pick(row, "race_interval_market"))
+        if interval in {"休み明け", "長期休養"}:
+            changes.append(f"{number}{interval}")
         if weight_change is not None and abs(weight_change) >= 2.0:
             changes.append(f"{number}斤量{weight_change:+.1f}kg")
         if jockey_change == "乗替":
             changes.append(f"{number}騎手替")
         if state in {"↑", "↓"}:
             changes.append(f"{number}状態{state}")
-    change_line = "変化：" + ("、".join(changes[:5]) if changes else "大きな取得済み変化なし") + "。"
+    change_line = "主な変化：" + ("、".join(changes[:5]) if changes else "大きな取得済み変化なし")
     return [ability_line, market_line, pace_line, change_line]
 
 
@@ -582,6 +625,49 @@ def _pace_for_horse(style: str, pace: Mapping[str, Any]) -> tuple[str, str]:
     if "スロー" in scenario and style in {"逃", "先"}:
         return "○", "好位を取りやすい"
     return "±", "大きな偏りなし"
+
+
+def _human_pace_for_horse(
+    style: str,
+    provider_pace: str,
+    pace: Mapping[str, Any],
+) -> tuple[str, str]:
+    """Describe this race's likely flow without changing ability."""
+
+    if not style:
+        return "±", "脚質データ不足"
+    if provider_pace == "H":
+        return {
+            "逃": ("△", "ハイペースで逃げには厳しめ"),
+            "先": ("△", "好位確保もハイペースは厳しめ"),
+            "差": ("○", "前が流れれば浮上"),
+            "追": ("○", "展開待ちだが流れは向く"),
+        }.get(style, ("±", "展開判定保留"))
+    if provider_pace == "M":
+        return {
+            "逃": ("±", "自分のペースなら粘り込み"),
+            "先": ("±", "好位確保・展開平均"),
+            "差": ("±", "流れ次第で浮上"),
+            "追": ("△", "展開待ち"),
+        }.get(style, ("±", "展開判定保留"))
+    if provider_pace == "S":
+        return {
+            "逃": ("○", "前残りなら有利"),
+            "先": ("○", "好位確保・前残りなら有利"),
+            "差": ("△", "スローでは差し届かない懸念"),
+            "追": ("△", "展開待ち"),
+        }.get(style, ("±", "展開判定保留"))
+
+    mark, reason = _pace_for_horse(style, pace)
+    human = {
+        "単騎逃げ候補": "単騎で運べれば有利",
+        "前が競れば差し浮上": "前が流れれば浮上",
+        "同型多数": "先行争いが厳しくなる懸念",
+        "追込＋スロー想定": "スローでは追込届かない懸念",
+        "好位を取りやすい": "好位確保・前残りなら有利",
+        "大きな偏りなし": "展開平均",
+    }.get(reason, reason)
+    return mark, human
 
 
 def _state(row: Mapping[str, Any]) -> dict[str, str]:
@@ -732,27 +818,27 @@ def _course_development(
 
     if "前有利" in label:
         if style in {"逃", "先"}:
-            return {"mark": "○", "reason": "先行×前有利", "source": "netkeiba競馬新聞HTML"}
+            return {"mark": "○", "reason": "前残りなら有利", "source": "netkeiba競馬新聞HTML"}
         if style == "追":
-            return {"mark": "△", "reason": "追込×前有利", "source": "netkeiba競馬新聞HTML"}
+            return {"mark": "△", "reason": "前有利で追込には不向き", "source": "netkeiba競馬新聞HTML"}
     if "後有利" in label:
         if style in {"差", "追"}:
-            return {"mark": "○", "reason": "差追×後有利", "source": "netkeiba競馬新聞HTML"}
+            return {"mark": "○", "reason": "差し向き", "source": "netkeiba競馬新聞HTML"}
         if style in {"逃", "先"}:
-            return {"mark": "△", "reason": "先行×後有利", "source": "netkeiba競馬新聞HTML"}
+            return {"mark": "△", "reason": "後方有利で先行には不向き", "source": "netkeiba競馬新聞HTML"}
     if "フラット" in label:
         return {"mark": "±", "reason": "4角傾向フラット", "source": "netkeiba競馬新聞HTML"}
 
     if provider_pace == "H":
         if style in {"差", "追"}:
-            return {"mark": "○", "reason": "H想定×差追", "source": "netkeiba競馬新聞HTML"}
+            return {"mark": "○", "reason": "差し向き", "source": "netkeiba競馬新聞HTML"}
         if style in {"逃", "先"}:
-            return {"mark": "△", "reason": "H想定×逃先", "source": "netkeiba競馬新聞HTML"}
+            return {"mark": "△", "reason": "ハイペースで先行には厳しめ", "source": "netkeiba競馬新聞HTML"}
     if provider_pace == "S":
         if style in {"逃", "先"}:
-            return {"mark": "○", "reason": "S想定×逃先", "source": "netkeiba競馬新聞HTML"}
+            return {"mark": "○", "reason": "前残りなら有利", "source": "netkeiba競馬新聞HTML"}
         if style == "追":
-            return {"mark": "△", "reason": "S想定×追込", "source": "netkeiba競馬新聞HTML"}
+            return {"mark": "△", "reason": "スローで追込には不向き", "source": "netkeiba競馬新聞HTML"}
     if any(positions):
         return {"mark": "±", "reason": "推定位置取得・評価保留", "source": "netkeiba競馬新聞HTML"}
     return {"mark": "±", "reason": "コース情報取得・評価保留", "source": "netkeiba競馬新聞HTML"}
@@ -832,6 +918,148 @@ def _jockey_course(row: Mapping[str, Any]) -> dict[str, str]:
     }
 
 
+def _jockey_display(jockey: str, stats: Mapping[str, str]) -> str:
+    """Compact normal-UI label; sampling diagnostics stay in audit data."""
+
+    name = clean_text(jockey)
+    display = clean_text(stats.get("display"))
+    place = None
+    if display and display != "取得不能":
+        rate_part = display.split("｜")[-1]
+        parts = rate_part.split("-")
+        if len(parts) >= 3 and parts[2] not in {"", "—"}:
+            place = parts[2]
+    return f"{name}（複{place}）" if name and place else name
+
+
+def _attach_current_evaluation(result: pd.DataFrame) -> pd.DataFrame:
+    """Rank the current setup independently from the immutable ability rank.
+
+    No market price is added to the evaluation balance.  Actual odds is used
+    only as the final ordering key when ability and every current-condition
+    comparison key are exactly equal, so market price stays a separate axis.
+    """
+
+    band_base = {"AA": 10.0, "A": 8.0, "B": 5.0, "C": 2.0, "Z": 0.0}
+    evaluations: list[dict[str, Any]] = []
+    for position, row in enumerate(result.to_dict("records")):
+        balance, positive_count, negative_count = _current_factor_balance(row)
+        band = clean_text(_pick(row, "ability_band_v2")) or "Z"
+        ability = to_float(_pick(row, "market_ability_score"))
+        odds = to_float(_pick(row, "actual_odds"))
+        evaluations.append(
+            {
+                "position": position,
+                "band": band,
+                "balance": balance,
+                "positive_count": positive_count,
+                "negative_count": negative_count,
+                "comparison": band_base.get(band, 0.0) + balance,
+                "ability": ability if ability is not None else -math.inf,
+                "odds": odds if odds is not None else -math.inf,
+                "horse_no": horse_no(_pick(row, "馬番", "horse_no", "馬")),
+                "plus": list(row.get("positive_materials") or []),
+                "minus": list(row.get("negative_materials") or []),
+            }
+        )
+    ordered = sorted(
+        evaluations,
+        key=lambda item: (
+            -item["comparison"],
+            -item["positive_count"],
+            item["negative_count"],
+            -item["ability"],
+            -item["odds"],
+            _horse_sort_key(item["horse_no"]),
+        ),
+    )
+    # C/Z can remain comparison candidates, but do not become ◎ while a horse
+    # with an AA/A/B ability foundation exists.
+    eligible_index = next(
+        (index for index, item in enumerate(ordered) if item["band"] in {"AA", "A", "B"}),
+        None,
+    )
+    if eligible_index not in {None, 0}:
+        ordered.insert(0, ordered.pop(int(eligible_index)))
+
+    marks = ("◎", "○", "▲", "△", "☆")
+    by_position: dict[int, dict[str, Any]] = {}
+    for rank, item in enumerate(ordered, start=1):
+        plus_reason = item["plus"][0] if item["plus"] else ""
+        minus_reason = item["minus"][0] if item["minus"] else ""
+        reason_bits = [f"能力{item['band']}を土台"]
+        if plus_reason:
+            reason_bits.append(plus_reason)
+        if minus_reason:
+            reason_bits.append(f"注意：{minus_reason}")
+        if not plus_reason and not minus_reason:
+            reason_bits.append("今回材料は中立")
+        by_position[item["position"]] = {
+            "balance": item["balance"],
+            "positive_count": item["positive_count"],
+            "negative_count": item["negative_count"],
+            "rank": rank,
+            "mark": marks[rank - 1] if rank <= len(marks) else "",
+            "reason": " / ".join(reason_bits),
+        }
+
+    result = result.copy()
+    result["current_evaluation_balance"] = [by_position[index]["balance"] for index in range(len(result))]
+    result["current_evaluation_positive_count"] = [by_position[index]["positive_count"] for index in range(len(result))]
+    result["current_evaluation_negative_count"] = [by_position[index]["negative_count"] for index in range(len(result))]
+    result["current_evaluation_rank"] = pd.Series(
+        [by_position[index]["rank"] for index in range(len(result))],
+        index=result.index,
+        dtype="Int64",
+    )
+    result["ai_current_mark"] = [by_position[index]["mark"] for index in range(len(result))]
+    result["ai_current_reason"] = [by_position[index]["reason"] for index in range(len(result))]
+    return result
+
+
+def _current_factor_balance(row: Mapping[str, Any]) -> tuple[float, int, int]:
+    factors: list[float] = []
+    if clean_text(_pick(row, "condition_mark_market")):
+        factors.append(0.75)
+    state = clean_text(_pick(row, "state_arrow"))
+    if state in {"↑", "↗"}:
+        factors.append(1.0)
+    elif state in {"↓", "↘"}:
+        factors.append(-1.0)
+    shift = clean_text(_pick(row, "class_shift_market"))
+    if "降級" in shift or "好走歴" in clean_text(_pick(row, "class_basis_market")):
+        factors.append(0.75)
+    elif "昇級" in shift and "経験あり" not in clean_text(_pick(row, "class_basis_market")):
+        factors.append(-0.75)
+    interval = clean_text(_pick(row, "race_interval_market"))
+    if "長期休養" in interval:
+        factors.append(-1.0)
+    elif "休み明け" in interval:
+        factors.append(-0.75)
+    weight_change = to_float(_pick(row, "weight_change_market"))
+    if weight_change is not None and weight_change <= -1.0:
+        factors.append(0.5)
+    elif weight_change is not None and weight_change >= 1.0:
+        factors.append(-0.5)
+    development = clean_text(_pick(row, "course_development_mark"))
+    if development == "○":
+        factors.append(1.0)
+    elif development in {"△", "－"}:
+        factors.append(-1.0)
+    jockey = clean_text(_pick(row, "jockey_course_mark_market"))
+    if jockey == "○":
+        factors.append(0.25)
+    elif jockey == "△":
+        factors.append(-0.25)
+    training = clean_text(_pick(row, "training_market")).upper()
+    if training.startswith("A") or any(word in training for word in ("良化", "上向", "好気配", "復調")):
+        factors.append(0.5)
+    elif any(word in training for word in ("平凡", "一息", "重い")):
+        factors.append(-0.5)
+    raw = sum(factors)
+    return round(max(-3.0, min(3.0, raw)), 2), sum(value > 0 for value in factors), sum(value < 0 for value in factors)
+
+
 def _percent_text(value: float | None) -> str:
     if value is None:
         return "—"
@@ -874,59 +1102,71 @@ def _materials(
     jockey_course: Mapping[str, str],
     training: str,
 ) -> tuple[list[str], list[str]]:
-    plus: list[str] = []
-    minus: list[str] = []
+    plus: dict[str, str] = {}
+    minus: dict[str, str] = {}
+
+    def add(target: dict[str, str], family: str, text: str) -> None:
+        cleaned = clean_text(text)
+        if cleaned and family not in target:
+            target[family] = cleaned
+
     mark = clean_text(condition.get("condition_fit_mark"))
     reason = clean_text(condition.get("condition_fit_reason"))
     if mark:
-        plus.append(f"{mark} {reason}".strip())
+        condition_text = re.sub(r"の過去走あり$", "実績", reason)
+        add(plus, "condition", condition_text)
     if state.get("arrow") in {"↑", "↗"}:
-        plus.append(f"近走{state.get('label')}")
+        add(plus, "state", f"近走{state.get('label')}")
     elif state.get("arrow") in {"↓", "↘"}:
-        minus.append(f"近走{state.get('label')}")
+        add(minus, "state", f"近走{state.get('label')}")
     shift = class_info.get("shift", "")
     current = class_info.get("current", "")
     if "降級" in shift:
-        plus.append("クラス降級")
+        add(plus, "class", "クラス降級")
     elif "昇級" in shift:
         if class_info.get("experienced") == "yes":
-            plus.append(f"{current}経験あり")
+            add(plus, "class", f"{current}経験あり")
         else:
-            minus.append(f"初{current}" if current and current != "未取得" else "初昇級")
+            add(minus, "class", f"初{current}" if current and current != "未取得" else "初昇級")
     elif class_info.get("good_at_class") == "yes":
-        plus.append(f"{current}好走歴")
+        add(plus, "class", f"{current}好走歴")
     if "長期休養" in interval:
-        minus.append("長期休養")
+        add(minus, "interval", "長期休養")
     elif "休み明け" in interval:
-        minus.append("休み明け")
+        add(minus, "interval", "休み明け")
     if weight_change is not None:
         if weight_change <= -1.0:
-            plus.append(f"斤量{weight_change:+.1f}kg")
+            add(plus, "weight", f"斤量{weight_change:+.1f}kg")
         elif weight_change >= 1.0:
-            minus.append(f"斤量{weight_change:+.1f}kg")
+            add(minus, "weight", f"斤量{weight_change:+.1f}kg")
     development_mark = clean_text(course_development.get("mark"))
     development_reason = clean_text(course_development.get("reason"))
     if development_mark == "○" and development_reason:
-        plus.append(f"展開/コース：{development_reason}")
+        add(plus, "course", f"展開/コース：{development_reason}")
     elif development_mark in {"△", "－"} and development_reason:
-        minus.append(f"展開/コース：{development_reason}")
+        add(minus, "course", f"展開/コース：{development_reason}")
     jockey_mark = clean_text(jockey_course.get("mark"))
     jockey_reason = clean_text(jockey_course.get("reason"))
     if jockey_mark == "○" and jockey_reason:
-        plus.append(f"騎手：{jockey_reason}")
+        add(plus, "jockey", "騎手：コース成績良好")
     elif jockey_mark == "△" and jockey_reason:
-        minus.append(f"騎手：{jockey_reason}")
+        add(minus, "jockey", "騎手：コース成績低調")
     if race_type == "jra" and training not in {"", "未取得", "対象外"}:
         grade_match = re.match(r"\s*([A-D])", training.upper())
         if grade_match and grade_match.group(1) == "A":
-            plus.append(f"調教{grade_match.group(1)}")
+            add(plus, "training", f"調教{grade_match.group(1)}")
         if any(word in training for word in ("良化", "上向", "好気配", "復調")):
-            plus.append(next(word for word in ("良化", "上向", "好気配", "復調") if word in training))
+            add(plus, "training", next(word for word in ("良化", "上向", "好気配", "復調") if word in training))
         if any(word in training for word in ("平凡", "一息", "重い")):
-            minus.append(next(word for word in ("平凡", "一息", "重い") if word in training))
+            add(minus, "training", next(word for word in ("平凡", "一息", "重い") if word in training))
     # Odds, popularity, prediction marks, and jockey fame are intentionally
     # absent. Course/development and jockey facts are display materials only.
-    return _unique(plus), _unique(minus)
+    plus_order = ("course", "state", "weight", "condition", "class", "jockey", "training")
+    minus_order = ("course", "interval", "state", "class", "weight", "jockey", "training")
+    return (
+        [plus[key] for key in plus_order if key in plus][:3],
+        [minus[key] for key in minus_order if key in minus][:3],
+    )
 
 
 def _normalize_style(value: Any) -> str:

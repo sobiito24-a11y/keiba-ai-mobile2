@@ -1514,21 +1514,13 @@ def render_market_compare_result(result: PredictionResult) -> None:
         "能力はVer3の6項目（近3走平均15%・★最高30%・近3走最高20%・前走15%・距離10%・コース10%）だけ。"
         "オッズ・人気・騎手・斤量・間隔・展開/コース・＋－材料では能力値・順位・帯を動かしません。"
     )
-    render_market_band_prices(table)
     render_market_race_facts(result, table)
-    render_market_full_table(table, result.race_mode)
+    render_market_band_prices(table)
+    render_market_ai_evaluation(table)
     render_market_horse_cards(table, result.race_mode)
+    render_market_full_table(table, result.race_mode)
     render_market_user_selection(result, table)
-    with st.expander("旧評価・印・自動馬券（互換表示）", expanded=False):
-        st.caption("研究・比較用です。新しいメイン画面の能力帯や＋－材料には加算していません。")
-        legacy_columns = existing_columns(
-            table,
-            ["表示印", "最終印", "グループ", "AI点", "総合評価", "単勝期待値", "軸信頼度"],
-        )
-        if legacy_columns:
-            st.dataframe(table.loc[:, legacy_columns], use_container_width=True, hide_index=True)
-        render_raw_text_section("旧AIレース考察", result.ai_race_review)
-        render_raw_text_section("旧馬券構成", result.betting_structure)
+    render_market_audit_details(result, table)
 
 
 def market_source_table(result: PredictionResult) -> pd.DataFrame:
@@ -1546,11 +1538,9 @@ def render_market_band_prices(table: pd.DataFrame) -> None:
         horse_bits = []
         for item in rows_by_band.get(band, []):
             odds = "—" if item.get("odds") is None else f"{float(item['odds']):.1f}倍"
-            fair = clean_text(item.get("fair_odds")) or "未校正"
             horse_bits.append(
                 '<span class="ka-market-price">'
                 f"{plain_text_to_html(item.get('horse_no') or '—')} {plain_text_to_html(odds)}"
-                f'<span class="ka-market-fair">｜適正 {plain_text_to_html(fair)}</span>'
                 "</span>"
             )
         body = "".join(horse_bits) or '<span class="ka-muted">該当なし</span>'
@@ -1573,52 +1563,55 @@ def render_market_race_facts(result: PredictionResult, table: pd.DataFrame) -> N
         unsafe_allow_html=True,
     )
     course = all_debug.get("course_materials") if isinstance(all_debug.get("course_materials"), dict) else {}
-    if course:
-        course_lines = [
-            f"取得状態：{clean_text(course.get('source_status')) or 'html内に存在しない'}",
-            f"コース条件：{clean_text(course.get('course_condition')) or '未取得'}",
-            f"netkeibaペース：{clean_text(course.get('pace')) or '未取得'}",
-            f"推定位置カバー：スタート {int((course.get('position_coverage') or {}).get('start', 0))}/"
-            f"{course.get('horse_count') or '?'}・3角 {int((course.get('position_coverage') or {}).get('corner3', 0))}/"
-            f"{course.get('horse_count') or '?'}・4角 {int((course.get('position_coverage') or {}).get('corner4', 0))}/"
-            f"{course.get('horse_count') or '?'}",
-            f"4角有利位置：{clean_text(course.get('favorable_position_label')) or '未取得'}",
-            f"トラックバイアス：{clean_text(course.get('track_bias_status')) or 'html内に存在しない'}",
-            f"ラップ予測：{clean_text(course.get('lap_prediction_status')) or 'html内に存在しない'}",
-            f"前半/後半3F：{course.get('predicted_3f_coverage', 0)}/{course.get('horse_count') or '?'}"
-            + ("（比較利用可）" if course.get("predicted_3f_usable") else "（頭数不足・評価不使用）"),
-            f"騎手コース率：{clean_text(course.get('jockey_course_stats_status')) or 'html内に実値なし'}",
-        ]
-        matrix = four_corner_rates_display(course.get("four_corner_place_rates"))
-        if matrix:
-            course_lines.insert(4, f"4角位置別複勝率：{matrix}")
-        opinion = clean_text(course.get("ai_opinion"))
-        if opinion:
-            completeness = "全文" if course.get("ai_opinion_complete") else "一部取得"
-            course_lines.append(f"AI見解（{completeness}）：{shorten_text(opinion, 180)}")
-        st.markdown(
-            '<div class="ka-section"><b>保存HTMLの展開/コース情報</b><br>'
-            + "<br>".join(plain_text_to_html(line) for line in course_lines)
-            + "</div>",
-            unsafe_allow_html=True,
-        )
     pace = debug.get("pace") or race_pace_snapshot(table)
     horses = pace.get("horses") or {}
-    pace_lines = []
-    for style in ("逃", "先", "差", "追"):
-        numbers = "・".join(str(value) for value in horses.get(style, []) or []) or "—"
-        pace_lines.append(f"{style}：{numbers}")
+    counts = pace.get("counts") or {}
+    provider_pace = clean_text(course.get("pace"))
+    pace_label = {"H": "ハイペース", "M": "平均ペース", "S": "スローペース"}.get(provider_pace, "")
+    front_count = int(counts.get("逃", 0)) + int(counts.get("先", 0))
+    course_lines: list[str] = []
+    condition = clean_text(course.get("course_condition"))
+    if condition:
+        course_lines.append(condition)
+    if pace_label:
+        course_lines.append(f"想定：{pace_label}")
+    else:
+        course_lines.append(f"想定：{clean_text(pace.get('scenario')) or '判定保留'}")
+    if front_count >= 3:
+        course_lines.append("先行馬多数")
+        if provider_pace == "H":
+            course_lines.append("→ 前半は流れやすく、差し馬に展開利の可能性")
+    favorable = clean_text(course.get("favorable_position_label"))
+    if favorable:
+        course_lines.append(f"4角傾向：{favorable}")
+    favorite_numbers = [str(item.get("horse_number")) for item in course.get("favorable_horses", []) if item.get("horse_number")]
+    if favorite_numbers:
+        course_lines.append("推定有利馬：" + "・".join(favorite_numbers))
     st.markdown(
-        '<div class="ka-section">'
-        f"想定：{plain_text_to_html(pace.get('scenario') or '判定保留')}<br>"
-        + "<br>".join(plain_text_to_html(line) for line in pace_lines)
+        '<div class="ka-section"><b>今回のコース/展開</b><br>'
+        + "<br>".join(plain_text_to_html(line) for line in course_lines)
         + "</div>",
         unsafe_allow_html=True,
     )
-    calibration = debug.get("calibration") or {}
-    st.info(calibration.get("display") or "AI適正オッズ：未校正")
-    if calibration.get("reason"):
-        st.caption(calibration.get("reason"))
+
+
+def render_market_ai_evaluation(table: pd.DataFrame) -> None:
+    st.subheader("AI今回評価")
+    ordered = table.sort_values(["current_evaluation_rank", "market_ability_rank"], ascending=[True, True])
+    records = []
+    for row in ordered.to_dict("records"):
+        records.append(
+            {
+                "今回評価": f"{clean_text(pick(row, 'current_evaluation_rank'))}位",
+                "印": clean_text(pick(row, "ai_current_mark")),
+                "馬": join_nonempty([horse_no(pick(row, "馬番", "馬")), pick(row, "馬名")], sep=" "),
+                "能力": f"{clean_text(pick(row, 'ability_band_v2'))}・{clean_text(pick(row, 'market_ability_rank'))}位",
+                "実オッズ": format_odds(pick(row, "actual_odds")) or "—",
+                "判断材料": clean_text(pick(row, "ai_current_reason")),
+            }
+        )
+    st.dataframe(pd.DataFrame.from_records(records), use_container_width=True, hide_index=True)
+    st.caption("今回評価は能力を土台に条件・状態・展開等を横比較した順位です。実オッズと能力順位は別軸のまま保持します。")
 
 
 def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
@@ -1627,64 +1620,46 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
     for row in table.to_dict("records"):
         no = horse_no(pick(row, "馬番", "馬"))
         state = join_nonempty(
-            [clean_text(pick(row, "state_arrow")), clean_text(pick(row, "state_transition"))],
+            [clean_text(pick(row, "state_arrow")), clean_text(pick(row, "state_label_market"))],
             sep=" ",
-        )
-        class_text = join_nonempty(
-            [
-                f"今回{clean_text(pick(row, 'current_class_market'))}",
-                f"前走{clean_text(pick(row, 'previous_class_market'))}",
-                clean_text(pick(row, "class_shift_market")),
-            ],
-            sep=" / ",
         )
         weight_change = to_float(pick(row, "weight_change_market"))
         weight = clean_text(pick(row, "weight_market"))
         if weight_change is not None:
             weight = f"{weight} ({weight_change:+.1f})"
-        condition = join_nonempty(
-            [pick(row, "condition_mark_market"), pick(row, "condition_reason_market")], sep=" "
-        )
         record = {
-            "馬": join_nonempty([no, pick(row, "馬名")], sep=" "),
+            "馬番": no,
+            "馬名": clean_text(pick(row, "馬名")),
             "馬齢": clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—",
+            "印": clean_text(pick(row, "ai_current_mark")),
+            "今回評価順位": clean_text(pick(row, "current_evaluation_rank")) or "—",
             "能力帯": clean_text(pick(row, "ability_band_v2")) or "Z",
+            "能力順位": clean_text(pick(row, "market_ability_rank")) or "—",
             "能力値": format_index_value(pick(row, "market_ability_score")),
             "実オッズ": format_odds(pick(row, "actual_odds")) or "—",
-            "AI適正": clean_text(pick(row, "fair_odds_display")) or "未校正",
-            "人気": clean_text(pick(row, "人気", "popularity")) or "—",
-            "クラス": class_text or "未取得",
-            "間隔": clean_text(pick(row, "race_interval_market")) or "未取得",
-            "脚質": clean_text(pick(row, "running_style_market")) or "未取得",
-            "展開": join_nonempty([pick(row, "pace_mark_market"), pick(row, "pace_reason_market")], sep=" "),
-            "コース条件": clean_text(pick(row, "course_condition_market")) or "未取得",
-            "展開/コース材料": join_nonempty(
+            "騎手": clean_text(pick(row, "jockey_display_market", "jockey_market")),
+            "斤量": weight,
+            "クラス": clean_text(pick(row, "current_class_market")),
+            "間隔": clean_text(pick(row, "race_interval_market")),
+            "状態": state,
+            "脚質": clean_text(pick(row, "running_style_market")),
+            "今回の展開": join_nonempty([pick(row, "pace_mark_market"), pick(row, "pace_reason_market")], sep=" "),
+            "今回のコース材料": join_nonempty(
                 [pick(row, "course_development_mark"), pick(row, "course_development_reason")], sep=" "
             ),
-            "推定位置(始/3/4角)": join_nonempty(
-                [pick(row, "position_start_market"), pick(row, "position_corner3_market"), pick(row, "position_corner4_market")],
-                sep=" / ",
-            ),
-            "騎手": join_nonempty([pick(row, "jockey_market"), pick(row, "jockey_change_market")], sep=" "),
-            "騎手コース": join_nonempty(
-                [pick(row, "jockey_course_mark_market"), pick(row, "jockey_course_stats_market"), pick(row, "jockey_course_sample_market")],
-                sep=" ",
-            ),
-            "斤量": weight or "未取得",
-            "状態": state or "？",
+            "想定位置": clean_text(pick(row, "position_path_market")),
             "距離": format_index_value(pick(row, "距離指数")),
             "コース": format_index_value(pick(row, "コース指数")),
-            "条件": condition or "—",
             "3走前": format_index_value(pick(row, "3走前")),
             "2走前": format_index_value(pick(row, "2走前")),
             "前走": format_index_value(pick(row, "前走")),
             "平均": format_index_value(pick(row, "平均指数", "3走平均")),
             "最高": format_index_value(pick(row, "過去1年最高指数", "最高指数")),
-            "＋材料": clean_text(pick(row, "plus_materials_display")) or "—",
-            "－材料": clean_text(pick(row, "minus_materials_display")) or "—",
+            "＋材料": clean_text(pick(row, "plus_materials_display")),
+            "－材料": clean_text(pick(row, "minus_materials_display")),
         }
         if race_mode == "jra":
-            record["調教"] = clean_text(pick(row, "training_market")) or "未取得"
+            record["調教"] = clean_text(pick(row, "training_market"))
         records.append(record)
     comparison = pd.DataFrame.from_records(records)
     st.dataframe(comparison, use_container_width=True, hide_index=True)
@@ -1693,9 +1668,7 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
 def render_market_horse_cards(table: pd.DataFrame, race_mode: str) -> None:
     st.subheader("馬別コンパクトカード")
     ordered = table.copy()
-    ordered["_market_band_order"] = ordered["ability_band_v2"].map({"AA": 0, "A": 1, "B": 2, "C": 3, "Z": 4}).fillna(9)
-    ordered["_market_odds_order"] = pd.to_numeric(ordered.get("actual_odds"), errors="coerce").fillna(99999)
-    ordered = ordered.sort_values(["_market_band_order", "_market_odds_order", "market_ability_rank"])
+    ordered = ordered.sort_values(["current_evaluation_rank", "market_ability_rank"], ascending=[True, True])
     for row in ordered.to_dict("records"):
         st.markdown(market_horse_card_html(row, race_mode), unsafe_allow_html=True)
 
@@ -1705,59 +1678,127 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     name = clean_text(pick(row, "馬名")) or "名称未取得"
     band = clean_text(pick(row, "ability_band_v2")) or "Z"
     odds = format_odds(pick(row, "actual_odds")) or "—"
-    state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_transition")], sep=" ") or "？"
+    mark = clean_text(pick(row, "ai_current_mark"))
+    ability_rank = clean_text(pick(row, "market_ability_rank")) or "—"
+    current_rank = clean_text(pick(row, "current_evaluation_rank")) or "—"
+    state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_label_market")], sep=" ")
+    jockey = clean_text(pick(row, "jockey_display_market", "jockey_market"))
+    weight = clean_text(pick(row, "weight_market"))
+    interval = clean_text(pick(row, "race_interval_market"))
+    current_class = clean_text(pick(row, "current_class_market"))
     quick = join_nonempty(
         [
             clean_text(pick(row, "running_style_market")),
-            state,
-            join_nonempty([pick(row, "jockey_market"), pick(row, "jockey_change_market")], sep=""),
-            pick(row, "race_interval_market"),
-            join_nonempty([pick(row, "course_development_mark"), pick(row, "course_development_reason")], sep=""),
-            f"今回{clean_text(pick(row, 'current_class_market'))}",
+            jockey,
+            weight,
+            interval,
+            f"今回{current_class}" if current_class and current_class != "未取得" else "",
         ],
         sep="｜",
     )
-    plus = clean_text(pick(row, "plus_materials_display")) or "—"
-    minus = clean_text(pick(row, "minus_materials_display")) or "—"
+    plus = clean_text(pick(row, "plus_materials_display"))
+    minus = clean_text(pick(row, "minus_materials_display"))
+    position_path = clean_text(pick(row, "position_path_market"))
+    pace = join_nonempty([pick(row, "pace_mark_market"), pick(row, "pace_reason_market")], sep=" ")
+    course = join_nonempty([pick(row, "course_development_mark"), pick(row, "course_development_reason")], sep=" ")
     detail_lines = [
-        f"能力値：{format_index_value(pick(row, 'market_ability_score'))}（能力順位 {clean_text(pick(row, 'market_ability_rank')) or '—'}）",
-        f"実オッズ：{odds}｜AI適正：{clean_text(pick(row, 'fair_odds_display')) or '未校正'}",
-        f"クラス：{clean_text(pick(row, 'class_basis_market')) or '取得不能'}",
-        f"斤量：{clean_text(pick(row, 'weight_market')) or '未取得'} / 増減：{format_signed_number(pick(row, 'weight_change_market'))}",
-        f"騎手：{clean_text(pick(row, 'jockey_market')) or '未取得'} / {clean_text(pick(row, 'jockey_change_market')) or '未取得'}",
-        f"騎手コース：{clean_text(pick(row, 'jockey_course_mark_market')) or '—'} "
-        f"{clean_text(pick(row, 'jockey_course_stats_market')) or '取得不能'} / "
-        f"{clean_text(pick(row, 'jockey_course_sample_market')) or 'HTML内に実値なし'} / "
-        f"取得元 {clean_text(pick(row, 'jockey_course_source_market')) or 'HTML内に実値なし'}",
-        f"展開：{clean_text(pick(row, 'pace_mark_market'))} {clean_text(pick(row, 'pace_reason_market'))}",
-        f"展開/コース：{clean_text(pick(row, 'course_development_mark')) or '±'} "
-        f"{clean_text(pick(row, 'course_development_reason')) or '取得不能'}（{clean_text(pick(row, 'course_development_source')) or '取得不能'}）",
-        f"コース条件：{clean_text(pick(row, 'course_condition_market')) or '未取得'} / "
-        f"netkeibaペース：{clean_text(pick(row, 'provider_pace_market')) or '未取得'}",
-        f"推定位置：始 {clean_text(pick(row, 'position_start_market')) or '未取得'} / "
-        f"3角 {clean_text(pick(row, 'position_corner3_market')) or '未取得'} / "
-        f"4角 {clean_text(pick(row, 'position_corner4_market')) or '未取得'}",
-        f"距離：{format_index_value(pick(row, '距離指数'))}｜コース：{format_index_value(pick(row, 'コース指数'))}",
-        f"条件：{join_nonempty([pick(row, 'condition_mark_market'), pick(row, 'condition_reason_market')], sep=' ')}",
-        f"近3走：{clean_text(pick(row, 'state_transition')) or '未取得'}｜平均 {format_index_value(pick(row, '平均指数', '3走平均'))}",
+        f"能力値：{format_index_value(pick(row, 'market_ability_score'))}（能力順位 {ability_rank}位）",
+        f"実オッズ：{odds}",
+        f"今回評価：{current_rank}位 {mark}｜{clean_text(pick(row, 'ai_current_reason'))}",
     ]
+    if state:
+        detail_lines.append(f"状態：{state}（{clean_text(pick(row, 'state_transition'))}）")
+    if position_path:
+        detail_lines.append(f"想定位置：{position_path}")
+    if pace:
+        detail_lines.append(f"展開：{pace}")
+    if course:
+        detail_lines.append(f"コース：{course}")
+    detail_lines.append(
+        f"距離：{format_index_value(pick(row, '距離指数'))}｜コース：{format_index_value(pick(row, 'コース指数'))}"
+    )
     if race_mode == "jra":
-        detail_lines.append(f"調教：{clean_text(pick(row, 'training_market')) or '未取得'}")
+        training = clean_text(pick(row, "training_market"))
+        if training and training not in {"未取得", "対象外"}:
+            detail_lines.append(f"調教：{training}")
         stable = clean_text(pick(row, "stable_comment_market"))
         if stable:
             detail_lines.append(f"厩舎コメント：{shorten_text(stable, 120)}")
     detail = "<br>".join(plain_text_to_html(line) for line in detail_lines)
+    material_lines = ""
+    if plus:
+        material_lines += f'<div class="ka-market-card-line ka-market-plus">＋ {plain_text_to_html(plus)}</div>'
+    if minus:
+        material_lines += f'<div class="ka-market-card-line ka-market-minus">－ {plain_text_to_html(minus)}</div>'
     return (
         '<div class="ka-horse-card"><details>'
         '<summary>'
-        f'<div class="ka-market-card-title">{plain_text_to_html(number)} {plain_text_to_html(name)}｜{band}｜{plain_text_to_html(odds)}</div>'
+        f'<div class="ka-market-card-title">{plain_text_to_html(mark)} {plain_text_to_html(number)} {plain_text_to_html(name)}</div>'
+        f'<div class="ka-market-card-line">{plain_text_to_html(band)}｜{plain_text_to_html(odds)}｜能力{plain_text_to_html(ability_rank)}位・今回{plain_text_to_html(current_rank)}位</div>'
         f'<div class="ka-market-card-line">{plain_text_to_html(quick)}</div>'
-        f'<div class="ka-market-card-line ka-market-plus">＋ {plain_text_to_html(plus)}</div>'
-        f'<div class="ka-market-card-line ka-market-minus">－ {plain_text_to_html(minus)}</div>'
+        f'{material_lines}'
         '</summary>'
-        f'<div class="ka-horse-detail">{detail}<br><b>数値補正：なし</b></div>'
+        f'<div class="ka-horse-detail">{detail}<br><b>能力値・能力帯への条件補正：なし</b></div>'
         '</details></div>'
     )
+
+
+def render_market_audit_details(result: PredictionResult, table: pd.DataFrame) -> None:
+    with st.expander("詳細/監査情報", expanded=False):
+        all_debug = getattr(result, "debug_info", {}) or {}
+        market = all_debug.get("market_compare") if isinstance(all_debug.get("market_compare"), dict) else {}
+        course = all_debug.get("course_materials") if isinstance(all_debug.get("course_materials"), dict) else {}
+        jockey = all_debug.get("jockey_course_materials") if isinstance(all_debug.get("jockey_course_materials"), dict) else {}
+        calibration = market.get("calibration") if isinstance(market.get("calibration"), dict) else {}
+        st.caption("ここは取得状況と互換情報の確認用です。能力値・能力順位・能力帯へは加算していません。")
+        if calibration:
+            st.write(calibration.get("display") or "AI適正オッズは通常表示対象外")
+            if calibration.get("reason"):
+                st.caption(calibration.get("reason"))
+        if course:
+            coverage = course.get("position_coverage") or {}
+            horse_count = course.get("horse_count") or "?"
+            lines = [
+                f"コース情報取得状態：{clean_text(course.get('source_status')) or 'html内に存在しない'}",
+                f"推定位置カバー：始 {coverage.get('start', 0)}/{horse_count}・3角 {coverage.get('corner3', 0)}/{horse_count}・4角 {coverage.get('corner4', 0)}/{horse_count}",
+                f"トラックバイアス：{clean_text(course.get('track_bias_status')) or 'html内に存在しない'}",
+                f"ラップ予測：{clean_text(course.get('lap_prediction_status')) or 'html内に存在しない'}",
+                f"前半/後半3F：{course.get('predicted_3f_coverage', 0)}/{horse_count}",
+            ]
+            matrix = four_corner_rates_display(course.get("four_corner_place_rates"))
+            if matrix:
+                lines.append(f"4角位置別複勝率：{matrix}")
+            st.markdown("<br>".join(plain_text_to_html(line) for line in lines), unsafe_allow_html=True)
+        if jockey:
+            st.write(
+                f"騎手コースHTML：{clean_text(jockey.get('source_status')) or '未アップロード'}"
+                + (f" / {len(jockey.get('horses') or {})}頭" if jockey.get("horses") else "")
+            )
+        raw_records = []
+        for row in table.to_dict("records"):
+            raw = join_nonempty(
+                [pick(row, "position_start_market"), pick(row, "position_corner3_market"), pick(row, "position_corner4_market")],
+                sep=" / ",
+            )
+            if raw and raw != "未取得 / 未取得 / 未取得":
+                raw_records.append(
+                    {
+                        "馬": join_nonempty([horse_no(pick(row, "馬番", "馬")), pick(row, "馬名")], sep=" "),
+                        "生座標（始/3/4角）": raw,
+                        "人間向け位置": clean_text(pick(row, "position_path_market")) or "位置不明",
+                    }
+                )
+        if raw_records:
+            st.dataframe(pd.DataFrame.from_records(raw_records), use_container_width=True, hide_index=True)
+        legacy_columns = existing_columns(
+            table,
+            ["表示印", "最終印", "グループ", "AI点", "総合評価", "SS指数", "SS", "BUY", "単勝期待値", "軸信頼度"],
+        )
+        if legacy_columns:
+            st.write("旧評価・印（互換表示）")
+            st.dataframe(table.loc[:, legacy_columns], use_container_width=True, hide_index=True)
+        render_raw_text_section("旧AIレース考察", result.ai_race_review)
+        render_raw_text_section("旧馬券構成", result.betting_structure)
 
 
 def render_market_user_selection(result: PredictionResult, table: pd.DataFrame) -> None:

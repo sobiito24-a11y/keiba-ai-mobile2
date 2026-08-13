@@ -31,6 +31,9 @@ class StreamlitStub(types.ModuleType):
     def info(self, *_args, **_kwargs) -> None:
         return None
 
+    def caption(self, *_args, **_kwargs) -> None:
+        return None
+
     def dataframe(self, value, **_kwargs) -> None:
         self.last_dataframe = value.copy()
 
@@ -223,6 +226,77 @@ class DetailAnalysisTableTest(unittest.TestCase):
                 self.assertEqual(first["グループ"], "A")
                 self.assertEqual(first["状態"], "下降")
                 self.assertEqual(first["コメント"], "一番馬コメント")
+
+    def test_market_card_hides_raw_coordinates_and_uncalibrated_odds(self) -> None:
+        html = self.app.market_horse_card_html(
+            {
+                "馬番": 10,
+                "馬名": "アイビーサムライオ",
+                "ability_band_v2": "A",
+                "market_ability_score": 90,
+                "market_ability_rank": 3,
+                "current_evaluation_rank": 1,
+                "ai_current_mark": "◎",
+                "ai_current_reason": "能力Aを土台 / 展開適合",
+                "actual_odds": 2.3,
+                "jockey_display_market": "笹川翼（複50%）",
+                "weight_market": "56.0kg",
+                "race_interval_market": "休み明け",
+                "current_class_market": "B3",
+                "running_style_market": "先",
+                "state_arrow": "↗",
+                "state_label_market": "持ち直し",
+                "state_transition": "60→65→70",
+                "position_path_market": "先団 → 先団 → 中団",
+                "position_start_market": "top=12%, left=29.41%",
+                "position_corner3_market": "top=30%, left=21.56%",
+                "fair_odds_display": "未校正",
+                "pace_mark_market": "△",
+                "pace_reason_market": "ハイペースで先行には厳しめ",
+                "course_development_mark": "△",
+                "course_development_reason": "ハイペースで先行には厳しめ",
+                "plus_materials_display": "近走持ち直し",
+                "minus_materials_display": "休み明け",
+            },
+            "nar",
+        )
+        self.assertIn("◎ 10 アイビーサムライオ", html)
+        self.assertIn("能力3位・今回1位", html)
+        self.assertIn("先団 → 先団 → 中団", html)
+        self.assertNotIn("top=", html)
+        self.assertNotIn("left=", html)
+        self.assertNotIn("未校正", html)
+        self.assertNotIn("AI適正", html)
+
+    def test_market_full_table_places_jockey_and_weight_after_actual_odds(self) -> None:
+        self.streamlit.last_dataframe = None
+        self.app.render_market_full_table(
+            pd.DataFrame(
+                [
+                    {
+                        "馬番": 2,
+                        "馬名": "ケイアイエルナト",
+                        "馬年齢": "牡4",
+                        "ai_current_mark": "○",
+                        "current_evaluation_rank": 2,
+                        "ability_band_v2": "A",
+                        "market_ability_rank": 1,
+                        "market_ability_score": 91,
+                        "actual_odds": 3.5,
+                        "jockey_display_market": "矢野貴之（複58%）",
+                        "weight_market": "56.0kg",
+                    }
+                ]
+            ),
+            "nar",
+        )
+        result = self.streamlit.last_dataframe
+        self.assertIsNotNone(result)
+        columns = list(result.columns)
+        odds_index = columns.index("実オッズ")
+        self.assertEqual(columns[odds_index + 1 : odds_index + 3], ["騎手", "斤量"])
+        self.assertNotIn("AI適正", columns)
+        self.assertEqual(result.loc[0, "騎手"], "矢野貴之（複58%）")
 
     def test_zero_values_are_kept_and_real_missing_values_use_existing_placeholders(self) -> None:
         overall_table = pd.DataFrame(
