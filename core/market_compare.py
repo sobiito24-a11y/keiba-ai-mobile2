@@ -84,6 +84,7 @@ MARKET_OUTPUT_COLUMNS = (
     "class_shift_market",
     "class_basis_market",
     "jockey_market",
+    "previous_jockey_market",
     "jockey_display_market",
     "jockey_change_market",
     "jockey_course_stats_market",
@@ -156,6 +157,7 @@ SNAPSHOT_COLUMNS = (
     "class_shift_market",
     "class_basis_market",
     "jockey_market",
+    "previous_jockey_market",
     "jockey_display_market",
     "jockey_change_market",
     "jockey_course_stats_market",
@@ -304,7 +306,7 @@ def evaluate_market_table(
         class_info = _class_info(row, race_info)
         interval = _interval(row)
         weight, weight_change = _weight(row)
-        jockey, jockey_change = _jockey(row)
+        jockey, previous_jockey, jockey_change = _jockey(row)
         provider_pace = clean_text(_pick(row, "_netkeiba_pace")).upper()
         pace_mark, pace_reason = _human_pace_for_horse(style, provider_pace, pace)
         course_development = _course_development(row, style, pace_mark, pace_reason)
@@ -356,7 +358,13 @@ def evaluate_market_table(
                 "class_shift_market": class_info["shift"],
                 "class_basis_market": class_info["basis"],
                 "jockey_market": jockey,
-                "jockey_display_market": _jockey_display(jockey, jockey_course),
+                "previous_jockey_market": previous_jockey,
+                "jockey_display_market": _jockey_display(
+                    jockey,
+                    previous_jockey,
+                    jockey_change,
+                    jockey_course,
+                ),
                 "jockey_change_market": jockey_change,
                 "jockey_course_stats_market": jockey_course["display"],
                 "jockey_course_sample_market": jockey_course["sample"],
@@ -764,18 +772,47 @@ def _interval(row: Mapping[str, Any]) -> str:
     return f"中{weeks}週"
 
 
-def _jockey(row: Mapping[str, Any]) -> tuple[str, str]:
-    current = clean_text(_pick(row, "騎手", "_current_jockey", "jockey")) or "未取得"
-    previous = clean_text(_pick(row, "_previous_jockey", "前走騎手", "previous_jockey"))
-    explicit = clean_text(_pick(row, "騎手継続/乗替", "jockey_change"))
-    changed = _truthy(_pick(row, "_jockey_changed", "jockey_changed"))
-    if explicit:
-        change = "乗替" if "替" in explicit else "継続" if "継" in explicit else explicit
-    elif previous:
-        change = "乗替" if changed or current != previous else "継続"
+def _jockey(row: Mapping[str, Any]) -> tuple[str, str, str]:
+    raw_current = clean_text(_pick(row, "_display_current_jockey", "_current_jockey", "騎手", "jockey"))
+    current = _clean_jockey_display_name(raw_current) or "未取得"
+    previous = _clean_jockey_display_name(
+        clean_text(
+            _pick(
+                row,
+                "_display_previous_jockey",
+                "_previous_jockey",
+                "前走騎手",
+                "previous_jockey",
+            )
+        )
+    )
+    explicit = clean_text(
+        _pick(
+            row,
+            "騎手継続/乗替",
+            "jockey_change",
+            "_display_jockey_changed",
+            "_jockey_changed",
+            "jockey_changed",
+        )
+    )
+    inline_change = bool(re.search(r"(?:乗り?替|\(替\)|（替）|【乗り替わり】)", raw_current))
+    if previous:
+        change = "乗替" if _truthy(explicit) or "替" in explicit or current != previous else "継続"
+    elif explicit:
+        change = "乗替" if _truthy(explicit) or "替" in explicit else "継続" if "継" in explicit else "未取得"
+    elif inline_change:
+        change = "乗替"
     else:
         change = "未取得"
-    return current, change
+    return current, previous, change
+
+
+def _clean_jockey_display_name(value: Any) -> str:
+    text = clean_text(value)
+    text = re.sub(r"[\(（]\s*(?:替|継|乗替|乗り替わり|継続)\s*[\)）]", "", text)
+    text = re.sub(r"【\s*(?:替|継|乗替|乗り替わり|継続|前走データなし|判定保留)\s*】", "", text)
+    return text.strip()
 
 
 def _course_development(
@@ -910,26 +947,43 @@ def _jockey_course(row: Mapping[str, Any]) -> dict[str, str]:
             "source": "競馬新聞HTML AnaBestTable",
         }
     return {
-        "display": "取得不能",
-        "sample": "HTML内に実値なし",
+        "display": "騎手成績なし",
+        "sample": "参考値なし",
         "mark": "—",
         "reason": "騎手コース勝率・連対率・複勝率・出走回数なし",
-        "source": "HTML内に実値なし",
+        "source": "参考値なし",
     }
 
 
-def _jockey_display(jockey: str, stats: Mapping[str, str]) -> str:
+def _jockey_display(
+    jockey: str,
+    previous_jockey: str,
+    change: str,
+    stats: Mapping[str, str],
+) -> str:
     """Compact normal-UI label; sampling diagnostics stay in audit data."""
 
     name = clean_text(jockey)
     display = clean_text(stats.get("display"))
     place = None
-    if display and display != "取得不能":
+    if display and display not in {"取得不能", "騎手成績なし"}:
         rate_part = display.split("｜")[-1]
         parts = rate_part.split("-")
         if len(parts) >= 3 and parts[2] not in {"", "—"}:
             place = parts[2]
-    return f"{name}（複{place}）" if name and place else name
+    rate = f"複{place}" if place else ""
+    if not name or name == "未取得":
+        return ""
+    if change == "乗替" and previous_jockey:
+        current = f"{name}（{rate}）" if rate else name
+        return f"{previous_jockey} → {current}"
+    if change == "乗替":
+        details = "・".join(item for item in ("替", "前走騎手不明", rate) if item)
+        return f"{name}（{details}）"
+    if change == "継続":
+        details = "・".join(item for item in ("継", rate) if item)
+        return f"{name}（{details}）"
+    return f"{name}（{rate}）" if rate else name
 
 
 def _attach_current_evaluation(result: pd.DataFrame) -> pd.DataFrame:

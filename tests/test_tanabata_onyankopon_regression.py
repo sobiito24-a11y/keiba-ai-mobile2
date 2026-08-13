@@ -77,6 +77,16 @@ class TanabataOnyankoponRegressionTest(unittest.TestCase):
         self.assertEqual(row["騎手"], "吉田豊")
         self.assertEqual(row["調教評価"], "B 復調気配")
 
+    def test_newspaper_zero_match_does_not_assign_empty_strings_to_int_columns(self) -> None:
+        source = pd.DataFrame([comparison_row(99, "該当なし", 80.0, 12.3, 4)])
+        source["人気"] = source["人気"].astype("int64")
+        before = source.copy(deep=True)
+        merged = apply_jra_newspaper_html_features(source, FIXTURE.read_text(encoding="utf-8"))
+        self.assertEqual(merged.loc[0, "人気"], before.loc[0, "人気"])
+        self.assertEqual(str(merged["人気"].dtype), str(before["人気"].dtype))
+        self.assertEqual(merged.loc[0, "オッズ"], before.loc[0, "オッズ"])
+        self.assertEqual(merged.loc[0, "_ver3_ability_core"], before.loc[0, "_ver3_ability_core"])
+
     def test_73_5_odds_and_15th_popularity_cannot_demote_ability_band(self) -> None:
         onyan = comparison_row(
             9,

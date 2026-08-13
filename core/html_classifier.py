@@ -4,7 +4,7 @@ import html
 import re
 from collections import defaultdict
 from typing import Iterable
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from .models import ClassifiedHtml, HtmlMeta, RaceMode, UploadBundleValidation
 
@@ -45,6 +45,50 @@ def required_kinds(mode: RaceMode) -> tuple[str, ...]:
 
 def kind_label(kind: str) -> str:
     return KIND_LABELS.get(kind, kind)
+
+
+def classify_netkeiba_page_url(value: str) -> str:
+    """Classify a netkeiba race-page URL before any HTML is downloaded.
+
+    ``courseanalysis`` is a page family, not one data kind.  cid=2 must be
+    resolved as the optional jockey page before the generic cid=1/style
+    fallback; otherwise an acquisition client rejects or misroutes it before
+    the HTML classifier and parser can run.
+    """
+
+    text = html.unescape(str(value or "").strip())
+    try:
+        parsed = urlparse(text)
+    except ValueError:
+        return "unknown"
+    host = parsed.netloc.lower()
+    if host not in {
+        "nar.netkeiba.com",
+        "nar.sp.netkeiba.com",
+        "race.netkeiba.com",
+        "race.sp.netkeiba.com",
+    }:
+        return "unknown"
+    path = parsed.path.lower()
+    query = parse_qs(parsed.query)
+    if path.endswith("/race/data_list.html") and "courseanalysis" in {
+        item.lower() for item in query.get("mode", [])
+    }:
+        cid_values = {item.strip() for item in query.get("cid", [])}
+        if "2" in cid_values:
+            return "jockey"
+        return "style"
+    if path.endswith("/race/speed.html"):
+        return "speed"
+    if path.endswith("/race/newspaper.html"):
+        return "newspaper"
+    if path.endswith("/race/oikiri.html"):
+        return "oikiri"
+    if path.endswith("/race/shutuba.html"):
+        return "shutuba"
+    if "/odds/" in path:
+        return "odds"
+    return "unknown"
 
 
 def decode_uploaded_html(data: bytes) -> str:
@@ -255,14 +299,14 @@ def _match_field(source_name: str, value: str, mode: RaceMode) -> list[tuple[str
                 add("shutuba", "shutuba")
 
     if source_name in {"canonical", "og:url", "page url"}:
+        urls = re.findall(r"https?://[^\s\"']+", html.unescape(text))
+        url_kinds = {classify_netkeiba_page_url(url) for url in urls}
+        url_kinds.discard("unknown")
+        for url_kind in sorted(url_kinds):
+            if url_kind in {"style", "jockey"}:
+                add(url_kind, "mode=courseanalysis&cid=2" if url_kind == "jockey" else "mode=courseanalysis")
         if "/race/speed.html" in lower or "speed.html" in lower:
             add("speed", "speed.html")
-        if "mode=courseanalysis" in lower:
-            cid_match = re.search(r"(?:[?&]|&amp;)cid=(\d+)", lower)
-            if cid_match and cid_match.group(1) == "1":
-                add("style", "mode=courseanalysis&cid=1")
-            elif cid_match and cid_match.group(1) == "2":
-                add("jockey", "mode=courseanalysis&cid=2")
         if "/race/shutuba.html" in lower or "shutuba.html" in lower:
             add("shutuba", "shutuba.html")
         if "newspaper" in lower:

@@ -3,9 +3,17 @@ import unittest
 from tools.netkeiba_html_collector import extract_race_targets_from_links
 from tools.netkeiba_html_collector import format_race_target_for_log
 from tools.netkeiba_html_collector import is_login_like
+from tools.netkeiba_html_collector import selected_specs
 
 
 class NetkeibaHtmlCollectorTest(unittest.TestCase):
+    def test_nar_jockey_courseanalysis_is_a_supported_collection_page(self):
+        specs = selected_specs("nar", "jockey")
+        self.assertEqual(len(specs), 1)
+        self.assertEqual(specs[0].kind, "jockey")
+        self.assertIn("mode=courseanalysis", specs[0].url_template)
+        self.assertIn("cid=2", specs[0].url_template)
+
     def test_accepts_visible_race_id_links_without_path_restriction(self):
         links = [
             {

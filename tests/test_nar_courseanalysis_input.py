@@ -80,6 +80,18 @@ def course_html(
     """
 
 
+def jockey_course_html(race_id: str = "202644072106") -> str:
+    return f"""<!doctype html><html><head>
+    <link rel="canonical" href="https://nar.netkeiba.com/race/data_list.html?race_id={race_id}&amp;mode=courseanalysis&amp;cid=2">
+    <title>大井ダ1600mが得意な騎手 データ分析</title></head>
+    <body class="race_data_list"><table id="table_sort_back"><thead><tr class="Header">
+    <th>馬番</th><th>印</th><th>項目</th><th>1着</th><th>2着</th><th>3着</th><th>4着以下</th>
+    <th>出走回数</th><th>勝率</th><th>連対率</th><th>複勝率</th><th>単勝回収率</th><th>複勝回収率</th><th>馬名</th>
+    </tr></thead><tbody><tr class="HorseList"><td>1</td><td></td><td>騎手A</td>
+    <td>20</td><td>15</td><td>10</td><td>55</td><td>100</td><td>20%</td><td>35%</td><td>45%</td><td>80%</td><td>70%</td><td>テストホースA</td>
+    </tr></tbody></table></body></html>"""
+
+
 def base_json(data_type: str, race_id: str = "202644072106") -> dict:
     horses = [
         {
@@ -581,6 +593,52 @@ class NarCourseAnalysisInputTest(unittest.TestCase):
         )
         self.assertEqual(set(classified), {"entry", "speed", "courseanalysis"})
         self.assertEqual(classified["courseanalysis"]["running_styles"][1]["style"], "差")
+
+    def test_jockey_cid2_upload_is_kept_separate_from_required_courseanalysis(self) -> None:
+        classified = classify_nar_uploaded_files(
+            [
+                upload("entry.json", base_json("entry")),
+                upload("speed.json", base_json("speed")),
+                upload("style.html", course_html(["先", "差", "追"])),
+                upload("keiba_data-9.html", jockey_course_html()),
+            ]
+        )
+        self.assertEqual(set(classified), {"entry", "speed", "courseanalysis", "jockey"})
+        self.assertEqual(classified["jockey"]["data_type"], "jockey")
+
+    def test_optional_jockey_html_is_passed_through_without_conversion(self) -> None:
+        source = jockey_course_html()
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("entry.json", base_json("entry")),
+                upload("speed.json", base_json("speed")),
+                upload("style.html", course_html(["先", "差", "追"])),
+                upload("keiba_data-9.html", source),
+            ]
+        )
+        self.assertEqual(package.html_files["jockey"], source)
+        self.assertEqual(package.file_names["jockey"], "keiba_data-9.html")
+
+    def test_failed_optional_jockey_fetch_json_does_not_block_prediction_inputs(self) -> None:
+        error = {
+            "race_id": "202644072106",
+            "data_type": "error",
+            "error": "このnetkeibaページにはまだ対応していません。",
+            "url": (
+                "https://nar.netkeiba.com/race/data_list.html?race_id=202644072106"
+                "&mode=courseanalysis&cid=2#race_data__menu"
+            ),
+        }
+        package = build_nar_prediction_inputs_from_uploads(
+            [
+                upload("entry.json", base_json("entry")),
+                upload("speed.json", base_json("speed")),
+                upload("style.html", course_html(["先", "差", "追"])),
+                upload("keiba_data-9.html", error),
+            ]
+        )
+        self.assertEqual(package.race_id, "202644072106")
+        self.assertNotIn("jockey", package.html_files)
 
     def test_nar_direct_html_upload_uses_newspaper_instead_of_shutuba(self) -> None:
         self.assertEqual(required_kinds("nar"), ("speed", "newspaper", "style"))

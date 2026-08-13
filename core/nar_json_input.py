@@ -9,6 +9,7 @@ from typing import Any, Iterable
 
 import pandas as pd
 
+from .html_classifier import classify_html, classify_netkeiba_page_url
 from .nar_courseanalysis_parser import (
     NarCourseAnalysisParseError,
     is_courseanalysis_html,
@@ -77,6 +78,11 @@ def build_nar_prediction_inputs_from_uploads(
     speed_data = classified["speed"]
     courseanalysis_data = classified["courseanalysis"]
     race_id = str(entry_data.get("race_id", "")).strip()
+    jockey_race_id = _safe_text((classified.get("jockey") or {}).get("race_id"))
+    if jockey_race_id and jockey_race_id != race_id:
+        raise NarJsonDataError(
+            f"騎手コース成績HTMLのrace_idが一致していません（必須データ={race_id} / 騎手={jockey_race_id}）"
+        )
     merged_horses = merge_entry_and_speed(entry_data, speed_data, courseanalysis_data)
     star_debug_logs.extend(_build_star_trace_from_merged_horses("01b nar_json_input merged", merged_horses))
     running_styles = tuple(
@@ -96,6 +102,9 @@ def build_nar_prediction_inputs_from_uploads(
         # display parser.  The legacy NAR notebook path does not consume this
         # key, so its prediction inputs remain unchanged.
         html_files["newspaper_context"] = newspaper_source
+    jockey_source = _safe_text((classified.get("jockey") or {}).get("_source_html"))
+    if jockey_source:
+        html_files["jockey"] = jockey_source
     star_debug_logs.extend(_extract_speed_star_trace(html_files.get("speed", ""), "02b build_speed_html output attrs"))
     file_names = {
         "shutuba": _suggested_name(entry_data, race_id, "entry"),
@@ -104,6 +113,8 @@ def build_nar_prediction_inputs_from_uploads(
     }
     if newspaper_source:
         file_names["newspaper_context"] = _safe_text(classified["newspaper"].get("_uploaded_file_name"))
+    if jockey_source:
+        file_names["jockey"] = _safe_text(classified["jockey"].get("_uploaded_file_name"))
     return NarJsonPredictionInput(
         race_id=race_id,
         html_files=html_files,
@@ -219,11 +230,27 @@ def classify_nar_uploaded_files(uploaded_files: Iterable[tuple[str, bytes]]) -> 
         data = try_load_json(text)
         if data is not None:
             data_type = str(data.get("data_type", "")).strip()
+            if data_type == "error" and classify_netkeiba_page_url(str(data.get("url") or "")) == "jockey":
+                # A failed optional shortcut fetch must not block the three
+                # required prediction inputs. It contains no jockey data and
+                # is therefore deliberately ignored rather than parsed.
+                continue
             if data_type not in REQUIRED_NAR_JSON_TYPES:
                 invalid_files.append(f"{file_name}: data_type が不正です（{data_type or '未取得'}）")
                 continue
             _add_classified_data(classified, duplicates, data_type, data, file_name)
             continue
+
+        if "<html" in text.lower():
+            html_item = classify_html(file_name, text, "nar")
+            if html_item.kind == "jockey":
+                jockey_data = {
+                    "race_id": html_item.meta.race_id,
+                    "data_type": "jockey",
+                    "_source_html": text,
+                }
+                _add_classified_data(classified, duplicates, "jockey", jockey_data, file_name)
+                continue
 
         if is_courseanalysis_html(text):
             try:

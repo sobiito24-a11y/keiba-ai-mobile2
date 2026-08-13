@@ -1296,9 +1296,13 @@ def apply_jra_newspaper_html_features(df, newspaper_html):
         result[column] = result[column].fillna("").astype(str)
     if "_新聞騎手" in result.columns:
         newspaper_jockey = result["_新聞騎手"].fillna("").astype(str).str.strip()
-        if "騎手" not in result.columns:
-            result["騎手"] = ""
-        result.loc[newspaper_jockey.ne(""), "騎手"] = newspaper_jockey[newspaper_jockey.ne("")]
+        jockey_present = newspaper_jockey.ne("")
+        if bool(jockey_present.any()):
+            if "騎手" not in result.columns:
+                result["騎手"] = ""
+            else:
+                result["騎手"] = result["騎手"].astype("object")
+            result.loc[jockey_present, "騎手"] = newspaper_jockey.loc[jockey_present]
 
     # Current newspaper facts are copied into their normal display/material
     # columns after Ver3 scoring. They can therefore affect only the independent
@@ -1312,24 +1316,53 @@ def apply_jra_newspaper_html_features(df, newspaper_html):
         "_新聞斤量": "斤量",
         "_新聞騎手": "騎手",
     }
-    for source, target in fact_columns.items():
+    numeric_fact_targets = {"オッズ", "人気", "斤量"}
+
+    def assign_present_fact_values(source, target):
         if source not in result.columns:
-            continue
-        if target not in result.columns:
-            result[target] = pd.NA
+            return
         source_values = result[source]
-        present = source_values.notna() & source_values.astype(str).str.strip().ne("")
-        result.loc[present, target] = source_values[present]
+        target_is_numeric = target in numeric_fact_targets or (
+            target in result.columns and pd.api.types.is_numeric_dtype(result[target])
+        )
+        if target_is_numeric:
+            values = pd.to_numeric(source_values, errors="coerce")
+            present = values.notna()
+        else:
+            values = source_values.fillna("").astype(str).str.strip()
+            present = values.ne("")
+        if not bool(present.any()):
+            return
+        if target not in result.columns:
+            result[target] = (
+                pd.Series(pd.NA, index=result.index, dtype="Float64")
+                if target_is_numeric
+                else pd.Series([""] * len(result), index=result.index, dtype="object")
+            )
+        elif target_is_numeric and pd.api.types.is_integer_dtype(result[target]):
+            non_integer_values = values.loc[present].dropna().map(float).mod(1).ne(0).any()
+            if bool(non_integer_values):
+                result[target] = result[target].astype("Float64")
+        elif not target_is_numeric:
+            result[target] = result[target].astype("object")
+        result.loc[present, target] = values.loc[present]
+
+    for source, target in fact_columns.items():
+        assign_present_fact_values(source, target)
     if "_新聞斤量" in result.columns:
         if "_current_load_weight" not in result.columns:
             result["_current_load_weight"] = pd.NA
-        load_present = pd.to_numeric(result["_新聞斤量"], errors="coerce").notna()
-        result.loc[load_present, "_current_load_weight"] = result.loc[load_present, "_新聞斤量"]
+        load_values = pd.to_numeric(result["_新聞斤量"], errors="coerce")
+        load_present = load_values.notna()
+        if bool(load_present.any()):
+            result.loc[load_present, "_current_load_weight"] = load_values.loc[load_present]
     if "_新聞騎手" in result.columns:
         if "_current_jockey" not in result.columns:
             result["_current_jockey"] = ""
-        jockey_present = result["_新聞騎手"].fillna("").astype(str).str.strip().ne("")
-        result.loc[jockey_present, "_current_jockey"] = result.loc[jockey_present, "_新聞騎手"]
+        jockey_values = result["_新聞騎手"].fillna("").astype(str).str.strip()
+        jockey_present = jockey_values.ne("")
+        if bool(jockey_present.any()):
+            result.loc[jockey_present, "_current_jockey"] = jockey_values.loc[jockey_present]
     if "_新聞騎手変更" in result.columns:
         if "_jockey_changed" not in result.columns:
             result["_jockey_changed"] = False

@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from core.html_classifier import classify_html, classify_many, validate_upload_bundle
+from core.html_classifier import (
+    classify_html,
+    classify_many,
+    classify_netkeiba_page_url,
+    validate_upload_bundle,
+)
+from core.nar_courseanalysis_parser import is_courseanalysis_html
 
 
 def page_html(
@@ -216,6 +222,24 @@ class HtmlUploadRoutingTest(unittest.TestCase):
             "nar",
         )
         self.assertTrue(validate_upload_bundle(grouped, "nar").is_valid)
+
+    def test_nar_cid2_url_is_jockey_before_generic_courseanalysis(self) -> None:
+        url = (
+            "https://nar.netkeiba.com/race/data_list.html?"
+            "race_id=202647081305&mode=courseanalysis&cid=2#race_data__menu"
+        )
+        self.assertEqual(classify_netkeiba_page_url(url), "jockey")
+        self.assertNotEqual(classify_netkeiba_page_url(url), "style")
+
+    def test_cid2_html_is_not_accepted_by_generic_style_parser(self) -> None:
+        html = page_html("nar", "jockey").replace(
+            "<table id=\"table_sort_back\">",
+            '<div class="DataGraphWrap1"><canvas id="score1"></canvas><script>new Chart()</script></div>'
+            '<table id="table_sort_back">',
+        )
+        item = classify_html("keiba_data-9.html", html, "nar")
+        self.assertEqual(item.kind, "jockey")
+        self.assertFalse(is_courseanalysis_html(html))
 
 
 if __name__ == "__main__":

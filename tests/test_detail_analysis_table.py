@@ -52,6 +52,7 @@ class StreamlitStub(types.ModuleType):
 
 
 def load_app_module():
+    import core.html_classifier as real_html_classifier
     import core.models  # Load the dependency-free model module before stubbing UI dependencies.
 
     streamlit = StreamlitStub()
@@ -74,8 +75,10 @@ def load_app_module():
 
     render_package = types.ModuleType("render")
     render_package.__path__ = []
+    requests_stub = types.ModuleType("requests")
+    requests_stub.RequestException = Exception
     stubs = {
-        "requests": types.ModuleType("requests"),
+        "requests": requests_stub,
         "streamlit": streamlit,
         "core.audit_features": stub_module(
             "core.audit_features",
@@ -85,15 +88,7 @@ def load_app_module():
             build_audit_export_table=noop,
         ),
         "core.jra_predictor": stub_module("core.jra_predictor", predict_jra=noop),
-        "core.html_classifier": stub_module(
-            "core.html_classifier",
-            DISPLAY_ORDER=[],
-            classify_html=noop,
-            classify_many=noop,
-            kind_label=noop,
-            required_kinds=noop,
-            validate_upload_bundle=noop,
-        ),
+        "core.html_classifier": real_html_classifier,
         "core.nar_json_input": stub_module(
             "core.nar_json_input",
             NarJsonDataError=NarJsonDataError,
@@ -232,6 +227,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
             {
                 "馬番": 10,
                 "馬名": "アイビーサムライオ",
+                "sex_age": "牡4",
                 "ability_band_v2": "A",
                 "market_ability_score": 90,
                 "market_ability_rank": 3,
@@ -262,11 +258,35 @@ class DetailAnalysisTableTest(unittest.TestCase):
         )
         self.assertIn("◎ 10 アイビーサムライオ", html)
         self.assertIn("能力3位・今回1位", html)
+        self.assertIn("A｜2.3倍｜牡4｜能力3位・今回1位", html)
         self.assertIn("先団 → 先団 → 中団", html)
         self.assertNotIn("top=", html)
         self.assertNotIn("left=", html)
         self.assertNotIn("未校正", html)
         self.assertNotIn("AI適正", html)
+
+    def test_market_ai_evaluation_appends_existing_sex_age_to_horse_name(self) -> None:
+        self.streamlit.last_dataframe = None
+        self.app.render_market_ai_evaluation(
+            pd.DataFrame(
+                [
+                    {
+                        "馬番": 3,
+                        "馬名": "オーキッドレディ",
+                        "sex_age": "牝5",
+                        "current_evaluation_rank": 1,
+                        "market_ability_rank": 1,
+                        "ability_band_v2": "A",
+                        "ai_current_mark": "◎",
+                        "actual_odds": 2.4,
+                        "ai_current_reason": "能力Aを土台",
+                    }
+                ]
+            )
+        )
+        result = self.streamlit.last_dataframe
+        self.assertIsNotNone(result)
+        self.assertEqual(result.loc[0, "馬"], "3 オーキッドレディ（牝5）")
 
     def test_market_full_table_places_jockey_and_weight_after_actual_odds(self) -> None:
         self.streamlit.last_dataframe = None
@@ -297,6 +317,30 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertEqual(columns[odds_index + 1 : odds_index + 3], ["騎手", "斤量"])
         self.assertNotIn("AI適正", columns)
         self.assertEqual(result.loc[0, "騎手"], "矢野貴之（複58%）")
+
+    def test_nar_optional_jockey_page_is_fetched_as_raw_html(self) -> None:
+        race_id = "202647081305"
+        specs = self.app.build_nar_generated_url_specs(race_id)
+        jockey = next(spec for spec in specs if spec.kind == "jockey")
+        self.assertFalse(jockey.required)
+        self.assertIn("mode=courseanalysis", jockey.url)
+        self.assertIn("cid=2", jockey.url)
+        html = f"""<html><head>
+        <link rel="canonical" href="{jockey.url}">
+        <title>名古屋ダ1500mが得意な騎手 データ分析</title></head>
+        <body class="race_data_list"><table id="table_sort_back">
+        <tr><th>出走回数</th><th>複勝率</th></tr></table></body></html>"""
+        response = SimpleNamespace(
+            status_code=200,
+            apparent_encoding="utf-8",
+            encoding="utf-8",
+            text=html,
+        )
+        with patch.object(self.app.requests, "get", return_value=response, create=True):
+            html_files, file_names = self.app.fetch_generated_html([jockey], race_id)
+        self.assertEqual(html_files, {"jockey": html})
+        self.assertTrue(file_names["jockey"].endswith(f"_{race_id}.html"))
+        self.assertFalse(html_files["jockey"].lstrip().startswith("{"))
 
     def test_zero_values_are_kept_and_real_missing_values_use_existing_placeholders(self) -> None:
         overall_table = pd.DataFrame(

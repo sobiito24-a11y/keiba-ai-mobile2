@@ -85,8 +85,11 @@ def newspaper_html(*, mode: str = "jra", mobile: bool = False) -> str:
     </body></html>"""
 
 
-def jockey_html(*, mode: str = "jra", race_id: str = RACE_ID) -> str:
-    host = "nar" if mode == "nar" else "race"
+def jockey_html(*, mode: str = "jra", race_id: str = RACE_ID, mobile: bool = False) -> str:
+    if mode == "nar":
+        host = "nar.sp" if mobile else "nar"
+    else:
+        host = "race.sp" if mobile else "race"
     return f"""<!doctype html><html><head>
     <link rel="canonical" href="https://{host}.netkeiba.com/race/data_list.html?race_id={race_id}&amp;mode=courseanalysis&amp;cid=2">
     <title>テストレース 大井ダ1600mが得意な騎手 データ分析</title></head><body class="race_data_list">
@@ -146,18 +149,19 @@ def test_position_coordinates_are_converted_by_relative_horizontal_order() -> No
 
 def test_jockey_cid2_table_parses_real_rate_columns_for_jra_and_nar() -> None:
     for mode in ("jra", "nar"):
-        parsed = parse_netkeiba_jockey_course_stats(jockey_html(mode=mode), expected_mode=mode)
-        assert parsed.source_status == "取得"
-        assert parsed.course_condition == "大井ダ1600m"
-        assert parsed.horses[1] == {
-            "horse_number": 1,
-            "horse_name": "Horse1",
-            "jockey_name": "矢野貴之",
-            "starts": 459,
-            "win_rate": 28.0,
-            "quinella_rate": 46.0,
-            "place_rate": 58.0,
-        }
+        for mobile in (False, True):
+            parsed = parse_netkeiba_jockey_course_stats(jockey_html(mode=mode, mobile=mobile), expected_mode=mode)
+            assert parsed.source_status == "取得"
+            assert parsed.course_condition == "大井ダ1600m"
+            assert parsed.horses[1] == {
+                "horse_number": 1,
+                "horse_name": "Horse1",
+                "jockey_name": "矢野貴之",
+                "starts": 459,
+                "win_rate": 28.0,
+                "quinella_rate": 46.0,
+                "place_rate": 58.0,
+            }
 
 
 def test_style_cid1_is_not_accepted_as_jockey_stats() -> None:
@@ -260,7 +264,75 @@ def test_optional_jockey_html_attaches_stats_without_touching_ability() -> None:
     pd.testing.assert_frame_equal(result.overall_table[before.columns], before)
     assert result.overall_table.loc[0, "_jockey_course_starts"] == 459
     assert result.overall_table.loc[0, "_jockey_course_place_rate"] == 58.0
+    assert result.overall_table.loc[1, "_jockey_course_starts"] == 184
+    assert result.overall_table.loc[1, "_jockey_course_place_rate"] == 45.0
     assert result.overall_table.loc[0, "_estimated_position_path"] == "逃げ → 逃げ → 逃げ"
+
+
+def test_jra_all_optional_html_bundle_with_jockey_stats_still_predicts_market_view() -> None:
+    source = market_rows()
+    result = PredictionResult(
+        race_mode="jra",
+        race_info={"race_id": RACE_ID},
+        overall_table=source.copy(deep=True),
+        horse_evaluation=source.copy(deep=True),
+    )
+    html_files = {
+        "speed": f'<html><head><link rel="canonical" href="https://race.netkeiba.com/race/speed.html?race_id={RACE_ID}"></head></html>',
+        "newspaper": newspaper_html(),
+        "style": f'<html><head><link rel="canonical" href="https://race.netkeiba.com/race/data_list.html?race_id={RACE_ID}&amp;mode=courseanalysis&amp;cid=1"></head></html>',
+        "jockey": jockey_html(),
+        "oikiri": f'<html><head><link rel="canonical" href="https://race.netkeiba.com/race/oikiri.html?race_id={RACE_ID}"></head></html>',
+    }
+    attach_course_materials_to_result(result, html_files)
+    evaluated = evaluate_market_table(result.overall_table, "jra", {"race_id": RACE_ID})
+    assert evaluated["jockey_course_stats_market"].str.contains("28%-46%-58%", regex=False).any()
+    assert evaluated["current_evaluation_rank"].notna().all()
+    assert evaluated["ai_current_mark"].astype(str).str.len().gt(0).any()
+
+
+def test_optional_jockey_html_partial_missing_rates_only_leaves_missing_horse_empty() -> None:
+    source = market_rows()
+    result = PredictionResult(
+        race_mode="jra",
+        race_info={"race_id": RACE_ID},
+        overall_table=source.copy(deep=True),
+        horse_evaluation=source.copy(deep=True),
+    )
+    partial = jockey_html().replace(
+        "<td>184</td><td>22%</td><td>37%</td><td>45%</td>",
+        "<td></td><td>22%</td><td>37%</td><td></td>",
+    )
+    attach_course_materials_to_result(result, {"newspaper": newspaper_html(), "jockey": partial})
+    assert result.overall_table.loc[0, "_jockey_course_starts"] == 459
+    assert result.overall_table.loc[0, "_jockey_course_place_rate"] == 58.0
+    assert pd.isna(result.overall_table.loc[1, "_jockey_course_starts"])
+    assert pd.isna(result.overall_table.loc[1, "_jockey_course_place_rate"])
+
+
+def test_optional_jockey_html_zero_matches_is_reference_only_and_preserves_ability() -> None:
+    source = market_rows()
+    result = PredictionResult(
+        race_mode="jra",
+        race_info={"race_id": RACE_ID},
+        overall_table=source.copy(deep=True),
+        horse_evaluation=source.copy(deep=True),
+    )
+    no_match = jockey_html().replace(
+        '<tr class="HorseList"><td>1</td>',
+        '<tr class="HorseList"><td>7</td>',
+        1,
+    ).replace(
+        '<tr class="HorseList"><td>2</td>',
+        '<tr class="HorseList"><td>8</td>',
+        1,
+    )
+    before = evaluate_market_table(source, "jra", {"race_id": RACE_ID})
+    attach_course_materials_to_result(result, {"newspaper": newspaper_html(), "jockey": no_match})
+    after = evaluate_market_table(result.overall_table, "jra", {"race_id": RACE_ID})
+    assert result.overall_table["_jockey_course_place_rate"].isna().all()
+    for column in ("market_ability_score", "market_ability_rank", "ability_band_v2"):
+        assert before[column].tolist() == after[column].tolist()
 
 
 def test_missing_jockey_html_is_not_an_error_and_leaves_rates_empty() -> None:
@@ -274,6 +346,39 @@ def test_missing_jockey_html_is_not_an_error_and_leaves_rates_empty() -> None:
     attach_course_materials_to_result(result, {"newspaper": newspaper_html(mode="nar")})
     assert result.debug_info["jockey_course_materials"]["source_status"] == "html内に存在しない"
     assert result.overall_table["_jockey_course_place_rate"].isna().all()
+
+
+def test_attach_course_materials_skips_empty_tables_without_jockey_dtype_errors() -> None:
+    result = PredictionResult(
+        race_mode="jra",
+        race_info={"race_id": RACE_ID},
+        overall_table=pd.DataFrame({"馬番": pd.Series(dtype="int64")}),
+        horse_evaluation=pd.DataFrame({"馬番": pd.Series(dtype="int64")}),
+    )
+    attach_course_materials_to_result(result, {"newspaper": newspaper_html(), "jockey": jockey_html()})
+    assert result.overall_table.empty
+    assert list(result.overall_table.columns) == ["馬番"]
+
+
+def test_jockey_html_presence_does_not_change_ver3_ability_rank_or_band() -> None:
+    source = market_rows()
+    without = PredictionResult(
+        race_mode="jra",
+        race_info={"race_id": RACE_ID},
+        overall_table=source.copy(deep=True),
+        horse_evaluation=source.copy(deep=True),
+    )
+    with_jockey = copy.deepcopy(without)
+    attach_course_materials_to_result(without, {"newspaper": newspaper_html()})
+    attach_course_materials_to_result(
+        with_jockey,
+        {"newspaper": newspaper_html(), "jockey": jockey_html()},
+    )
+    left = evaluate_market_table(without.overall_table, "jra", {"race_id": RACE_ID})
+    right = evaluate_market_table(with_jockey.overall_table, "jra", {"race_id": RACE_ID})
+    for column in ("market_ability_score", "market_ability_rank", "ability_band_v2"):
+        assert left[column].tolist() == right[column].tolist()
+    assert right.loc[0, "jockey_course_stats_market"].endswith("28%-46%-58%")
 
 
 def test_race_id_mismatch_is_explicit_and_does_not_attach_rows() -> None:
@@ -357,5 +462,6 @@ def test_missing_course_and_jockey_data_still_produces_market_view() -> None:
     result = evaluate_market_table(market_rows(), "nar", {"race_id": RACE_ID})
     assert len(result) == 2
     assert set(result["ability_band_v2"]) == {"A"}
-    assert set(result["jockey_course_stats_market"]) == {"取得不能"}
+    assert set(result["jockey_course_stats_market"]) == {"騎手成績なし"}
+    assert set(result["jockey_course_sample_market"]) == {"参考値なし"}
     assert result["course_development_source"].eq("既存の全頭脚質構成").all()

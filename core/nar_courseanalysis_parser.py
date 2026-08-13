@@ -12,6 +12,18 @@ class NarCourseAnalysisParseError(ValueError):
 def is_courseanalysis_html(text: str) -> bool:
     normalized = html_lib.unescape(str(text or ""))
     lower = normalized.lower()
+    head = lower[:300_000]
+    own_page_tags = re.findall(
+        r"<(?:link|meta)\b[^>]*(?:canonical|og:url)[^>]*>",
+        head,
+        flags=re.I,
+    )
+    own_page_text = " ".join(own_page_tags)
+    if (
+        "mode=courseanalysis" in own_page_text
+        and re.search(r"(?:[?&])cid=2(?:\D|$)", own_page_text)
+    ):
+        return False
     has_page_markers = (
         "<html" in lower
         and "mode=courseanalysis" in lower

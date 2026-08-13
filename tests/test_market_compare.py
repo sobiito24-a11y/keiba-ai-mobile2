@@ -220,7 +220,8 @@ class MarketCompareTest(unittest.TestCase):
             "nar",
             RACE_INFO,
         )
-        self.assertEqual(set(result["jockey_course_stats_market"]), {"取得不能"})
+        self.assertEqual(set(result["jockey_course_stats_market"]), {"騎手成績なし"})
+        self.assertEqual(set(result["jockey_course_sample_market"]), {"参考値なし"})
         self.assertIn("◎", set(result["ai_current_mark"]))
         self.assertTrue(result["current_evaluation_rank"].notna().all())
 
@@ -237,6 +238,43 @@ class MarketCompareTest(unittest.TestCase):
             self.assertEqual(left[column].tolist(), right[column].tolist())
         self.assertEqual(right.loc[0, "jockey_display_market"], "騎手1（複58%）")
         self.assertLessEqual(abs(float(right.loc[0, "current_evaluation_balance"]) - float(left.loc[0, "current_evaluation_balance"])), 0.25)
+
+    def test_jockey_change_displays_previous_to_current(self) -> None:
+        table = pd.DataFrame(
+            [
+                row(
+                    1,
+                    90.0,
+                    4.0,
+                    **{
+                        "騎手": "塚本征(替)",
+                        "_previous_jockey": "丸野勝虎",
+                        "_jockey_changed": True,
+                        "_jockey_course_place_rate": 27,
+                        "_jockey_course_starts": 100,
+                    },
+                )
+            ]
+        )
+        result = evaluate_market_table(table, "nar", RACE_INFO)
+        self.assertEqual(result.loc[0, "jockey_market"], "塚本征")
+        self.assertEqual(result.loc[0, "previous_jockey_market"], "丸野勝虎")
+        self.assertEqual(result.loc[0, "jockey_display_market"], "丸野勝虎 → 塚本征（複27%）")
+
+    def test_continuing_jockey_is_shown_as_current_with_continuation(self) -> None:
+        table = pd.DataFrame(
+            [row(1, 90.0, 4.0, **{"騎手": "塚本征", "_previous_jockey": "塚本征", "_jockey_changed": False})]
+        )
+        result = evaluate_market_table(table, "nar", RACE_INFO)
+        self.assertEqual(result.loc[0, "jockey_change_market"], "継続")
+        self.assertEqual(result.loc[0, "jockey_display_market"], "塚本征（継）")
+
+    def test_unknown_previous_jockey_is_not_guessed(self) -> None:
+        table = pd.DataFrame([row(1, 90.0, 4.0, **{"騎手": "塚本征(替)"})])
+        result = evaluate_market_table(table, "nar", RACE_INFO)
+        display = result.loc[0, "jockey_display_market"]
+        self.assertEqual(display, "塚本征（替・前走騎手不明）")
+        self.assertNotIn("→", display)
 
     def test_result_columns_cannot_change_prediction_signature(self) -> None:
         base = pd.DataFrame([row(1, 90.0, 4.0), row(2, 86.0, 8.0)])

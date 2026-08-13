@@ -805,6 +805,12 @@ def build_nar_generated_url_specs(race_id: str) -> list[GeneratedHtmlSpec]:
             kind_label("style"),
             f"https://nar.netkeiba.com/race/data_list.html?race_id={race_id}&mode=courseanalysis&cid=1",
         ),
+        GeneratedHtmlSpec(
+            "jockey",
+            kind_label("jockey"),
+            f"https://nar.netkeiba.com/race/data_list.html?race_id={race_id}&mode=courseanalysis&cid=2",
+            required=False,
+        ),
     ]
 
 
@@ -958,6 +964,15 @@ def fetched_page_matches_race_id(html_text: str, race_id: str) -> bool:
 
 def has_required_nar_page_marker(kind: str, html_text: str) -> bool:
     text = html_text or ""
+    if kind == "jockey":
+        normalized = html.unescape(text).lower()
+        return bool(
+            "mode=courseanalysis" in normalized
+            and re.search(r"(?:[?&])cid=2(?:\D|$)", normalized)
+            and "table_sort_back" in normalized
+            and "複勝率" in text
+            and "出走" in text
+        )
     markers_by_kind = {
         "shutuba": (
             "Shutuba_Table",
@@ -1600,11 +1615,15 @@ def render_market_ai_evaluation(table: pd.DataFrame) -> None:
     ordered = table.sort_values(["current_evaluation_rank", "market_ability_rank"], ascending=[True, True])
     records = []
     for row in ordered.to_dict("records"):
+        horse_label = join_nonempty([horse_no(pick(row, "馬番", "馬")), pick(row, "馬名")], sep=" ")
+        age = market_horse_age_text(row)
+        if age:
+            horse_label = f"{horse_label}（{age}）"
         records.append(
             {
                 "今回評価": f"{clean_text(pick(row, 'current_evaluation_rank'))}位",
                 "印": clean_text(pick(row, "ai_current_mark")),
-                "馬": join_nonempty([horse_no(pick(row, "馬番", "馬")), pick(row, "馬名")], sep=" "),
+                "馬": horse_label,
                 "能力": f"{clean_text(pick(row, 'ability_band_v2'))}・{clean_text(pick(row, 'market_ability_rank'))}位",
                 "実オッズ": format_odds(pick(row, "actual_odds")) or "—",
                 "判断材料": clean_text(pick(row, "ai_current_reason")),
@@ -1612,6 +1631,25 @@ def render_market_ai_evaluation(table: pd.DataFrame) -> None:
         )
     st.dataframe(pd.DataFrame.from_records(records), use_container_width=True, hide_index=True)
     st.caption("今回評価は能力を土台に条件・状態・展開等を横比較した順位です。実オッズと能力順位は別軸のまま保持します。")
+
+
+def market_horse_age_text(row: dict[str, Any]) -> str:
+    """Return only an uploaded/parser-provided sex/age value."""
+
+    value = clean_text(
+        pick(
+            row,
+            "馬年齢",
+            "性齢",
+            "sex_age",
+            "horse_age",
+            "馬齢",
+            "age",
+            "年齢",
+        )
+    )
+    numeric = re.fullmatch(r"(\d{1,2})(?:\.0+)?", value)
+    return f"{numeric.group(1)}歳" if numeric else value
 
 
 def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
@@ -1630,7 +1668,7 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
         record = {
             "馬番": no,
             "馬名": clean_text(pick(row, "馬名")),
-            "馬齢": clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—",
+            "馬齢": market_horse_age_text(row) or "—",
             "印": clean_text(pick(row, "ai_current_mark")),
             "今回評価順位": clean_text(pick(row, "current_evaluation_rank")) or "—",
             "能力帯": clean_text(pick(row, "ability_band_v2")) or "Z",
@@ -1679,6 +1717,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     band = clean_text(pick(row, "ability_band_v2")) or "Z"
     odds = format_odds(pick(row, "actual_odds")) or "—"
     mark = clean_text(pick(row, "ai_current_mark"))
+    age = market_horse_age_text(row)
     ability_rank = clean_text(pick(row, "market_ability_rank")) or "—"
     current_rank = clean_text(pick(row, "current_evaluation_rank")) or "—"
     state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_label_market")], sep=" ")
@@ -1734,7 +1773,8 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         '<div class="ka-horse-card"><details>'
         '<summary>'
         f'<div class="ka-market-card-title">{plain_text_to_html(mark)} {plain_text_to_html(number)} {plain_text_to_html(name)}</div>'
-        f'<div class="ka-market-card-line">{plain_text_to_html(band)}｜{plain_text_to_html(odds)}｜能力{plain_text_to_html(ability_rank)}位・今回{plain_text_to_html(current_rank)}位</div>'
+        f'<div class="ka-market-card-line">{plain_text_to_html(band)}｜{plain_text_to_html(odds)}'
+        f'{("｜" + plain_text_to_html(age)) if age else ""}｜能力{plain_text_to_html(ability_rank)}位・今回{plain_text_to_html(current_rank)}位</div>'
         f'<div class="ka-market-card-line">{plain_text_to_html(quick)}</div>'
         f'{material_lines}'
         '</summary>'

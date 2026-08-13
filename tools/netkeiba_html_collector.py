@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 RACE_ID_RE = re.compile(r"(?:race_id=|/race/)?(\d{12})")
 DATE_RE = re.compile(r"^\d{4}-?\d{2}-?\d{2}$")
-COLLECTOR_VERSION = "Collector version 2"
+COLLECTOR_VERSION = "Collector version 3"
 DEBUG_LINK_LIMIT = 12
 
 
@@ -83,6 +83,11 @@ NAR_PAGE_SPECS: dict[str, PageSpec] = {
         "courseanalysis",
         "https://nar.netkeiba.com/race/data_list.html?race_id={race_id}&mode=courseanalysis&cid=1",
     ),
+    "jockey": PageSpec(
+        "jockey",
+        "jockey-courseanalysis",
+        "https://nar.netkeiba.com/race/data_list.html?race_id={race_id}&mode=courseanalysis&cid=2",
+    ),
     "result": PageSpec(
         "result",
         "result",
@@ -115,6 +120,10 @@ KIND_ALIASES = {
     "\u811a\u8cea": "style",
     "\u811a\u8cea\u5206\u6790": "style",
     "\u811a\u8cea\u52dd\u7387": "style",
+    "jockey": "jockey",
+    "jockey-courseanalysis": "jockey",
+    "\u9a0e\u624b": "jockey",
+    "\u9a0e\u624b\u30b3\u30fc\u30b9\u5206\u6790": "jockey",
     "newspaper": "newspaper",
     "\u65b0\u805e": "newspaper",
     "\u7af6\u99ac\u65b0\u805e": "newspaper",
@@ -214,7 +223,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--kinds",
         default="default",
-        help="default / all / comma-separated kinds. Example: newspaper,oikiri,speed,style,result",
+        help="default / all / comma-separated kinds. NAR example: newspaper,speed,style,jockey,result",
     )
     parser.add_argument("--out", default="collected_html", help="Output directory. Default: collected_html")
     parser.add_argument("--profile-dir", default=".collector_profile", help="Persistent browser profile directory for login state.")
