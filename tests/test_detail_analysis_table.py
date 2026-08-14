@@ -237,6 +237,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
                 "actual_odds": 2.3,
                 "jockey_display_market": "笹川翼（複50%）",
                 "weight_market": "56.0kg",
+                "weight_change_market": 1.0,
                 "body_weight_market": "494kg（-2）",
                 "race_interval_market": "休み明け",
                 "current_class_market": "B3",
@@ -263,6 +264,8 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("能力3位・今回1位", html)
         self.assertIn("◎｜2.3倍｜牡4｜能力値90.0｜能力3位・今回1位", html)
         self.assertIn("先団 → 先団 → 中団", html)
+        self.assertIn("56.0kg（前走比+1.0kg）", html)
+        self.assertIn("斤量：56.0kg（前走比+1.0kg）", html)
         self.assertIn("494kg（-2）", html)
         self.assertIn("レース間隔：休み明け", html)
         self.assertIn("クラス：B3｜クラス降級", html)
@@ -567,6 +570,14 @@ class DetailAnalysisTableTest(unittest.TestCase):
 
         self.assertEqual(self.app.market_jockey_display_text(row), "和田譲（継続・複30%）")
 
+    def test_market_jockey_display_expands_compact_continuation_with_embedded_place_rate(self) -> None:
+        row = {
+            "jockey_display_market": "矢野貴之（継・複58%）",
+            "jockey_market": "矢野貴之",
+        }
+
+        self.assertEqual(self.app.market_jockey_display_text(row), "矢野貴之（継続・複58%）")
+
     def test_market_jockey_display_shows_previous_to_current_with_place_rate(self) -> None:
         row = {
             "騎手詳細": "団野大成 → 川田将雅【乗り替わり】",
@@ -575,6 +586,72 @@ class DetailAnalysisTableTest(unittest.TestCase):
         }
 
         self.assertEqual(self.app.market_jockey_display_text(row), "団野大成 → 川田将雅（複58%）")
+
+    def test_market_card_restores_weight_change_and_jockey_place_rate_from_sibling_table(self) -> None:
+        result = SimpleNamespace(
+            overall_table=pd.DataFrame(
+                [
+                    {
+                        "馬番": 10,
+                        "馬名": "サンラザール",
+                        "ability_band_v2": "A",
+                        "market_ability_score": 88.2,
+                        "market_ability_rank": 1,
+                        "current_evaluation_rank": 1,
+                        "ai_current_mark": "◎",
+                        "actual_odds": 1.6,
+                        "jockey_market": "矢野貴",
+                        "jockey_display_market": "矢野貴之（継）",
+                        "weight_market": "56.0kg",
+                    }
+                ]
+            ),
+            horse_evaluation=pd.DataFrame(
+                [
+                    {
+                        "馬番": 10,
+                        "_display_current_load_weight": 56.0,
+                        "_display_previous_load_weight": 55.0,
+                        "_display_load_weight_change": 1.0,
+                        "_jockey_course_place_rate": 58.0,
+                        "_jockey_course_starts": 459,
+                    }
+                ]
+            ),
+        )
+
+        table = self.app.market_source_table(result)
+        source_before = table.copy(deep=True)
+        html = self.app.market_horse_card_html(table.iloc[0].to_dict(), "nar")
+
+        self.assertIn("矢野貴之（継続・複58%）", html)
+        self.assertIn("56.0kg（前走比+1.0kg）", html)
+        self.assertEqual(table.loc[0, "market_ability_score"], 88.2)
+        self.assertEqual(table.loc[0, "market_ability_rank"], 1)
+        self.assertEqual(table.loc[0, "ability_band_v2"], "A")
+        pd.testing.assert_frame_equal(table, source_before)
+
+    def test_market_card_does_not_invent_missing_jockey_place_rate_or_weight_change(self) -> None:
+        html = self.app.market_horse_card_html(
+            {
+                "馬番": 10,
+                "馬名": "サンラザール",
+                "ability_band_v2": "A",
+                "market_ability_score": 88.2,
+                "market_ability_rank": 1,
+                "current_evaluation_rank": 1,
+                "ai_current_mark": "◎",
+                "actual_odds": 1.6,
+                "jockey_display_market": "矢野貴之（継）",
+                "weight_market": "56.0kg",
+            },
+            "nar",
+        )
+
+        self.assertIn("矢野貴之（継続）", html)
+        self.assertIn("56.0kg", html)
+        self.assertNotIn("複", html)
+        self.assertNotIn("前走比", html)
 
     def test_market_card_restores_jockey_change_and_place_rate_when_market_display_is_plain(self) -> None:
         html = self.app.market_horse_card_html(

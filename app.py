@@ -1564,11 +1564,25 @@ MARKET_DISPLAY_SUPPLEMENT_COLUMNS = (
     "previous_jockey",
     "_display_current_jockey",
     "_current_jockey",
+    "jockey_display_market",
+    "_jockey_course_win_rate",
+    "_jockey_course_quinella_rate",
     "_jockey_course_place_rate",
+    "_jockey_course_starts",
+    "_jockey_course_condition",
+    "_jockey_course_source",
     "jockey_course_place_rate",
     "騎手コース複勝率",
     "jockey_course_stats_market",
     "jockey_course_sample_market",
+    "_display_current_load_weight",
+    "_current_load_weight",
+    "_display_previous_load_weight",
+    "_previous_load_weight",
+    "_display_load_weight_change",
+    "_load_weight_change",
+    "斤量詳細",
+    "weight_detail",
     "★最高指数",
     "star_max_index",
     "★最高",
@@ -1597,7 +1611,19 @@ def merge_market_display_supplements(table: pd.DataFrame, result: PredictionResu
                     continue
                 if column not in merged.columns:
                     merged[column] = pd.Series([None] * len(merged), index=merged.index, dtype="object")
-                if is_missing_value(merged.at[index, column]):
+                current_value = merged.at[index, column]
+                extra_value = extra[column]
+                prefer_jockey_rate = (
+                    column == "jockey_display_market"
+                    and "複" not in clean_text(current_value)
+                    and "複" in clean_text(extra_value)
+                )
+                prefer_real_jockey_stats = (
+                    column == "jockey_course_stats_market"
+                    and clean_text(current_value) in {"", "騎手成績なし", "取得不能"}
+                    and clean_text(extra_value) not in {"", "騎手成績なし", "取得不能"}
+                )
+                if is_missing_value(current_value) or prefer_jockey_rate or prefer_real_jockey_stats:
                     merged.at[index, column] = extra[column]
     return merged
 
@@ -1760,6 +1786,43 @@ def market_jockey_display_text(row: dict[str, Any]) -> str:
     return append_jockey_place_rate(text, jockey_place_rate_text(row))
 
 
+def market_weight_display_text(row: dict[str, Any]) -> str:
+    """Show carried weight and its recorded change without affecting evaluation."""
+
+    weight = clean_text(pick(row, "weight_market"))
+    if weight in {"", "未取得"}:
+        current = to_float(pick(row, "_display_current_load_weight", "_current_load_weight", "斤量", "weight"))
+        weight = f"{current:.1f}kg" if current is not None else ""
+    if not weight or "前走比" in weight:
+        return weight
+
+    change = to_float(
+        pick(
+            row,
+            "weight_change_market",
+            "_display_load_weight_change",
+            "_load_weight_change",
+            "斤量増減",
+            "weight_change",
+        )
+    )
+    if change is None:
+        detail = clean_text(pick(row, "斤量詳細", "weight_detail"))
+        match = re.search(r"(?:前走比\s*)?([+-−]\d+(?:\.\d+)?|±\s*0)\s*(?:kg)?", detail)
+        if match:
+            change = to_float(match.group(1).replace("−", "-").replace("±", "").replace(" ", ""))
+    if change is None:
+        current = to_float(pick(row, "_display_current_load_weight", "_current_load_weight", "斤量", "weight"))
+        previous = to_float(pick(row, "_display_previous_load_weight", "_previous_load_weight"))
+        if current is not None and previous is not None:
+            change = current - previous
+    if change is None:
+        return weight
+
+    change_text = "±0" if abs(change) < 0.0001 else f"{change:+.1f}"
+    return f"{weight}（前走比{change_text}kg）"
+
+
 def has_jockey_change_context(text: str) -> bool:
     value = clean_text(text)
     return any(token in value for token in ("継続", "乗替", "乗り替", "替", "→"))
@@ -1771,6 +1834,7 @@ def normalize_jockey_display_text(text: str) -> str:
         return ""
     value = value.replace("【継続】", "（継続）")
     value = value.replace("（継）", "（継続）")
+    value = value.replace("（継・", "（継続・")
     value = value.replace("【乗り替わり】", "（乗替）")
     value = value.replace("【乗替】", "（乗替）")
     value = value.replace("【替】", "（乗替）")
@@ -1877,10 +1941,7 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             [clean_text(pick(row, "state_arrow")), clean_text(pick(row, "state_label_market"))],
             sep=" ",
         )
-        weight_change = to_float(pick(row, "weight_change_market"))
-        weight = clean_text(pick(row, "weight_market"))
-        if weight_change is not None:
-            weight = f"{weight} ({weight_change:+.1f})"
+        weight = market_weight_display_text(row)
         record = {
             "馬番": no,
             "馬名": clean_text(pick(row, "馬名")),
@@ -1964,7 +2025,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     current_rank = clean_text(pick(row, "current_evaluation_rank")) or "—"
     state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_label_market")], sep=" ")
     jockey = market_jockey_display_text(row)
-    weight = clean_text(pick(row, "weight_market"))
+    weight = market_weight_display_text(row)
     body_weight = clean_text(pick(row, "body_weight_market"))
     if body_weight == "未取得":
         body_weight = ""
@@ -1998,6 +2059,8 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     ]
     if state:
         detail_lines.append(f"状態：{state}（{clean_text(pick(row, 'state_transition'))}）")
+    if weight:
+        detail_lines.append(f"斤量：{weight}")
     if interval and interval not in {"未取得", "未確認"}:
         detail_lines.append(f"レース間隔：{interval}")
     class_parts = [

@@ -309,6 +309,25 @@ class MarketCompareTest(unittest.TestCase):
         self.assertEqual(result.loc[0, "jockey_change_market"], "継続")
         self.assertEqual(result.loc[0, "jockey_display_market"], "塚本征（継）")
 
+    def test_three_character_jockey_abbreviation_is_not_treated_as_a_change(self) -> None:
+        base = pd.DataFrame(
+            [
+                row(
+                    10,
+                    88.2,
+                    1.6,
+                    **{"騎手": "矢野貴", "_previous_jockey": "矢野貴之", "_jockey_changed": False},
+                )
+            ]
+        )
+        result = evaluate_market_table(base, "nar", RACE_INFO)
+
+        self.assertEqual(result.loc[0, "jockey_change_market"], "継続")
+        self.assertEqual(result.loc[0, "jockey_display_market"], "矢野貴之（継）")
+        self.assertNotIn("→", result.loc[0, "jockey_display_market"])
+        self.assertEqual(result.loc[0, "market_ability_score"], 88.2)
+        self.assertEqual(result.loc[0, "market_ability_rank"], 1)
+
     def test_unknown_previous_jockey_is_not_guessed(self) -> None:
         table = pd.DataFrame([row(1, 90.0, 4.0, **{"騎手": "塚本征(替)"})])
         result = evaluate_market_table(table, "nar", RACE_INFO)

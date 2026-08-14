@@ -13,6 +13,7 @@ import hashlib
 import json
 import math
 import re
+import unicodedata
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -883,7 +884,8 @@ def _jockey(row: Mapping[str, Any]) -> tuple[str, str, str]:
     )
     inline_change = bool(re.search(r"(?:乗り?替|\(替\)|（替）|【乗り替わり】)", raw_current))
     if previous:
-        change = "乗替" if _truthy(explicit) or "替" in explicit or current != previous else "継続"
+        same_name = _same_jockey_display_name(current, previous)
+        change = "乗替" if _truthy(explicit) or "替" in explicit or same_name is False else "継続"
     elif explicit:
         change = "乗替" if _truthy(explicit) or "替" in explicit else "継続" if "継" in explicit else "未取得"
     elif inline_change:
@@ -898,6 +900,39 @@ def _clean_jockey_display_name(value: Any) -> str:
     text = re.sub(r"[\(（]\s*(?:替|継|乗替|乗り替わり|継続)\s*[\)）]", "", text)
     text = re.sub(r"【\s*(?:替|継|乗替|乗り替わり|継続|前走データなし|判定保留)\s*】", "", text)
     return text.strip()
+
+
+def _jockey_compare_name(value: Any) -> str:
+    text = unicodedata.normalize("NFKC", _clean_jockey_display_name(value))
+    text = re.sub(r"^[▲△☆★◇◆▽▼]+", "", text)
+    return re.sub(r"\s+", "", text)
+
+
+def _same_jockey_display_name(current: Any, previous: Any) -> bool | None:
+    """Treat provider-truncated three-character names as the same jockey."""
+
+    current_text = _jockey_compare_name(current)
+    previous_text = _jockey_compare_name(previous)
+    if not current_text or not previous_text:
+        return None
+    if current_text == previous_text:
+        return True
+    short, long = (
+        (current_text, previous_text)
+        if len(current_text) <= len(previous_text)
+        else (previous_text, current_text)
+    )
+    if long.startswith(short) and len(short) >= 3 and 1 <= len(long) - len(short) <= 2:
+        return True
+    return False
+
+
+def _preferred_jockey_display_name(current: Any, previous: Any) -> str:
+    current_text = _clean_jockey_display_name(current)
+    previous_text = _clean_jockey_display_name(previous)
+    if _same_jockey_display_name(current_text, previous_text) is True and len(previous_text) > len(current_text):
+        return previous_text
+    return current_text
 
 
 def _course_development(
@@ -1049,6 +1084,8 @@ def _jockey_display(
     """Compact normal-UI label; sampling diagnostics stay in audit data."""
 
     name = clean_text(jockey)
+    if change == "継続":
+        name = _preferred_jockey_display_name(name, previous_jockey)
     display = clean_text(stats.get("display"))
     place = None
     if display and display not in {"取得不能", "騎手成績なし"}:
