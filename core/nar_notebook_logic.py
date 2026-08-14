@@ -1162,8 +1162,25 @@ def _coalesce_newspaper_column(result, column):
     has_newspaper_value = newspaper_values.notna()
     if newspaper_values.dtype == object:
         has_newspaper_value &= newspaper_values.astype(str).str.strip().ne("")
+    if not has_newspaper_value.any():
+        # Assigning an empty object Series to a numeric column is rejected by
+        # pandas 3 (and warned by pandas 2) even though the row mask is empty.
+        # There is nothing to coalesce, so preserve the original values/dtype.
+        return result.drop(columns=[newspaper_column])
     if column in result.columns:
-        result.loc[has_newspaper_value, column] = newspaper_values[has_newspaper_value]
+        replacement = newspaper_values.loc[has_newspaper_value]
+        target = result[column]
+        if pd.api.types.is_numeric_dtype(target.dtype):
+            numeric_replacement = pd.to_numeric(replacement, errors="coerce")
+            non_numeric = replacement.notna() & numeric_replacement.isna()
+            if non_numeric.any():
+                # This is a genuinely non-numeric field whose existing column
+                # became numeric only because every original value was NaN.
+                # Promote this column alone and retain the factual HTML value.
+                result[column] = target.astype("object")
+            else:
+                replacement = numeric_replacement
+        result.loc[has_newspaper_value, column] = replacement
     else:
         result[column] = newspaper_values
     return result.drop(columns=[newspaper_column])

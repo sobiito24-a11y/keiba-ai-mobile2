@@ -33,7 +33,7 @@ from core.investment_decision import (
     confidence_label,
 )
 from core.purchase_conditions import build_purchase_condition_recommendations, horse_no
-from core.jra_predictor import predict_jra
+from core.prediction_input import predict_from_html_inputs
 from core.html_classifier import (
     DISPLAY_ORDER,
     classify_html,
@@ -54,7 +54,6 @@ from core.nar_json_input import (
     NarJsonPredictionInput,
     build_nar_prediction_inputs_from_uploads,
 )
-from core.nar_predictor import predict_nar
 from core.prediction_history import (
     prediction_zip_bytes,
     prediction_zip_filename,
@@ -1179,9 +1178,12 @@ def run_prediction(
     if version is None:
         version = st.session_state.get("prediction_logic_version", "market")
     version = normalize_prediction_logic_version(version)
-    if mode == "nar":
-        return predict_nar(html_files, file_names, prediction_logic_version=version)
-    return predict_jra(html_files, file_names, prediction_logic_version=version)
+    return predict_from_html_inputs(
+        mode,
+        html_files,
+        file_names,
+        prediction_logic_version=version,
+    )
 def validate_result(result: PredictionResult) -> None:
     if result.status != "ok":
         raise RuntimeError(result.message or "PredictionResultが正常状態ではありません。")

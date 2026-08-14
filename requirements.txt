@@ -1,8 +1,7 @@
-streamlit>=1.37
-pandas>=2.2
+streamlit>=1.37,<2
+pandas>=2.2,<3
 beautifulsoup4>=4.12
 lxml>=5.2
 requests>=2.32
 pillow>=10.4
 numpy>=1.26
-

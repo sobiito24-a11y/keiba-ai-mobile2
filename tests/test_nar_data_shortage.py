@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import types
 import unittest
+import warnings
 
 import pandas as pd
 
@@ -41,6 +42,48 @@ from render import mobile_png  # noqa: E402
 
 
 class NarDataShortageTest(unittest.TestCase):
+    def test_empty_newspaper_series_does_not_assign_into_float_column(self) -> None:
+        frame = pd.DataFrame(
+            {
+                "_display_previous_load_weight": pd.Series([55.0], dtype="float64"),
+                "_display_previous_load_weight_newspaper": pd.Series([None], dtype="object"),
+            }
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            result = nar_logic._coalesce_newspaper_column(frame, "_display_previous_load_weight")
+        self.assertEqual(str(result["_display_previous_load_weight"].dtype), "float64")
+        self.assertEqual(result.loc[0, "_display_previous_load_weight"], 55.0)
+        self.assertNotIn("_display_previous_load_weight_newspaper", result.columns)
+
+    def test_empty_newspaper_series_does_not_assign_into_integer_column(self) -> None:
+        frame = pd.DataFrame(
+            {
+                "_days_since_last": pd.Series([28], dtype="int64"),
+                "_days_since_last_newspaper": pd.Series([None], dtype="object"),
+            }
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            result = nar_logic._coalesce_newspaper_column(frame, "_days_since_last")
+        self.assertEqual(str(result["_days_since_last"].dtype), "int64")
+        self.assertEqual(result.loc[0, "_days_since_last"], 28)
+
+    def test_structured_newspaper_value_promotes_only_its_nan_column(self) -> None:
+        frame = pd.DataFrame(
+            {
+                "_past_class_labels": pd.Series([float("nan")], dtype="float64"),
+                "_past_class_labels_newspaper": pd.Series([[]], dtype="object"),
+                "unrelated_numeric": pd.Series([1.5], dtype="float64"),
+            }
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            result = nar_logic._coalesce_newspaper_column(frame, "_past_class_labels")
+        self.assertEqual(result.loc[0, "_past_class_labels"], [])
+        self.assertEqual(str(result["_past_class_labels"].dtype), "object")
+        self.assertEqual(str(result["unrelated_numeric"].dtype), "float64")
+
     def test_index_cell_ignores_hidden_sort_value_when_display_is_missing(self) -> None:
         class FakeAnchor:
             def __init__(self) -> None:
