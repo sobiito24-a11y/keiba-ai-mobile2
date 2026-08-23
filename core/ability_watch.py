@@ -59,7 +59,7 @@ def ability_watch_rows(rows: Iterable[Mapping[str, Any]], *, race_mode: str = "j
         mark = _text(_first(row, "ai_current_mark", "mark", "印", "display_mark"))
         ability_rank = _int(_first(row, "market_ability_rank", "ability_rank", "能力順位"))
         ability_value = _float(_first(row, "market_ability_score", "ability_value", "能力評価値", "ability_score"))
-        odds = _float(_first(row, "actual_odds", "odds", "オッズ", "単勝オッズ"))
+        odds = _float(_first(row, "actual_odds", "odds_at_prediction", "odds", "オッズ", "単勝オッズ"))
         is_marked = mark in MARKED_SYMBOLS
         top_match = ability_rank == 1 and mark == "◎"
         top3_unmarked = ability_rank is not None and ability_rank <= 3 and not is_marked

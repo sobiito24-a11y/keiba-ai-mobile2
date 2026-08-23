@@ -52,6 +52,25 @@ def test_unmarked_warning_patterns_jra_only_for_market_support():
     assert nar_labels[0]["ability_watch_label"] == ""
 
 
+def test_snapshot_odds_at_prediction_is_used_without_recalculation():
+    row = {
+        "horse_no": 7,
+        "horse_name": "SnapshotHorse",
+        "ability_rank": 4,
+        "ability_value": 72.0,
+        "mark": "",
+        "odds_at_prediction": "6.4",
+    }
+    jra_labels = ability_watch_rows([row], race_mode="jra")
+    assert jra_labels[0]["market_supported_unmarked"] is True
+    assert jra_labels[0]["ability_watch_audit"]["saved_odds"] == 6.4
+
+    nar_labels = ability_watch_rows([row], race_mode="nar")
+    assert nar_labels[0]["market_supported_unmarked"] is False
+    assert nar_labels[0]["ability_watch_audit"]["saved_odds"] == 6.4
+    assert nar_labels[0]["ability_watch_label"] == ""
+
+
 def test_attach_columns_and_card_html_show_labels_without_changing_prediction_values():
     source = pd.DataFrame(
         [
