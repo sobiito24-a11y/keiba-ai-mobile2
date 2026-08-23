@@ -19,6 +19,7 @@ from core.audit_features import (
     audit_table_to_markdown,
     build_audit_export_table,
 )
+from core.ability_watch import attach_ability_watch_columns
 from core.betting_recommendation import (
     LAST_MATCH_AUDIT,
     BettingRecommendation,
@@ -1551,7 +1552,8 @@ def render_market_compare_result(result: PredictionResult) -> None:
 def market_source_table(result: PredictionResult) -> pd.DataFrame:
     for table in (result.overall_table, result.horse_evaluation):
         if isinstance(table, pd.DataFrame) and not table.empty and "ability_band_v2" in table.columns:
-            return merge_market_display_supplements(table.copy(), result)
+            merged = merge_market_display_supplements(table.copy(), result)
+            return attach_ability_watch_columns(merged, race_mode=getattr(result, "race_mode", "jra"))
     return pd.DataFrame()
 
 
@@ -1956,6 +1958,7 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "実オッズ": format_odds(pick(row, "actual_odds")) or "—",
             "騎手": market_jockey_display_text(row),
             "斤量": weight,
+            "能力注記": clean_text(pick(row, "ability_watch_label")) or "—",
             "クラス": clean_text(pick(row, "current_class_market")),
             "クラス変動": clean_text(pick(row, "class_shift_market")),
             "クラス実績": clean_text(pick(row, "class_basis_market")),
@@ -2054,11 +2057,15 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     netkeiba = market_netkeiba_favorable_text(row)
     training_display_text = market_training_text(row, race_mode)
     stable_summary = market_stable_comment_text(row, race_mode)
+    ability_watch_label = clean_text(pick(row, "ability_watch_label"))
+    ability_watch_warning = clean_text(pick(row, "ability_unmarked_warning"))
     detail_lines = [
         f"能力値：{format_index_value(pick(row, 'market_ability_score'))}（能力順位 {ability_rank}位）",
         f"実オッズ：{odds}",
         f"今回評価：{current_rank}位 {mark}｜{clean_text(pick(row, 'ai_current_reason'))}",
     ]
+    if ability_watch_label:
+        detail_lines.append(f"能力注記：{ability_watch_label}")
     if state:
         detail_lines.append(f"状態：{state}（{clean_text(pick(row, 'state_transition'))}）")
     if weight:
@@ -2110,6 +2117,9 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         material_lines += f'<div class="ka-market-card-line {css}">{plain_text_to_html(sign + training_display_text)}</div>'
     if stable_summary:
         material_lines += f'<div class="ka-market-card-line">{plain_text_to_html(stable_summary)}</div>'
+    if ability_watch_label:
+        css = "ka-market-minus" if ability_watch_warning else "ka-market-plus"
+        material_lines += f'<div class="ka-market-card-line {css}">{plain_text_to_html(ability_watch_label)}</div>'
     main_parts = [
         mark,
         odds,
@@ -2177,6 +2187,25 @@ def render_market_audit_details(result: PredictionResult, table: pd.DataFrame) -
                 )
         if raw_records:
             st.dataframe(pd.DataFrame.from_records(raw_records), use_container_width=True, hide_index=True)
+        watch_records = []
+        for row in table.to_dict("records"):
+            label = clean_text(pick(row, "ability_watch_label"))
+            if not label:
+                continue
+            watch_records.append(
+                {
+                    "馬": join_nonempty([horse_no(pick(row, "馬番", "馬")), pick(row, "馬名")], sep=" "),
+                    "能力注記": label,
+                    "ability_top_match": bool(pick(row, "ability_top_match")),
+                    "ability_top3_unmarked": bool(pick(row, "ability_top3_unmarked")),
+                    "market_supported_unmarked": bool(pick(row, "market_supported_unmarked")),
+                    "high_risk_unmarked": bool(pick(row, "high_risk_unmarked")),
+                    "ability_gap_1_2": pick(row, "ability_gap_1_2"),
+                }
+            )
+        if watch_records:
+            st.write("能力順位×印×保存オッズ 監査")
+            st.dataframe(pd.DataFrame.from_records(watch_records), use_container_width=True, hide_index=True)
         legacy_columns = existing_columns(
             table,
             ["表示印", "最終印", "グループ", "AI点", "総合評価", "SS指数", "SS", "BUY", "単勝期待値", "軸信頼度"],
