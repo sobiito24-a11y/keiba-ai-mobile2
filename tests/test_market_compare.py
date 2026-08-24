@@ -236,9 +236,26 @@ class MarketCompareTest(unittest.TestCase):
         result = evaluate_market_table(table, "nar", RACE_INFO)
         self.assertEqual(result.loc[0, "market_ability_rank"], 1)
         self.assertEqual(result.loc[1, "current_evaluation_rank"], 1)
-        self.assertEqual(result.loc[1, "ai_current_mark"], "◎")
+        self.assertEqual(result.loc[0, "ai_current_mark"], "◎")
+        self.assertEqual(result.loc[1, "ai_current_mark"], "○")
         self.assertEqual(result.loc[0, "ability_band_v2"], "A")
         self.assertEqual(result.loc[1, "ability_band_v2"], "A")
+
+    def test_nar_final_marks_follow_ability_rank_even_when_current_evaluation_differs(self) -> None:
+        table = pd.DataFrame(
+            [
+                row(1, 90.0, 2.0, "差", **{"レース間隔": "休み明け"}),
+                row(2, 88.0, 12.0, "先", **{"3走前": 60, "2走前": 68, "前走": 75, "_load_weight_change": -2}),
+                row(3, 86.0, 18.0, "差"),
+                row(4, 84.0, 24.0, "追"),
+                row(5, 82.0, 30.0, "逃"),
+                row(6, 80.0, 40.0, "先"),
+            ]
+        )
+        result = evaluate_market_table(table, "nar", RACE_INFO)
+        self.assertEqual(result["market_ability_rank"].tolist(), [1, 2, 3, 4, 5, 6])
+        self.assertEqual(result["ai_current_mark"].tolist(), ["◎", "○", "▲", "△", "☆", ""])
+        self.assertTrue(result["current_evaluation_rank"].notna().all())
 
     def test_odds_do_not_change_current_factor_balance_or_ability(self) -> None:
         first = pd.DataFrame([row(1, 90.0, 2.0), row(2, 88.0, 50.0)])

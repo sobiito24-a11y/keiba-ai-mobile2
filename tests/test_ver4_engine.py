@@ -160,6 +160,25 @@ def test_group_and_mark_are_independent() -> None:
     assert result["mark_v4"].tolist().count("○") == 1
 
 
+def test_nar_ver4_marks_follow_base_ability_rank_not_total_score_rank() -> None:
+    rows = [
+        horse(1, recent=(80, 82, 84), average=82, year_max=85, distance=10, course=10, matched_index=5),
+        horse(2, recent=(58, 58, 58), average=58, year_max=60, distance=84, course=84, matched_index=84),
+        horse(3, recent=(55, 55, 55), average=55, year_max=58, distance=70, course=70, matched_index=70),
+        horse(4, recent=(52, 52, 52), average=52, year_max=55, distance=65, course=65, matched_index=65),
+        horse(5, recent=(49, 49, 49), average=49, year_max=52, distance=60, course=60, matched_index=60),
+        horse(6, recent=(46, 46, 46), average=46, year_max=49, distance=55, course=55, matched_index=55),
+    ]
+    result = evaluate_ver4_table(pd.DataFrame(rows), "nar").set_index("馬番")
+    assert result.loc[1, "base_ability_rank_v4"] == 1
+    assert result.loc[1, "mark_v4"] == "◎"
+    assert result.loc[2, "mark_v4"] == "○"
+    assert result.loc[3, "mark_v4"] == "▲"
+    assert result.loc[4, "mark_v4"] == "△"
+    assert result.loc[5, "mark_v4"] == "☆"
+    assert result.loc[6, "mark_v4"] == ""
+
+
 def test_watch_mark_requires_one_strong_existing_reason() -> None:
     rows = [
         horse(1, recent=(80, 82, 84), average=82, year_max=85, distance=82, course=82, matched_index=84),
@@ -169,7 +188,7 @@ def test_watch_mark_requires_one_strong_existing_reason() -> None:
         horse(5, recent=(15, 15, 15), average=15, year_max=20, distance=20, course=20, matched_index=20),
         horse(6, recent=(10, 10, 10), average=10, year_max=15, distance=20, course=20, matched_index=15),
     ]
-    result = evaluate_ver4_table(pd.DataFrame(rows), "nar").set_index("馬番")
+    result = evaluate_ver4_table(pd.DataFrame(rows), "jra").set_index("馬番")
     assert result.loc[3, "mark_v4"] == "✓"
     assert "距離適性" in result.loc[3, "watch_reason_v4"]
     assert result.loc[6, "mark_v4"] == ""

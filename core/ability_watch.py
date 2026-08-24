@@ -45,6 +45,8 @@ def _int(value: Any) -> int | None:
 
 def ability_watch_rows(rows: Iterable[Mapping[str, Any]], *, race_mode: str = "jra") -> list[dict[str, Any]]:
     source = [dict(row) for row in rows]
+    race_mode_norm = _text(race_mode).lower()
+    is_nar = race_mode_norm == "nar"
     ability_values = [
         _float(_first(row, "market_ability_score", "ability_value", "能力評価値", "ability_score"))
         for row in source
@@ -62,9 +64,9 @@ def ability_watch_rows(rows: Iterable[Mapping[str, Any]], *, race_mode: str = "j
         odds = _float(_first(row, "actual_odds", "odds_at_prediction", "odds", "オッズ", "単勝オッズ"))
         is_marked = mark in MARKED_SYMBOLS
         top_match = ability_rank == 1 and mark == "◎"
-        top3_unmarked = ability_rank is not None and ability_rank <= 3 and not is_marked
+        top3_unmarked = ability_rank is not None and ability_rank <= 3 and not is_marked and not is_nar
         market_supported = (
-            _text(race_mode).lower() == "jra"
+            race_mode_norm == "jra"
             and not is_marked
             and odds is not None
             and odds <= JRA_MARKET_SUPPORT_ODDS
@@ -82,7 +84,9 @@ def ability_watch_rows(rows: Iterable[Mapping[str, Any]], *, race_mode: str = "j
 
         top_label = ""
         if top_match:
-            if ability_gap_1_2 is None:
+            if is_nar:
+                top_label = "能力順位採用"
+            elif ability_gap_1_2 is None:
                 top_label = "能力1位＝◎"
             else:
                 top_label = f"能力1位＝◎ / 2位との差 +{ability_gap_1_2:.1f}"
@@ -102,7 +106,7 @@ def ability_watch_rows(rows: Iterable[Mapping[str, Any]], *, race_mode: str = "j
                     "ability_rank": ability_rank,
                     "ability_value": ability_value,
                     "saved_odds": odds,
-                    "race_mode": _text(race_mode).lower(),
+                    "race_mode": race_mode_norm,
                 },
             }
         )

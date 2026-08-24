@@ -34,6 +34,7 @@ from core.investment_decision import (
     confidence_label,
 )
 from core.purchase_conditions import build_purchase_condition_recommendations, horse_no
+from core.research_bets import build_research_bet
 from core.prediction_input import predict_from_html_inputs
 from core.html_classifier import (
     DISPLAY_ORDER,
@@ -1544,6 +1545,7 @@ def render_market_compare_result(result: PredictionResult) -> None:
     )
     render_market_race_facts(result, table)
     render_market_horse_cards(table, result.race_mode)
+    render_market_research_bet(table, result.race_mode, context="mobile")
     render_market_full_table(table, result.race_mode)
     render_market_user_selection(result, table)
     render_market_audit_details(result, table)
@@ -1693,6 +1695,32 @@ def render_market_race_facts(result: PredictionResult, table: pd.DataFrame) -> N
         '<div class="ka-section"><b>今回のコース/展開</b><br>'
         + "<br>".join(plain_text_to_html(line) for line in course_lines)
         + "</div>",
+        unsafe_allow_html=True,
+    )
+    if result.race_mode == "nar":
+        st.caption("NAR Ver4：能力順位を最終印に採用")
+
+
+def render_market_research_bet(table: pd.DataFrame, race_mode: str, *, context: str) -> None:
+    if table is None or table.empty:
+        return
+    research = build_research_bet(table.to_dict("records"), race_mode, context=context)
+    if not research.get("show"):
+        return
+    st.subheader(clean_text(research.get("title")) or "研究買い")
+    lines = "<br>".join(plain_text_to_html(line) for line in research.get("lines", []) if clean_text(line))
+    note_bits = [
+        clean_text(research.get("note")),
+        clean_text(research.get("trio_condition")),
+        clean_text(research.get("reason")),
+        f"research_rule_id：{clean_text(research.get('research_rule_id'))}",
+    ]
+    notes = "<br>".join(plain_text_to_html(bit) for bit in note_bits if bit)
+    st.markdown(
+        '<div class="ka-dashboard-card">'
+        f'<div class="ka-dashboard-value">{lines}</div>'
+        f'<div class="ka-note">{notes}<br><br>合計：{int(research.get("total") or 0):,}円</div>'
+        '</div>',
         unsafe_allow_html=True,
     )
 

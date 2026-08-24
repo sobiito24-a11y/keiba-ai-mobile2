@@ -39,6 +39,7 @@ JRA_WEIGHTS = {
 }
 
 GROUP_THRESHOLDS = ((82.0, "SS"), (70.0, "A"), (58.0, "B"), (45.0, "C"))
+NAR_ABILITY_MARKS = {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "☆"}
 INDEX_ANCHORS = {
     # Fixed historical scale anchors.  These are deliberately shared by every
     # horse in a race; race entrants never define each other's absolute score.
@@ -54,6 +55,7 @@ V4_COMPONENT_COLUMNS = tuple(dict.fromkeys((*NAR_WEIGHTS, *JRA_WEIGHTS)))
 V4_OUTPUT_COLUMNS = (
     "horse_score_v4",
     "race_rank_v4",
+    "base_ability_rank_v4",
     *V4_COMPONENT_COLUMNS,
     "condition_fit_mark",
     "condition_fit_level",
@@ -176,6 +178,11 @@ def evaluate_ver4_table(
     result = pd.DataFrame(evaluated, index=frame.index)
     result["race_rank_v4"] = (
         pd.to_numeric(result["horse_score_v4"], errors="coerce")
+        .rank(method="min", ascending=False)
+        .astype("Int64")
+    )
+    result["base_ability_rank_v4"] = (
+        pd.to_numeric(result["base_ability_score"], errors="coerce")
         .rank(method="min", ascending=False)
         .astype("Int64")
     )
@@ -314,7 +321,11 @@ def build_ver4_race_summary(table: pd.DataFrame | None) -> dict[str, Any]:
         axis_no = horse_no(_pick(axis_data, "馬番", "horse_no", "horse_number", "馬", "horse_no_key_v4"))
         axis_score = float(_number(axis_data.get("axis_score")) or 0.0)
         axis_confidence = clean_text(axis_data.get("axis_confidence_v4")) or "標準"
-        opponent_scores = [float(value) for value in pd.to_numeric(opponents["ticket_candidate_score"], errors="coerce").dropna()]
+        opponent_scores = (
+            [float(value) for value in pd.to_numeric(opponents["ticket_candidate_score"], errors="coerce").dropna()]
+            if not opponents.empty and "ticket_candidate_score" in opponents.columns
+            else []
+        )
         ticket_score = round(axis_score * 0.65 + (sum(opponent_scores) / len(opponent_scores) if opponent_scores else 0.0) * 0.35, 1)
         if opponents.empty:
             if axis_confidence == "高" and float(axis_data.get("horse_score_v4", 0.0)) >= 85.0:
@@ -743,6 +754,14 @@ def _add_race_context(frame: pd.DataFrame, race_type: str) -> pd.DataFrame:
 
 def _add_marks(frame: pd.DataFrame, race_type: str) -> pd.DataFrame:
     result = frame.copy()
+    if clean_text(race_type).lower() == "nar":
+        result["mark_v4"] = [
+            _nar_ability_mark(row.to_dict())
+            for _, row in result.iterrows()
+        ]
+        result["watch_reason_v4"] = ""
+        return result
+
     marks: dict[Any, str] = {}
     watch_reasons: dict[Any, str] = {}
     for index, row in result.sort_values(["race_rank_v4", "horse_score_v4"], ascending=[True, False]).iterrows():
@@ -769,6 +788,13 @@ def _add_marks(frame: pd.DataFrame, race_type: str) -> pd.DataFrame:
     result["mark_v4"] = pd.Series(marks, index=result.index).fillna("")
     result["watch_reason_v4"] = pd.Series(watch_reasons, index=result.index).fillna("")
     return result
+
+
+def _nar_ability_mark(row: Mapping[str, Any]) -> str:
+    rank = _number(_pick(row, "market_ability_rank", "ability_rank", "能力順位", "base_ability_rank_v4"))
+    if rank is None:
+        return ""
+    return NAR_ABILITY_MARKS.get(int(rank), "")
 
 
 def _watch_signal(row: Mapping[str, Any]) -> str:

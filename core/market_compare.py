@@ -398,7 +398,7 @@ def evaluate_market_table(
     # These columns were created before the row pass and should be retained.
     for column in row_outputs[0]:
         result[column] = [item.get(column) for item in row_outputs]
-    return _attach_current_evaluation(result)
+    return _attach_current_evaluation(result, race_type)
 
 
 def _ability_bands(values: pd.Series) -> tuple[pd.Series, pd.Series]:
@@ -1108,7 +1108,10 @@ def _jockey_display(
     return f"{name}（{rate}）" if rate else name
 
 
-def _attach_current_evaluation(result: pd.DataFrame) -> pd.DataFrame:
+NAR_ABILITY_MARKS = {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "☆"}
+
+
+def _attach_current_evaluation(result: pd.DataFrame, race_type: str = "jra") -> pd.DataFrame:
     """Rank the current setup independently from the immutable ability rank.
 
     No market price is added to the evaluation balance.  Actual odds is used
@@ -1188,9 +1191,20 @@ def _attach_current_evaluation(result: pd.DataFrame) -> pd.DataFrame:
         index=result.index,
         dtype="Int64",
     )
-    result["ai_current_mark"] = [by_position[index]["mark"] for index in range(len(result))]
+    if clean_text(race_type).lower() == "nar":
+        result["ai_current_mark"] = [_nar_ability_mark(row.to_dict()) for _, row in result.iterrows()]
+        result["ai_current_mark_basis"] = "nar_ability_rank"
+    else:
+        result["ai_current_mark"] = [by_position[index]["mark"] for index in range(len(result))]
     result["ai_current_reason"] = [by_position[index]["reason"] for index in range(len(result))]
     return result
+
+
+def _nar_ability_mark(row: Mapping[str, Any]) -> str:
+    rank = to_float(_pick(row, "market_ability_rank", "ability_rank", "能力順位"))
+    if rank is None:
+        return ""
+    return NAR_ABILITY_MARKS.get(int(rank), "")
 
 
 def _current_factor_balance(row: Mapping[str, Any]) -> tuple[float, int, int]:

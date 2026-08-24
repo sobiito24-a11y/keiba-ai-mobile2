@@ -52,6 +52,20 @@ def test_unmarked_warning_patterns_jra_only_for_market_support():
     assert nar_labels[0]["ability_watch_label"] == ""
 
 
+def test_nar_ability_watch_uses_basis_note_and_suppresses_unmarked_warning():
+    labels = ability_watch_rows(
+        [
+            watch_row(1, 1, 94.0, "◎", 2.0),
+            watch_row(2, 2, 91.0, "", 6.4),
+        ],
+        race_mode="nar",
+    )
+    assert labels[0]["ability_watch_label"] == "能力順位採用"
+    assert labels[1]["ability_top3_unmarked"] is False
+    assert labels[1]["market_supported_unmarked"] is False
+    assert labels[1]["ability_watch_label"] == ""
+
+
 def test_snapshot_odds_at_prediction_is_used_without_recalculation():
     row = {
         "horse_no": 7,
