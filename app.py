@@ -51,6 +51,14 @@ from core.market_compare import (
     price_band_rows,
     race_pace_snapshot,
 )
+from core.nar_race_diagnostics import (
+    build_nar_full_field_comparison,
+    build_nar_race_diagnostics,
+    category_reason,
+    comparison_position_icon,
+    diagnostic_line,
+    position_group_label,
+)
 from core.nar_json_input import (
     NarJsonDataError,
     NarJsonPredictionInput,
@@ -318,6 +326,169 @@ MOBILE_CSS = """
   .ka-market-card-line { color: #344054; font-size: 0.88rem; line-height: 1.55; }
   .ka-market-plus { color: #047857; }
   .ka-market-minus { color: #b42318; }
+  .ka-nar-diagnostic-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.55rem;
+    margin: 0.55rem 0 0.9rem;
+  }
+  .ka-nar-diagnostic-card {
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 0.7rem 0.75rem;
+    background: #ffffff;
+    min-height: 100%;
+  }
+  .ka-nar-diagnostic-card.win { border-color: #fed7aa; background: #fffbeb; }
+  .ka-nar-diagnostic-card.partner { border-color: #bbf7d0; background: #f0fdf4; }
+  .ka-nar-diagnostic-card.pace { border-color: #b2ddff; background: #eff8ff; }
+  .ka-nar-diagnostic-card.outside { border-color: #fed7aa; background: #fff7ed; }
+  .ka-nar-diagnostic-card.insufficient { border-color: #d9d6fe; background: #f4f3ff; }
+  .ka-nar-diagnostic-title {
+    font-weight: 900;
+    color: #101828;
+    font-size: 0.92rem;
+    margin-bottom: 0.35rem;
+  }
+  .ka-nar-diagnostic-item {
+    border-top: 1px solid rgba(16,24,40,0.08);
+    padding: 0.34rem 0;
+    color: #344054;
+    font-size: 0.86rem;
+    line-height: 1.45;
+  }
+  .ka-nar-diagnostic-item:first-of-type { border-top: none; }
+  .ka-position-stage {
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 0.7rem 0.75rem;
+    margin: 0.35rem 0;
+    background: #ffffff;
+  }
+  .ka-position-line {
+    display: grid;
+    grid-template-columns: 2.8rem 1fr;
+    gap: 0.35rem;
+    align-items: start;
+    font-size: 0.86rem;
+    color: #344054;
+    padding: 0.12rem 0;
+  }
+  .ka-horse-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.55rem;
+    height: 1.55rem;
+    border-radius: 999px;
+    margin: 0 0.16rem 0.16rem 0;
+    background: #f2f4f7;
+    color: #344054;
+    font-weight: 900;
+    font-size: 0.78rem;
+  }
+  .ka-comparison-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0.45rem 0 1rem;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    background: #ffffff;
+  }
+  .ka-comparison-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 760px;
+    width: max-content;
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+  .ka-comparison-table th,
+  .ka-comparison-table td {
+    border-right: 1px solid #eef2f6;
+    border-bottom: 1px solid #eef2f6;
+    padding: 0.42rem 0.5rem;
+    vertical-align: top;
+    min-width: 7.2rem;
+    color: #344054;
+    background: #ffffff;
+  }
+  .ka-comparison-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8fafc;
+    color: #101828;
+    font-weight: 900;
+  }
+  .ka-comparison-table th:first-child,
+  .ka-comparison-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    min-width: 5.8rem;
+    background: #f8fafc;
+    color: #101828;
+    font-weight: 900;
+  }
+  .ka-comparison-table thead th:first-child { z-index: 4; }
+  .ka-comparison-cell-front { color: #047857; font-weight: 900; }
+  .ka-comparison-cell-back { color: #b42318; font-weight: 800; }
+  .ka-comparison-tag {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.08rem 0.34rem;
+    margin: 0.06rem 0.08rem 0.06rem 0;
+    font-size: 0.72rem;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .ka-comparison-tag.plus {
+    color: #047857;
+    background: #ecfdf3;
+    border: 1px solid #abefc6;
+  }
+  .ka-comparison-tag.minus {
+    color: #b42318;
+    background: #fff1f3;
+    border: 1px solid #fecdd6;
+  }
+  .ka-comparison-vs {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.6rem;
+    align-items: stretch;
+  }
+  .ka-comparison-vs-card {
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 0.65rem 0.7rem;
+    background: #ffffff;
+    font-size: 0.86rem;
+    line-height: 1.45;
+  }
+  .ka-comparison-vs-mid {
+    align-self: center;
+    font-weight: 900;
+    color: #667085;
+  }
+  @media (max-width: 640px) {
+    .ka-comparison-table {
+      min-width: 680px;
+      font-size: 0.78rem;
+    }
+    .ka-comparison-table th,
+    .ka-comparison-table td {
+      min-width: 6.4rem;
+      padding: 0.36rem 0.42rem;
+    }
+    .ka-comparison-vs {
+      grid-template-columns: 1fr;
+    }
+    .ka-comparison-vs-mid {
+      text-align: center;
+    }
+  }
   div[data-testid="stRadio"] label {
     align-items: flex-start;
   }
@@ -1544,7 +1715,13 @@ def render_market_compare_result(result: PredictionResult) -> None:
         "オッズ・人気・騎手・斤量・間隔・展開/コース・＋－材料では能力値・順位・帯を動かしません。"
     )
     render_market_race_facts(result, table)
-    render_market_horse_cards(table, result.race_mode)
+    render_nar_race_diagnostics(table, result.race_mode, race_info=getattr(result, "race_info", {}) or {}, layout="mobile")
+    render_nar_full_field_comparison(table, result.race_mode)
+    if clean_text(result.race_mode).lower() == "nar":
+        with st.expander("馬別詳細カードを見る", expanded=False):
+            render_market_horse_cards(table, result.race_mode)
+    else:
+        render_market_horse_cards(table, result.race_mode)
     render_market_research_bet(table, result.race_mode, context="mobile")
     render_market_full_table(table, result.race_mode)
     render_market_user_selection(result, table)
@@ -1699,6 +1876,286 @@ def render_market_race_facts(result: PredictionResult, table: pd.DataFrame) -> N
     )
     if result.race_mode == "nar":
         st.caption("NAR Ver4：能力順位を最終印に採用")
+
+
+def render_nar_race_diagnostics(
+    table: pd.DataFrame,
+    race_mode: str,
+    *,
+    race_info: dict[str, Any] | None = None,
+    layout: str = "mobile",
+) -> None:
+    diagnostics = build_nar_race_diagnostics(
+        table.to_dict("records"),
+        race_mode=race_mode,
+        race_info=race_info or {},
+    )
+    if not diagnostics.get("show"):
+        return
+    st.subheader("🔍 AIレース診断")
+    summary = diagnostics.get("summary") if isinstance(diagnostics.get("summary"), dict) else {}
+    summary_lines = [
+        f"想定ペース：{clean_text(diagnostics.get('pace')) or '—'}",
+        f"勝ち候補：{nar_summary_text(summary.get('win_candidates'))}",
+        f"4角前方：{nar_summary_text(summary.get('front_at_4c'))}",
+        f"相手本線：{nar_summary_text(summary.get('main_partners'))}",
+        f"能力外警戒：{nar_summary_text(summary.get('ability_outside_watch'))}",
+        f"データ不足警戒：{nar_summary_text(summary.get('data_insufficient_watch'))}",
+    ]
+    st.markdown(
+        '<div class="ka-dashboard-card">'
+        + "<br>".join(plain_text_to_html(line) for line in summary_lines)
+        + '<div class="ka-note">研究中の診断です。購入条件ではありません。</div>'
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+    categories = [
+        ("win", "🏆 勝ち候補", "win_candidates", "能力TOP3を研究上の勝ち候補として表示"),
+        ("partner", "🎯 相手本線", "main_partners", "能力TOP5かつ4角前方"),
+        ("pace", "👀 展開注意", "pace_watch", "4角前方想定。購入条件ではありません"),
+        ("outside", "⚠ 能力外警戒", "ability_outside_watch", "能力6位以下でも今回評価TOP5または保存近走3着内"),
+        ("insufficient", "❓ データ不足警戒", "data_insufficient_watch", "能力順位だけでは判断しにくい馬"),
+    ]
+    if layout == "dashboard":
+        columns = st.columns(len(categories))
+        for column, (key, title, field, empty) in zip(columns, categories):
+            with column:
+                st.markdown(
+                    nar_diagnostic_card_html(title, diagnostics.get(field) or [], key, empty),
+                    unsafe_allow_html=True,
+                )
+    else:
+        for key, title, field, empty in categories:
+            with st.expander(title, expanded=key in {"win", "partner"}):
+                st.markdown(
+                    nar_diagnostic_card_html(title, diagnostics.get(field) or [], key, empty, include_title=False),
+                    unsafe_allow_html=True,
+                )
+    render_nar_position_flow(diagnostics, layout=layout)
+
+
+def nar_summary_text(values: Any) -> str:
+    if not isinstance(values, list) or not values:
+        return "—"
+    return " / ".join(clean_text(value) for value in values if clean_text(value)) or "—"
+
+
+def nar_diagnostic_card_html(
+    title: str,
+    horses: list[dict[str, Any]],
+    category: str,
+    empty_text: str,
+    *,
+    include_title: bool = True,
+) -> str:
+    blocks = []
+    if include_title:
+        blocks.append(f'<div class="ka-nar-diagnostic-title">{plain_text_to_html(title)}</div>')
+    if not horses:
+        blocks.append(f'<div class="ka-nar-diagnostic-item ka-muted">{plain_text_to_html(empty_text)}</div>')
+    for horse in horses:
+        reason = category_reason(horse, category)
+        blocks.append(
+            '<div class="ka-nar-diagnostic-item">'
+            f'<b>{plain_text_to_html(diagnostic_line(horse))}</b>'
+            + (f'<br><span class="ka-muted">{plain_text_to_html(reason)}</span>' if reason else "")
+            + "</div>"
+        )
+    return f'<div class="ka-nar-diagnostic-card {category}">' + "".join(blocks) + "</div>"
+
+
+def render_nar_position_flow(diagnostics: dict[str, Any], *, layout: str = "mobile") -> None:
+    positions = diagnostics.get("positions") if isinstance(diagnostics.get("positions"), dict) else {}
+    if not positions:
+        return
+    st.subheader("展開イメージ")
+    st.caption("保存済み位置予測を表示しています。購入条件ではありません。")
+    stages = [("start", "スタート"), ("corner3", "3コーナー"), ("corner4", "4コーナー")]
+    if layout == "dashboard":
+        columns = st.columns(3)
+        for column, (key, title) in zip(columns, stages):
+            with column:
+                st.markdown(nar_position_stage_html(title, positions.get(key) or {}), unsafe_allow_html=True)
+    else:
+        with st.expander("スタート→3角→4角", expanded=True):
+            for key, title in stages:
+                st.markdown(nar_position_stage_html(title, positions.get(key) or {}), unsafe_allow_html=True)
+
+
+def nar_position_stage_html(title: str, groups: dict[str, list[dict[str, str]]]) -> str:
+    lines = [f'<div class="ka-nar-diagnostic-title">{plain_text_to_html(title)}</div>']
+    for group in ("front", "middle", "back", "unknown"):
+        horses = groups.get(group) or []
+        if not horses and group == "unknown":
+            continue
+        pills = "".join(
+            f'<span class="ka-horse-pill">{plain_text_to_html(clean_text(item.get("number")) or "—")}</span>'
+            for item in horses
+            if clean_text(item.get("number"))
+        ) or '<span class="ka-muted">—</span>'
+        lines.append(
+            '<div class="ka-position-line">'
+            f'<b>{plain_text_to_html(position_group_label(group))}</b><div>{pills}</div>'
+            "</div>"
+        )
+    return '<div class="ka-position-stage">' + "".join(lines) + "</div>"
+
+
+def render_nar_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
+    comparison = build_nar_full_field_comparison(table.to_dict("records"), race_mode=race_mode)
+    if not comparison.get("show"):
+        return
+    st.subheader("全頭横比較")
+    labels = comparison.get("sort_labels") if isinstance(comparison.get("sort_labels"), dict) else {}
+    mode_by_label = {label: mode for mode, label in labels.items()}
+    selected_label = st.selectbox(
+        "表示順",
+        list(mode_by_label.keys()) or ["馬番順"],
+        index=0,
+        key="nar_full_field_comparison_sort",
+    )
+    comparison = build_nar_full_field_comparison(
+        table.to_dict("records"),
+        race_mode=race_mode,
+        sort_mode=mode_by_label.get(selected_label, "horse_number"),
+    )
+    gap = comparison.get("gap_1_2")
+    if gap is not None:
+        st.caption(f"能力1位と2位の差：{float(gap):.1f}（参考表示。印・研究買いには反映しません）")
+    top_html = nar_comparison_top_two_html(comparison)
+    if top_html:
+        st.markdown(top_html, unsafe_allow_html=True)
+    if comparison.get("transfer_watch"):
+        st.markdown(
+            '<div class="ka-dashboard-card">'
+            '<b>🧪 Ver4.1監視</b><br>'
+            '能力1位はJRA→NAR初戦。能力2位との入替候補を未見100R検証中。'
+            '<div class="ka-note">研究表示のみで、印は変更しません。</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    st.markdown(nar_full_field_comparison_html(comparison.get("rows") or []), unsafe_allow_html=True)
+    st.caption("保存済み予想情報の横比較です。能力値・印・展開位置・研究買いは再計算していません。")
+
+
+def nar_comparison_top_two_html(comparison: dict[str, Any]) -> str:
+    top1 = comparison.get("top1")
+    top2 = comparison.get("top2")
+    if not isinstance(top1, dict) or not isinstance(top2, dict):
+        return ""
+    gap = comparison.get("gap_1_2")
+    gap_text = f"能力差：{float(gap):.1f}" if gap is not None else "能力差：—"
+    return (
+        '<div class="ka-dashboard-card">'
+        '<div class="ka-dashboard-title">能力1位 vs 能力2位</div>'
+        '<div class="ka-comparison-vs">'
+        f'{nar_comparison_vs_card_html(top1)}'
+        f'<div class="ka-comparison-vs-mid">{plain_text_to_html(gap_text)}</div>'
+        f'{nar_comparison_vs_card_html(top2)}'
+        '</div>'
+        '</div>'
+    )
+
+
+def nar_comparison_vs_card_html(horse: dict[str, Any]) -> str:
+    lines = [
+        f"{clean_text(horse.get('mark'))}{clean_text(horse.get('number'))} {clean_text(horse.get('name'))}",
+        f"能力{rank_display(horse.get('ability_rank'))} / {number_display(horse.get('ability_value'))}",
+        f"4角：{clean_text(horse.get('corner4_label')) or comparison_position_icon(clean_text(horse.get('corner4_group')))}",
+        f"近走3着内：{'あり' if int(horse.get('recent_top3_count') or 0) > 0 else 'なし'}",
+        f"今回評価：{rank_display(horse.get('current_evaluation_rank'))}",
+        f"転入：{clean_text(horse.get('transfer_status')) or '判定不明'}",
+    ]
+    return (
+        '<div class="ka-comparison-vs-card">'
+        + "<br>".join(plain_text_to_html(line) for line in lines if clean_text(line))
+        + "</div>"
+    )
+
+
+def nar_full_field_comparison_html(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return '<div class="ka-dashboard-card">比較できる出走馬データがありません。</div>'
+    metrics: list[tuple[str, str, Any]] = [
+        ("印", "", lambda horse: clean_text(horse.get("mark")) or "—"),
+        ("能力順位", "", lambda horse: rank_display(horse.get("ability_rank"))),
+        ("能力値", "", lambda horse: number_display(horse.get("ability_value"))),
+        ("1位との差", "", lambda horse: clean_text(horse.get("ability_gap_text")) or "—"),
+        ("今回評価順位", "", lambda horse: rank_display(horse.get("current_evaluation_rank"))),
+        ("近走勝利", "", lambda horse: clean_text(horse.get("recent_win_label")) or "—"),
+        ("近走3着内", "", lambda horse: clean_text(horse.get("recent_top3_label")) or "—"),
+        ("同距離", "", lambda horse: clean_text(horse.get("same_distance")) or "—"),
+        ("同コース", "", lambda horse: clean_text(horse.get("same_course")) or "—"),
+        ("同回り", "", lambda horse: clean_text(horse.get("same_turn")) or "—"),
+        ("脚質", "", lambda horse: clean_text(horse.get("running_style")) or "—"),
+        ("4角位置", "position", lambda horse: clean_text(horse.get("corner4_label")) or comparison_position_icon(clean_text(horse.get("corner4_group")))),
+        ("騎手コース", "", lambda horse: clean_text(horse.get("jockey_course_place_rate")) or "—"),
+        ("転入状態", "transfer", lambda horse: clean_text(horse.get("transfer_status")) or "判定不明"),
+        ("地方実績", "", lambda horse: clean_text(horse.get("local_experience")) or "判定不明"),
+        ("プラス材料", "plus", lambda horse: horse.get("positive_tags") or []),
+        ("不安材料", "minus", lambda horse: horse.get("negative_tags") or []),
+    ]
+    header = ['<th>比較項目</th>']
+    for horse in rows:
+        label = f"{clean_text(horse.get('number'))} {clean_text(horse.get('name'))}"
+        mark = clean_text(horse.get("mark"))
+        header.append(
+            "<th>"
+            f"{plain_text_to_html(label or '—')}"
+            + (f"<br><span class=\"ka-muted\">{plain_text_to_html(mark)}</span>" if mark else "")
+            + "</th>"
+        )
+    body_rows = []
+    for label, kind, getter in metrics:
+        cells = [f"<td>{plain_text_to_html(label)}</td>"]
+        for horse in rows:
+            value = getter(horse)
+            if kind in {"plus", "minus"}:
+                cells.append(f"<td>{nar_comparison_tags_html(value, kind)}</td>")
+            elif kind == "position":
+                group = clean_text(horse.get("corner4_group"))
+                css = "ka-comparison-cell-front" if group == "front" else "ka-comparison-cell-back" if group == "back" else ""
+                cells.append(f'<td class="{css}">{plain_text_to_html(clean_text(value) or "—")}</td>')
+            elif kind == "transfer" and clean_text(value) == "JRA→NAR初戦":
+                cells.append(f'<td>{nar_comparison_tags_html([value], "minus")}</td>')
+            else:
+                cells.append(f"<td>{plain_text_to_html(clean_text(value) or '—')}</td>")
+        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+    return (
+        '<div class="ka-comparison-scroll"><table class="ka-comparison-table">'
+        "<thead><tr>"
+        + "".join(header)
+        + "</tr></thead><tbody>"
+        + "".join(body_rows)
+        + "</tbody></table></div>"
+    )
+
+
+def nar_comparison_tags_html(values: Any, kind: str) -> str:
+    if not isinstance(values, list):
+        values = [values] if clean_text(values) else []
+    values = [clean_text(value) for value in values if clean_text(value)]
+    if not values:
+        return '<span class="ka-muted">—</span>'
+    css = "plus" if kind == "plus" else "minus"
+    return "".join(
+        f'<span class="ka-comparison-tag {css}">{plain_text_to_html(value)}</span>'
+        for value in values
+    )
+
+
+def rank_display(value: Any) -> str:
+    number = to_float(value)
+    if number is None:
+        return "未成立"
+    return f"{int(number)}位"
+
+
+def number_display(value: Any) -> str:
+    number = to_float(value)
+    if number is None:
+        return "—"
+    return f"{number:.1f}"
 
 
 def render_market_research_bet(table: pd.DataFrame, race_mode: str, *, context: str) -> None:
@@ -1912,6 +2369,17 @@ def market_position_path_text(row: dict[str, Any]) -> str:
     return path
 
 
+def market_corner4_label_text(row: dict[str, Any]) -> str:
+    label = clean_text(pick(row, "position_corner4_label_market", "_estimated_position_corner4_label", "corner4_evaluation", "4角評価"))
+    if label and label not in {"位置不明", "未取得"} and "top=" not in label and "left=" not in label:
+        return label
+    path = market_position_path_text(row)
+    if not path or path == "位置不明":
+        return ""
+    parts = [part.strip() for part in re.split(r"→|>|/|／", path) if part.strip()]
+    return parts[-1] if parts else ""
+
+
 def market_course_material_text(row: dict[str, Any]) -> str:
     mark = clean_text(pick(row, "course_development_mark"))
     reason = clean_text(pick(row, "course_development_reason"))
@@ -2071,9 +2539,11 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     current_class = clean_text(pick(row, "current_class_market"))
     class_shift = clean_text(pick(row, "class_shift_market"))
     class_basis = clean_text(pick(row, "class_basis_market"))
+    corner4_label = market_corner4_label_text(row)
     quick = join_nonempty(
         [
             clean_text(pick(row, "running_style_market")),
+            f"4角：{corner4_label}" if corner4_label else "",
             jockey,
             weight,
             body_weight,
@@ -2117,6 +2587,8 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         detail_lines.append(f"馬体重：{body_weight}")
     if position_path:
         detail_lines.append(f"想定位置：{position_path}")
+    if corner4_label:
+        detail_lines.append(f"4角位置：{corner4_label}")
     if pace:
         detail_lines.append(f"展開：{pace}")
     if course:
