@@ -181,6 +181,7 @@ def test_full_field_comparison_supports_jra_display_fields_without_diagnostics()
             _jockey_course_place_rate=35,
             jockey_change="継続",
             training_short="B 83.5(16.3)67.2(15.0)",
+            stable_comment_market="順調に仕上がった。状態は良い。",
             recent_races=[
                 {"label": "前走", "venue": "中京", "distance": "1400m", "time_index": "72", "finish": "2着", "matchup": "vs 3：先着"},
                 {"label": "2走前", "venue": "東京", "distance": "1600m", "time_index": "68", "finish": "4着"},
@@ -207,13 +208,15 @@ def test_full_field_comparison_supports_jra_display_fields_without_diagnostics()
 
     assert comparison["show"] is True
     assert [horse["number"] for horse in comparison["rows"]] == ["1", "2", "3"]
-    assert comparison["rows"][0]["recent3_indices"] == "★72（vs 3：先着） / 68 / ★75"
+    assert comparison["rows"][0]["recent3_indices"] == "★72(左)（vs 3：先着） / 68(左) / ★75(左)"
     assert comparison["rows"][0]["recent3_conditions"] == "中京1400m / 東京1600m / 中京1400m"
     assert comparison["rows"][0]["distance_index"] == "43"
     assert comparison["rows"][0]["course_index"] == "48"
     assert comparison["rows"][0]["same_turn"] == "★"
+    assert comparison["rows"][0]["same_turn_display"] == "○"
     assert comparison["rows"][0]["jockey_display"] == "川田将雅（継続） 35%"
-    assert comparison["rows"][0]["training"] == "調教B↑ 仕上上々"
+    assert comparison["rows"][0]["training"] == "B/仕上上々"
+    assert comparison["rows"][0]["stable_comment"] == "順調に仕上がった。状態は良い。"
     assert "83.5" not in comparison["rows"][0]["training"]
     assert comparison["rows"][0]["weight"] == "54.0kg（-2.0）"
     assert comparison["rows"][0]["body_weight"] == "444kg（-14）"
@@ -223,3 +226,26 @@ def test_full_field_comparison_supports_jra_display_fields_without_diagnostics()
     assert comparison["rows"][1]["data_insufficient"] is True
     by_number = {horse["number"]: horse for horse in comparison["rows"]}
     assert by_number["3"]["corner4_display"] == "前方（逃げ）"
+
+
+def test_recent3_star_falls_back_to_saved_current_venue_and_distance() -> None:
+    rows = [
+        _row(
+            1,
+            1,
+            1,
+            "先団",
+            venue="園田",
+            distance="1400m",
+            recent_runs=[
+                {"venue": "園田", "distance": "1400m", "time_index": "13", "finish": "2着"},
+                {"venue": "姫路", "distance": "1400m", "time_index": "-10", "finish": "4着"},
+                {"venue": "園田", "distance": "820m", "time_index": "2", "finish": "5着"},
+            ],
+        )
+    ]
+
+    comparison = build_full_field_comparison(rows, race_mode="nar")
+
+    assert comparison["rows"][0]["recent3_indices"] == "★13 / -10 / 2"
+    assert comparison["rows"][0]["recent3_conditions"] == "園田1400m / 姫路1400m / 園田820m"

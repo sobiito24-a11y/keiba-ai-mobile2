@@ -398,13 +398,15 @@ class DetailAnalysisTableTest(unittest.TestCase):
                         "distance_index": "43",
                         "course_index": "48",
                         "same_turn": "★",
+                        "same_turn_display": "○",
                         "running_style": "差し",
                         "corner4_label": "中団",
                         "corner4_group": "middle",
                         "jockey_display": "川田将雅 35%",
                         "jockey_change": "継続",
-                        "training": "B↑ 仕上上々",
-                        "weight": "56.0kg",
+                        "training": "B/仕上上々",
+                        "stable_comment": "前向きさが出て順調。",
+                        "weight": "56.0kg（±0）",
                         "body_weight": "470kg（-10）",
                         "interval": "中2週",
                         "class_record": "今回G3",
@@ -429,9 +431,14 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("今回G3", html)
         self.assertIn("直近②に先着", html)
         self.assertIn("川田将雅 35%", html)
-        self.assertIn("B↑ 仕上上々", html)
+        self.assertIn("B/仕上上々", html)
+        self.assertIn("前向きさが出て順調。", html)
+        self.assertIn("56.0kg（±0）", html)
         self.assertIn("能力1位との差", html)
         self.assertIn("同回り", html)
+        self.assertIn("○", html)
+        self.assertNotIn("近走勝利", html)
+        self.assertNotIn("近走3着内", html)
         self.assertIn("能力差", self.app.nar_comparison_top_two_html({
             "top1": {"number": "1", "name": "A", "ability_rank": 1, "ability_value": 17.7},
             "top2": {"number": "2", "name": "B", "ability_rank": 2, "ability_value": 17.6},

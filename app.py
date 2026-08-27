@@ -2171,8 +2171,6 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
         ("4角位置", "position", lambda horse: clean_text(horse.get("corner4_display")) or clean_text(horse.get("corner4_label")) or comparison_position_icon(clean_text(horse.get("corner4_group")))),
         ("近3走指数", "", lambda horse: clean_text(horse.get("recent3_indices")) or "—"),
         ("近3走条件", "", lambda horse: clean_text(horse.get("recent3_conditions")) or "—"),
-        ("近走勝利", "", lambda horse: clean_text(horse.get("recent_win_label")) or "—"),
-        ("近走3着内", "", lambda horse: clean_text(horse.get("recent_top3_label")) or "—"),
         ("距離指数", "", lambda horse: clean_text(horse.get("distance_index")) or "—"),
         ("コース指数", "", lambda horse: clean_text(horse.get("course_index")) or "—"),
         ("同距離", "", lambda horse: clean_text(horse.get("same_distance")) or "—"),
@@ -2194,9 +2192,10 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
         metrics.insert(-2, ("地方実績", "", lambda horse: clean_text(horse.get("local_experience")) or "判定不明"))
     if race_mode == "jra":
         course_index = next((index for index, item in enumerate(metrics) if item[0] == "同コース"), 13)
-        metrics.insert(course_index + 1, ("同回り", "", lambda horse: clean_text(horse.get("same_turn")) or "—"))
+        metrics.insert(course_index + 1, ("同回り", "", lambda horse: clean_text(horse.get("same_turn_display")) or clean_text(horse.get("same_turn")) or "×"))
         metrics.insert(-2, ("乗替/継続", "", lambda horse: clean_text(horse.get("jockey_change")) or "—"))
-        metrics.insert(-2, ("調教", "", lambda horse: clean_text(horse.get("training")) or "—"))
+        metrics.insert(-2, ("調教評価", "", lambda horse: clean_text(horse.get("training")) or "—"))
+        metrics.insert(-2, ("厩舎コメント", "", lambda horse: clean_text(horse.get("stable_comment")) or "—"))
     header = ['<th class="ka-sticky-metric">比較項目</th>']
     for horse in rows:
         title = f"{clean_text(horse.get('number'))} {clean_text(horse.get('name'))}".strip() or "—"

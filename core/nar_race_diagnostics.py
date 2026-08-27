@@ -178,7 +178,7 @@ def _comparison_horse(row: Mapping[str, Any], *, race_mode: str) -> dict[str, An
     jockey_rate = _jockey_place_rate(row)
     jockey_display = _jockey_display(row, jockey_rate)
     matched_runs = _matched_past_runs(row)
-    recent_indices, recent_conditions = _recent_display_cells(runs, matched_runs)
+    recent_indices, recent_conditions = _recent_display_cells(runs, matched_runs, row=row, race_mode=race_mode)
     distance_index = _index_value(row, "距離指数", "distance_index")
     course_index = _index_value(row, "コース指数", "course_index")
     course_history = _has_course_history(row, runs, same_course=same_course, course_index=course_index)
@@ -208,11 +208,13 @@ def _comparison_horse(row: Mapping[str, Any], *, race_mode: str) -> dict[str, An
         "same_distance": same_distance,
         "same_course": same_course,
         "same_turn": same_turn,
+        "same_turn_display": _same_turn_display(same_turn),
         "jockey_display": jockey_display,
         "jockey_course_place_rate": jockey_rate,
         "transfer_status": transfer_status,
         "local_experience": local_experience,
         "training": _training_text(row),
+        "stable_comment": _stable_comment_text(row),
         "jockey_change": _text(_first(row, "騎手継続/乗替", "jockey_change", "jockey_change_market")),
         "weight": _weight_text(row),
         "body_weight": _body_weight_text(row),
@@ -471,17 +473,20 @@ def _jockey_display(row: Mapping[str, Any], rate: str) -> str:
 
 def _training_text(row: Mapping[str, Any]) -> str:
     existing = _text(_first(row, "training_display", "調教表示"))
-    if existing:
-        return existing
-    display = _training_display(
+    compact = _compact_training_text(existing)
+    if compact:
+        return compact
+    training = _training_display(
         {
             "調教評価": _first(row, "training_market", "training_short", "training_grade", "調教評価", "追切評価"),
             "調教コメント": _first(row, "training_comment", "調教短評", "追切短評", "調教コメント"),
         },
         "jra",
-    ).get("display", "")
-    if display:
-        return _text(display)
+    )
+    rank = _text(training.get("rank"))
+    comment = _text(training.get("comment"))
+    if rank:
+        return f"{rank}/{comment}" if comment else rank
     value = _text(
         _first(
             row,
@@ -495,17 +500,60 @@ def _training_text(row: Mapping[str, Any]) -> str:
     return value
 
 
+def _compact_training_text(value: Any) -> str:
+    text = _text(value)
+    if not text:
+        return ""
+    if re.search(r"\d+\.\d+.*\d+\.\d+", text):
+        return ""
+    match = re.search(r"(?:調教)?([A-D])\s*[↑↗→↓↘]?\s*(.*)", text, flags=re.I)
+    if not match:
+        return text
+    rank = match.group(1).upper()
+    comment = _text(match.group(2))
+    return f"{rank}/{comment}" if comment else rank
+
+
+def _stable_comment_text(row: Mapping[str, Any]) -> str:
+    text = _text(
+        _first(
+            row,
+            "stable_comment_market",
+            "厩舎コメント",
+            "新聞コメント",
+            "stable_comment",
+            "stable_comment_summary",
+        )
+    )
+    if text in {"未取得", "対象外"}:
+        return ""
+    return text
+
+
 def _recent_display_cells(
     runs: Sequence[Mapping[str, Any]],
     matched_runs: Sequence[Mapping[str, Any]],
+    *,
+    row: Mapping[str, Any],
+    race_mode: str,
 ) -> tuple[str, str]:
     indices: list[str] = []
     conditions: list[str] = []
+    current_venue = _text(_first(row, "venue", "開催場", "race_venue", "current_venue"))
+    current_distance = _text(_first(row, "distance", "距離", "race_distance", "current_distance"))
     for run in list(runs)[:3]:
         index = _text(_first(run, "time_index", "value", "index", "指数")) or "—"
-        prefix = "★" if _run_matches_condition(run, matched_runs) else ""
+        matched_condition = _run_matches_condition(run, matched_runs) or _run_matches_current_condition(
+            run,
+            current_venue=current_venue,
+            current_distance=current_distance,
+        )
+        prefix = "★" if matched_condition else ""
         matchup = _run_matchup_text(run)
         value = f"{prefix}{index}" if index != "—" else "—"
+        turn = _run_turn_label(run) if _text(race_mode).lower() == "jra" else ""
+        if turn and value != "—":
+            value = f"{value}({turn})"
         if matchup:
             value = f"{value}（{matchup}）"
         indices.append(value)
@@ -568,6 +616,40 @@ def _run_matches_condition(run: Mapping[str, Any], matched_runs: Sequence[Mappin
     return False
 
 
+def _run_matches_current_condition(run: Mapping[str, Any], *, current_venue: str, current_distance: str) -> bool:
+    if not current_venue or not current_distance:
+        return False
+    venue = _text(_first(run, "venue", "racecourse", "track", "競馬場"))
+    distance = _text(_first(run, "distance", "距離"))
+    return bool(
+        venue
+        and distance
+        and venue == current_venue
+        and _distance_key(distance) == _distance_key(current_distance)
+    )
+
+
+def _run_turn_label(run: Mapping[str, Any]) -> str:
+    turn = _text(_first(run, "direction", "turn", "回り", "course_direction"))
+    if "左" in turn:
+        return "左"
+    if "右" in turn:
+        return "右"
+    venue = _text(_first(run, "venue", "racecourse", "track", "競馬場"))
+    return {
+        "東京": "左",
+        "中京": "左",
+        "新潟": "左",
+        "中山": "右",
+        "京都": "右",
+        "阪神": "右",
+        "札幌": "右",
+        "函館": "右",
+        "福島": "右",
+        "小倉": "右",
+    }.get(venue, "")
+
+
 def _distance_key(value: Any) -> str:
     number = _float(value)
     if number is None:
@@ -609,14 +691,27 @@ def _has_course_history(
 
 def _weight_text(row: Mapping[str, Any]) -> str:
     existing = _text(_first(row, "weight_display", "weight_market", "weight_detail", "斤量詳細"))
-    if existing:
-        return existing
-    current = _float(_first(row, "weight", "斤量", "carried_weight"))
+    current = _float(_first(row, "_display_current_load_weight", "_current_load_weight", "weight", "斤量", "carried_weight", "weight_market"))
     if current is None:
-        return _text(_first(row, "weight", "斤量")) or "—"
-    diff = _float(_first(row, "weight_diff", "斤量差", "weight_change", "previous_weight_diff"))
+        current = _float(existing)
+    if current is None:
+        return existing or _text(_first(row, "weight", "斤量")) or "—"
+    diff = _float(
+        _first(
+            row,
+            "weight_change_market",
+            "_display_load_weight_change",
+            "_load_weight_change",
+            "weight_diff",
+            "斤量差",
+            "weight_change",
+            "previous_weight_diff",
+        )
+    )
     if diff is None:
-        previous = _float(_first(row, "previous_weight", "前走斤量", "last_weight"))
+        diff = _weight_diff_from_text(existing)
+    if diff is None:
+        previous = _float(_first(row, "_display_previous_load_weight", "_previous_load_weight", "previous_weight", "前走斤量", "last_weight"))
         if previous is not None:
             diff = current - previous
     base = f"{current:.1f}kg"
@@ -627,6 +722,27 @@ def _weight_text(row: Mapping[str, Any]) -> str:
     else:
         suffix = f"{diff:+.1f}"
     return f"{base}（{suffix}）"
+
+
+def _weight_diff_from_text(value: Any) -> float | None:
+    text = _text(value)
+    if not text or "前走データなし" in text:
+        return None
+    if "±" in text:
+        return 0.0
+    match = re.search(r"(?:前走比)?\s*([+＋\-－]\s*\d+(?:\.\d+)?)\s*kg?", text)
+    if not match:
+        return None
+    return _float(match.group(1).replace("＋", "+").replace("－", "-").replace(" ", ""))
+
+
+def _same_turn_display(value: Any) -> str:
+    text = _text(value)
+    if text in {"?", "不明"}:
+        return "?"
+    if text and text not in {"—", "-", "なし", "実績なし", "×"}:
+        return "○"
+    return "×"
 
 
 def _body_weight_text(row: Mapping[str, Any]) -> str:
