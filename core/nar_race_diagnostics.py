@@ -24,6 +24,8 @@ POSITION_LABEL_BY_GROUP = {
 }
 DATA_SHORTAGE_WORDS = ("能力材料不足", "能力評価材料不足", "能力評価なし", "評価不能", "履歴不足", "材料不足")
 JRA_VENUES = {"札幌", "函館", "福島", "新潟", "東京", "中山", "中京", "京都", "阪神", "小倉"}
+NAR_VENUES = {"門別", "盛岡", "水沢", "浦和", "船橋", "大井", "川崎", "金沢", "笠松", "名古屋", "園田", "姫路", "高知", "佐賀", "帯広"}
+VENUE_NAMES = sorted(JRA_VENUES | NAR_VENUES, key=len, reverse=True)
 COMPARISON_SORT_LABELS = {
     "horse_number": "馬番順",
     "ability": "能力順",
@@ -196,6 +198,7 @@ def _comparison_horse(row: Mapping[str, Any], *, race_mode: str) -> dict[str, An
     )
     return {
         **diagnostic,
+        "sex_age": _sex_age_text(row),
         "odds": _text(_first(row, "actual_odds", "odds", "odds_at_prediction", "saved_odds_at_prediction", "単勝オッズ", "実オッズ")),
         "recent_win_count": recent_win_count,
         "recent_top3_count": recent_top3_count,
@@ -276,6 +279,17 @@ def _corner4_display(horse: Mapping[str, Any]) -> str:
     if horse.get("corner4_group") == "front" and "逃" in _text(horse.get("running_style")):
         return f"{label}（逃げ）" if "逃" not in label else label
     return label
+
+
+def _sex_age_text(row: Mapping[str, Any]) -> str:
+    combined = _text(_first(row, "sex_age", "馬齢", "性齢", "sex_age_market"))
+    if combined:
+        return combined
+    sex = _text(_first(row, "sex", "性別", "gender"))
+    age = _text(_first(row, "age", "年齢"))
+    if sex and age:
+        return f"{sex}{age}"
+    return sex or age
 
 
 def _diagnostic_horse(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -371,7 +385,7 @@ def _sort_comparison_horses(horses: Sequence[Mapping[str, Any]], sort_mode: str)
     mode = sort_mode if sort_mode in COMPARISON_SORT_LABELS else "horse_number"
     if mode == "ability":
         key = lambda horse: (
-            horse.get("ability_rank") if horse.get("ability_rank") is not None else 999,
+            -(horse.get("ability_value") if horse.get("ability_value") is not None else -999999),
             _horse_sort_key(horse.get("number")),
         )
     elif mode == "current":
@@ -539,11 +553,10 @@ def _recent_display_cells(
 ) -> tuple[str, str]:
     indices: list[str] = []
     conditions: list[str] = []
-    current_venue = _text(_first(row, "venue", "開催場", "race_venue", "current_venue"))
-    current_distance = _text(_first(row, "distance", "距離", "race_distance", "current_distance"))
+    current_venue, current_distance = _current_condition_keys(row)
     for run in list(runs)[:3]:
         index = _text(_first(run, "time_index", "value", "index", "指数")) or "—"
-        matched_condition = _run_matches_condition(run, matched_runs) or _run_matches_current_condition(
+        matched_condition = _run_matches_current_condition(
             run,
             current_venue=current_venue,
             current_distance=current_distance,
@@ -557,8 +570,8 @@ def _recent_display_cells(
         if matchup:
             value = f"{value}（{matchup}）"
         indices.append(value)
-        venue = _text(_first(run, "venue", "racecourse", "track", "競馬場"))
-        distance = _text(_first(run, "distance", "距離"))
+        venue = _text(_first(run, "venue", "racecourse", "track", "競馬場", "venue_name", "place", "場所", "開催", "場名"))
+        distance = _text(_first(run, "distance", "距離", "distance_m", "距離m", "course_distance"))
         conditions.append((venue + distance) if venue or distance else "—")
     return " / ".join(indices) if indices else "—", " / ".join(conditions) if conditions else "—"
 
@@ -619,14 +632,35 @@ def _run_matches_condition(run: Mapping[str, Any], matched_runs: Sequence[Mappin
 def _run_matches_current_condition(run: Mapping[str, Any], *, current_venue: str, current_distance: str) -> bool:
     if not current_venue or not current_distance:
         return False
-    venue = _text(_first(run, "venue", "racecourse", "track", "競馬場"))
-    distance = _text(_first(run, "distance", "距離"))
+    venue = _venue_key(_first(run, "venue", "racecourse", "track", "競馬場", "venue_name", "place", "場所", "開催", "場名"))
+    distance = _distance_key(_first(run, "distance", "距離", "distance_m", "距離m", "course_distance"))
     return bool(
         venue
         and distance
         and venue == current_venue
-        and _distance_key(distance) == _distance_key(current_distance)
+        and distance == current_distance
     )
+
+
+def _current_condition_keys(row: Mapping[str, Any]) -> tuple[str, str]:
+    venue = _venue_key(_first(row, "venue", "開催場", "race_venue", "current_venue", "racecourse", "track", "競馬場", "場所", "場名"))
+    distance = _distance_key(_first(row, "distance", "距離", "race_distance", "current_distance", "distance_m", "距離m", "course_distance"))
+    if venue and distance:
+        return venue, distance
+    reason = _text(
+        _first(
+            row,
+            "condition_fit_reason",
+            "condition_reason",
+            "★条件",
+            "star_condition",
+        )
+    ) or _text(_nested_value(row, "final_betting_context", "condition_fit", "reason"))
+    if reason:
+        parsed_venue = _venue_key(reason)
+        parsed_distance = _distance_key(reason)
+        return venue or parsed_venue, distance or parsed_distance
+    return venue, distance
 
 
 def _run_turn_label(run: Mapping[str, Any]) -> str:
@@ -653,8 +687,21 @@ def _run_turn_label(run: Mapping[str, Any]) -> str:
 def _distance_key(value: Any) -> str:
     number = _float(value)
     if number is None:
-        return _text(value)
+        return _text(value).replace("ｍ", "m").replace("Ｍ", "m").replace("メートル", "m").replace(" ", "").replace("　", "")
     return str(int(number)) if float(number).is_integer() else str(number)
+
+
+def _venue_key(value: Any) -> str:
+    text = _text(value)
+    if not text:
+        return ""
+    text = text.replace("　", " ")
+    text = re.sub(r"\s+", "", text)
+    text = text.replace("競馬場", "").replace("レース場", "")
+    for venue in VENUE_NAMES:
+        if venue in text:
+            return venue
+    return text
 
 
 def _index_value(row: Mapping[str, Any], *keys: str) -> str:

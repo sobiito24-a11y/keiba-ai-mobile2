@@ -129,9 +129,9 @@ def test_nar_full_field_comparison_keeps_all_horses_and_display_facts() -> None:
 
 def test_nar_full_field_comparison_sort_modes() -> None:
     rows = [
-        _row(8, 4, 2, "後方", market_ability_score=30),
-        _row(2, 2, 3, "先団", market_ability_score=40),
-        _row(5, 1, 1, "中団", market_ability_score=50),
+        _row(1, 3, 2, "後方", market_ability_score=50, recent_runs=[{"venue": "笠松", "distance": "1400m", "time_index": "11"}]),
+        _row(2, 1, 3, "先団", market_ability_score=80, recent_runs=[{"venue": "笠松", "distance": "1400m", "time_index": "22"}]),
+        _row(3, 2, 1, "中団", market_ability_score=60, recent_runs=[{"venue": "笠松", "distance": "1400m", "time_index": "33"}]),
     ]
 
     by_number = build_nar_full_field_comparison(rows, race_mode="nar", sort_mode="horse_number")
@@ -139,9 +139,11 @@ def test_nar_full_field_comparison_sort_modes() -> None:
     by_current = build_nar_full_field_comparison(rows, race_mode="nar", sort_mode="current")
     by_corner = build_nar_full_field_comparison(rows, race_mode="nar", sort_mode="corner4_front")
 
-    assert [horse["number"] for horse in by_number["rows"]] == ["2", "5", "8"]
-    assert [horse["number"] for horse in by_ability["rows"]] == ["5", "2", "8"]
-    assert [horse["number"] for horse in by_current["rows"]] == ["5", "8", "2"]
+    assert [horse["number"] for horse in by_number["rows"]] == ["1", "2", "3"]
+    assert [horse["number"] for horse in by_ability["rows"]] == ["2", "3", "1"]
+    assert [horse["ability_value"] for horse in by_ability["rows"]] == [80.0, 60.0, 50.0]
+    assert [horse["recent3_indices"] for horse in by_ability["rows"]] == ["22", "33", "11"]
+    assert [horse["number"] for horse in by_current["rows"]] == ["3", "1", "2"]
     assert [horse["number"] for horse in by_corner["rows"]][0] == "2"
 
 
@@ -175,6 +177,8 @@ def test_full_field_comparison_supports_jra_display_fields_without_diagnostics()
             1,
             "中団",
             market_ability_score=72.4,
+            venue="中京競馬場",
+            distance=1400,
             distance_index=43,
             course_index=48,
             jockey_display_market="川田将雅（継続）",
@@ -235,10 +239,10 @@ def test_recent3_star_falls_back_to_saved_current_venue_and_distance() -> None:
             1,
             1,
             "先団",
-            venue="園田",
-            distance="1400m",
+            venue="園田競馬場",
+            distance=1400,
             recent_runs=[
-                {"venue": "園田", "distance": "1400m", "time_index": "13", "finish": "2着"},
+                {"venue": "園田", "distance": "ダート1400m", "time_index": "13", "finish": "2着"},
                 {"venue": "姫路", "distance": "1400m", "time_index": "-10", "finish": "4着"},
                 {"venue": "園田", "distance": "820m", "time_index": "2", "finish": "5着"},
             ],
@@ -248,4 +252,49 @@ def test_recent3_star_falls_back_to_saved_current_venue_and_distance() -> None:
     comparison = build_full_field_comparison(rows, race_mode="nar")
 
     assert comparison["rows"][0]["recent3_indices"] == "★13 / -10 / 2"
-    assert comparison["rows"][0]["recent3_conditions"] == "園田1400m / 姫路1400m / 園田820m"
+    assert comparison["rows"][0]["recent3_conditions"] == "園田ダート1400m / 姫路1400m / 園田820m"
+
+
+def test_recent3_star_uses_current_venue_and_distance_not_matched_runs_only() -> None:
+    rows = [
+        _row(
+            1,
+            1,
+            1,
+            "中団",
+            venue="園田",
+            distance="820m",
+            recent_runs=[
+                {"label": "前走", "venue": "園田", "distance": "1400m", "time_index": "13"},
+                {"label": "2走前", "venue": "園田", "distance": "820m", "time_index": "7"},
+            ],
+            matched_past_runs=[
+                {"label": "前走", "venue": "園田", "distance": "1400m", "time_index": "13"},
+            ],
+        )
+    ]
+
+    comparison = build_full_field_comparison(rows, race_mode="nar")
+
+    assert comparison["rows"][0]["recent3_indices"] == "13 / ★7"
+
+
+def test_recent3_star_uses_saved_condition_reason_when_race_fields_are_not_on_horse_row() -> None:
+    rows = [
+        _row(
+            1,
+            1,
+            1,
+            "中団",
+            condition_fit_reason="笠松 1400mの過去走あり",
+            recent_races=[
+                {"venue": "笠松", "distance": "1400m", "time_index": "18"},
+                {"venue": "名古屋", "distance": "1400m", "time_index": "28"},
+                {"venue": "笠松", "distance": "1600m", "time_index": "43"},
+            ],
+        )
+    ]
+
+    comparison = build_full_field_comparison(rows, race_mode="nar")
+
+    assert comparison["rows"][0]["recent3_indices"] == "★18 / 28 / 43"

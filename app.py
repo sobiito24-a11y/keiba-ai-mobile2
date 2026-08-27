@@ -2090,7 +2090,7 @@ def render_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
             "表示順",
             options,
             index=0,
-            key=f"full_field_comparison_sort_{clean_text(race_mode).lower()}_{id(table)}",
+            key=full_field_comparison_sort_key(table, race_mode),
         )
     else:
         selected_label = options[0]
@@ -2113,6 +2113,24 @@ def render_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
         )
     st.markdown(full_field_comparison_html(comparison), unsafe_allow_html=True)
     st.caption("保存済み予想情報の横比較です。能力値・印・展開位置・研究買いは再計算していません。")
+
+
+def full_field_comparison_sort_key(table: pd.DataFrame, race_mode: str) -> str:
+    """Use a stable widget key so the selected sort survives Streamlit reruns."""
+
+    mode = clean_text(race_mode).lower() or "race"
+    race_bits: list[str] = [mode]
+    for column in ("race_id", "race_id_market", "レースID", "race_date", "開催日", "開催場", "venue", "race_name"):
+        if column in table.columns:
+            values = [clean_text(value) for value in table[column].dropna().head(2).tolist()]
+            race_bits.extend(value for value in values if value)
+    number_column = next((column for column in ("馬番", "horse_no", "horse_number", "number") if column in table.columns), "")
+    if number_column:
+        numbers = [clean_text(value) for value in table[number_column].dropna().tolist()]
+        race_bits.append("-".join(numbers[:24]))
+    seed = "_".join(bit for bit in race_bits if bit) or "race"
+    seed = re.sub(r"[^0-9A-Za-z_\-]+", "_", seed)[:120]
+    return f"full_field_comparison_sort_{seed}"
 
 
 def render_nar_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
@@ -2164,9 +2182,9 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
     race_mode = clean_text(comparison.get("race_mode")).lower()
     metrics: list[tuple[str, str, Any]] = [
         ("印", "", lambda horse: clean_text(horse.get("mark")) or "—"),
-        ("能力順位", "", lambda horse: rank_display(horse.get("ability_rank"))),
         ("能力値", "", lambda horse: number_display(horse.get("ability_value"))),
-        ("能力1位との差", "", lambda horse: clean_text(horse.get("ability_gap_text")) or "—"),
+        ("能力順位", "", lambda horse: rank_display(horse.get("ability_rank"))),
+        ("1位との差", "", lambda horse: clean_text(horse.get("ability_gap_text")) or "—"),
         ("今回評価順位", "", lambda horse: rank_display(horse.get("current_evaluation_rank"))),
         ("4角位置", "position", lambda horse: clean_text(horse.get("corner4_display")) or clean_text(horse.get("corner4_label")) or comparison_position_icon(clean_text(horse.get("corner4_group")))),
         ("近3走指数", "", lambda horse: clean_text(horse.get("recent3_indices")) or "—"),
@@ -2198,7 +2216,15 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
         metrics.insert(-2, ("厩舎コメント", "", lambda horse: clean_text(horse.get("stable_comment")) or "—"))
     header = ['<th class="ka-sticky-metric">比較項目</th>']
     for horse in rows:
-        title = f"{clean_text(horse.get('number'))} {clean_text(horse.get('name'))}".strip() or "—"
+        title = " ".join(
+            part
+            for part in [
+                clean_text(horse.get("number")),
+                clean_text(horse.get("sex_age")),
+                clean_text(horse.get("name")),
+            ]
+            if part
+        ) or "—"
         mark = clean_text(horse.get("mark"))
         header.append(
             "<th>"

@@ -21,6 +21,8 @@ class StreamlitStub(types.ModuleType):
         self.last_dataframe: pd.DataFrame | None = None
         self.markdown_calls: list[str] = []
         self.expander_labels: list[str] = []
+        self.selectbox_value: str | None = None
+        self.selectbox_calls: list[dict[str, object]] = []
 
     def set_page_config(self, **_kwargs) -> None:
         return None
@@ -39,6 +41,12 @@ class StreamlitStub(types.ModuleType):
 
     def markdown(self, value, **_kwargs) -> None:
         self.markdown_calls.append(value)
+
+    def selectbox(self, label, options, index=0, key=None, **_kwargs):
+        self.selectbox_calls.append({"label": label, "options": list(options), "key": key})
+        if self.selectbox_value in options:
+            return self.selectbox_value
+        return options[index]
 
     def expander(self, label, **_kwargs):
         self.expander_labels.append(label)
@@ -389,6 +397,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
                     {
                         "number": "1",
                         "name": "テストホース",
+                        "sex_age": "牡4",
                         "mark": "◎",
                         "ability_rank": 1,
                         "ability_value": 72.4,
@@ -424,7 +433,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("コース指数", html)
         self.assertIn("ka-sticky-metric", html)
         self.assertIn("比較項目", html)
-        self.assertIn("1 テストホース", html)
+        self.assertIn("1 牡4 テストホース", html)
         self.assertIn("馬体重", html)
         self.assertIn("470kg（-10）", html)
         self.assertIn("中2週", html)
@@ -434,7 +443,12 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("B/仕上上々", html)
         self.assertIn("前向きさが出て順調。", html)
         self.assertIn("56.0kg（±0）", html)
-        self.assertIn("能力1位との差", html)
+        self.assertIn("1位との差", html)
+        self.assertNotIn("能力1位との差", html)
+        self.assertLess(html.index("印"), html.index("能力値"))
+        self.assertLess(html.index("能力値"), html.index("能力順位"))
+        self.assertLess(html.index("能力順位"), html.index("1位との差"))
+        self.assertLess(html.index("1位との差"), html.index("今回評価順位"))
         self.assertIn("同回り", html)
         self.assertIn("○", html)
         self.assertNotIn("近走勝利", html)
@@ -487,6 +501,29 @@ class DetailAnalysisTableTest(unittest.TestCase):
 
         self.assertNotIn("能力1位 vs 能力2位", joined)
         self.assertEqual(joined.count("ka-comparison-table"), 1)
+
+    def test_render_full_field_comparison_applies_selected_sort_to_horse_columns(self) -> None:
+        self.streamlit.markdown_calls = []
+        self.streamlit.selectbox_value = "能力順"
+        self.app.render_full_field_comparison(
+            pd.DataFrame(
+                [
+                    {"race_id": "sort-race", "馬番": 1, "馬名": "NumberOne", "sex_age": "牡4", "market_ability_score": 50.0, "market_ability_rank": 3, "current_evaluation_rank": 2, "recent_runs": [{"time_index": "11"}]},
+                    {"race_id": "sort-race", "馬番": 2, "馬名": "TopAbility", "sex_age": "牝3", "market_ability_score": 80.0, "market_ability_rank": 1, "current_evaluation_rank": 3, "recent_runs": [{"time_index": "22"}]},
+                    {"race_id": "sort-race", "馬番": 3, "馬名": "SecondAbility", "sex_age": "セ5", "market_ability_score": 60.0, "market_ability_rank": 2, "current_evaluation_rank": 1, "recent_runs": [{"time_index": "33"}]},
+                ]
+            ),
+            "nar",
+        )
+        joined = "\n".join(self.streamlit.markdown_calls)
+
+        self.assertLess(joined.index("2 牝3 TopAbility"), joined.index("3 セ5 SecondAbility"))
+        self.assertLess(joined.index("3 セ5 SecondAbility"), joined.index("1 牡4 NumberOne"))
+        self.assertLess(joined.index("22"), joined.index("33"))
+        self.assertLess(joined.index("33"), joined.index("11"))
+        self.assertTrue(self.streamlit.selectbox_calls)
+        self.assertIn("sort-race", str(self.streamlit.selectbox_calls[-1]["key"]))
+        self.streamlit.selectbox_value = None
 
     def test_market_ai_evaluation_appends_existing_sex_age_to_horse_name(self) -> None:
         self.streamlit.last_dataframe = None
