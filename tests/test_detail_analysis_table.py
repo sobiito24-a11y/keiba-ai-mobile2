@@ -412,6 +412,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
                         "corner4_label": "中団",
                         "corner4_group": "middle",
                         "jockey_display": "川田将雅 35%",
+                        "jockey_info": "川田将雅｜継続｜複35%｜56.0kg（±0）",
                         "jockey_change": "継続",
                         "training": "B/仕上上々",
                         "stable_comment": "前向きさが出て順調。",
@@ -439,18 +440,27 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("中2週", html)
         self.assertIn("今回G3", html)
         self.assertIn("直近②に先着", html)
-        self.assertIn("川田将雅 35%", html)
+        self.assertIn("騎手情報", html)
+        self.assertIn("川田将雅｜継続｜複35%｜56.0kg（±0）", html)
+        self.assertIn("ka-comparison-sticky-row ka-comparison-sticky-1", html)
+        self.assertIn("ka-comparison-sticky-row ka-comparison-sticky-2", html)
         self.assertIn("B/仕上上々", html)
         self.assertIn("前向きさが出て順調。", html)
         self.assertIn("56.0kg（±0）", html)
         self.assertIn("1位との差", html)
         self.assertNotIn("能力1位との差", html)
-        self.assertLess(html.index("印"), html.index("能力値"))
+        self.assertLess(html.index("印"), html.index("騎手情報"))
+        self.assertLess(html.index("騎手情報"), html.index("能力値"))
         self.assertLess(html.index("能力値"), html.index("能力順位"))
         self.assertLess(html.index("能力順位"), html.index("1位との差"))
         self.assertLess(html.index("1位との差"), html.index("今回評価順位"))
+        self.assertLess(html.index("4角位置"), html.index("脚質"))
+        self.assertLess(html.index("脚質"), html.index("近3走指数"))
         self.assertIn("同回り", html)
         self.assertIn("○", html)
+        self.assertNotIn(">騎手</td>", html)
+        self.assertNotIn(">斤量</td>", html)
+        self.assertNotIn("乗替/継続", html)
         self.assertNotIn("近走勝利", html)
         self.assertNotIn("近走3着内", html)
         self.assertIn("能力差", self.app.nar_comparison_top_two_html({

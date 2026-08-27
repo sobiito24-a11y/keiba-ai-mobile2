@@ -71,6 +71,8 @@ def test_nar_full_field_comparison_keeps_all_horses_and_display_facts() -> None:
             course_index=12,
             recent_runs=[{"venue": "東京", "finish": "2着"}, {"venue": "中山", "finish": "4着"}],
             _jockey_course_place_rate=31,
+            jockey_change="継続",
+            jockey_market="和田譲治",
             weight=56,
             previous_weight=56,
             body_weight="470kg",
@@ -107,6 +109,7 @@ def test_nar_full_field_comparison_keeps_all_horses_and_display_facts() -> None:
     assert comparison["rows"][0]["ability_gap_text"] == "0"
     assert comparison["rows"][0]["transfer_status"] == "JRA→NAR初戦"
     assert comparison["rows"][0]["jockey_course_place_rate"] == "31%"
+    assert comparison["rows"][0]["jockey_info"] == "和田譲治｜継続｜複31%｜56.0kg（±0）"
     assert comparison["rows"][0]["weight"] == "56.0kg（±0）"
     assert comparison["rows"][0]["body_weight"] == "470kg（-10）"
     assert comparison["rows"][0]["interval"] == "中2週"
@@ -219,6 +222,7 @@ def test_full_field_comparison_supports_jra_display_fields_without_diagnostics()
     assert comparison["rows"][0]["same_turn"] == "★"
     assert comparison["rows"][0]["same_turn_display"] == "○"
     assert comparison["rows"][0]["jockey_display"] == "川田将雅（継続） 35%"
+    assert comparison["rows"][0]["jockey_info"] == "川田将雅｜継続｜複35%｜54.0kg（-2.0）"
     assert comparison["rows"][0]["training"] == "B/仕上上々"
     assert comparison["rows"][0]["stable_comment"] == "順調に仕上がった。状態は良い。"
     assert "83.5" not in comparison["rows"][0]["training"]
@@ -230,6 +234,46 @@ def test_full_field_comparison_supports_jra_display_fields_without_diagnostics()
     assert comparison["rows"][1]["data_insufficient"] is True
     by_number = {horse["number"]: horse for horse in comparison["rows"]}
     assert by_number["3"]["corner4_display"] == "前方（逃げ）"
+
+
+def test_jra_same_turn_is_independent_from_same_course() -> None:
+    left_with_left_runs = _row(
+        1,
+        1,
+        1,
+        "中団",
+        venue="東京",
+        distance="1600m",
+        recent_runs=[
+            {"venue": "中京", "distance": "1400m", "time_index": "10"},
+            {"venue": "京都", "distance": "1600m", "time_index": "11"},
+        ],
+    )
+    left_with_right_runs = _row(
+        2,
+        2,
+        2,
+        "中団",
+        venue="東京",
+        distance="1600m",
+        recent_runs=[
+            {"venue": "中山", "distance": "1600m", "time_index": "12"},
+            {"venue": "阪神", "distance": "1800m", "time_index": "13"},
+            {"venue": "京都", "distance": "1600m", "time_index": "14"},
+        ],
+    )
+    missing_turn = _row(3, 3, 3, "中団", venue="", distance="1600m", recent_runs=[{"venue": "", "distance": "1600m"}])
+
+    comparison = build_full_field_comparison(
+        [left_with_left_runs, left_with_right_runs, missing_turn],
+        race_mode="jra",
+    )
+    by_number = {horse["number"]: horse for horse in comparison["rows"]}
+
+    assert by_number["1"]["same_course"] == "—"
+    assert by_number["1"]["same_turn_display"] == "○"
+    assert by_number["2"]["same_turn_display"] == "×"
+    assert by_number["3"]["same_turn_display"] == "—"
 
 
 def test_recent3_star_falls_back_to_saved_current_venue_and_distance() -> None:

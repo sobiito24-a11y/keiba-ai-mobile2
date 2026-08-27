@@ -176,9 +176,13 @@ def _comparison_horse(row: Mapping[str, Any], *, race_mode: str) -> dict[str, An
             recent_top3_count += 1
 
     same_distance, same_course, same_turn = _condition_fit_cells(row, diagnostic.get("data_insufficient"))
+    if race_mode == "jra":
+        same_turn = _same_turn_from_recent_runs(row, runs)
     transfer_status, local_experience = _transfer_status(runs) if race_mode == "nar" else ("", "")
     jockey_rate = _jockey_place_rate(row)
     jockey_display = _jockey_display(row, jockey_rate)
+    weight = _weight_text(row)
+    jockey_info = _jockey_info(row, jockey_rate, weight)
     matched_runs = _matched_past_runs(row)
     recent_indices, recent_conditions = _recent_display_cells(runs, matched_runs, row=row, race_mode=race_mode)
     distance_index = _index_value(row, "距離指数", "distance_index")
@@ -213,13 +217,14 @@ def _comparison_horse(row: Mapping[str, Any], *, race_mode: str) -> dict[str, An
         "same_turn": same_turn,
         "same_turn_display": _same_turn_display(same_turn),
         "jockey_display": jockey_display,
+        "jockey_info": jockey_info,
         "jockey_course_place_rate": jockey_rate,
         "transfer_status": transfer_status,
         "local_experience": local_experience,
         "training": _training_text(row),
         "stable_comment": _stable_comment_text(row),
         "jockey_change": _text(_first(row, "騎手継続/乗替", "jockey_change", "jockey_change_market")),
-        "weight": _weight_text(row),
+        "weight": weight,
         "body_weight": _body_weight_text(row),
         "interval": _interval_text(row),
         "class_record": _class_record_text(row),
@@ -485,6 +490,56 @@ def _jockey_display(row: Mapping[str, Any], rate: str) -> str:
     return display
 
 
+def _jockey_info(row: Mapping[str, Any], rate: str, weight: str) -> str:
+    name = _jockey_info_name(row)
+    change = _jockey_change_label(row)
+    parts = [name, change]
+    if rate and rate != "—":
+        parts.append(f"複{rate}" if not rate.startswith("複") else rate)
+    if weight and weight != "—":
+        parts.append(weight)
+    return "｜".join(part for part in parts if part) or "—"
+
+
+def _jockey_info_name(row: Mapping[str, Any]) -> str:
+    current = _text(
+        _first(
+            row,
+            "_display_current_jockey",
+            "_current_jockey",
+            "jockey_market",
+            "騎手",
+            "jockey",
+            "saved_jockey",
+        )
+    )
+    if current:
+        return _clean_jockey_info_name(current)
+    display = _text(_first(row, "jockey_display_market", "jockey_display", "騎手詳細", "jockey_detail"))
+    if "→" in display:
+        display = display.split("→")[-1]
+    return _clean_jockey_info_name(display)
+
+
+def _clean_jockey_info_name(value: Any) -> str:
+    text = _text(value)
+    text = re.sub(r"[（(][^）)]*(?:継続|乗替|替|複\d+(?:\.\d+)?%)[^）)]*[）)]", "", text)
+    text = re.sub(r"【[^】]*(?:継続|乗替|替|複\d+(?:\.\d+)?%)[^】]*】", "", text)
+    text = re.sub(r"(?:複)?\d+(?:\.\d+)?%", "", text)
+    return _text(text)
+
+
+def _jockey_change_label(row: Mapping[str, Any]) -> str:
+    raw = _text(_first(row, "騎手継続/乗替", "jockey_change", "jockey_change_market"))
+    display = _text(_first(row, "jockey_display_market", "jockey_display", "騎手詳細", "jockey_detail"))
+    text = f"{raw} {display}"
+    if "→" in text or "乗替" in text or "乗り替" in text or "替" in text:
+        return "乗替"
+    if "継続" in text or "継" in text:
+        return "継続"
+    return ""
+
+
 def _training_text(row: Mapping[str, Any]) -> str:
     existing = _text(_first(row, "training_display", "調教表示"))
     compact = _compact_training_text(existing)
@@ -669,7 +724,36 @@ def _run_turn_label(run: Mapping[str, Any]) -> str:
         return "左"
     if "右" in turn:
         return "右"
-    venue = _text(_first(run, "venue", "racecourse", "track", "競馬場"))
+    venue = _venue_key(_first(run, "venue", "racecourse", "track", "競馬場", "venue_name", "place", "場所", "開催", "場名"))
+    return _venue_turn_label(venue)
+
+
+def _same_turn_from_recent_runs(row: Mapping[str, Any], runs: Sequence[Mapping[str, Any]]) -> str:
+    current_turn = _current_turn_label(row)
+    if not current_turn:
+        return "?"
+    has_turn_data = False
+    for run in list(runs)[:3]:
+        run_turn = _run_turn_label(run)
+        if not run_turn:
+            continue
+        has_turn_data = True
+        if run_turn == current_turn:
+            return "★"
+    return "—" if has_turn_data else "?"
+
+
+def _current_turn_label(row: Mapping[str, Any]) -> str:
+    turn = _text(_first(row, "direction", "turn", "回り", "course_direction", "race_turn", "current_turn"))
+    if "左" in turn:
+        return "左"
+    if "右" in turn:
+        return "右"
+    venue = _venue_key(_first(row, "venue", "開催場", "race_venue", "current_venue", "racecourse", "track", "競馬場", "場所", "場名"))
+    return _venue_turn_label(venue)
+
+
+def _venue_turn_label(venue: str) -> str:
     return {
         "東京": "左",
         "中京": "左",
@@ -786,7 +870,7 @@ def _weight_diff_from_text(value: Any) -> float | None:
 def _same_turn_display(value: Any) -> str:
     text = _text(value)
     if text in {"?", "不明"}:
-        return "?"
+        return "—"
     if text and text not in {"—", "-", "なし", "実績なし", "×"}:
         return "○"
     return "×"
