@@ -381,6 +381,50 @@ class DetailAnalysisTableTest(unittest.TestCase):
 
         self.assertEqual(calls, ["header", "facts", "cards", "full", "selection", "audit"])
 
+    def test_full_field_comparison_html_uses_compact_columns_without_top_gap_column(self) -> None:
+        html = self.app.full_field_comparison_html(
+            {
+                "race_mode": "jra",
+                "rows": [
+                    {
+                        "number": "1",
+                        "name": "テストホース",
+                        "mark": "◎",
+                        "ability_rank": 1,
+                        "ability_value": 72.4,
+                        "current_evaluation_rank": 1,
+                        "recent3_indices": "★72 / 68 / ★75",
+                        "recent3_conditions": "中京1400m / 東京1600m / 中京1400m",
+                        "distance_index": "43",
+                        "course_index": "48",
+                        "same_turn": "★",
+                        "running_style": "差し",
+                        "corner4_label": "中団",
+                        "corner4_group": "middle",
+                        "jockey_display": "川田将雅 35%",
+                        "jockey_change": "継続",
+                        "training": "B↑ 仕上上々",
+                        "weight": "56.0kg",
+                        "positive_tags": ["今回評価TOP3"],
+                        "negative_tags": [],
+                    }
+                ],
+            }
+        )
+
+        self.assertIn("近3走指数", html)
+        self.assertIn("近3走条件", html)
+        self.assertIn("距離指数", html)
+        self.assertIn("コース指数", html)
+        self.assertIn("川田将雅 35%", html)
+        self.assertIn("B↑ 仕上上々", html)
+        self.assertNotIn("1位との差", html)
+        self.assertIn("能力差", self.app.nar_comparison_top_two_html({
+            "top1": {"number": "1", "name": "A", "ability_rank": 1, "ability_value": 17.7},
+            "top2": {"number": "2", "name": "B", "ability_rank": 2, "ability_value": 17.6},
+            "gap_1_2": 0.1,
+        }))
+
     def test_market_ai_evaluation_appends_existing_sex_age_to_horse_name(self) -> None:
         self.streamlit.last_dataframe = None
         self.app.render_market_ai_evaluation(

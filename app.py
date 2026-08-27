@@ -52,6 +52,7 @@ from core.market_compare import (
     race_pace_snapshot,
 )
 from core.nar_race_diagnostics import (
+    build_full_field_comparison,
     build_nar_full_field_comparison,
     build_nar_race_diagnostics,
     category_reason,
@@ -1715,15 +1716,17 @@ def render_market_compare_result(result: PredictionResult) -> None:
         "オッズ・人気・騎手・斤量・間隔・展開/コース・＋－材料では能力値・順位・帯を動かしません。"
     )
     render_market_race_facts(result, table)
-    render_nar_race_diagnostics(table, result.race_mode, race_info=getattr(result, "race_info", {}) or {}, layout="mobile")
-    render_nar_full_field_comparison(table, result.race_mode)
     if clean_text(result.race_mode).lower() == "nar":
-        with st.expander("馬別詳細カードを見る", expanded=False):
-            render_market_horse_cards(table, result.race_mode)
+        render_nar_race_diagnostics(table, result.race_mode, race_info=getattr(result, "race_info", {}) or {}, layout="mobile")
     else:
+        render_jra_race_diagnostics(table, result.race_mode)
+    render_full_field_comparison(table, result.race_mode)
+    with st.expander("馬別コンパクトカードを見る", expanded=False):
         render_market_horse_cards(table, result.race_mode)
-    render_market_research_bet(table, result.race_mode, context="mobile")
-    render_market_full_table(table, result.race_mode)
+    with st.expander("研究買いガイド（参考）", expanded=False):
+        render_market_research_bet(table, result.race_mode, context="mobile")
+    with st.expander("従来の全頭表を見る", expanded=False):
+        render_market_full_table(table, result.race_mode)
     render_market_user_selection(result, table)
     render_market_audit_details(result, table)
 
@@ -1909,29 +1912,39 @@ def render_nar_race_diagnostics(
         + "</div>",
         unsafe_allow_html=True,
     )
-    categories = [
-        ("win", "🏆 勝ち候補", "win_candidates", "能力TOP3を研究上の勝ち候補として表示"),
-        ("partner", "🎯 相手本線", "main_partners", "能力TOP5かつ4角前方"),
-        ("pace", "👀 展開注意", "pace_watch", "4角前方想定。購入条件ではありません"),
-        ("outside", "⚠ 能力外警戒", "ability_outside_watch", "能力6位以下でも今回評価TOP5または保存近走3着内"),
-        ("insufficient", "❓ データ不足警戒", "data_insufficient_watch", "能力順位だけでは判断しにくい馬"),
-    ]
-    if layout == "dashboard":
-        columns = st.columns(len(categories))
-        for column, (key, title, field, empty) in zip(columns, categories):
-            with column:
-                st.markdown(
-                    nar_diagnostic_card_html(title, diagnostics.get(field) or [], key, empty),
-                    unsafe_allow_html=True,
-                )
-    else:
-        for key, title, field, empty in categories:
-            with st.expander(title, expanded=key in {"win", "partner"}):
-                st.markdown(
-                    nar_diagnostic_card_html(title, diagnostics.get(field) or [], key, empty, include_title=False),
-                    unsafe_allow_html=True,
-                )
+    st.markdown(nar_diagnostic_unified_html(diagnostics), unsafe_allow_html=True)
     render_nar_position_flow(diagnostics, layout=layout)
+
+
+def render_jra_race_diagnostics(table: pd.DataFrame, race_mode: str) -> None:
+    if clean_text(race_mode).lower() != "jra":
+        return
+    rows = table.to_dict("records")
+    labels: list[str] = []
+    warnings: list[str] = []
+    for row in rows:
+        top_label = clean_text(pick(row, "ability_top_match_label"))
+        if top_label:
+            labels.append(top_label)
+        warning = clean_text(pick(row, "ability_unmarked_warning"))
+        if warning:
+            horse = join_nonempty([horse_no(pick(row, "馬番", "馬")), pick(row, "馬名")], sep=" ")
+            warnings.append(f"{horse}：{warning}")
+    if not labels and not warnings:
+        return
+    body: list[str] = []
+    if labels:
+        body.append("能力1位確認：" + " / ".join(unique_nonempty(labels)))
+    if warnings:
+        body.append("既存alert：" + "<br>".join(plain_text_to_html(line) for line in warnings))
+    st.subheader("🔍 AIレース診断")
+    st.markdown(
+        '<div class="ka-dashboard-card">'
+        + "<br>".join(line if "<br>" in line else plain_text_to_html(line) for line in body)
+        + '<div class="ka-note">保存済みのJRA alertを表示しています。印・評価は変更しません。</div>'
+        + "</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def nar_summary_text(values: Any) -> str:
@@ -1962,6 +1975,42 @@ def nar_diagnostic_card_html(
             + "</div>"
         )
     return f'<div class="ka-nar-diagnostic-card {category}">' + "".join(blocks) + "</div>"
+
+
+def nar_diagnostic_unified_html(diagnostics: dict[str, Any]) -> str:
+    category_sets = {
+        "勝ち候補": {clean_text(horse.get("number")) for horse in diagnostics.get("win_candidates") or []},
+        "相手本線": {clean_text(horse.get("number")) for horse in diagnostics.get("main_partners") or []},
+        "4角前": {clean_text(horse.get("number")) for horse in diagnostics.get("pace_watch") or []},
+        "能力外警戒": {clean_text(horse.get("number")) for horse in diagnostics.get("ability_outside_watch") or []},
+        "データ不足": {clean_text(horse.get("number")) for horse in diagnostics.get("data_insufficient_watch") or []},
+    }
+    horses = diagnostics.get("horses") or []
+    rows: list[str] = []
+    for horse in sorted(
+        horses,
+        key=lambda item: (
+            item.get("ability_rank") if item.get("ability_rank") is not None else 999,
+            item.get("current_evaluation_rank") if item.get("current_evaluation_rank") is not None else 999,
+            to_float(item.get("number")) or 999,
+        ),
+    ):
+        number = clean_text(horse.get("number"))
+        badges = [label for label, members in category_sets.items() if number in members]
+        if not badges:
+            continue
+        badge_html = "".join(
+            f'<span class="ka-comparison-tag plus">{plain_text_to_html(label)}</span>'
+            for label in badges
+        )
+        rows.append(
+            '<div class="ka-nar-diagnostic-item">'
+            f'<b>{plain_text_to_html(diagnostic_line(horse))}</b><br>{badge_html}'
+            "</div>"
+        )
+    if not rows:
+        rows.append('<div class="ka-nar-diagnostic-item ka-muted">該当馬なし</div>')
+    return '<div class="ka-nar-diagnostic-card">' + "".join(rows) + "</div>"
 
 
 def render_nar_position_flow(diagnostics: dict[str, Any], *, layout: str = "mobile") -> None:
@@ -2001,20 +2050,24 @@ def nar_position_stage_html(title: str, groups: dict[str, list[dict[str, str]]])
     return '<div class="ka-position-stage">' + "".join(lines) + "</div>"
 
 
-def render_nar_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
-    comparison = build_nar_full_field_comparison(table.to_dict("records"), race_mode=race_mode)
+def render_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
+    comparison = build_full_field_comparison(table.to_dict("records"), race_mode=race_mode)
     if not comparison.get("show"):
         return
     st.subheader("全頭横比較")
     labels = comparison.get("sort_labels") if isinstance(comparison.get("sort_labels"), dict) else {}
     mode_by_label = {label: mode for mode, label in labels.items()}
-    selected_label = st.selectbox(
-        "表示順",
-        list(mode_by_label.keys()) or ["馬番順"],
-        index=0,
-        key="nar_full_field_comparison_sort",
-    )
-    comparison = build_nar_full_field_comparison(
+    options = list(mode_by_label.keys()) or ["馬番順"]
+    if hasattr(st, "selectbox"):
+        selected_label = st.selectbox(
+            "表示順",
+            options,
+            index=0,
+            key=f"full_field_comparison_sort_{clean_text(race_mode).lower()}_{id(table)}",
+        )
+    else:
+        selected_label = options[0]
+    comparison = build_full_field_comparison(
         table.to_dict("records"),
         race_mode=race_mode,
         sort_mode=mode_by_label.get(selected_label, "horse_number"),
@@ -2034,8 +2087,12 @@ def render_nar_full_field_comparison(table: pd.DataFrame, race_mode: str) -> Non
             '</div>',
             unsafe_allow_html=True,
         )
-    st.markdown(nar_full_field_comparison_html(comparison.get("rows") or []), unsafe_allow_html=True)
+    st.markdown(full_field_comparison_html(comparison), unsafe_allow_html=True)
     st.caption("保存済み予想情報の横比較です。能力値・印・展開位置・研究買いは再計算していません。")
+
+
+def render_nar_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
+    render_full_field_comparison(table, race_mode)
 
 
 def nar_comparison_top_two_html(comparison: dict[str, Any]) -> str:
@@ -2064,8 +2121,11 @@ def nar_comparison_vs_card_html(horse: dict[str, Any]) -> str:
         f"4角：{clean_text(horse.get('corner4_label')) or comparison_position_icon(clean_text(horse.get('corner4_group')))}",
         f"近走3着内：{'あり' if int(horse.get('recent_top3_count') or 0) > 0 else 'なし'}",
         f"今回評価：{rank_display(horse.get('current_evaluation_rank'))}",
-        f"転入：{clean_text(horse.get('transfer_status')) or '判定不明'}",
     ]
+    if clean_text(horse.get("transfer_status")):
+        lines.append(f"転入：{clean_text(horse.get('transfer_status'))}")
+    if clean_text(horse.get("training")):
+        lines.append(f"調教：{clean_text(horse.get('training'))}")
     return (
         '<div class="ka-comparison-vs-card">'
         + "<br>".join(plain_text_to_html(line) for line in lines if clean_text(line))
@@ -2073,28 +2133,34 @@ def nar_comparison_vs_card_html(horse: dict[str, Any]) -> str:
     )
 
 
-def nar_full_field_comparison_html(rows: list[dict[str, Any]]) -> str:
+def full_field_comparison_html(comparison: dict[str, Any]) -> str:
+    rows = comparison.get("rows") or []
     if not rows:
         return '<div class="ka-dashboard-card">比較できる出走馬データがありません。</div>'
+    race_mode = clean_text(comparison.get("race_mode")).lower()
     metrics: list[tuple[str, str, Any]] = [
         ("印", "", lambda horse: clean_text(horse.get("mark")) or "—"),
         ("能力順位", "", lambda horse: rank_display(horse.get("ability_rank"))),
         ("能力値", "", lambda horse: number_display(horse.get("ability_value"))),
-        ("1位との差", "", lambda horse: clean_text(horse.get("ability_gap_text")) or "—"),
         ("今回評価順位", "", lambda horse: rank_display(horse.get("current_evaluation_rank"))),
-        ("近走勝利", "", lambda horse: clean_text(horse.get("recent_win_label")) or "—"),
-        ("近走3着内", "", lambda horse: clean_text(horse.get("recent_top3_label")) or "—"),
-        ("同距離", "", lambda horse: clean_text(horse.get("same_distance")) or "—"),
-        ("同コース", "", lambda horse: clean_text(horse.get("same_course")) or "—"),
+        ("近3走指数", "", lambda horse: clean_text(horse.get("recent3_indices")) or "—"),
+        ("近3走条件", "", lambda horse: clean_text(horse.get("recent3_conditions")) or "—"),
+        ("距離指数", "", lambda horse: clean_text(horse.get("distance_index")) or "—"),
+        ("コース指数", "", lambda horse: clean_text(horse.get("course_index")) or "—"),
         ("同回り", "", lambda horse: clean_text(horse.get("same_turn")) or "—"),
         ("脚質", "", lambda horse: clean_text(horse.get("running_style")) or "—"),
         ("4角位置", "position", lambda horse: clean_text(horse.get("corner4_label")) or comparison_position_icon(clean_text(horse.get("corner4_group")))),
-        ("騎手コース", "", lambda horse: clean_text(horse.get("jockey_course_place_rate")) or "—"),
-        ("転入状態", "transfer", lambda horse: clean_text(horse.get("transfer_status")) or "判定不明"),
-        ("地方実績", "", lambda horse: clean_text(horse.get("local_experience")) or "判定不明"),
+        ("騎手", "", lambda horse: clean_text(horse.get("jockey_display")) or "—"),
         ("プラス材料", "plus", lambda horse: horse.get("positive_tags") or []),
         ("不安材料", "minus", lambda horse: horse.get("negative_tags") or []),
     ]
+    if race_mode == "nar":
+        metrics.insert(-2, ("転入状態", "transfer", lambda horse: clean_text(horse.get("transfer_status")) or "判定不明"))
+        metrics.insert(-2, ("地方実績", "", lambda horse: clean_text(horse.get("local_experience")) or "判定不明"))
+    if race_mode == "jra":
+        metrics.insert(-2, ("乗替/継続", "", lambda horse: clean_text(horse.get("jockey_change")) or "—"))
+        metrics.insert(-2, ("調教", "", lambda horse: clean_text(horse.get("training")) or "—"))
+        metrics.insert(-2, ("斤量", "", lambda horse: clean_text(horse.get("weight")) or "—"))
     header = ['<th>比較項目</th>']
     for horse in rows:
         label = f"{clean_text(horse.get('number'))} {clean_text(horse.get('name'))}"

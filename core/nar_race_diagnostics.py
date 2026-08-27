@@ -1,12 +1,15 @@
 """NAR race diagnostics built only from saved prediction display values."""
 from __future__ import annotations
 
+import ast
+import json
 import math
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .recent_races import build_recent_races
+from .value_support import training_display as _training_display
 
 
 FRONT_LABELS = {"逃げ", "先団", "前方"}
@@ -85,18 +88,19 @@ def build_nar_race_diagnostics(
     }
 
 
-def build_nar_full_field_comparison(
+def build_full_field_comparison(
     rows: Sequence[Mapping[str, Any]],
     *,
-    race_mode: str = "nar",
+    race_mode: str = "jra",
     sort_mode: str = "horse_number",
 ) -> dict[str, Any]:
-    """Build display-only NAR comparison rows from saved prediction values."""
+    """Build display-only comparison rows from saved prediction values."""
 
-    if _text(race_mode).lower() != "nar":
+    mode = _text(race_mode).lower()
+    if mode not in {"jra", "nar"}:
         return {"show": False, "research_only": True}
     records = [row for row in rows if isinstance(row, Mapping)]
-    horses = [_comparison_horse(row) for row in records]
+    horses = [_comparison_horse(row, race_mode=mode) for row in records]
     horses = [horse for horse in horses if horse.get("number")]
     if not horses:
         return {"show": False, "research_only": True}
@@ -123,6 +127,8 @@ def build_nar_full_field_comparison(
 
     horses = _sort_comparison_horses(horses, sort_mode)
     transfer_watch = bool(
+        mode == "nar"
+        and
         top1
         and top2
         and top1.get("transfer_status") == "JRA→NAR初戦"
@@ -131,6 +137,7 @@ def build_nar_full_field_comparison(
     return {
         "show": True,
         "research_only": True,
+        "race_mode": mode,
         "sort_mode": sort_mode if sort_mode in COMPARISON_SORT_LABELS else "horse_number",
         "sort_labels": COMPARISON_SORT_LABELS,
         "rows": horses,
@@ -141,7 +148,20 @@ def build_nar_full_field_comparison(
     }
 
 
-def _comparison_horse(row: Mapping[str, Any]) -> dict[str, Any]:
+def build_nar_full_field_comparison(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    race_mode: str = "nar",
+    sort_mode: str = "horse_number",
+) -> dict[str, Any]:
+    """Backward-compatible wrapper for NAR-only callers and tests."""
+
+    if _text(race_mode).lower() != "nar":
+        return {"show": False, "research_only": True}
+    return build_full_field_comparison(rows, race_mode=race_mode, sort_mode=sort_mode)
+
+
+def _comparison_horse(row: Mapping[str, Any], *, race_mode: str) -> dict[str, Any]:
     diagnostic = _diagnostic_horse(row)
     runs = _safe_recent_races(row)
     recent_win_count = 0
@@ -154,8 +174,11 @@ def _comparison_horse(row: Mapping[str, Any]) -> dict[str, Any]:
             recent_top3_count += 1
 
     same_distance, same_course, same_turn = _condition_fit_cells(row, diagnostic.get("data_insufficient"))
-    transfer_status, local_experience = _transfer_status(runs)
+    transfer_status, local_experience = _transfer_status(runs) if race_mode == "nar" else ("", "")
     jockey_rate = _jockey_place_rate(row)
+    jockey_display = _jockey_display(row, jockey_rate)
+    matched_runs = _matched_past_runs(row)
+    recent_indices, recent_conditions = _recent_display_cells(runs, matched_runs)
     positive_tags, negative_tags = _comparison_materials(
         diagnostic,
         recent_win_count=recent_win_count,
@@ -173,12 +196,20 @@ def _comparison_horse(row: Mapping[str, Any]) -> dict[str, Any]:
         "recent_top3_count": recent_top3_count,
         "recent_win_label": "★" * recent_win_count if recent_win_count else "—",
         "recent_top3_label": "★" * recent_top3_count if recent_top3_count else "—",
+        "recent3_indices": recent_indices,
+        "recent3_conditions": recent_conditions,
+        "distance_index": _index_value(row, "距離指数", "distance_index"),
+        "course_index": _index_value(row, "コース指数", "course_index"),
         "same_distance": same_distance,
         "same_course": same_course,
         "same_turn": same_turn,
+        "jockey_display": jockey_display,
         "jockey_course_place_rate": jockey_rate,
         "transfer_status": transfer_status,
         "local_experience": local_experience,
+        "training": _training_text(row),
+        "jockey_change": _text(_first(row, "騎手継続/乗替", "jockey_change", "jockey_change_market")),
+        "weight": _text(_first(row, "weight_market", "weight", "斤量", "weight_detail", "斤量詳細")),
         "positive_tags": positive_tags,
         "negative_tags": negative_tags,
     }
@@ -343,6 +374,9 @@ def _sort_comparison_horses(horses: Sequence[Mapping[str, Any]], sort_mode: str)
 
 
 def _safe_recent_races(row: Mapping[str, Any]) -> list[dict[str, Any]]:
+    direct = _parse_sequence(row.get("recent_races"))
+    if direct:
+        return [dict(item) for item in direct[:3] if isinstance(item, Mapping)]
     try:
         return build_recent_races(row)
     except Exception:
@@ -395,6 +429,150 @@ def _jockey_place_rate(row: Mapping[str, Any]) -> str:
     if 0 < rate < 1:
         rate *= 100
     return f"{rate:.0f}%" if float(rate).is_integer() else f"{rate:.1f}%"
+
+
+def _jockey_display(row: Mapping[str, Any], rate: str) -> str:
+    display = _text(
+        _first(
+            row,
+            "jockey_display_market",
+            "jockey_display",
+            "騎手詳細",
+            "jockey_detail",
+            "jockey_market",
+            "騎手",
+            "jockey",
+            "saved_jockey",
+        )
+    )
+    if not display:
+        return rate if rate != "—" else "—"
+    if rate != "—" and rate not in display and f"複{rate}" not in display:
+        return f"{display} {rate}"
+    return display
+
+
+def _training_text(row: Mapping[str, Any]) -> str:
+    existing = _text(_first(row, "training_display", "調教表示"))
+    if existing:
+        return existing
+    display = _training_display(
+        {
+            "調教評価": _first(row, "training_market", "training_short", "training_grade", "調教評価", "追切評価"),
+            "調教コメント": _first(row, "training_comment", "調教短評", "追切短評", "調教コメント"),
+        },
+        "jra",
+    ).get("display", "")
+    if display:
+        return _text(display)
+    value = _text(
+        _first(
+            row,
+            "training_grade",
+            "調教評価",
+            "追切評価",
+        )
+    )
+    if value in {"対象外", "未取得"} or re.search(r"\d+\.\d+.*\d+\.\d+", value):
+        return ""
+    return value
+
+
+def _recent_display_cells(
+    runs: Sequence[Mapping[str, Any]],
+    matched_runs: Sequence[Mapping[str, Any]],
+) -> tuple[str, str]:
+    indices: list[str] = []
+    conditions: list[str] = []
+    for run in list(runs)[:3]:
+        index = _text(_first(run, "time_index", "value", "index", "指数")) or "—"
+        prefix = "★" if _run_matches_condition(run, matched_runs) else ""
+        indices.append(f"{prefix}{index}" if index != "—" else "—")
+        venue = _text(_first(run, "venue", "racecourse", "track", "競馬場"))
+        distance = _text(_first(run, "distance", "距離"))
+        conditions.append((venue + distance) if venue or distance else "—")
+    return " / ".join(indices) if indices else "—", " / ".join(conditions) if conditions else "—"
+
+
+def _matched_past_runs(row: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    values = [
+        row.get("matched_past_runs"),
+        _nested_value(row, "final_betting_context", "condition_fit", "matched_past_runs"),
+        _nested_value(row, "condition_fit", "matched_past_runs"),
+    ]
+    for value in values:
+        parsed = _parse_sequence(value)
+        if parsed:
+            return [item for item in parsed if isinstance(item, Mapping)]
+    return []
+
+
+def _run_matches_condition(run: Mapping[str, Any], matched_runs: Sequence[Mapping[str, Any]]) -> bool:
+    if not matched_runs:
+        return False
+    label = _text(_first(run, "label", "race_label", "key"))
+    venue = _text(_first(run, "venue", "racecourse", "track", "競馬場"))
+    distance = _text(_first(run, "distance", "距離"))
+    index = _text(_first(run, "time_index", "value", "index", "指数"))
+    for matched in matched_runs:
+        matched_label = _text(_first(matched, "label", "race_label", "key"))
+        if label and matched_label and label == matched_label:
+            return True
+        same_condition = (
+            venue
+            and distance
+            and venue == _text(_first(matched, "venue", "racecourse", "track", "競馬場"))
+            and _distance_key(distance) == _distance_key(_first(matched, "distance", "距離"))
+        )
+        if same_condition and (not index or index == _text(_first(matched, "time_index", "value", "index", "指数"))):
+            return True
+    return False
+
+
+def _distance_key(value: Any) -> str:
+    number = _float(value)
+    if number is None:
+        return _text(value)
+    return str(int(number)) if float(number).is_integer() else str(number)
+
+
+def _index_value(row: Mapping[str, Any], *keys: str) -> str:
+    value = _first(row, *keys)
+    if value is None:
+        indices = row.get("indices")
+        if isinstance(indices, Mapping):
+            value = _first(indices, *keys)
+    number = _float(value)
+    if number is not None:
+        return f"{number:.1f}".rstrip("0").rstrip(".")
+    return _text(value) or "—"
+
+
+def _nested_value(row: Mapping[str, Any], *keys: str) -> Any:
+    value: Any = row
+    for key in keys:
+        if not isinstance(value, Mapping):
+            return None
+        value = value.get(key)
+    return value
+
+
+def _parse_sequence(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    text = _text(value)
+    if not text or not text.startswith("["):
+        return []
+    for loader in (json.loads, ast.literal_eval):
+        try:
+            parsed = loader(text)
+        except Exception:
+            continue
+        if isinstance(parsed, list):
+            return parsed
+    return []
 
 
 def _comparison_materials(

@@ -1,4 +1,5 @@
 from core.nar_race_diagnostics import (
+    build_full_field_comparison,
     build_nar_full_field_comparison,
     build_nar_race_diagnostics,
     normalize_position_group,
@@ -148,3 +149,46 @@ def test_monbetsu_5r_expected_research_categories_without_result_data() -> None:
     assert by_number["10"]["corner4_group"] == "middle"
     assert by_number["2"]["corner4_group"] == "front"
     assert by_number["7"]["data_insufficient"] is True
+
+
+def test_full_field_comparison_supports_jra_display_fields_without_diagnostics() -> None:
+    rows = [
+        _row(
+            1,
+            1,
+            1,
+            "中団",
+            market_ability_score=72.4,
+            distance_index=43,
+            course_index=48,
+            jockey_display_market="川田将雅（継続）",
+            _jockey_course_place_rate=35,
+            jockey_change="継続",
+            training_short="B 83.5(16.3)67.2(15.0)",
+            recent_races=[
+                {"label": "前走", "venue": "中京", "distance": "1400m", "time_index": "72", "finish": "2着"},
+                {"label": "2走前", "venue": "東京", "distance": "1600m", "time_index": "68", "finish": "4着"},
+                {"label": "3走前", "venue": "中京", "distance": "1400m", "time_index": "75", "finish": "1着"},
+            ],
+            matched_past_runs=[
+                {"label": "前走", "venue": "中京", "distance": 1400, "time_index": "72"},
+                {"label": "3走前", "venue": "中京", "distance": 1400, "time_index": "75"},
+            ],
+            condition_fit_level="same_turn_distance",
+        ),
+        _row(2, None, 9, "位置不明", market_ability_score=None, jockey_display_market="田辺裕信"),
+    ]
+
+    comparison = build_full_field_comparison(rows, race_mode="jra")
+
+    assert comparison["show"] is True
+    assert [horse["number"] for horse in comparison["rows"]] == ["1", "2"]
+    assert comparison["rows"][0]["recent3_indices"] == "★72 / 68 / ★75"
+    assert comparison["rows"][0]["recent3_conditions"] == "中京1400m / 東京1600m / 中京1400m"
+    assert comparison["rows"][0]["distance_index"] == "43"
+    assert comparison["rows"][0]["course_index"] == "48"
+    assert comparison["rows"][0]["same_turn"] == "★"
+    assert comparison["rows"][0]["jockey_display"] == "川田将雅（継続） 35%"
+    assert comparison["rows"][0]["training"] == "調教B↑ 仕上上々"
+    assert "83.5" not in comparison["rows"][0]["training"]
+    assert comparison["rows"][1]["data_insufficient"] is True
