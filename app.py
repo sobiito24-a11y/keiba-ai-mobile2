@@ -414,6 +414,32 @@ MOBILE_CSS = """
     color: #344054;
     background: #ffffff;
   }
+  .ka-comparison-table th.ka-sticky-no,
+  .ka-comparison-table td.ka-sticky-no,
+  .ka-comparison-table th.ka-sticky-name,
+  .ka-comparison-table td.ka-sticky-name,
+  .ka-comparison-table th.ka-sticky-mark,
+  .ka-comparison-table td.ka-sticky-mark {
+    position: sticky;
+    z-index: 3;
+    background: #f8fafc;
+    font-weight: 900;
+  }
+  .ka-comparison-table th.ka-sticky-no,
+  .ka-comparison-table td.ka-sticky-no {
+    left: 0;
+    min-width: 3.4rem;
+  }
+  .ka-comparison-table th.ka-sticky-name,
+  .ka-comparison-table td.ka-sticky-name {
+    left: 3.4rem;
+    min-width: 8.4rem;
+  }
+  .ka-comparison-table th.ka-sticky-mark,
+  .ka-comparison-table td.ka-sticky-mark {
+    left: 11.8rem;
+    min-width: 3.4rem;
+  }
   .ka-comparison-table thead th {
     position: sticky;
     top: 0;
@@ -424,15 +450,11 @@ MOBILE_CSS = """
   }
   .ka-comparison-table th:first-child,
   .ka-comparison-table td:first-child {
-    position: sticky;
-    left: 0;
-    z-index: 3;
-    min-width: 5.8rem;
-    background: #f8fafc;
     color: #101828;
-    font-weight: 900;
   }
-  .ka-comparison-table thead th:first-child { z-index: 4; }
+  .ka-comparison-table thead th.ka-sticky-no,
+  .ka-comparison-table thead th.ka-sticky-name,
+  .ka-comparison-table thead th.ka-sticky-mark { z-index: 5; }
   .ka-comparison-cell-front { color: #047857; font-weight: 900; }
   .ka-comparison-cell-back { color: #b42318; font-weight: 800; }
   .ka-comparison-tag {
@@ -2019,16 +2041,10 @@ def render_nar_position_flow(diagnostics: dict[str, Any], *, layout: str = "mobi
         return
     st.subheader("展開イメージ")
     st.caption("保存済み位置予測を表示しています。購入条件ではありません。")
-    stages = [("start", "スタート"), ("corner3", "3コーナー"), ("corner4", "4コーナー")]
-    if layout == "dashboard":
-        columns = st.columns(3)
-        for column, (key, title) in zip(columns, stages):
-            with column:
-                st.markdown(nar_position_stage_html(title, positions.get(key) or {}), unsafe_allow_html=True)
-    else:
-        with st.expander("スタート→3角→4角", expanded=True):
-            for key, title in stages:
-                st.markdown(nar_position_stage_html(title, positions.get(key) or {}), unsafe_allow_html=True)
+    st.markdown(nar_position_stage_html("4コーナー", positions.get("corner4") or {}), unsafe_allow_html=True)
+    with st.expander("スタート・3コーナーを見る", expanded=False):
+        st.markdown(nar_position_stage_html("スタート", positions.get("start") or {}), unsafe_allow_html=True)
+        st.markdown(nar_position_stage_html("3コーナー", positions.get("corner3") or {}), unsafe_allow_html=True)
 
 
 def nar_position_stage_html(title: str, groups: dict[str, list[dict[str, str]]]) -> str:
@@ -2133,13 +2149,12 @@ def nar_comparison_vs_card_html(horse: dict[str, Any]) -> str:
     )
 
 
-def full_field_comparison_html(comparison: dict[str, Any]) -> str:
+def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weight: bool = True) -> str:
     rows = comparison.get("rows") or []
     if not rows:
         return '<div class="ka-dashboard-card">比較できる出走馬データがありません。</div>'
     race_mode = clean_text(comparison.get("race_mode")).lower()
     metrics: list[tuple[str, str, Any]] = [
-        ("印", "", lambda horse: clean_text(horse.get("mark")) or "—"),
         ("能力順位", "", lambda horse: rank_display(horse.get("ability_rank"))),
         ("能力値", "", lambda horse: number_display(horse.get("ability_value"))),
         ("今回評価順位", "", lambda horse: rank_display(horse.get("current_evaluation_rank"))),
@@ -2149,32 +2164,37 @@ def full_field_comparison_html(comparison: dict[str, Any]) -> str:
         ("コース指数", "", lambda horse: clean_text(horse.get("course_index")) or "—"),
         ("同回り", "", lambda horse: clean_text(horse.get("same_turn")) or "—"),
         ("脚質", "", lambda horse: clean_text(horse.get("running_style")) or "—"),
-        ("4角位置", "position", lambda horse: clean_text(horse.get("corner4_label")) or comparison_position_icon(clean_text(horse.get("corner4_group")))),
+        ("4角位置", "position", lambda horse: clean_text(horse.get("corner4_display")) or clean_text(horse.get("corner4_label")) or comparison_position_icon(clean_text(horse.get("corner4_group")))),
         ("騎手", "", lambda horse: clean_text(horse.get("jockey_display")) or "—"),
+        ("斤量", "", lambda horse: clean_text(horse.get("weight")) or "—"),
+        ("レース間隔", "", lambda horse: clean_text(horse.get("interval")) or "—"),
+        ("クラス実績", "", lambda horse: clean_text(horse.get("class_record")) or "—"),
+        ("対戦", "", lambda horse: clean_text(horse.get("matchup")) or "—"),
         ("プラス材料", "plus", lambda horse: horse.get("positive_tags") or []),
         ("不安材料", "minus", lambda horse: horse.get("negative_tags") or []),
     ]
+    if include_body_weight or any(clean_text(horse.get("body_weight")) not in {"", "—"} for horse in rows):
+        metrics.insert(12, ("馬体重", "", lambda horse: clean_text(horse.get("body_weight")) or "—"))
     if race_mode == "nar":
         metrics.insert(-2, ("転入状態", "transfer", lambda horse: clean_text(horse.get("transfer_status")) or "判定不明"))
         metrics.insert(-2, ("地方実績", "", lambda horse: clean_text(horse.get("local_experience")) or "判定不明"))
     if race_mode == "jra":
         metrics.insert(-2, ("乗替/継続", "", lambda horse: clean_text(horse.get("jockey_change")) or "—"))
         metrics.insert(-2, ("調教", "", lambda horse: clean_text(horse.get("training")) or "—"))
-        metrics.insert(-2, ("斤量", "", lambda horse: clean_text(horse.get("weight")) or "—"))
-    header = ['<th>比較項目</th>']
-    for horse in rows:
-        label = f"{clean_text(horse.get('number'))} {clean_text(horse.get('name'))}"
-        mark = clean_text(horse.get("mark"))
-        header.append(
-            "<th>"
-            f"{plain_text_to_html(label or '—')}"
-            + (f"<br><span class=\"ka-muted\">{plain_text_to_html(mark)}</span>" if mark else "")
-            + "</th>"
-        )
+    header = [
+        '<th class="ka-sticky-no">馬番</th>',
+        '<th class="ka-sticky-name">馬名</th>',
+        '<th class="ka-sticky-mark">印</th>',
+    ]
+    header.extend(f"<th>{plain_text_to_html(label)}</th>" for label, _, _ in metrics)
     body_rows = []
-    for label, kind, getter in metrics:
-        cells = [f"<td>{plain_text_to_html(label)}</td>"]
-        for horse in rows:
+    for horse in rows:
+        cells = [
+            f'<td class="ka-sticky-no">{plain_text_to_html(clean_text(horse.get("number")) or "—")}</td>',
+            f'<td class="ka-sticky-name">{plain_text_to_html(clean_text(horse.get("name")) or "—")}</td>',
+            f'<td class="ka-sticky-mark">{plain_text_to_html(clean_text(horse.get("mark")) or "—")}</td>',
+        ]
+        for _, kind, getter in metrics:
             value = getter(horse)
             if kind in {"plus", "minus"}:
                 cells.append(f"<td>{nar_comparison_tags_html(value, kind)}</td>")

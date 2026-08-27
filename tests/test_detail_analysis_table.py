@@ -405,6 +405,10 @@ class DetailAnalysisTableTest(unittest.TestCase):
                         "jockey_change": "継続",
                         "training": "B↑ 仕上上々",
                         "weight": "56.0kg",
+                        "body_weight": "470kg（-10）",
+                        "interval": "中2週",
+                        "class_record": "今回G3",
+                        "matchup": "直近②に先着",
                         "positive_tags": ["今回評価TOP3"],
                         "negative_tags": [],
                     }
@@ -416,6 +420,12 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("近3走条件", html)
         self.assertIn("距離指数", html)
         self.assertIn("コース指数", html)
+        self.assertIn("ka-sticky-no", html)
+        self.assertIn("馬体重", html)
+        self.assertIn("470kg（-10）", html)
+        self.assertIn("中2週", html)
+        self.assertIn("今回G3", html)
+        self.assertIn("直近②に先着", html)
         self.assertIn("川田将雅 35%", html)
         self.assertIn("B↑ 仕上上々", html)
         self.assertNotIn("1位との差", html)
