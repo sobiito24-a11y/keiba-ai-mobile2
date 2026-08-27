@@ -298,3 +298,20 @@ def test_recent3_star_uses_saved_condition_reason_when_race_fields_are_not_on_ho
     comparison = build_full_field_comparison(rows, race_mode="nar")
 
     assert comparison["rows"][0]["recent3_indices"] == "★18 / 28 / 43"
+
+
+def test_full_field_comparison_extracts_sex_age_from_saved_key_variants() -> None:
+    rows = [
+        _row(6, 1, 1, "中団", 馬名="マモリーフィルム", 馬年齢="牡4"),
+        _row(3, 2, 2, "中団", 馬名="サンプルレディ", sexage="牝3"),
+        _row(8, 3, 3, "中団", 馬名="テストセン", sex="セ", age=5),
+        _row(9, 4, 4, "中団", 馬名="セイレイフメイ"),
+    ]
+
+    comparison = build_full_field_comparison(rows, race_mode="nar")
+    by_number = {horse["number"]: horse for horse in comparison["rows"]}
+
+    assert by_number["6"]["sex_age"] == "牡4"
+    assert by_number["3"]["sex_age"] == "牝3"
+    assert by_number["8"]["sex_age"] == "セ5"
+    assert by_number["9"]["sex_age"] == ""

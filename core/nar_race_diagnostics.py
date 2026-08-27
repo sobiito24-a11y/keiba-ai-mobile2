@@ -282,7 +282,7 @@ def _corner4_display(horse: Mapping[str, Any]) -> str:
 
 
 def _sex_age_text(row: Mapping[str, Any]) -> str:
-    combined = _text(_first(row, "sex_age", "馬齢", "性齢", "sex_age_market"))
+    combined = _text(_first(row, "sex_age", "sexage", "sex_age_market", "age_sex", "馬年齢", "馬齢", "性齢", "年齢性別", "age_gender", "horse_age"))
     if combined:
         return combined
     sex = _text(_first(row, "sex", "性別", "gender"))
