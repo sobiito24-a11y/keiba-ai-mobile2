@@ -381,7 +381,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
 
         self.assertEqual(calls, ["header", "facts", "cards", "full", "selection", "audit"])
 
-    def test_full_field_comparison_html_uses_compact_columns_without_top_gap_column(self) -> None:
+    def test_full_field_comparison_html_uses_metric_sticky_column_with_horse_columns(self) -> None:
         html = self.app.full_field_comparison_html(
             {
                 "race_mode": "jra",
@@ -420,7 +420,9 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("近3走条件", html)
         self.assertIn("距離指数", html)
         self.assertIn("コース指数", html)
-        self.assertIn("ka-sticky-no", html)
+        self.assertIn("ka-sticky-metric", html)
+        self.assertIn("比較項目", html)
+        self.assertIn("1 テストホース", html)
         self.assertIn("馬体重", html)
         self.assertIn("470kg（-10）", html)
         self.assertIn("中2週", html)
@@ -428,12 +430,56 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("直近②に先着", html)
         self.assertIn("川田将雅 35%", html)
         self.assertIn("B↑ 仕上上々", html)
-        self.assertNotIn("1位との差", html)
+        self.assertIn("能力1位との差", html)
+        self.assertIn("同回り", html)
         self.assertIn("能力差", self.app.nar_comparison_top_two_html({
             "top1": {"number": "1", "name": "A", "ability_rank": 1, "ability_value": 17.7},
             "top2": {"number": "2", "name": "B", "ability_rank": 2, "ability_value": 17.6},
             "gap_1_2": 0.1,
         }))
+
+    def test_full_field_comparison_html_hides_same_turn_for_nar(self) -> None:
+        html = self.app.full_field_comparison_html(
+            {
+                "race_mode": "nar",
+                "rows": [
+                    {
+                        "number": "1",
+                        "name": "テストホース",
+                        "mark": "◎",
+                        "ability_rank": 1,
+                        "ability_value": 20.0,
+                        "ability_gap_text": "0",
+                        "current_evaluation_rank": 1,
+                        "same_distance": "★",
+                        "same_course": "★",
+                        "same_turn": "★",
+                        "corner4_group": "front",
+                        "corner4_display": "前方",
+                    }
+                ],
+            }
+        )
+
+        self.assertIn("同距離", html)
+        self.assertIn("同コース", html)
+        self.assertNotIn("同回り", html)
+
+    def test_render_full_field_comparison_does_not_show_top_two_large_card(self) -> None:
+        self.streamlit.markdown_calls = []
+        self.app.render_full_field_comparison(
+            pd.DataFrame(
+                [
+                    {"馬番": 1, "馬名": "A", "market_ability_score": 20.0, "market_ability_rank": 1, "current_evaluation_rank": 1},
+                    {"馬番": 2, "馬名": "B", "market_ability_score": 18.0, "market_ability_rank": 2, "current_evaluation_rank": 2},
+                ]
+            ),
+            "nar",
+        )
+        joined = "\n".join(self.streamlit.markdown_calls)
+
+        self.assertNotIn("能力1位 vs 能力2位", joined)
+        self.assertEqual(joined.count("ka-comparison-table"), 1)
 
     def test_market_ai_evaluation_appends_existing_sex_age_to_horse_name(self) -> None:
         self.streamlit.last_dataframe = None

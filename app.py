@@ -414,6 +414,16 @@ MOBILE_CSS = """
     color: #344054;
     background: #ffffff;
   }
+  .ka-comparison-table th.ka-sticky-metric,
+  .ka-comparison-table td.ka-sticky-metric {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    min-width: 7.4rem;
+    background: #f8fafc;
+    color: #101828;
+    font-weight: 900;
+  }
   .ka-comparison-table th.ka-sticky-no,
   .ka-comparison-table td.ka-sticky-no,
   .ka-comparison-table th.ka-sticky-name,
@@ -454,7 +464,8 @@ MOBILE_CSS = """
   }
   .ka-comparison-table thead th.ka-sticky-no,
   .ka-comparison-table thead th.ka-sticky-name,
-  .ka-comparison-table thead th.ka-sticky-mark { z-index: 5; }
+  .ka-comparison-table thead th.ka-sticky-mark,
+  .ka-comparison-table thead th.ka-sticky-metric { z-index: 5; }
   .ka-comparison-cell-front { color: #047857; font-weight: 900; }
   .ka-comparison-cell-back { color: #b42318; font-weight: 800; }
   .ka-comparison-tag {
@@ -2091,9 +2102,6 @@ def render_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
     gap = comparison.get("gap_1_2")
     if gap is not None:
         st.caption(f"能力1位と2位の差：{float(gap):.1f}（参考表示。印・研究買いには反映しません）")
-    top_html = nar_comparison_top_two_html(comparison)
-    if top_html:
-        st.markdown(top_html, unsafe_allow_html=True)
     if comparison.get("transfer_watch"):
         st.markdown(
             '<div class="ka-dashboard-card">'
@@ -2155,16 +2163,21 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
         return '<div class="ka-dashboard-card">比較できる出走馬データがありません。</div>'
     race_mode = clean_text(comparison.get("race_mode")).lower()
     metrics: list[tuple[str, str, Any]] = [
+        ("印", "", lambda horse: clean_text(horse.get("mark")) or "—"),
         ("能力順位", "", lambda horse: rank_display(horse.get("ability_rank"))),
         ("能力値", "", lambda horse: number_display(horse.get("ability_value"))),
+        ("能力1位との差", "", lambda horse: clean_text(horse.get("ability_gap_text")) or "—"),
         ("今回評価順位", "", lambda horse: rank_display(horse.get("current_evaluation_rank"))),
+        ("4角位置", "position", lambda horse: clean_text(horse.get("corner4_display")) or clean_text(horse.get("corner4_label")) or comparison_position_icon(clean_text(horse.get("corner4_group")))),
         ("近3走指数", "", lambda horse: clean_text(horse.get("recent3_indices")) or "—"),
         ("近3走条件", "", lambda horse: clean_text(horse.get("recent3_conditions")) or "—"),
+        ("近走勝利", "", lambda horse: clean_text(horse.get("recent_win_label")) or "—"),
+        ("近走3着内", "", lambda horse: clean_text(horse.get("recent_top3_label")) or "—"),
         ("距離指数", "", lambda horse: clean_text(horse.get("distance_index")) or "—"),
         ("コース指数", "", lambda horse: clean_text(horse.get("course_index")) or "—"),
-        ("同回り", "", lambda horse: clean_text(horse.get("same_turn")) or "—"),
+        ("同距離", "", lambda horse: clean_text(horse.get("same_distance")) or "—"),
+        ("同コース", "", lambda horse: clean_text(horse.get("same_course")) or "—"),
         ("脚質", "", lambda horse: clean_text(horse.get("running_style")) or "—"),
-        ("4角位置", "position", lambda horse: clean_text(horse.get("corner4_display")) or clean_text(horse.get("corner4_label")) or comparison_position_icon(clean_text(horse.get("corner4_group")))),
         ("騎手", "", lambda horse: clean_text(horse.get("jockey_display")) or "—"),
         ("斤量", "", lambda horse: clean_text(horse.get("weight")) or "—"),
         ("レース間隔", "", lambda horse: clean_text(horse.get("interval")) or "—"),
@@ -2174,27 +2187,30 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
         ("不安材料", "minus", lambda horse: horse.get("negative_tags") or []),
     ]
     if include_body_weight or any(clean_text(horse.get("body_weight")) not in {"", "—"} for horse in rows):
-        metrics.insert(12, ("馬体重", "", lambda horse: clean_text(horse.get("body_weight")) or "—"))
+        weight_index = next((index for index, item in enumerate(metrics) if item[0] == "斤量"), len(metrics) - 2)
+        metrics.insert(weight_index + 1, ("馬体重", "", lambda horse: clean_text(horse.get("body_weight")) or "—"))
     if race_mode == "nar":
         metrics.insert(-2, ("転入状態", "transfer", lambda horse: clean_text(horse.get("transfer_status")) or "判定不明"))
         metrics.insert(-2, ("地方実績", "", lambda horse: clean_text(horse.get("local_experience")) or "判定不明"))
     if race_mode == "jra":
+        course_index = next((index for index, item in enumerate(metrics) if item[0] == "同コース"), 13)
+        metrics.insert(course_index + 1, ("同回り", "", lambda horse: clean_text(horse.get("same_turn")) or "—"))
         metrics.insert(-2, ("乗替/継続", "", lambda horse: clean_text(horse.get("jockey_change")) or "—"))
         metrics.insert(-2, ("調教", "", lambda horse: clean_text(horse.get("training")) or "—"))
-    header = [
-        '<th class="ka-sticky-no">馬番</th>',
-        '<th class="ka-sticky-name">馬名</th>',
-        '<th class="ka-sticky-mark">印</th>',
-    ]
-    header.extend(f"<th>{plain_text_to_html(label)}</th>" for label, _, _ in metrics)
-    body_rows = []
+    header = ['<th class="ka-sticky-metric">比較項目</th>']
     for horse in rows:
-        cells = [
-            f'<td class="ka-sticky-no">{plain_text_to_html(clean_text(horse.get("number")) or "—")}</td>',
-            f'<td class="ka-sticky-name">{plain_text_to_html(clean_text(horse.get("name")) or "—")}</td>',
-            f'<td class="ka-sticky-mark">{plain_text_to_html(clean_text(horse.get("mark")) or "—")}</td>',
-        ]
-        for _, kind, getter in metrics:
+        title = f"{clean_text(horse.get('number'))} {clean_text(horse.get('name'))}".strip() or "—"
+        mark = clean_text(horse.get("mark"))
+        header.append(
+            "<th>"
+            f"{plain_text_to_html(title)}"
+            + (f'<br><span class="ka-muted">{plain_text_to_html(mark)}</span>' if mark else "")
+            + "</th>"
+        )
+    body_rows = []
+    for label, kind, getter in metrics:
+        cells = [f'<td class="ka-sticky-metric">{plain_text_to_html(label)}</td>']
+        for horse in rows:
             value = getter(horse)
             if kind in {"plus", "minus"}:
                 cells.append(f"<td>{nar_comparison_tags_html(value, kind)}</td>")
@@ -2202,7 +2218,7 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
                 group = clean_text(horse.get("corner4_group"))
                 css = "ka-comparison-cell-front" if group == "front" else "ka-comparison-cell-back" if group == "back" else ""
                 cells.append(f'<td class="{css}">{plain_text_to_html(clean_text(value) or "—")}</td>')
-            elif kind == "transfer" and clean_text(value) == "JRA→NAR初戦":
+            elif kind == "transfer" and "JRA" in clean_text(value) and "NAR" in clean_text(value):
                 cells.append(f'<td>{nar_comparison_tags_html([value], "minus")}</td>')
             else:
                 cells.append(f"<td>{plain_text_to_html(clean_text(value) or '—')}</td>")
