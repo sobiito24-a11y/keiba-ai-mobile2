@@ -302,7 +302,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("B 9 リュウノギフト", html)
         self.assertIn("<b>62.6倍｜牡3｜能力値36.0｜能力6位・今回6位</b>", html)
 
-    def test_market_horse_cards_are_displayed_by_v1_final_order(self) -> None:
+    def test_market_horse_cards_are_displayed_by_v2_ai_score_order(self) -> None:
         self.streamlit.markdown_calls = []
         table = pd.DataFrame(
             [
@@ -355,10 +355,10 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertGreaterEqual(len(cards), 4)
         self.assertIn("A 1 無印能力一位", cards[0])
         self.assertIn("A 3 対抗二番手", cards[1])
-        self.assertIn("A 2 本命", cards[2])
-        self.assertIn("A 4 対抗一番手", cards[3])
+        self.assertIn("A 4 対抗一番手", cards[2])
+        self.assertIn("A 2 本命", cards[3])
 
-    def test_market_horse_card_order_uses_v1_final_rank_then_fallbacks(self) -> None:
+    def test_market_horse_card_order_uses_v2_ai_score_then_fallbacks(self) -> None:
         table = pd.DataFrame(
             [
                 {"馬番": 7, "馬名": "無印二番", "ability_band_v2": "A", "market_ability_rank": pd.NA, "current_evaluation_rank": pd.NA, "ai_current_mark": ""},
@@ -377,7 +377,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
 
         self.assertEqual(
             list(ordered["馬名"]),
-            ["単穴", "押さえ能力一位", "対抗", "押さえ能力二位", "本命", "星", "チェック", "無印二番", "無印一番"],
+            ["本命", "対抗", "単穴", "星", "押さえ能力一位", "押さえ能力二位", "チェック", "無印二番", "無印一番"],
         )
 
     def test_market_compare_normal_flow_hides_band_price_and_ai_evaluation_tables(self) -> None:
@@ -561,6 +561,40 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("同コース", html)
         self.assertNotIn("同回り", html)
 
+    def test_full_field_v2_comparison_html_uses_ai_score_as_main_conclusion(self) -> None:
+        html = self.app.full_field_v2_comparison_html(
+            {
+                "race_mode": "jra",
+                "rows": [
+                    {
+                        "number": "6",
+                        "sex_age": "牡4",
+                        "name": "マモリーフィルム",
+                        "v2_final_mark": "◎",
+                        "v2_ai_score": 82.1,
+                        "v2_top_gap_text": "0",
+                        "v2_ability_score": 79.1,
+                        "v2_condition_score": 2.0,
+                        "v2_pace_score": 0.5,
+                        "v2_recent_state_score": 0.5,
+                        "jockey_info": "三浦皇成｜継続｜複25%｜56.0kg（±0）",
+                        "jockey_course_place_rate": "25%",
+                        "v2_final_reason": "芝2000左: 同条件好走 / ハイペースで差し向き",
+                        "v1_final_rank": 4,
+                        "baseline_mark": "△",
+                    }
+                ],
+            }
+        )
+
+        self.assertIn("6 牡4 マモリーフィルム", html)
+        self.assertIn("AI点", html)
+        self.assertIn("トップ差", html)
+        self.assertIn("三浦皇成", html)
+        self.assertIn("複勝率", html)
+        self.assertNotIn("v1今回評価順位", html)
+        self.assertNotIn("Baseline印", html)
+
     def test_render_full_field_comparison_does_not_show_top_two_large_card(self) -> None:
         self.streamlit.markdown_calls = []
         self.app.render_full_field_comparison(
@@ -575,7 +609,9 @@ class DetailAnalysisTableTest(unittest.TestCase):
         joined = "\n".join(self.streamlit.markdown_calls)
 
         self.assertNotIn("能力1位 vs 能力2位", joined)
-        self.assertEqual(joined.count("ka-comparison-table"), 1)
+        self.assertIn("v2 AI評価サマリー", joined)
+        self.assertIn("今回の結論", joined)
+        self.assertEqual(joined.count("ka-comparison-table"), 2)
 
     def test_render_full_field_comparison_applies_selected_sort_to_horse_columns(self) -> None:
         self.streamlit.markdown_calls = []

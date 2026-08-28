@@ -11,6 +11,7 @@ from typing import Any
 from .recent_races import build_recent_races
 from .value_support import training_display as _training_display
 from .v1_logic import build_v1_evaluations
+from .v2_logic import build_v2_evaluations
 
 
 FRONT_LABELS = {"逃げ", "先団", "前方"}
@@ -28,6 +29,7 @@ JRA_VENUES = {"札幌", "函館", "福島", "新潟", "東京", "中山", "中�
 NAR_VENUES = {"門別", "盛岡", "水沢", "浦和", "船橋", "大井", "川崎", "金沢", "笠松", "名古屋", "園田", "姫路", "高知", "佐賀", "帯広"}
 VENUE_NAMES = sorted(JRA_VENUES | NAR_VENUES, key=len, reverse=True)
 COMPARISON_SORT_LABELS = {
+    "v2_ai": "AI点順",
     "horse_number": "馬番順",
     "ability": "能力順",
     "current": "今回評価順",
@@ -140,6 +142,30 @@ def build_full_field_comparison(
                     "_v1_ability_value": v1_row.get("_v1_ability_value"),
                 }
             )
+    v2 = build_v2_evaluations(records, mode, race_info=info)
+    v2_by_number = {_text(_first(row, "horse_no", "馬番", "number", "horse_number")): row for row in v2.get("rows", [])}
+    for horse in horses:
+        v2_row = v2_by_number.get(_text(horse.get("number")))
+        if v2_row:
+            horse.update(
+                {
+                    "v2_ai_score": v2_row.get("v2_ai_score"),
+                    "v2_ability_score": v2_row.get("v2_ability_score"),
+                    "v2_condition_score": v2_row.get("v2_condition_score"),
+                    "v2_condition_reason": _text(v2_row.get("v2_condition_reason")),
+                    "v2_condition_key": _text(v2_row.get("v2_condition_key")),
+                    "v2_pace_score": v2_row.get("v2_pace_score"),
+                    "v2_pace_reason": _text(v2_row.get("v2_pace_reason")),
+                    "v2_recent_state_score": v2_row.get("v2_recent_state_score"),
+                    "v2_recent_state_reason": _text(v2_row.get("v2_recent_state_reason")),
+                    "v2_jockey_score": v2_row.get("v2_jockey_score"),
+                    "v2_final_mark": _text(v2_row.get("v2_final_mark")),
+                    "v2_final_role": _text(v2_row.get("v2_final_role")),
+                    "v2_final_reason": _text(v2_row.get("v2_final_reason")),
+                    "v2_top_gap": v2_row.get("v2_top_gap"),
+                    "v2_top_gap_text": _text(v2_row.get("v2_top_gap_text")),
+                }
+            )
 
     ranked = sorted(
         [horse for horse in horses if horse.get("ability_rank") is not None],
@@ -177,6 +203,17 @@ def build_full_field_comparison(
         "sort_mode": sort_mode if sort_mode in COMPARISON_SORT_LABELS else "horse_number",
         "sort_labels": COMPARISON_SORT_LABELS,
         "rows": horses,
+        "v2_summary": v2.get("summary", {}),
+        "v2_recommendations": [
+            horse
+            for horse in sorted(
+                [horse for horse in horses if _text(horse.get("v2_final_mark"))],
+                key=lambda horse: (
+                    -(float(_float(horse.get("v2_ai_score")) or 0.0)),
+                    _horse_sort_key(horse.get("number")),
+                ),
+            )[:5]
+        ],
         "v1_summary": v1.get("summary", {}),
         "v1_summary_top_horses": v1.get("summary", {}).get("_今回評価_numbers", []),
         "v1_recommendations": [
@@ -481,15 +518,20 @@ def _position_groups(horses: Sequence[Mapping[str, Any]], point: str) -> dict[st
 
 def _sort_comparison_horses(horses: Sequence[Mapping[str, Any]], sort_mode: str) -> list[Mapping[str, Any]]:
     mode = sort_mode if sort_mode in COMPARISON_SORT_LABELS else "horse_number"
-    if mode == "ability":
+    if mode == "v2_ai":
+        key = lambda horse: (
+            -(horse.get("v2_ai_score") if horse.get("v2_ai_score") is not None else -999999),
+            _horse_sort_key(horse.get("number")),
+        )
+    elif mode == "ability":
         key = lambda horse: (
             -(horse.get("ability_value") if horse.get("ability_value") is not None else -999999),
             _horse_sort_key(horse.get("number")),
         )
     elif mode == "current":
         key = lambda horse: (
-            horse.get("v1_final_rank") if horse.get("v1_final_rank") is not None else 999,
-            horse.get("ability_rank") if horse.get("ability_rank") is not None else 999,
+            -(horse.get("v2_ai_score") if horse.get("v2_ai_score") is not None else -999999),
+            horse.get("baseline_current_evaluation_rank") if horse.get("baseline_current_evaluation_rank") is not None else 999,
             _horse_sort_key(horse.get("number")),
         )
     elif mode == "corner4_front":
