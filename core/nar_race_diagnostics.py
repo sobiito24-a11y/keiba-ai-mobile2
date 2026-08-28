@@ -29,10 +29,9 @@ JRA_VENUES = {"札幌", "函館", "福島", "新潟", "東京", "中山", "中�
 NAR_VENUES = {"門別", "盛岡", "水沢", "浦和", "船橋", "大井", "川崎", "金沢", "笠松", "名古屋", "園田", "姫路", "高知", "佐賀", "帯広"}
 VENUE_NAMES = sorted(JRA_VENUES | NAR_VENUES, key=len, reverse=True)
 COMPARISON_SORT_LABELS = {
-    "v2_ai": "AI点順",
+    "current": "今回評価順",
     "horse_number": "馬番順",
     "ability": "能力順",
-    "current": "今回評価順",
     "corner4_front": "4角前方優先",
 }
 
@@ -530,8 +529,9 @@ def _sort_comparison_horses(horses: Sequence[Mapping[str, Any]], sort_mode: str)
         )
     elif mode == "current":
         key = lambda horse: (
-            -(horse.get("v2_ai_score") if horse.get("v2_ai_score") is not None else -999999),
-            horse.get("baseline_current_evaluation_rank") if horse.get("baseline_current_evaluation_rank") is not None else 999,
+            horse.get("current_evaluation_rank") if horse.get("current_evaluation_rank") is not None else 999,
+            _mark_sort_value(horse.get("mark")),
+            horse.get("ability_rank") if horse.get("ability_rank") is not None else 999,
             _horse_sort_key(horse.get("number")),
         )
     elif mode == "corner4_front":
@@ -544,6 +544,10 @@ def _sort_comparison_horses(horses: Sequence[Mapping[str, Any]], sort_mode: str)
     else:
         key = lambda horse: _horse_sort_key(horse.get("number"))
     return sorted(horses, key=key)
+
+
+def _mark_sort_value(value: Any) -> int:
+    return {"◎": 0, "○": 1, "▲": 2, "△": 3, "☆": 4, "✔︎": 5, "✔": 5, "✓": 5}.get(_text(value), 6)
 
 
 def _safe_recent_races(row: Mapping[str, Any]) -> list[dict[str, Any]]:

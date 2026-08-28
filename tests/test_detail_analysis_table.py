@@ -302,7 +302,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("B 9 リュウノギフト", html)
         self.assertIn("<b>62.6倍｜牡3｜能力値36.0｜能力6位・今回6位</b>", html)
 
-    def test_market_horse_cards_are_displayed_by_v2_ai_score_order(self) -> None:
+    def test_market_horse_cards_are_displayed_by_ver3_final_evaluation_order(self) -> None:
         self.streamlit.markdown_calls = []
         table = pd.DataFrame(
             [
@@ -353,12 +353,12 @@ class DetailAnalysisTableTest(unittest.TestCase):
 
         cards = [html for html in self.streamlit.markdown_calls if "ka-horse-card" in html]
         self.assertGreaterEqual(len(cards), 4)
-        self.assertIn("A 1 無印能力一位", cards[0])
-        self.assertIn("A 3 対抗二番手", cards[1])
-        self.assertIn("A 4 対抗一番手", cards[2])
-        self.assertIn("A 2 本命", cards[3])
+        self.assertIn("A 2 本命", cards[0])
+        self.assertIn("A 4 対抗一番手", cards[1])
+        self.assertIn("A 3 対抗二番手", cards[2])
+        self.assertIn("A 1 無印能力一位", cards[3])
 
-    def test_market_horse_card_order_uses_v2_ai_score_then_fallbacks(self) -> None:
+    def test_market_horse_card_order_uses_ver3_mark_then_current_evaluation(self) -> None:
         table = pd.DataFrame(
             [
                 {"馬番": 7, "馬名": "無印二番", "ability_band_v2": "A", "market_ability_rank": pd.NA, "current_evaluation_rank": pd.NA, "ai_current_mark": ""},
@@ -377,7 +377,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
 
         self.assertEqual(
             list(ordered["馬名"]),
-            ["本命", "対抗", "単穴", "星", "押さえ能力一位", "押さえ能力二位", "チェック", "無印二番", "無印一番"],
+            ["本命", "対抗", "単穴", "押さえ能力一位", "押さえ能力二位", "星", "チェック", "無印二番", "無印一番"],
         )
 
     def test_market_compare_normal_flow_hides_band_price_and_ai_evaluation_tables(self) -> None:
@@ -609,9 +609,36 @@ class DetailAnalysisTableTest(unittest.TestCase):
         joined = "\n".join(self.streamlit.markdown_calls)
 
         self.assertNotIn("能力1位 vs 能力2位", joined)
-        self.assertIn("v2 AI評価サマリー", joined)
-        self.assertIn("今回の結論", joined)
-        self.assertEqual(joined.count("ka-comparison-table"), 2)
+        self.assertIn("今回の結論（Ver3高度設定）", joined)
+        self.assertEqual(joined.count("ka-comparison-table"), 3)
+        self.assertIn("研究・監査情報", self.streamlit.expander_labels)
+
+    def test_full_field_ver3_comparison_hides_research_engine_fields(self) -> None:
+        html = self.app.full_field_ver3_comparison_html(
+            {
+                "race_mode": "nar",
+                "rows": [
+                    {
+                        "number": "1",
+                        "sex_age": "牡4",
+                        "name": "Ver3馬",
+                        "mark": "◎",
+                        "ability_value": 72.4,
+                        "ability_rank": 1,
+                        "current_evaluation_rank": 1,
+                        "ability_gap_text": "0",
+                    }
+                ],
+            }
+        )
+
+        self.assertIn("1 牡4 Ver3馬", html)
+        self.assertIn("今回評価順位", html)
+        self.assertIn("1位との差", html)
+        self.assertIn("◎", html)
+        self.assertNotIn("v1", html)
+        self.assertNotIn("v2", html)
+        self.assertNotIn("Baseline", html)
 
     def test_render_full_field_comparison_applies_selected_sort_to_horse_columns(self) -> None:
         self.streamlit.markdown_calls = []

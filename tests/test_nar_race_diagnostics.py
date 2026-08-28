@@ -147,7 +147,7 @@ def test_nar_full_field_comparison_sort_modes() -> None:
     assert [horse["number"] for horse in by_ability["rows"]] == ["2", "3", "1"]
     assert [horse["ability_value"] for horse in by_ability["rows"]] == [80.0, 60.0, 50.0]
     assert [horse["recent3_indices"] for horse in by_ability["rows"]] == ["22", "33", "11"]
-    assert [horse["number"] for horse in by_current["rows"]] == ["2", "3", "1"]
+    assert [horse["number"] for horse in by_current["rows"]] == ["3", "1", "2"]
     assert [horse["number"] for horse in by_corner["rows"]][0] == "2"
 
 
