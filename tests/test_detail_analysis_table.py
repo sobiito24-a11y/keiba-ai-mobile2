@@ -1492,9 +1492,10 @@ class DisplayGroupViewTest(unittest.TestCase):
         )
         result_source = inspect.getsource(self.app.render_colab_style_result)
         self.assertLess(result_source.index("render_race_summary"), result_source.index("render_power_map"))
-        self.assertLess(result_source.index("render_power_map"), result_source.index("render_horse_summary_cards"))
-        self.assertLess(result_source.index("render_horse_summary_cards"), result_source.index("render_race_flow"))
-        self.assertLess(result_source.index("render_race_flow"), result_source.index("render_investment_decision"))
+        self.assertNotIn("render_market_compare_result(result)", result_source)
+        self.assertLess(result_source.index("render_power_map"), result_source.index("render_race_flow"))
+        self.assertLess(result_source.index("render_race_flow"), result_source.index("render_horse_summary_cards"))
+        self.assertLess(result_source.index("render_horse_summary_cards"), result_source.index("render_investment_decision"))
         self.assertNotIn("render_investment_target_horses", result_source)
 
         self.streamlit.markdown_calls.clear()
