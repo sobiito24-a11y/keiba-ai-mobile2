@@ -17,12 +17,14 @@ if str(PROJECT_ROOT) not in sys.path:
 from core.mark_backtest import (
     add_honmei_maruta_difference_columns,
     attach_value_signals_to_records,
+    attach_v1_predictions_to_records,
     attach_results,
     build_report_payload,
     discover_race_sources,
     extract_prediction_rows,
     parse_result_html,
     prediction_html_files,
+    race_exclusion_reason,
     write_outputs,
 )
 
@@ -57,10 +59,22 @@ def main() -> None:
 
 
 def install_runtime_stubs() -> None:
+    configure_pandas_for_notebook_logic()
     try:
         from tools.analyze_jra_betting_expectation import install_runtime_stubs as install
 
         install()
+    except Exception:
+        pass
+
+
+def configure_pandas_for_notebook_logic() -> None:
+    try:
+        pd.options.future.infer_string = False
+    except Exception:
+        pass
+    try:
+        pd.options.mode.string_storage = "python"
     except Exception:
         pass
 
@@ -80,6 +94,7 @@ def run_backtest(
     rows: list[dict[str, Any]] = []
     payouts_by_race: dict[str, dict[str, Any]] = {}
     errors: list[str] = []
+    excluded_reasons: dict[str, int] = {}
     usable_race_types: dict[str, int] = {"jra": 0, "nar": 0}
 
     for source in sources:
@@ -87,17 +102,22 @@ def run_backtest(
             html_files, file_names = prediction_html_files(source.race_dir, source.race_type)
             prediction = predict_from_current_logic(source.race_type, html_files, file_names)
             prediction_rows, _race_info = extract_prediction_rows(prediction, source.race_id, source.race_type)
-            if not prediction_rows:
-                errors.append(f"{source.race_type}:{source.race_id}: prediction rows empty")
-                continue
             finish, payouts = parse_result_html(source.result_path)
+            exclusion = race_exclusion_reason(prediction_rows, finish, payouts)
+            if exclusion:
+                excluded_reasons[exclusion] = excluded_reasons.get(exclusion, 0) + 1
+                errors.append(f"{source.race_type}:{source.race_id}: excluded: {exclusion}")
+                continue
             payouts_by_race[source.race_id] = payouts
             rows.extend(attach_results(prediction_rows, finish, payouts))
             usable_race_types[source.race_type] = usable_race_types.get(source.race_type, 0) + 1
         except Exception as exc:  # pragma: no cover - surfaced in generated report
+            excluded_reasons["予想再生成エラー"] = excluded_reasons.get("予想再生成エラー", 0) + 1
             errors.append(f"{source.race_type}:{source.race_id}: {type(exc).__name__}: {exc}")
 
-    records = attach_value_signals_to_records(add_honmei_maruta_difference_columns(pd.DataFrame(rows)))
+    records = attach_v1_predictions_to_records(
+        attach_value_signals_to_records(add_honmei_maruta_difference_columns(pd.DataFrame(rows)))
+    )
     meta: dict[str, Any] = {
         "source": "saved_html",
         "prediction_logic_version": "v3",
@@ -105,10 +125,13 @@ def run_backtest(
         "future_info_policy": "result.html is excluded from prediction inputs and used only after PredictionResult rows are generated.",
         "jra_discovery": jra_meta,
         "nar_discovery": nar_meta,
+        "total_discovered_races": jra_meta.get("discovered_races", 0) + nar_meta.get("discovered_races", 0),
         "attempted_races": len(sources),
         "usable_races": int(records["race_id"].nunique()) if not records.empty else 0,
         "jra_races": usable_race_types.get("jra", 0),
         "nar_races": usable_race_types.get("nar", 0),
+        "excluded_races": len(sources) - (int(records["race_id"].nunique()) if not records.empty else 0),
+        "excluded_reasons": excluded_reasons,
         "horse_count": int(len(records)),
         "prediction_error_count": len(errors),
         "prediction_errors": errors[:100],

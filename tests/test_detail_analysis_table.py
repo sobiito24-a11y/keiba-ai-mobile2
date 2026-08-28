@@ -302,29 +302,49 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("B 9 リュウノギフト", html)
         self.assertIn("<b>62.6倍｜牡3｜能力値36.0｜能力6位・今回6位</b>", html)
 
-    def test_market_horse_cards_are_displayed_by_ability_value(self) -> None:
+    def test_market_horse_cards_are_displayed_by_v1_final_order(self) -> None:
         self.streamlit.markdown_calls = []
         table = pd.DataFrame(
             [
                 {
                     "馬番": 1,
-                    "馬名": "今回一位",
+                    "馬名": "無印能力一位",
                     "ability_band_v2": "A",
-                    "market_ability_score": 42.0,
-                    "market_ability_rank": 3,
+                    "market_ability_score": 99.0,
+                    "market_ability_rank": 1,
+                    "current_evaluation_rank": 1,
+                    "ai_current_mark": "",
+                    "actual_odds": 2.0,
+                },
+                {
+                    "馬番": 2,
+                    "馬名": "本命",
+                    "ability_band_v2": "A",
+                    "market_ability_score": 51.0,
+                    "market_ability_rank": 2,
                     "current_evaluation_rank": 1,
                     "ai_current_mark": "◎",
                     "actual_odds": 2.0,
                 },
                 {
-                    "馬番": 2,
-                    "馬名": "能力一位",
+                    "馬番": 3,
+                    "馬名": "対抗二番手",
                     "ability_band_v2": "A",
-                    "market_ability_score": 51.0,
-                    "market_ability_rank": 1,
-                    "current_evaluation_rank": 2,
+                    "market_ability_score": 60.0,
+                    "market_ability_rank": 3,
+                    "current_evaluation_rank": 3,
                     "ai_current_mark": "○",
                     "actual_odds": 4.0,
+                },
+                {
+                    "馬番": 4,
+                    "馬名": "対抗一番手",
+                    "ability_band_v2": "A",
+                    "market_ability_score": 58.0,
+                    "market_ability_rank": 4,
+                    "current_evaluation_rank": 2,
+                    "ai_current_mark": "○",
+                    "actual_odds": 5.0,
                 },
             ]
         )
@@ -332,9 +352,33 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.app.render_market_horse_cards(table, "nar")
 
         cards = [html for html in self.streamlit.markdown_calls if "ka-horse-card" in html]
-        self.assertGreaterEqual(len(cards), 2)
-        self.assertIn("A 2 能力一位", cards[0])
-        self.assertIn("A 1 今回一位", cards[1])
+        self.assertGreaterEqual(len(cards), 4)
+        self.assertIn("A 1 無印能力一位", cards[0])
+        self.assertIn("A 3 対抗二番手", cards[1])
+        self.assertIn("A 2 本命", cards[2])
+        self.assertIn("A 4 対抗一番手", cards[3])
+
+    def test_market_horse_card_order_uses_v1_final_rank_then_fallbacks(self) -> None:
+        table = pd.DataFrame(
+            [
+                {"馬番": 7, "馬名": "無印二番", "ability_band_v2": "A", "market_ability_rank": pd.NA, "current_evaluation_rank": pd.NA, "ai_current_mark": ""},
+                {"馬番": 2, "馬名": "対抗", "ability_band_v2": "A", "market_ability_rank": 2, "current_evaluation_rank": 2, "ai_current_mark": "○"},
+                {"馬番": 5, "馬名": "押さえ能力二位", "ability_band_v2": "A", "market_ability_rank": 2, "current_evaluation_rank": pd.NA, "ai_current_mark": "△"},
+                {"馬番": 4, "馬名": "星", "ability_band_v2": "A", "market_ability_rank": 4, "current_evaluation_rank": 4, "ai_current_mark": "☆"},
+                {"馬番": 1, "馬名": "本命", "ability_band_v2": "A", "market_ability_rank": 3, "current_evaluation_rank": 3, "ai_current_mark": "◎"},
+                {"馬番": 3, "馬名": "単穴", "ability_band_v2": "A", "market_ability_rank": 1, "current_evaluation_rank": 1, "ai_current_mark": "▲"},
+                {"馬番": 6, "馬名": "チェック", "ability_band_v2": "A", "market_ability_rank": 6, "current_evaluation_rank": 6, "ai_current_mark": "✔︎"},
+                {"馬番": 8, "馬名": "無印一番", "ability_band_v2": "A", "market_ability_rank": pd.NA, "current_evaluation_rank": pd.NA, "ai_current_mark": ""},
+                {"馬番": 9, "馬名": "押さえ能力一位", "ability_band_v2": "A", "market_ability_rank": 1, "current_evaluation_rank": pd.NA, "ai_current_mark": "△"},
+            ]
+        )
+
+        ordered = self.app.market_horse_cards_ordered(table, race_mode="nar")
+
+        self.assertEqual(
+            list(ordered["馬名"]),
+            ["単穴", "押さえ能力一位", "対抗", "押さえ能力二位", "本命", "星", "チェック", "無印二番", "無印一番"],
+        )
 
     def test_market_compare_normal_flow_hides_band_price_and_ai_evaluation_tables(self) -> None:
         result = SimpleNamespace(
@@ -377,7 +421,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
             self.app.render_market_race_facts = lambda _result, _table: calls.append("facts")
             self.app.render_market_band_prices = forbidden
             self.app.render_market_ai_evaluation = forbidden
-            self.app.render_market_horse_cards = lambda _table, _mode: calls.append("cards")
+            self.app.render_market_horse_cards = lambda _table, _mode, **_kwargs: calls.append("cards")
             self.app.render_market_full_table = lambda _table, _mode: calls.append("full")
             self.app.render_market_user_selection = lambda _result, _table: calls.append("selection")
             self.app.render_market_audit_details = lambda _result, _table: calls.append("audit")
@@ -402,6 +446,17 @@ class DetailAnalysisTableTest(unittest.TestCase):
                         "ability_rank": 1,
                         "ability_value": 72.4,
                         "current_evaluation_rank": 1,
+                        "v1_mark": "○",
+                        "v1_final_rank": 2,
+                        "v1_final_mark": "○",
+                        "v1_final_role": "能力上位",
+                        "v1_final_reason": "能力1位 / 再現性A / 展開△ / 状態B",
+                        "baseline_current_evaluation_rank": 1,
+                        "baseline_mark": "◎",
+                        "v1_reproducibility": "A",
+                        "v1_reproducibility_reason": "芝1400左：3着内実績あり",
+                        "v1_pace_eval": "△",
+                        "v1_state_eval": "B",
                         "recent3_indices": "★72 / 68 / ★75",
                         "recent3_conditions": "中京1400m / 東京1600m / 中京1400m",
                         "distance_index": "43",
@@ -442,20 +497,30 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("直近②に先着", html)
         self.assertIn("騎手情報", html)
         self.assertIn("川田将雅｜継続｜複35%｜56.0kg（±0）", html)
-        self.assertIn("ka-comparison-sticky-row ka-comparison-sticky-1", html)
-        self.assertIn("ka-comparison-sticky-row ka-comparison-sticky-2", html)
+        self.assertIn("再現性", html)
+        self.assertIn("再現性根拠", html)
+        self.assertIn("芝1400左：3着内実績あり", html)
+        self.assertIn("展開評価", html)
+        self.assertIn("状態評価", html)
         self.assertIn("B/仕上上々", html)
         self.assertIn("前向きさが出て順調。", html)
         self.assertIn("56.0kg（±0）", html)
         self.assertIn("1位との差", html)
         self.assertNotIn("能力1位との差", html)
-        self.assertLess(html.index("印"), html.index("騎手情報"))
-        self.assertLess(html.index("騎手情報"), html.index("能力値"))
         self.assertLess(html.index("能力値"), html.index("能力順位"))
         self.assertLess(html.index("能力順位"), html.index("1位との差"))
-        self.assertLess(html.index("1位との差"), html.index("今回評価順位"))
+        self.assertLess(html.index("1位との差"), html.index("再現性"))
+        self.assertLess(html.index("再現性"), html.index("再現性根拠"))
+        self.assertLess(html.index("再現性根拠"), html.index("4角位置"))
         self.assertLess(html.index("4角位置"), html.index("脚質"))
-        self.assertLess(html.index("脚質"), html.index("近3走指数"))
+        self.assertLess(html.index("脚質"), html.index("展開評価"))
+        self.assertLess(html.index("展開評価"), html.index("状態評価"))
+        self.assertLess(html.index("状態評価"), html.index("騎手情報"))
+        self.assertLess(html.index("騎手情報"), html.index("近3走指数"))
+        self.assertLess(html.index("v1今回評価順位"), html.index("v1最終印"))
+        self.assertIn(">v1最終印</td><td>○</td>", html)
+        self.assertIn(">Baseline印</td><td>◎</td>", html)
+        self.assertIn(">Baseline総合順位</td><td>1位</td>", html)
         self.assertIn("同回り", html)
         self.assertIn("○", html)
         self.assertNotIn(">騎手</td>", html)

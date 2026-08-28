@@ -3,6 +3,7 @@ from core.nar_race_diagnostics import (
     build_nar_full_field_comparison,
     build_nar_race_diagnostics,
     normalize_position_group,
+    validate_v1_consistency,
 )
 
 
@@ -146,7 +147,7 @@ def test_nar_full_field_comparison_sort_modes() -> None:
     assert [horse["number"] for horse in by_ability["rows"]] == ["2", "3", "1"]
     assert [horse["ability_value"] for horse in by_ability["rows"]] == [80.0, 60.0, 50.0]
     assert [horse["recent3_indices"] for horse in by_ability["rows"]] == ["22", "33", "11"]
-    assert [horse["number"] for horse in by_current["rows"]] == ["3", "1", "2"]
+    assert [horse["number"] for horse in by_current["rows"]] == ["2", "3", "1"]
     assert [horse["number"] for horse in by_corner["rows"]][0] == "2"
 
 
@@ -234,6 +235,108 @@ def test_full_field_comparison_supports_jra_display_fields_without_diagnostics()
     assert comparison["rows"][1]["data_insufficient"] is True
     by_number = {horse["number"]: horse for horse in comparison["rows"]}
     assert by_number["3"]["corner4_display"] == "前方（逃げ）"
+
+
+def test_full_field_comparison_passes_race_info_to_v1_axes_and_recent_stars() -> None:
+    rows = [
+        _row(
+            5,
+            4,
+            2,
+            "中団",
+            馬名="ラップランド",
+            market_ability_score=31.2,
+            recent_runs=[{"racecourse": "船橋", "distance": "2200m", "time_index": "18", "finish": "3着"}],
+        ),
+        _row(
+            6,
+            8,
+            8,
+            "先団",
+            馬名="ヒロシゲジャック",
+            market_ability_score=20.5,
+            recent_runs=[{"racecourse": "船橋競馬場", "distance": 2200, "time_index": "9", "finish": "8着"}],
+        ),
+    ]
+
+    comparison = build_full_field_comparison(rows, race_mode="nar", race_info={"racecourse": "船橋", "distance": 2200})
+    by_number = {horse["number"]: horse for horse in comparison["rows"]}
+
+    assert by_number["5"]["v1_reproducibility"] == "A"
+    assert "船橋2200m" in by_number["5"]["v1_reproducibility_reason"]
+    assert by_number["5"]["recent3_indices"] == "★18"
+    assert by_number["6"]["v1_reproducibility"] == "C"
+    assert by_number["6"]["v1_pace_eval"] == "○"
+    assert comparison["v1_recommendations"][0]["name"]
+    assert "再現性" in comparison["v1_summary"]
+
+
+def test_v1_final_consistency_promotes_condition_specialist_without_overwriting_baseline() -> None:
+    rows = [
+        _row(7, 1, 1, "先団", 馬名="レルアバド", market_ability_score=70, recent_runs=[]),
+        _row(9, 2, 2, "先団", 馬名="セイノスケ", market_ability_score=68, recent_runs=[]),
+        _row(11, 3, 3, "中団", 馬名="ジラルデ", market_ability_score=66, recent_runs=[]),
+        _row(2, 4, 4, "中団", 馬名="ゴッドトレジャー", market_ability_score=64, recent_runs=[]),
+        _row(
+            5,
+            10,
+            12,
+            "後方",
+            馬名="ラップランド",
+            ai_current_mark="",
+            market_ability_score=48.7,
+            recent_runs=[{"racecourse": "船橋", "distance": "2200m", "time_index": "18", "finish": "1着"}],
+        ),
+    ]
+
+    comparison = build_full_field_comparison(rows, race_mode="nar", race_info={"racecourse": "船橋", "distance": 2200})
+    by_number = {horse["number"]: horse for horse in comparison["rows"]}
+    recommendations = comparison["v1_recommendations"]
+
+    assert validate_v1_consistency(comparison)["ok"] is True
+    assert [horse["number"] for horse in recommendations] == comparison["v1_summary_top_horses"][: len(recommendations)]
+    lapland = by_number["5"]
+    assert lapland["v1_reproducibility"] == "A"
+    assert lapland["v1_final_role"] == "条件スペシャリスト"
+    assert lapland["v1_final_mark"] == "☆"
+    assert lapland["v1_final_rank"] == 4
+    assert lapland["baseline_current_evaluation_rank"] == 12
+    assert lapland["baseline_mark"] == ""
+
+
+def test_jockey_info_shows_previous_to_current_for_change() -> None:
+    comparison = build_full_field_comparison(
+        [
+            _row(
+                1,
+                1,
+                1,
+                "中団",
+                jockey_market="戸崎圭太",
+                jockey_change="乗替",
+                previous_jockey="横山武史",
+                _jockey_course_place_rate=28,
+                weight=56,
+                previous_weight=56,
+            ),
+            _row(
+                2,
+                2,
+                2,
+                "中団",
+                jockey_market="川田将雅",
+                jockey_change="継続",
+                _jockey_course_place_rate=35,
+                weight=54,
+                previous_weight=56,
+            ),
+        ],
+        race_mode="jra",
+    )
+    by_number = {horse["number"]: horse for horse in comparison["rows"]}
+
+    assert by_number["1"]["jockey_info"] == "戸崎圭太｜乗替：横山武史→戸崎圭太｜複28%｜56.0kg（±0）"
+    assert by_number["2"]["jockey_info"] == "川田将雅｜継続｜複35%｜54.0kg（-2.0）"
 
 
 def test_jra_same_turn_is_independent_from_same_course() -> None:

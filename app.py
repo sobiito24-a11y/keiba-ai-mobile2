@@ -59,6 +59,7 @@ from core.nar_race_diagnostics import (
     comparison_position_icon,
     diagnostic_line,
     position_group_label,
+    validate_v1_consistency,
 )
 from core.nar_json_input import (
     NarJsonDataError,
@@ -387,6 +388,32 @@ MOBILE_CSS = """
     color: #344054;
     font-weight: 900;
     font-size: 0.78rem;
+  }
+  .ka-summary-grid,
+  .ka-recommend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.45rem;
+    margin: 0.45rem 0 0.7rem;
+  }
+  .ka-summary-card,
+  .ka-recommend-card {
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 0.55rem 0.6rem;
+  }
+  .ka-summary-title {
+    font-size: 0.78rem;
+    color: #667085;
+    font-weight: 800;
+  }
+  .ka-summary-value {
+    color: #101828;
+    font-weight: 900;
+    margin-top: 0.15rem;
+    font-size: 0.9rem;
+    line-height: 1.35;
   }
   .ka-comparison-scroll {
     overflow-x: auto;
@@ -1766,9 +1793,9 @@ def render_market_compare_result(result: PredictionResult) -> None:
         render_nar_race_diagnostics(table, result.race_mode, race_info=getattr(result, "race_info", {}) or {}, layout="mobile")
     else:
         render_jra_race_diagnostics(table, result.race_mode)
-    render_full_field_comparison(table, result.race_mode)
+    render_full_field_comparison(table, result.race_mode, race_info=getattr(result, "race_info", {}) or {})
     with st.expander("馬別コンパクトカードを見る", expanded=False):
-        render_market_horse_cards(table, result.race_mode)
+        render_market_horse_cards(table, result.race_mode, race_info=getattr(result, "race_info", {}) or {})
     with st.expander("研究買いガイド（参考）", expanded=False):
         render_market_research_bet(table, result.race_mode, context="mobile")
     with st.expander("従来の全頭表を見る", expanded=False):
@@ -2090,8 +2117,13 @@ def nar_position_stage_html(title: str, groups: dict[str, list[dict[str, str]]])
     return '<div class="ka-position-stage">' + "".join(lines) + "</div>"
 
 
-def render_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
-    comparison = build_full_field_comparison(table.to_dict("records"), race_mode=race_mode)
+def render_full_field_comparison(
+    table: pd.DataFrame,
+    race_mode: str,
+    *,
+    race_info: dict[str, Any] | None = None,
+) -> None:
+    comparison = build_full_field_comparison(table.to_dict("records"), race_mode=race_mode, race_info=race_info or {})
     if not comparison.get("show"):
         return
     st.subheader("全頭横比較")
@@ -2111,6 +2143,7 @@ def render_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
         table.to_dict("records"),
         race_mode=race_mode,
         sort_mode=mode_by_label.get(selected_label, "horse_number"),
+        race_info=race_info or {},
     )
     gap = comparison.get("gap_1_2")
     if gap is not None:
@@ -2124,8 +2157,12 @@ def render_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
             '</div>',
             unsafe_allow_html=True,
         )
+    consistency = validate_v1_consistency(comparison)
+    if not consistency.get("ok"):
+        st.warning("v1表示の整合性を確認してください: " + " / ".join(consistency.get("errors", [])))
+    render_v1_overview(comparison)
     st.markdown(full_field_comparison_html(comparison), unsafe_allow_html=True)
-    st.caption("保存済み予想情報の横比較です。能力値・印・展開位置・研究買いは再計算していません。")
+    st.caption("保存済み予想情報の横比較です。v1評価は市場を使わない表示用派生値で、Baseline v0の保存印や研究買いは書き換えません。")
 
 
 def full_field_comparison_sort_key(table: pd.DataFrame, race_mode: str) -> str:
@@ -2148,6 +2185,76 @@ def full_field_comparison_sort_key(table: pd.DataFrame, race_mode: str) -> str:
 
 def render_nar_full_field_comparison(table: pd.DataFrame, race_mode: str) -> None:
     render_full_field_comparison(table, race_mode)
+
+
+def render_v1_overview(comparison: dict[str, Any]) -> None:
+    summary = comparison.get("v1_summary") if isinstance(comparison.get("v1_summary"), dict) else {}
+    recommendations = comparison.get("v1_recommendations")
+    if not summary and not recommendations:
+        return
+    st.markdown(v1_summary_html(summary), unsafe_allow_html=True)
+    if isinstance(recommendations, list) and recommendations:
+        st.markdown(v1_recommendations_html(recommendations), unsafe_allow_html=True)
+
+
+def v1_summary_html(summary: dict[str, Any]) -> str:
+    cards = [
+        ("能力", clean_text(summary.get("能力")) or "能力値を土台に比較"),
+        ("再現性", clean_text(summary.get("再現性")) or "今回条件で走れる根拠"),
+        ("展開", clean_text(summary.get("展開")) or "4角位置と脚質"),
+        ("状態", clean_text(summary.get("状態")) or "斤量・間隔・調教等"),
+        ("今回評価", clean_text(summary.get("今回評価")) or "総合判断の前段"),
+    ]
+    inner = "".join(
+        '<div class="ka-summary-card">'
+        f'<div class="ka-summary-title">{plain_text_to_html(title)}</div>'
+        f'<div class="ka-summary-value">{plain_text_to_html(value)}</div>'
+        '</div>'
+        for title, value in cards
+    )
+    return (
+        '<div class="ka-dashboard-card">'
+        '<div class="ka-dashboard-title">今回の結論サマリー</div>'
+        f'<div class="ka-summary-grid">{inner}</div>'
+        '<div class="ka-note">能力 → 再現性 → 展開 → 状態 → 今回評価 → 印。市場・人気・オッズは使いません。</div>'
+        '</div>'
+    )
+
+
+def v1_recommendations_html(recommendations: list[dict[str, Any]]) -> str:
+    cards: list[str] = []
+    for horse in recommendations[:5]:
+        title = " ".join(
+            part
+            for part in [
+                clean_text(horse.get("v1_final_mark")) or clean_text(horse.get("v1_mark")) or clean_text(horse.get("mark")),
+                clean_text(horse.get("number")),
+                clean_text(horse.get("name")),
+            ]
+            if part
+        )
+        axes = [
+            f"能力{rank_display(horse.get('ability_rank'))}",
+            f"再現性{clean_text(horse.get('v1_reproducibility')) or '—'}",
+            f"展開{clean_text(horse.get('v1_pace_eval')) or '—'}",
+            f"状態{clean_text(horse.get('v1_state_eval')) or '—'}",
+        ]
+        reason = clean_text(horse.get("v1_final_reason"))
+        cards.append(
+            '<div class="ka-recommend-card">'
+            f'<b>{plain_text_to_html(title or "—")}</b>'
+            f'<div>{plain_text_to_html(clean_text(horse.get("v1_final_role")) or clean_text(horse.get("v1_role")) or "相手候補")}</div>'
+            f'<div class="ka-note">{plain_text_to_html(" / ".join(axes))}</div>'
+            + (f'<div class="ka-note">{plain_text_to_html(reason)}</div>' if reason else "")
+            + '</div>'
+        )
+    return (
+        '<div class="ka-dashboard-card">'
+        '<div class="ka-dashboard-title">今回の結論</div>'
+        '<div class="ka-recommend-grid">'
+        + "".join(cards)
+        + '</div><div class="ka-note">v1最終評価順です。Baseline v0の保存印は変更しません。</div></div>'
+    )
 
 
 def nar_comparison_top_two_html(comparison: dict[str, Any]) -> str:
@@ -2194,14 +2301,17 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
         return '<div class="ka-dashboard-card">比較できる出走馬データがありません。</div>'
     race_mode = clean_text(comparison.get("race_mode")).lower()
     metrics: list[tuple[str, str, Any]] = [
-        ("印", "", lambda horse: clean_text(horse.get("mark")) or "—"),
-        ("騎手情報", "", comparison_jockey_info_text),
         ("能力値", "", lambda horse: number_display(horse.get("ability_value"))),
         ("能力順位", "", lambda horse: rank_display(horse.get("ability_rank"))),
         ("1位との差", "", lambda horse: clean_text(horse.get("ability_gap_text")) or "—"),
-        ("今回評価順位", "", lambda horse: rank_display(horse.get("current_evaluation_rank"))),
+        ("再現性", "", lambda horse: clean_text(horse.get("v1_reproducibility")) or "—"),
+        ("再現性根拠", "", lambda horse: clean_text(horse.get("v1_reproducibility_reason")) or "—"),
         ("4角位置", "position", lambda horse: clean_text(horse.get("corner4_display")) or clean_text(horse.get("corner4_label")) or comparison_position_icon(clean_text(horse.get("corner4_group")))),
         ("脚質", "", lambda horse: clean_text(horse.get("running_style")) or "—"),
+        ("展開評価", "", lambda horse: clean_text(horse.get("v1_pace_eval")) or "—"),
+        ("状態評価", "", lambda horse: clean_text(horse.get("v1_state_eval")) or "—"),
+        ("状態理由", "", lambda horse: clean_text(horse.get("v1_state_reason")) or "—"),
+        ("騎手情報", "", comparison_jockey_info_text),
         ("近3走指数", "", lambda horse: clean_text(horse.get("recent3_indices")) or "—"),
         ("近3走条件", "", lambda horse: clean_text(horse.get("recent3_conditions")) or "—"),
         ("距離指数", "", lambda horse: clean_text(horse.get("distance_index")) or "—"),
@@ -2213,6 +2323,12 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
         ("対戦", "", lambda horse: clean_text(horse.get("matchup")) or "—"),
         ("プラス材料", "plus", lambda horse: horse.get("positive_tags") or []),
         ("不安材料", "minus", lambda horse: horse.get("negative_tags") or []),
+        ("v1今回評価順位", "", lambda horse: rank_display(horse.get("v1_final_rank"))),
+        ("v1最終印", "", lambda horse: clean_text(horse.get("v1_final_mark")) or "—"),
+        ("v1役割", "", lambda horse: clean_text(horse.get("v1_final_role")) or "—"),
+        ("v1最終理由", "", lambda horse: clean_text(horse.get("v1_final_reason")) or "—"),
+        ("Baseline総合順位", "", lambda horse: rank_display(horse.get("baseline_current_evaluation_rank") if horse.get("baseline_current_evaluation_rank") is not None else horse.get("current_evaluation_rank"))),
+        ("Baseline印", "", lambda horse: clean_text(horse.get("baseline_mark")) or clean_text(horse.get("mark")) or "—"),
     ]
     if include_body_weight or any(clean_text(horse.get("body_weight")) not in {"", "—"} for horse in rows):
         interval_index = next((index for index, item in enumerate(metrics) if item[0] == "レース間隔"), len(metrics) - 2)
@@ -2223,8 +2339,9 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
     if race_mode == "jra":
         course_index = next((index for index, item in enumerate(metrics) if item[0] == "同コース"), 13)
         metrics.insert(course_index + 1, ("同回り", "", lambda horse: clean_text(horse.get("same_turn_display")) or "—"))
-        metrics.insert(-2, ("調教評価", "", lambda horse: clean_text(horse.get("training")) or "—"))
-        metrics.insert(-2, ("厩舎コメント", "", lambda horse: clean_text(horse.get("stable_comment")) or "—"))
+        state_index = next((index for index, item in enumerate(metrics) if item[0] == "状態理由"), 8)
+        metrics.insert(state_index + 1, ("調教評価", "", lambda horse: clean_text(horse.get("training")) or "—"))
+        metrics.insert(state_index + 2, ("厩舎コメント", "", lambda horse: clean_text(horse.get("stable_comment")) or "—"))
     header = ['<th class="ka-sticky-metric">比較項目</th>']
     for horse in rows:
         title = " ".join(
@@ -2236,7 +2353,7 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
             ]
             if part
         ) or "—"
-        mark = clean_text(horse.get("mark"))
+        mark = clean_text(horse.get("v1_final_mark")) or clean_text(horse.get("v1_mark"))
         header.append(
             "<th>"
             f"{plain_text_to_html(title)}"
@@ -2244,9 +2361,7 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
             + "</th>"
         )
     body_rows = []
-    sticky_rows = {"印": "ka-comparison-sticky-1", "騎手情報": "ka-comparison-sticky-2"}
     for label, kind, getter in metrics:
-        row_class = sticky_rows.get(label, "")
         cells = [f'<td class="ka-sticky-metric">{plain_text_to_html(label)}</td>']
         for horse in rows:
             value = getter(horse)
@@ -2260,8 +2375,7 @@ def full_field_comparison_html(comparison: dict[str, Any], *, include_body_weigh
                 cells.append(f'<td>{nar_comparison_tags_html([value], "minus")}</td>')
             else:
                 cells.append(f"<td>{plain_text_to_html(clean_text(value) or '—')}</td>")
-        classes = f' class="ka-comparison-sticky-row {row_class}"' if row_class else ""
-        body_rows.append(f"<tr{classes}>" + "".join(cells) + "</tr>")
+        body_rows.append("<tr>" + "".join(cells) + "</tr>")
     return (
         '<div class="ka-comparison-scroll"><table class="ka-comparison-table">'
         "<thead><tr>"
@@ -2640,21 +2754,48 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
     st.dataframe(comparison, use_container_width=True, hide_index=True)
 
 
-def render_market_horse_cards(table: pd.DataFrame, race_mode: str) -> None:
+def render_market_horse_cards(
+    table: pd.DataFrame,
+    race_mode: str,
+    *,
+    race_info: dict[str, Any] | None = None,
+) -> None:
     st.subheader("馬別コンパクトカード")
-    ordered = market_horse_cards_ordered(table)
+    ordered = market_horse_cards_ordered(table, race_mode=race_mode, race_info=race_info or {})
     for row in ordered.to_dict("records"):
         st.markdown(market_horse_card_html(row, race_mode), unsafe_allow_html=True)
 
 
-def market_horse_cards_ordered(table: pd.DataFrame) -> pd.DataFrame:
-    """Display cards by existing ability value; do not change prediction ranks."""
+def market_horse_cards_ordered(
+    table: pd.DataFrame,
+    *,
+    race_mode: str = "jra",
+    race_info: dict[str, Any] | None = None,
+) -> pd.DataFrame:
+    """Display compact cards by v1 final order while preserving saved prediction values."""
 
     ordered = table.copy()
-    ordered["_card_ability_value_sort"] = pd.to_numeric(
-        ordered["market_ability_score"] if "market_ability_score" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+    try:
+        comparison = build_full_field_comparison(
+            ordered.to_dict("records"),
+            race_mode=race_mode,
+            sort_mode="current",
+            race_info=race_info or {},
+        )
+        v1_rank_by_number = {
+            clean_text(horse.get("number")): to_float(horse.get("v1_final_rank"))
+            for horse in comparison.get("rows", [])
+            if isinstance(horse, dict)
+        }
+    except Exception:
+        v1_rank_by_number = {}
+    number_source = ordered["馬番"] if "馬番" in ordered.columns else ordered.get("horse_no", pd.Series("", index=ordered.index))
+    ordered["_card_v1_final_rank_sort"] = pd.to_numeric(
+        [v1_rank_by_number.get(clean_text(value)) for value in number_source],
         errors="coerce",
     )
+    mark_source = ordered["ai_current_mark"] if "ai_current_mark" in ordered.columns else pd.Series("", index=ordered.index)
+    ordered["_card_mark_sort"] = mark_source.map(final_mark_sort_value)
     ordered["_card_ability_rank_sort"] = pd.to_numeric(
         ordered["market_ability_rank"] if "market_ability_rank" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
         errors="coerce",
@@ -2663,13 +2804,22 @@ def market_horse_cards_ordered(table: pd.DataFrame) -> pd.DataFrame:
         ordered["current_evaluation_rank"] if "current_evaluation_rank" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
         errors="coerce",
     )
+    ordered["_card_horse_no_sort"] = pd.to_numeric(
+        ordered["馬番"] if "馬番" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+        errors="coerce",
+    )
     ordered = ordered.sort_values(
-        ["_card_ability_value_sort", "_card_ability_rank_sort", "_card_current_rank_sort"],
-        ascending=[False, True, True],
+        ["_card_v1_final_rank_sort", "_card_mark_sort", "_card_current_rank_sort", "_card_ability_rank_sort", "_card_horse_no_sort"],
+        ascending=[True, True, True, True, True],
         na_position="last",
         kind="mergesort",
     )
-    return ordered.drop(columns=["_card_ability_value_sort", "_card_ability_rank_sort", "_card_current_rank_sort"])
+    return ordered.drop(columns=["_card_v1_final_rank_sort", "_card_mark_sort", "_card_ability_rank_sort", "_card_current_rank_sort", "_card_horse_no_sort"])
+
+
+def final_mark_sort_value(value: Any) -> int:
+    mark = clean_text(value)
+    return {"◎": 0, "○": 1, "▲": 2, "☆": 3, "△": 4, "✔︎": 5, "✔": 5}.get(mark, 6)
 
 
 def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:

@@ -12,14 +12,16 @@ from typing import Any, Callable, Iterable
 import pandas as pd
 
 from .value_support import attach_value_signals
+from .v1_logic import V1_MARKS, build_v1_evaluations, v1_sort_key
 
 
-MARK_ORDER = ["◎", "○", "▲", "△", "☆"]
+CHECK_MARK = "✔︎"
+MARK_ORDER = ["◎", "○", "▲", "☆", "△", CHECK_MARK]
 MARK_SET_SPECS: dict[str, list[str]] = {
     "◎○": ["◎", "○"],
     "◎○▲": ["◎", "○", "▲"],
-    "◎○▲△": ["◎", "○", "▲", "△"],
-    "◎○▲△☆": ["◎", "○", "▲", "△", "☆"],
+    "◎○▲☆": ["◎", "○", "▲", "☆"],
+    "◎○▲☆△": ["◎", "○", "▲", "☆", "△"],
 }
 PAIR_BET_TYPES = {"quinella": "馬連", "wide": "ワイド"}
 TRIO_BET_TYPES = {"trio": "三連複"}
@@ -55,7 +57,7 @@ def normalize_mark(value: Any) -> str:
     if text in MARK_ORDER:
         return text
     if text in {"✓", "✔"}:
-        return "☆"
+        return CHECK_MARK
     return ""
 
 
@@ -306,6 +308,7 @@ def extract_prediction_rows(result: Any, race_id: str, race_type: str) -> tuple[
         rows.append(
             {
                 "race_id": race_id,
+                "date": infer_date(race_id, race_info),
                 "race_type": race_type,
                 "venue": infer_venue(result, race_info),
                 "race_name": clean_text(getattr(result, "race_name", "")) or clean_text(race_info.get("race_name")),
@@ -323,6 +326,36 @@ def extract_prediction_rows(result: Any, race_id: str, race_type: str) -> tuple[
                 "ai_score": to_float(first_value(raw, ["AI点", "normalized_ai_score", "ai_score"])),
                 "odds": to_float(first_value(raw, ["オッズ", "単勝オッズ", "odds"])),
                 "popularity": to_int(first_value(raw, ["人気", "単勝人気", "popularity"])),
+                "recent_runs": first_value(raw, ["_past_runs", "recent_runs", "past_runs", "recent3_runs"]),
+                "running_style": clean_text(first_value(raw, ["脚質", "running_style", "style"])),
+                "corner4_group": clean_text(first_value(raw, ["corner4_group", "position_corner4_group_market"])),
+                "corner4_position": clean_text(
+                    first_value(
+                        raw,
+                        [
+                            "position_corner4_label_market",
+                            "_estimated_position_corner4_label",
+                            "corner4_position_label",
+                            "corner4_evaluation",
+                            "4角評価",
+                        ],
+                    )
+                ),
+                "training": clean_text(first_value(raw, ["training_display", "training_market", "training_short", "training_grade", "調教評価"])),
+                "stable_comment": clean_text(first_value(raw, ["stable_comment_display", "stable_comment_market", "stable_comment", "厩舎コメント"])),
+                "jockey_change": clean_text(first_value(raw, ["騎手継続/乗替", "jockey_change", "jockey_change_market"])),
+                "weight_diff": to_float(first_value(raw, ["_load_weight_change", "weight_diff", "斤量差", "斤量増減"])),
+                "interval": clean_text(first_value(raw, ["race_interval_market", "レース間隔", "間隔"])),
+                "current_weight": to_float(first_value(raw, ["_current_load_weight", "斤量", "weight"])),
+                "previous_weight": to_float(first_value(raw, ["_previous_load_weight", "previous_weight"])),
+                "current_jockey": clean_text(first_value(raw, ["_current_jockey", "騎手", "jockey"])),
+                "previous_jockey": clean_text(first_value(raw, ["_previous_jockey", "previous_jockey"])),
+                "jockey_changed": first_value(raw, ["_jockey_changed", "jockey_changed"]),
+                "star_max_venue": clean_text(first_value(raw, ["star_max_venue"])),
+                "star_max_distance": to_int(first_value(raw, ["star_max_distance"])),
+                "star_max_surface": clean_text(first_value(raw, ["star_max_surface"])),
+                "star_max_turn": clean_text(first_value(raw, ["star_max_turn"])),
+                "star_match_level": clean_text(first_value(raw, ["star_match_level"])),
             }
         )
     return rows, race_info
@@ -336,6 +369,17 @@ def infer_venue(result: Any, race_info: dict[str, Any]) -> str:
     race_name = clean_text(getattr(result, "race_name", ""))
     match = re.search(r"(札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉|門別|盛岡|水沢|浦和|船橋|大井|川崎|金沢|笠松|名古屋|園田|姫路|高知|佐賀)", race_name)
     return match.group(1) if match else ""
+
+
+def infer_date(race_id: str, race_info: dict[str, Any]) -> str:
+    for key in ["date", "race_date", "開催日", "日付"]:
+        text = clean_text(race_info.get(key))
+        if text:
+            return text
+    race_text = clean_text(race_id)
+    if len(race_text) >= 8 and race_text[:4].isdigit():
+        return race_text[:8]
+    return ""
 
 
 def find_existing_column(frame: pd.DataFrame, candidates: Iterable[str]) -> str | None:
@@ -360,6 +404,22 @@ def attach_results(prediction_rows: list[dict[str, Any]], finish: dict[str, dict
     return rows
 
 
+def race_exclusion_reason(
+    prediction_rows: list[dict[str, Any]],
+    finish: dict[str, dict[str, Any]],
+    payouts: dict[str, Any],
+) -> str:
+    if not prediction_rows:
+        return "印データなし"
+    if not any(clean_text(row.get("mark")) for row in prediction_rows):
+        return "印データなし"
+    if not finish:
+        return "着順なし"
+    if not any((payouts or {}).get(kind) for kind in ("win", "place", "wide", "quinella", "trio")):
+        return "払戻なし"
+    return ""
+
+
 def attach_value_signals_to_records(records: pd.DataFrame) -> pd.DataFrame:
     if records is None or records.empty:
         return records
@@ -368,6 +428,70 @@ def attach_value_signals_to_records(records: pd.DataFrame) -> pd.DataFrame:
         race_type = clean_text(group.iloc[0].get("race_type")) or "jra"
         enriched = attach_value_signals(group.to_dict(orient="records"), race_type)
         groups.append(pd.DataFrame(enriched))
+    return pd.concat(groups, ignore_index=True) if groups else records.copy()
+
+
+def attach_v1_predictions_to_records(records: pd.DataFrame) -> pd.DataFrame:
+    if records is None or records.empty:
+        return records
+    groups: list[pd.DataFrame] = []
+    for _race_id, group in records.groupby("race_id", sort=False):
+        race_type = clean_text(group.iloc[0].get("race_type")) or "jra"
+        evaluated = build_v1_evaluations(group.to_dict(orient="records"), race_type)
+        by_no = {normalize_horse_no(row.get("horse_no")): row for row in evaluated.get("rows", [])}
+        updated = group.copy()
+        for column in [
+            "v1_mark",
+            "v1_order",
+            "v1_score",
+            "v1_role",
+            "v1_base_score",
+            "v1_base_rank",
+            "v1_final_score",
+            "v1_final_rank",
+            "v1_final_mark",
+            "v1_final_role",
+            "v1_final_reason",
+            "baseline_current_evaluation_rank",
+            "baseline_mark",
+            "v1_reproducibility",
+            "v1_reproducibility_reason",
+            "v1_pace_eval",
+            "v1_pace_reason",
+            "v1_state_eval",
+            "v1_state_reason",
+            "v1_special_distance",
+        ]:
+            if column not in updated.columns:
+                updated[column] = None
+        for index, row in updated.iterrows():
+            v1_row = by_no.get(normalize_horse_no(row.get("horse_no")))
+            if not v1_row:
+                continue
+            for column in [
+                "v1_mark",
+                "v1_order",
+                "v1_score",
+                "v1_role",
+                "v1_base_score",
+                "v1_base_rank",
+                "v1_final_score",
+                "v1_final_rank",
+                "v1_final_mark",
+                "v1_final_role",
+                "v1_final_reason",
+                "baseline_current_evaluation_rank",
+                "baseline_mark",
+                "v1_reproducibility",
+                "v1_reproducibility_reason",
+                "v1_pace_eval",
+                "v1_pace_reason",
+                "v1_state_eval",
+                "v1_state_reason",
+                "v1_special_distance",
+            ]:
+                updated.at[index, column] = v1_row.get(column)
+        groups.append(updated)
     return pd.concat(groups, ignore_index=True) if groups else records.copy()
 
 
@@ -400,6 +524,333 @@ def evaluate_mark_singles(records: pd.DataFrame) -> pd.DataFrame:
                     "購入参考": classify_reference(len(targets), hits, pct(payout, stake)),
                 }
             )
+    return pd.DataFrame(rows)
+
+
+def evaluate_mark_summary(records: pd.DataFrame) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    if records is None or records.empty:
+        return pd.DataFrame()
+    for mark in MARK_ORDER:
+        targets = records[records["mark"].eq(mark)].copy()
+        rows.append(mark_performance_row(mark, targets))
+    return pd.DataFrame(rows)
+
+
+def mark_performance_row(label: str, targets: pd.DataFrame) -> dict[str, Any]:
+    finish = pd.to_numeric(targets.get("finish", pd.Series(dtype=float)), errors="coerce")
+    win_pay = pd.to_numeric(targets.get("win_payoff", pd.Series(dtype=float)), errors="coerce").fillna(0)
+    place_pay = pd.to_numeric(targets.get("place_payoff", pd.Series(dtype=float)), errors="coerce").fillna(0)
+    popularity = effective_numeric_series(targets, ["popularity", "result_popularity"])
+    odds = effective_numeric_series(targets, ["odds", "result_odds"])
+    count = int(len(targets))
+    win_stake = count * 100
+    place_stake = count * 100
+    return {
+        "印": label,
+        "出走数": count,
+        "1着数": int((finish == 1).sum()),
+        "2着数": int((finish == 2).sum()),
+        "3着数": int((finish == 3).sum()),
+        "勝率": pct((finish == 1).sum(), count),
+        "連対率": pct((finish <= 2).sum(), count),
+        "複勝率": pct((finish <= 3).sum(), count),
+        "平均人気": round(float(popularity.mean()), 2) if popularity.notna().any() else None,
+        "平均単勝オッズ": round(float(odds.mean()), 2) if odds.notna().any() else None,
+        "単勝購入額": win_stake,
+        "単勝払戻": int(win_pay.sum()),
+        "単勝回収率": pct(win_pay.sum(), win_stake),
+        "複勝購入額": place_stake,
+        "複勝払戻": int(place_pay.sum()),
+        "複勝回収率": pct(place_pay.sum(), place_stake),
+    }
+
+
+def effective_numeric_series(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
+    if frame is None or frame.empty:
+        return pd.Series(dtype=float)
+    result = pd.Series([None] * len(frame), index=frame.index, dtype="object")
+    for column in columns:
+        if column not in frame.columns:
+            continue
+        values = pd.to_numeric(frame[column], errors="coerce")
+        result = result.where(result.notna(), values)
+    return pd.to_numeric(result, errors="coerce")
+
+
+def evaluate_group_capture(records: pd.DataFrame) -> pd.DataFrame:
+    if records is None or records.empty:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for label, marks in [("◎○▲", ["◎", "○", "▲"]), ("◎○▲☆", ["◎", "○", "▲", "☆"])]:
+        rows.append(group_capture_row(records, label, marks))
+    rows.append(unmarked_capture_row(records))
+    return pd.DataFrame(rows)
+
+
+def group_capture_row(records: pd.DataFrame, label: str, marks: list[str]) -> dict[str, Any]:
+    race_count = 0
+    winner_hits = 0
+    top3_hits = 0
+    top3_two_or_more = 0
+    top3_all = 0
+    for _race_id, group in records.groupby("race_id", sort=True):
+        race_count += 1
+        marked = group[group["mark"].isin(marks)]
+        finishes = pd.to_numeric(marked.get("finish", pd.Series(dtype=float)), errors="coerce")
+        if (finishes == 1).any():
+            winner_hits += 1
+        top3_count = int((finishes <= 3).sum())
+        if top3_count > 0:
+            top3_hits += 1
+        if top3_count >= 2:
+            top3_two_or_more += 1
+        if top3_count >= len(marks) and len(marked) >= len(marks):
+            top3_all += 1
+    return {
+        "対象": label,
+        "レース数": race_count,
+        "1着捕捉レース数": winner_hits,
+        "1着捕捉率": pct(winner_hits, race_count),
+        "3着内捕捉レース数": top3_hits,
+        "3着内捕捉率": pct(top3_hits, race_count),
+        "2頭以上馬券内レース数": top3_two_or_more,
+        "2頭以上馬券内率": pct(top3_two_or_more, race_count),
+        "全頭馬券内レース数": top3_all,
+        "全頭馬券内率": pct(top3_all, race_count),
+    }
+
+
+def unmarked_capture_row(records: pd.DataFrame) -> dict[str, Any]:
+    unmarked = records[~records["mark"].isin(MARK_ORDER)].copy()
+    finish = pd.to_numeric(unmarked.get("finish", pd.Series(dtype=float)), errors="coerce")
+    race_count = int(records["race_id"].nunique()) if "race_id" in records else 0
+    unmarked_winner_races = int(unmarked[finish == 1]["race_id"].nunique()) if not unmarked.empty else 0
+    return {
+        "対象": "無印",
+        "レース数": race_count,
+        "出走数": int(len(unmarked)),
+        "勝率": pct((finish == 1).sum(), len(unmarked)),
+        "複勝率": pct((finish <= 3).sum(), len(unmarked)),
+        "無印1着レース数": unmarked_winner_races,
+        "無印1着レース割合": pct(unmarked_winner_races, race_count),
+    }
+
+
+def evaluate_check_mark(records: pd.DataFrame) -> pd.DataFrame:
+    targets = records[records["mark"].eq(CHECK_MARK)].copy() if records is not None and not records.empty else pd.DataFrame()
+    row = mark_performance_row(CHECK_MARK, targets)
+    finish = pd.to_numeric(targets.get("finish", pd.Series(dtype=float)), errors="coerce")
+    place_targets = targets[finish <= 3].copy()
+    place_popularity = effective_numeric_series(place_targets, ["popularity", "result_popularity"])
+    top_marks = {"◎", "○", "▲"}
+    check_place_races = set(place_targets.get("race_id", pd.Series(dtype=str)).astype(str).tolist())
+    with_top_mark = 0
+    for race_id in check_place_races:
+        group = records[records["race_id"].astype(str).eq(str(race_id))]
+        top_mark_finish = pd.to_numeric(group[group["mark"].isin(top_marks)].get("finish", pd.Series(dtype=float)), errors="coerce")
+        if (top_mark_finish <= 3).any():
+            with_top_mark += 1
+    row.update(
+        {
+            "✔︎出現数": row["出走数"],
+            "✔︎が3着以内に入った際の平均人気": round(float(place_popularity.mean()), 2) if place_popularity.notna().any() else None,
+            "✔︎が◎○▲と同時に馬券内へ入った割合": pct(with_top_mark, len(check_place_races)),
+        }
+    )
+    return pd.DataFrame([row])
+
+
+def compare_late_marks(records: pd.DataFrame) -> pd.DataFrame:
+    summary = evaluate_mark_summary(records)
+    if summary.empty or "印" not in summary.columns:
+        return pd.DataFrame()
+    return summary[summary["印"].isin(["☆", "△", CHECK_MARK])].reset_index(drop=True)
+
+
+def evaluate_mark_summary_for_column(records: pd.DataFrame, mark_column: str, *, label: str) -> pd.DataFrame:
+    if records is None or records.empty or mark_column not in records.columns:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for mark in V1_MARKS:
+        targets = records[records[mark_column].fillna("").astype(str).eq(mark)].copy()
+        row = mark_performance_row(mark, targets)
+        rows.append({"ロジック": label, **row})
+    return pd.DataFrame(rows)
+
+
+def evaluate_baseline_vs_v1(records: pd.DataFrame) -> pd.DataFrame:
+    if records is None or records.empty:
+        return pd.DataFrame()
+    rows = [
+        logic_comparison_row(records, "Baseline v0", "mark"),
+        logic_comparison_row(records, "New v1", "v1_mark"),
+    ]
+    return pd.DataFrame(rows)
+
+
+def logic_comparison_row(records: pd.DataFrame, label: str, mark_column: str) -> dict[str, Any]:
+    if mark_column not in records.columns:
+        return {"ロジック": label}
+    honmei = records[records[mark_column].fillna("").astype(str).eq("◎")].copy()
+    honmei_row = mark_performance_row("◎", honmei)
+    capture = capture_metrics_for_marks(records, mark_column, ["◎", "○", "▲"])
+    star = mark_performance_row("☆", records[records[mark_column].fillna("").astype(str).eq("☆")].copy())
+    check = mark_performance_row(CHECK_MARK, records[records[mark_column].fillna("").astype(str).eq(CHECK_MARK)].copy())
+    return {
+        "ロジック": label,
+        "◎出走数": honmei_row.get("出走数", 0),
+        "◎勝率": honmei_row.get("勝率", 0.0),
+        "◎連対率": honmei_row.get("連対率", 0.0),
+        "◎複勝率": honmei_row.get("複勝率", 0.0),
+        "◎○▲1着捕捉率": capture.get("1着捕捉率", 0.0),
+        "◎○▲3着内1頭以上率": capture.get("3着内捕捉率", 0.0),
+        "◎○▲2頭以上馬券内率": capture.get("2頭以上馬券内率", 0.0),
+        "◎○▲3頭完全捕捉率": capture.get("全頭馬券内率", 0.0),
+        "☆出走数": star.get("出走数", 0),
+        "☆勝率": star.get("勝率", 0.0),
+        "☆複勝率": star.get("複勝率", 0.0),
+        "✔︎出走数": check.get("出走数", 0),
+        "✔︎勝率": check.get("勝率", 0.0),
+        "✔︎複勝率": check.get("複勝率", 0.0),
+    }
+
+
+def capture_metrics_for_marks(records: pd.DataFrame, mark_column: str, marks: list[str]) -> dict[str, Any]:
+    race_count = 0
+    winner_hits = 0
+    top3_hits = 0
+    top3_two_or_more = 0
+    top3_all = 0
+    for _race_id, group in records.groupby("race_id", sort=False):
+        race_count += 1
+        marked = group[group[mark_column].fillna("").astype(str).isin(marks)]
+        finishes = pd.to_numeric(marked.get("finish", pd.Series(dtype=float)), errors="coerce")
+        if (finishes == 1).any():
+            winner_hits += 1
+        top3_count = int((finishes <= 3).sum())
+        if top3_count > 0:
+            top3_hits += 1
+        if top3_count >= 2:
+            top3_two_or_more += 1
+        if top3_count >= len(marks) and len(marked) >= len(marks):
+            top3_all += 1
+    return {
+        "レース数": race_count,
+        "1着捕捉率": pct(winner_hits, race_count),
+        "3着内捕捉率": pct(top3_hits, race_count),
+        "2頭以上馬券内率": pct(top3_two_or_more, race_count),
+        "全頭馬券内率": pct(top3_all, race_count),
+    }
+
+
+def evaluate_recommendation_summary(records: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if records is None or records.empty:
+        return pd.DataFrame(), pd.DataFrame()
+    summary_rows: list[dict[str, Any]] = []
+    race_rows: list[dict[str, Any]] = []
+    for size in (3, 4, 5):
+        race_count = 0
+        winner_hits = 0
+        top3_total = 0
+        top3_all = 0
+        for race_id, group in records.groupby("race_id", sort=False):
+            ordered = v1_ordered_group(group)
+            if ordered.empty:
+                continue
+            selected = ordered.head(size).copy()
+            race_count += 1
+            finishes = pd.to_numeric(selected.get("finish", pd.Series(dtype=float)), errors="coerce")
+            top3_count = int((finishes <= 3).sum())
+            if (finishes == 1).any():
+                winner_hits += 1
+            top3_total += top3_count
+            if top3_count >= 3:
+                top3_all += 1
+            race_rows.append(
+                {
+                    "race_id": race_id,
+                    "推奨頭数": size,
+                    "race_type": clean_text(group.iloc[0].get("race_type")),
+                    "venue": clean_text(group.iloc[0].get("venue")),
+                    "勝馬捕捉": bool((finishes == 1).any()),
+                    "3着内捕捉頭数": top3_count,
+                    "3着内3頭完全捕捉": top3_count >= 3,
+                    "推奨馬": " / ".join(
+                        f"{clean_text(row.get('v1_mark'))}{normalize_horse_no(row.get('horse_no'))} {clean_text(row.get('horse_name'))}"
+                        for _, row in selected.iterrows()
+                    ),
+                }
+            )
+        summary_rows.append(
+            {
+                "推奨頭数": size,
+                "レース数": race_count,
+                "勝馬捕捉率": pct(winner_hits, race_count),
+                "3着内平均捕捉頭数": round(top3_total / race_count, 2) if race_count else 0.0,
+                "3着内3頭完全捕捉率": pct(top3_all, race_count),
+            }
+        )
+    return pd.DataFrame(summary_rows), pd.DataFrame(race_rows)
+
+
+def v1_ordered_group(group: pd.DataFrame) -> pd.DataFrame:
+    work = group.copy()
+    if "v1_order" not in work.columns:
+        return pd.DataFrame()
+    work["_v1_order_sort"] = pd.to_numeric(work.get("v1_order"), errors="coerce").fillna(99)
+    work["_v1_score_sort"] = pd.to_numeric(work.get("v1_score"), errors="coerce").fillna(-9999)
+    work["_horse_no_sort"] = pd.to_numeric(work.get("horse_no"), errors="coerce").fillna(999)
+    return work.sort_values(["_v1_order_sort", "_v1_score_sort", "_horse_no_sort"], ascending=[True, False, True])
+
+
+def evaluate_v1_role_summary(records: pd.DataFrame) -> pd.DataFrame:
+    return evaluate_grouped_performance(records, "v1_role", "役割")
+
+
+def evaluate_v1_reproducibility_summary(records: pd.DataFrame) -> pd.DataFrame:
+    return evaluate_grouped_performance(records, "v1_reproducibility", "再現性")
+
+
+def evaluate_grouped_performance(records: pd.DataFrame, column: str, label_name: str) -> pd.DataFrame:
+    if records is None or records.empty or column not in records.columns:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for label, group in records.groupby(records[column].fillna("—").astype(str), sort=True):
+        row = mark_performance_row(clean_text(label) or "—", group.copy())
+        row.pop("印", None)
+        rows.append({label_name: clean_text(label) or "—", **row})
+    return pd.DataFrame(rows)
+
+
+def evaluate_v1_check_mark_deep_dive(records: pd.DataFrame) -> pd.DataFrame:
+    if records is None or records.empty or "v1_mark" not in records.columns:
+        return pd.DataFrame()
+    check = records[records["v1_mark"].fillna("").astype(str).eq(CHECK_MARK)].copy()
+    scenarios: list[tuple[str, pd.DataFrame]] = [
+        ("✔︎全体", check),
+        ("✔︎＋再現性S", check[check.get("v1_reproducibility", pd.Series(dtype=str)).fillna("").astype(str).eq("S")]),
+        ("✔︎＋再現性A以上", check[check.get("v1_reproducibility", pd.Series(dtype=str)).fillna("").astype(str).isin(["S", "A"])]),
+        ("✔︎＋展開○", check[check.get("v1_pace_eval", pd.Series(dtype=str)).fillna("").astype(str).eq("○")]),
+        ("✔︎＋特殊距離実績", check[check.get("v1_special_distance", pd.Series(dtype=bool)).fillna(False).astype(bool)]),
+        (
+            "✔︎＋能力順位4〜8位",
+            check[
+                pd.to_numeric(check.get("ability_rank", pd.Series(dtype=float)), errors="coerce").between(4, 8, inclusive="both")
+            ],
+        ),
+        (
+            "✔︎＋再現性A以上＋展開○",
+            check[
+                check.get("v1_reproducibility", pd.Series(dtype=str)).fillna("").astype(str).isin(["S", "A"])
+                & check.get("v1_pace_eval", pd.Series(dtype=str)).fillna("").astype(str).eq("○")
+            ],
+        ),
+    ]
+    rows: list[dict[str, Any]] = []
+    for label, frame in scenarios:
+        row = mark_performance_row(label, frame.copy())
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -525,6 +976,133 @@ def evaluate_box_strategies(records: pd.DataFrame, payouts_by_race: dict[str, di
     return pd.DataFrame(rows)
 
 
+def evaluate_bet_strategies(records: pd.DataFrame, payouts_by_race: dict[str, dict[str, Any]]) -> pd.DataFrame:
+    specs: list[tuple[str, str, Callable[[dict[str, str]], list[tuple[str, ...]]]]] = [
+        ("◎ 単勝", "win", lambda marks: one_horse_ticket(marks, "◎")),
+        ("◎ 複勝", "place", lambda marks: one_horse_ticket(marks, "◎")),
+        ("◎-○ 馬連", "quinella", lambda marks: pair_flow_tickets(marks, "◎", ["○"])),
+        ("◎-○▲ 馬連流し", "quinella", lambda marks: pair_flow_tickets(marks, "◎", ["○", "▲"])),
+        ("◎○▲ 馬連BOX", "quinella", lambda marks: box_tickets(marks, ["◎", "○", "▲"], 2)),
+        ("◎-○ ワイド", "wide", lambda marks: pair_flow_tickets(marks, "◎", ["○"])),
+        ("◎-○▲ ワイド流し", "wide", lambda marks: pair_flow_tickets(marks, "◎", ["○", "▲"])),
+        ("◎○▲ ワイドBOX", "wide", lambda marks: box_tickets(marks, ["◎", "○", "▲"], 2)),
+        ("◎軸 ○▲ 3連複", "trio", lambda marks: trio_axis_tickets(marks, "◎", ["○", "▲"])),
+        ("◎○▲ 3連複BOX", "trio", lambda marks: box_tickets(marks, ["◎", "○", "▲"], 3)),
+        ("◎軸 ○▲☆ ワイド", "wide", lambda marks: pair_flow_tickets(marks, "◎", ["○", "▲", "☆"])),
+        ("◎軸 ○▲☆✔︎ ワイド", "wide", lambda marks: pair_flow_tickets(marks, "◎", ["○", "▲", "☆", CHECK_MARK])),
+        ("◎軸 ○▲☆ 3連複", "trio", lambda marks: trio_axis_tickets(marks, "◎", ["○", "▲", "☆"])),
+        ("◎軸 ○▲☆✔︎ 3連複", "trio", lambda marks: trio_axis_tickets(marks, "◎", ["○", "▲", "☆", CHECK_MARK])),
+    ]
+    rows: list[dict[str, Any]] = []
+    for name, bet_type, ticket_builder in specs:
+        race_rows: list[dict[str, Any]] = []
+        for race_id, group in records.groupby("race_id", sort=True):
+            mark_map = first_mark_map(group)
+            tickets = unique_tickets(ticket_builder(mark_map), bet_type)
+            if not tickets:
+                continue
+            stake = len(tickets) * 100
+            payout = payout_for_tickets(tickets, bet_type, payouts_by_race.get(str(race_id), {}))
+            race_rows.append({"race_id": str(race_id), "points": len(tickets), "stake": stake, "payout": payout})
+        rows.append(bet_summary_row(name, race_rows))
+    return pd.DataFrame(rows)
+
+
+def bet_summary_row(name: str, race_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    race_count = len(race_rows)
+    total_points = sum(row["points"] for row in race_rows)
+    stake = sum(row["stake"] for row in race_rows)
+    payout = sum(row["payout"] for row in race_rows)
+    hits = sum(1 for row in race_rows if row["payout"] > 0)
+    profit_races = sum(1 for row in race_rows if row["payout"] > row["stake"])
+    max_payout = max([row["payout"] for row in race_rows] or [0])
+    return {
+        "買い方": name,
+        "対象レース数": race_count,
+        "的中レース数": hits,
+        "的中率": pct(hits, race_count),
+        "購入点数": total_points,
+        "総購入額": stake,
+        "総払戻額": int(payout),
+        "回収率": pct(payout, stake),
+        "収支": int(payout - stake),
+        "1レース平均購入額": round(stake / race_count, 1) if race_count else 0.0,
+        "最大払戻": int(max_payout),
+        "最大連敗": max_losing_streak(race_rows),
+        "平均的中払戻": round(payout / hits, 1) if hits else 0.0,
+        "収支プラスレース率": pct(profit_races, race_count),
+    }
+
+
+def first_mark_map(group: pd.DataFrame) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for mark in MARK_ORDER:
+        horses = marked_horses(group, [mark])
+        if horses:
+            result[mark] = horses[0]
+    return result
+
+
+def one_horse_ticket(marks: dict[str, str], mark: str) -> list[tuple[str, ...]]:
+    no = marks.get(mark)
+    return [(no,)] if no else []
+
+
+def pair_flow_tickets(marks: dict[str, str], axis: str, opponents: list[str]) -> list[tuple[str, ...]]:
+    axis_no = marks.get(axis)
+    if not axis_no:
+        return []
+    return [(axis_no, marks[mark]) for mark in opponents if marks.get(mark) and marks[mark] != axis_no]
+
+
+def trio_axis_tickets(marks: dict[str, str], axis: str, opponents: list[str]) -> list[tuple[str, ...]]:
+    axis_no = marks.get(axis)
+    if not axis_no:
+        return []
+    opponent_numbers = [marks[mark] for mark in opponents if marks.get(mark) and marks[mark] != axis_no]
+    return [(axis_no, left, right) for left, right in itertools.combinations(opponent_numbers, 2)]
+
+
+def box_tickets(marks: dict[str, str], mark_order: list[str], size: int) -> list[tuple[str, ...]]:
+    numbers: list[str] = []
+    for mark in mark_order:
+        no = marks.get(mark)
+        if no and no not in numbers:
+            numbers.append(no)
+    if len(numbers) < size:
+        return []
+    return list(itertools.combinations(numbers, size))
+
+
+def unique_tickets(tickets: list[tuple[str, ...]], bet_type: str) -> list[tuple[str, ...]]:
+    seen: set[tuple[str, ...]] = set()
+    unique: list[tuple[str, ...]] = []
+    for ticket in tickets:
+        if bet_type in {"quinella", "wide"}:
+            key = pair_key(ticket)
+        elif bet_type == "trio":
+            key = trio_key(ticket)
+        else:
+            key = tuple(ticket)
+        if len(key) != len(ticket) or key in seen:
+            continue
+        seen.add(key)
+        unique.append(tuple(ticket))
+    return unique
+
+
+def max_losing_streak(race_rows: list[dict[str, Any]]) -> int:
+    longest = 0
+    current = 0
+    for row in race_rows:
+        if row["payout"] > 0:
+            current = 0
+        else:
+            current += 1
+            longest = max(longest, current)
+    return longest
+
+
 def marked_horses(group: pd.DataFrame, marks: list[str]) -> list[str]:
     horses: list[str] = []
     for mark in marks:
@@ -544,7 +1122,9 @@ def payout_for_tickets(tickets: Iterable[tuple[str, ...]], bet_type: str, payout
     total = 0.0
     payout_map = payouts.get(bet_type, {})
     for ticket in tickets:
-        if bet_type in {"wide", "quinella"}:
+        if bet_type in {"win", "place"}:
+            key = normalize_horse_no(ticket[0]) if ticket else ""
+        elif bet_type in {"wide", "quinella"}:
             key = pair_key(ticket)
         elif bet_type == "trio":
             key = trio_key(ticket)
@@ -602,6 +1182,123 @@ def build_condition_summary(records: pd.DataFrame) -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(rows)
+
+
+def build_mark_by_popularity(records: pd.DataFrame) -> pd.DataFrame:
+    if records is None or records.empty:
+        return pd.DataFrame()
+    frame = records.copy()
+    frame["人気帯"] = effective_numeric_series(frame, ["popularity", "result_popularity"]).apply(popularity_band)
+    rows: list[dict[str, Any]] = []
+    for (mark, band), group in frame[frame["mark"].isin(MARK_ORDER)].groupby(["mark", "人気帯"], dropna=False, sort=True):
+        row = mark_performance_row(str(mark), group)
+        row["人気帯"] = band
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def build_simple_group_summary(records: pd.DataFrame, group_column: str, label_column: str) -> pd.DataFrame:
+    if records is None or records.empty or group_column not in records.columns:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for value, group in records.groupby(group_column, dropna=False, sort=True):
+        finish = pd.to_numeric(group.get("finish", pd.Series(dtype=float)), errors="coerce")
+        honmei = group[group["mark"].eq("◎")]
+        honmei_finish = pd.to_numeric(honmei.get("finish", pd.Series(dtype=float)), errors="coerce")
+        rows.append(
+            {
+                label_column: clean_text(value) or "欠損",
+                "レース数": int(group["race_id"].nunique()),
+                "出走数": int(len(group)),
+                "全馬勝率": pct((finish == 1).sum(), len(group)),
+                "全馬複勝率": pct((finish <= 3).sum(), len(group)),
+                "◎出走数": int(len(honmei)),
+                "◎勝率": pct((honmei_finish == 1).sum(), len(honmei)),
+                "◎複勝率": pct((honmei_finish <= 3).sum(), len(honmei)),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def popularity_band(value: Any) -> str:
+    popularity = to_int(value)
+    if popularity is None:
+        return "人気欠損"
+    if popularity == 1:
+        return "1番人気"
+    if popularity <= 3:
+        return "2〜3番人気"
+    if popularity <= 6:
+        return "4〜6番人気"
+    return "7番人気以下"
+
+
+def build_race_backtest(records: pd.DataFrame, payouts_by_race: dict[str, dict[str, Any]]) -> pd.DataFrame:
+    if records is None or records.empty:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for race_id, group in records.groupby("race_id", sort=True):
+        group = group.copy()
+        payouts = payouts_by_race.get(str(race_id), {})
+        base = group.iloc[0].to_dict()
+        finish_order = finish_numbers(group)
+        row: dict[str, Any] = {
+            "race_id": race_id,
+            "date": clean_text(base.get("date")),
+            "venue": clean_text(base.get("venue")),
+            "distance": base.get("distance"),
+            "surface": clean_text(base.get("surface")),
+            "race_name": clean_text(base.get("race_name")),
+            "1着馬番": finish_order.get(1, ""),
+            "2着馬番": finish_order.get(2, ""),
+            "3着馬番": finish_order.get(3, ""),
+        }
+        for mark in MARK_ORDER:
+            mark_row = first_mark_row(group, mark)
+            prefix = mark
+            row[f"{prefix}馬番"] = clean_text(mark_row.get("horse_no")) if mark_row else ""
+            row[f"{prefix}馬名"] = clean_text(mark_row.get("horse_name")) if mark_row else ""
+            row[f"{prefix}人気"] = effective_row_number(mark_row, ["popularity", "result_popularity"]) if mark_row else None
+            row[f"{prefix}単勝オッズ"] = effective_row_number(mark_row, ["odds", "result_odds"]) if mark_row else None
+            row[f"{prefix}着順"] = mark_row.get("finish") if mark_row else None
+        mark_map = first_mark_map(group)
+        row["◎単勝的中"] = payout_for_tickets(one_horse_ticket(mark_map, "◎"), "win", payouts) > 0
+        row["◎複勝的中"] = payout_for_tickets(one_horse_ticket(mark_map, "◎"), "place", payouts) > 0
+        row["◎○▲馬連BOX的中"] = payout_for_tickets(box_tickets(mark_map, ["◎", "○", "▲"], 2), "quinella", payouts) > 0
+        row["◎○▲ワイドBOX的中"] = payout_for_tickets(box_tickets(mark_map, ["◎", "○", "▲"], 2), "wide", payouts) > 0
+        row["◎○▲3連複的中"] = payout_for_tickets(box_tickets(mark_map, ["◎", "○", "▲"], 3), "trio", payouts) > 0
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def finish_numbers(group: pd.DataFrame) -> dict[int, str]:
+    result: dict[int, str] = {}
+    for _, row in group.iterrows():
+        finish = to_int(row.get("finish"))
+        no = normalize_horse_no(row.get("horse_no"))
+        if finish in {1, 2, 3} and finish not in result and no:
+            result[finish] = no
+    return result
+
+
+def first_mark_row(group: pd.DataFrame, mark: str) -> dict[str, Any] | None:
+    subset = group[group["mark"].eq(mark)].copy()
+    if subset.empty:
+        return None
+    sort_cols = [column for column in ["ai_current_rank", "horse_no"] if column in subset.columns]
+    if sort_cols:
+        subset = subset.sort_values(sort_cols, na_position="last")
+    return subset.iloc[0].to_dict()
+
+
+def effective_row_number(row: dict[str, Any] | None, columns: list[str]) -> float | int | None:
+    if not row:
+        return None
+    for column in columns:
+        value = to_float(row.get(column))
+        if value is not None:
+            return int(value) if float(value).is_integer() else value
+    return None
 
 
 def distance_band(value: Any) -> str:
@@ -673,47 +1370,189 @@ def build_report_payload(
     payouts_by_race: dict[str, dict[str, Any]],
     meta: dict[str, Any],
 ) -> dict[str, Any]:
+    records = ensure_records_frame(records)
     if records is not None and not records.empty and "value_signal" not in records.columns:
         records = attach_value_signals_to_records(records)
-    mark_summary = evaluate_mark_singles(records)
+    if records is not None and not records.empty and "v1_mark" not in records.columns:
+        records = attach_v1_predictions_to_records(records)
+    mark_single_summary = evaluate_mark_singles(records)
+    mark_summary = evaluate_mark_summary(records)
     box_summary = evaluate_box_strategies(records, payouts_by_race)
+    bet_summary = evaluate_bet_strategies(records, payouts_by_race)
     condition_summary = build_condition_summary(records)
     value_summary = evaluate_value_singles(records)
+    group_capture = evaluate_group_capture(records)
+    check_mark_summary = evaluate_check_mark(records)
+    late_mark_comparison = compare_late_marks(records)
+    race_backtest = build_race_backtest(records, payouts_by_race)
+    mark_by_popularity = build_mark_by_popularity(records)
+    venue_summary = build_simple_group_summary(records, "venue", "競馬場")
+    distance_summary = build_simple_group_summary(records, "distance", "距離")
+    mark_summary_v1 = evaluate_mark_summary_for_column(records, "v1_mark", label="New v1")
+    baseline_vs_v1_summary = evaluate_baseline_vs_v1(records)
+    recommendation_summary, recommendation_races = evaluate_recommendation_summary(records)
+    role_summary = evaluate_v1_role_summary(records)
+    reproducibility_summary = evaluate_v1_reproducibility_summary(records)
+    check_mark_v1_analysis = evaluate_v1_check_mark_deep_dive(records)
     return {
         "meta": meta,
         "mark_summary": mark_summary,
+        "mark_single_summary": mark_single_summary,
         "box_summary": box_summary,
+        "bet_summary": bet_summary,
         "condition_summary": condition_summary,
         "value_summary": value_summary,
+        "group_capture": group_capture,
+        "check_mark_summary": check_mark_summary,
+        "late_mark_comparison": late_mark_comparison,
+        "race_backtest": race_backtest,
+        "mark_by_popularity": mark_by_popularity,
+        "venue_summary": venue_summary,
+        "distance_summary": distance_summary,
+        "baseline_vs_v1_summary": baseline_vs_v1_summary,
+        "recommendation_summary": recommendation_summary,
+        "recommendation_races": recommendation_races,
+        "mark_summary_v1": mark_summary_v1,
+        "role_summary": role_summary,
+        "reproducibility_summary": reproducibility_summary,
+        "check_mark_v1_analysis": check_mark_v1_analysis,
     }
+
+
+def ensure_records_frame(records: pd.DataFrame | None) -> pd.DataFrame:
+    columns = [
+        "race_id",
+        "date",
+        "race_type",
+        "venue",
+        "race_name",
+        "distance",
+        "surface",
+        "field_size",
+        "horse_no",
+        "horse_name",
+        "mark",
+        "raw_mark",
+        "ability_band",
+        "ability_rank",
+        "ability_value",
+        "ai_current_rank",
+        "ai_score",
+        "odds",
+        "popularity",
+        "finish",
+        "result_popularity",
+        "result_odds",
+        "win_payoff",
+        "place_payoff",
+        "v1_mark",
+        "v1_order",
+        "v1_score",
+        "v1_role",
+        "v1_reproducibility",
+        "v1_reproducibility_reason",
+        "v1_pace_eval",
+        "v1_state_eval",
+    ]
+    if records is None or records.empty:
+        return pd.DataFrame(columns=columns)
+    frame = records.copy()
+    for column in columns:
+        if column not in frame.columns:
+            frame[column] = None
+    return frame
 
 
 def write_outputs(payload: dict[str, Any], records: pd.DataFrame, out_dir: Path) -> dict[str, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     mark_summary = payload["mark_summary"]
+    mark_single_summary = payload.get("mark_single_summary", pd.DataFrame())
     box_summary = payload["box_summary"]
+    bet_summary = payload.get("bet_summary", pd.DataFrame())
     condition_summary = payload["condition_summary"]
     value_summary = payload.get("value_summary", pd.DataFrame())
+    group_capture = payload.get("group_capture", pd.DataFrame())
+    check_mark_summary = payload.get("check_mark_summary", pd.DataFrame())
+    late_mark_comparison = payload.get("late_mark_comparison", pd.DataFrame())
+    race_backtest = payload.get("race_backtest", pd.DataFrame())
+    mark_by_popularity = payload.get("mark_by_popularity", pd.DataFrame())
+    venue_summary = payload.get("venue_summary", pd.DataFrame())
+    distance_summary = payload.get("distance_summary", pd.DataFrame())
+    baseline_vs_v1_summary = payload.get("baseline_vs_v1_summary", pd.DataFrame())
+    recommendation_summary = payload.get("recommendation_summary", pd.DataFrame())
+    recommendation_races = payload.get("recommendation_races", pd.DataFrame())
+    mark_summary_v1 = payload.get("mark_summary_v1", pd.DataFrame())
+    role_summary = payload.get("role_summary", pd.DataFrame())
+    reproducibility_summary = payload.get("reproducibility_summary", pd.DataFrame())
+    check_mark_v1_analysis = payload.get("check_mark_v1_analysis", pd.DataFrame())
     paths = {
         "race_mark_details": out_dir / "race_mark_details.csv",
-        "mark_summary": out_dir / "mark_single_summary.csv",
+        "race_backtest": out_dir / "race_backtest.csv",
+        "mark_summary": out_dir / "mark_summary.csv",
+        "mark_single_summary": out_dir / "mark_single_summary.csv",
+        "bet_summary": out_dir / "bet_summary.csv",
         "box_summary": out_dir / "box_summary.csv",
         "condition_summary": out_dir / "condition_summary.csv",
         "value_summary": out_dir / "value_signal_summary.csv",
+        "group_capture": out_dir / "group_capture_summary.csv",
+        "check_mark_summary": out_dir / "check_mark_summary.csv",
+        "late_mark_comparison": out_dir / "late_mark_comparison.csv",
+        "mark_by_popularity": out_dir / "mark_by_popularity.csv",
+        "venue_summary": out_dir / "venue_summary.csv",
+        "distance_summary": out_dir / "distance_summary.csv",
+        "baseline_vs_v1_summary": out_dir / "baseline_vs_v1_summary.csv",
+        "recommendation_summary": out_dir / "recommendation_summary.csv",
+        "recommendation_races": out_dir / "recommendation_races.csv",
+        "mark_summary_v1": out_dir / "mark_summary_v1.csv",
+        "role_summary": out_dir / "role_summary.csv",
+        "reproducibility_summary": out_dir / "reproducibility_summary.csv",
+        "check_mark_v1_analysis": out_dir / "check_mark_v1_analysis.csv",
         "json": out_dir / "mark_betting_backtest_summary.json",
         "markdown": out_dir / "mark_betting_backtest_report.md",
     }
     records.to_csv(paths["race_mark_details"], index=False, encoding="utf-8-sig")
+    race_backtest.to_csv(paths["race_backtest"], index=False, encoding="utf-8-sig")
     mark_summary.to_csv(paths["mark_summary"], index=False, encoding="utf-8-sig")
+    mark_single_summary.to_csv(paths["mark_single_summary"], index=False, encoding="utf-8-sig")
+    bet_summary.to_csv(paths["bet_summary"], index=False, encoding="utf-8-sig")
     box_summary.to_csv(paths["box_summary"], index=False, encoding="utf-8-sig")
     condition_summary.to_csv(paths["condition_summary"], index=False, encoding="utf-8-sig")
     value_summary.to_csv(paths["value_summary"], index=False, encoding="utf-8-sig")
+    group_capture.to_csv(paths["group_capture"], index=False, encoding="utf-8-sig")
+    check_mark_summary.to_csv(paths["check_mark_summary"], index=False, encoding="utf-8-sig")
+    late_mark_comparison.to_csv(paths["late_mark_comparison"], index=False, encoding="utf-8-sig")
+    mark_by_popularity.to_csv(paths["mark_by_popularity"], index=False, encoding="utf-8-sig")
+    venue_summary.to_csv(paths["venue_summary"], index=False, encoding="utf-8-sig")
+    distance_summary.to_csv(paths["distance_summary"], index=False, encoding="utf-8-sig")
+    baseline_vs_v1_summary.to_csv(paths["baseline_vs_v1_summary"], index=False, encoding="utf-8-sig")
+    recommendation_summary.to_csv(paths["recommendation_summary"], index=False, encoding="utf-8-sig")
+    recommendation_races.to_csv(paths["recommendation_races"], index=False, encoding="utf-8-sig")
+    mark_summary_v1.to_csv(paths["mark_summary_v1"], index=False, encoding="utf-8-sig")
+    role_summary.to_csv(paths["role_summary"], index=False, encoding="utf-8-sig")
+    reproducibility_summary.to_csv(paths["reproducibility_summary"], index=False, encoding="utf-8-sig")
+    check_mark_v1_analysis.to_csv(paths["check_mark_v1_analysis"], index=False, encoding="utf-8-sig")
     json_payload = {
         "meta": payload["meta"],
         "mark_summary": mark_summary.to_dict(orient="records"),
+        "mark_single_summary": mark_single_summary.to_dict(orient="records"),
+        "bet_summary": bet_summary.to_dict(orient="records"),
         "box_summary": box_summary.to_dict(orient="records"),
         "condition_summary": condition_summary.to_dict(orient="records"),
         "value_summary": value_summary.to_dict(orient="records"),
+        "group_capture": group_capture.to_dict(orient="records"),
+        "check_mark_summary": check_mark_summary.to_dict(orient="records"),
+        "late_mark_comparison": late_mark_comparison.to_dict(orient="records"),
+        "race_backtest": race_backtest.to_dict(orient="records"),
+        "mark_by_popularity": mark_by_popularity.to_dict(orient="records"),
+        "venue_summary": venue_summary.to_dict(orient="records"),
+        "distance_summary": distance_summary.to_dict(orient="records"),
+        "baseline_vs_v1_summary": baseline_vs_v1_summary.to_dict(orient="records"),
+        "recommendation_summary": recommendation_summary.to_dict(orient="records"),
+        "recommendation_races": recommendation_races.to_dict(orient="records"),
+        "mark_summary_v1": mark_summary_v1.to_dict(orient="records"),
+        "role_summary": role_summary.to_dict(orient="records"),
+        "reproducibility_summary": reproducibility_summary.to_dict(orient="records"),
+        "check_mark_v1_analysis": check_mark_v1_analysis.to_dict(orient="records"),
     }
     paths["json"].write_text(json.dumps(json_payload, ensure_ascii=False, indent=2, default=json_default), encoding="utf-8")
     paths["markdown"].write_text(build_markdown_report(payload), encoding="utf-8")
@@ -759,16 +1598,63 @@ def build_markdown_report(payload: dict[str, Any]) -> str:
         "",
         "## データ監査",
         "",
-        f"- 使用レース数: {meta.get('usable_races', 0)}R",
+        f"- 総レース数: {meta.get('attempted_races', meta.get('total_discovered_races', 0))}R",
+        f"- 検証可能レース数: {meta.get('usable_races', 0)}R",
+        f"- 除外レース数: {meta.get('excluded_races', 0)}R",
+        f"- 除外理由: {meta.get('excluded_reasons', {})}",
         f"- JRA: {meta.get('jra_races', 0)}R",
         f"- NAR: {meta.get('nar_races', 0)}R",
         f"- 対象馬数: {meta.get('horse_count', 0)}頭",
         f"- 予想エラー: {meta.get('prediction_error_count', 0)}件",
         f"- 結果HTMLは予想生成入力から除外: {meta.get('future_info_isolated', True)}",
         "",
-        "## 印別 単勝・複勝",
+        "## 印別成績",
         "",
         markdown_table(payload["mark_summary"]),
+        "",
+        "## Baseline v0 vs New v1",
+        "",
+        markdown_table(payload.get("baseline_vs_v1_summary", pd.DataFrame())),
+        "",
+        "## v1 推奨3/4/5頭",
+        "",
+        markdown_table(payload.get("recommendation_summary", pd.DataFrame())),
+        "",
+        "## v1 印別成績",
+        "",
+        markdown_table(payload.get("mark_summary_v1", pd.DataFrame())),
+        "",
+        "## v1 役割別",
+        "",
+        markdown_table(payload.get("role_summary", pd.DataFrame())),
+        "",
+        "## v1 再現性別",
+        "",
+        markdown_table(payload.get("reproducibility_summary", pd.DataFrame())),
+        "",
+        "## v1 ✔︎ 深掘り",
+        "",
+        markdown_table(payload.get("check_mark_v1_analysis", pd.DataFrame())),
+        "",
+        "## 印別 単勝・複勝",
+        "",
+        markdown_table(payload.get("mark_single_summary", pd.DataFrame())),
+        "",
+        "## 上位印捕捉・無印",
+        "",
+        markdown_table(payload.get("group_capture", pd.DataFrame())),
+        "",
+        "## ✔︎ 個別",
+        "",
+        markdown_table(payload.get("check_mark_summary", pd.DataFrame())),
+        "",
+        "## ☆ / △ / ✔︎ 比較",
+        "",
+        markdown_table(payload.get("late_mark_comparison", pd.DataFrame())),
+        "",
+        "## 馬券シミュレーション",
+        "",
+        markdown_table(payload.get("bet_summary", pd.DataFrame())),
         "",
         "## BOX",
         "",
@@ -782,13 +1668,17 @@ def build_markdown_report(payload: dict[str, Any]) -> str:
         "",
         markdown_table(payload["condition_summary"].head(80)),
         "",
+        "## 人気帯別",
+        "",
+        markdown_table(payload.get("mark_by_popularity", pd.DataFrame()).head(80)),
+        "",
         "## 注意",
         "",
-        "- 現行表示で穴系の第5印が `✓/✔` の場合、バックテスト上は依頼対象の `☆` として正規化しています。元の表示値は `race_mark_details.csv` の `raw_mark` に保持しています。",
+        "- 現行表示で穴系の第6印が `✓/✔` の場合、バックテスト上は依頼対象の `✔︎` として正規化しています。元の表示値は `race_mark_details.csv` の `raw_mark` に保持しています。",
         "- `妙味あり` は印とは別の表示補助です。能力帯・順位・印・材料・判定時オッズから結果前に判定し、印やAI点へは反映していません。",
         "- 回収率が高い方式でも、サンプル不足の場合は正式推奨ではなく参考値です。",
         "- 最大払戻除外回収率は、1件の高配当に依存していないかを見るための監査値です。",
-        "- 今回は測定のみで、印・AI点・能力評価・買い目ロジックは変更していません。",
+        "- New v1 は同じ保存済み予想材料から作った比較用派生評価です。Baseline v0の保存印・AI点・能力評価・研究買いロジックは変更していません。",
     ]
     return "\n".join(lines) + "\n"
 

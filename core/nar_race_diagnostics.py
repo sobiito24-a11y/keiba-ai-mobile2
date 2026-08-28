@@ -10,6 +10,7 @@ from typing import Any
 
 from .recent_races import build_recent_races
 from .value_support import training_display as _training_display
+from .v1_logic import build_v1_evaluations
 
 
 FRONT_LABELS = {"逃げ", "先団", "前方"}
@@ -95,6 +96,7 @@ def build_full_field_comparison(
     *,
     race_mode: str = "jra",
     sort_mode: str = "horse_number",
+    race_info: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build display-only comparison rows from saved prediction values."""
 
@@ -102,10 +104,42 @@ def build_full_field_comparison(
     if mode not in {"jra", "nar"}:
         return {"show": False, "research_only": True}
     records = [row for row in rows if isinstance(row, Mapping)]
-    horses = [_comparison_horse(row, race_mode=mode) for row in records]
+    info = race_info or {}
+    horses = [_comparison_horse(row, race_mode=mode, race_info=info) for row in records]
     horses = [horse for horse in horses if horse.get("number")]
     if not horses:
         return {"show": False, "research_only": True}
+    v1 = build_v1_evaluations(records, mode, race_info=info)
+    v1_by_number = {_text(_first(row, "horse_no", "馬番", "number", "horse_number")): row for row in v1.get("rows", [])}
+    for horse in horses:
+        v1_row = v1_by_number.get(_text(horse.get("number")))
+        if v1_row:
+            horse.update(
+                {
+                    "v1_mark": _text(v1_row.get("v1_mark")),
+                    "v1_order": v1_row.get("v1_order"),
+                    "v1_score": v1_row.get("v1_score"),
+                    "v1_role": _text(v1_row.get("v1_role")),
+                    "v1_base_score": v1_row.get("v1_base_score"),
+                    "v1_base_rank": v1_row.get("v1_base_rank"),
+                    "v1_final_score": v1_row.get("v1_final_score"),
+                    "v1_final_rank": v1_row.get("v1_final_rank"),
+                    "v1_final_mark": _text(v1_row.get("v1_final_mark")),
+                    "v1_final_role": _text(v1_row.get("v1_final_role")),
+                    "v1_final_reason": _text(v1_row.get("v1_final_reason")),
+                    "baseline_current_evaluation_rank": v1_row.get("baseline_current_evaluation_rank"),
+                    "baseline_mark": _text(v1_row.get("baseline_mark")),
+                    "v1_reproducibility": _text(v1_row.get("v1_reproducibility")),
+                    "v1_reproducibility_reason": _text(v1_row.get("v1_reproducibility_reason")),
+                    "v1_pace_eval": _text(v1_row.get("v1_pace_eval")),
+                    "v1_pace_reason": _text(v1_row.get("v1_pace_reason")),
+                    "v1_state_eval": _text(v1_row.get("v1_state_eval")),
+                    "v1_state_reason": _text(v1_row.get("v1_state_reason")),
+                    "v1_special_distance": bool(v1_row.get("v1_special_distance")),
+                    "_v1_ability_rank": v1_row.get("_v1_ability_rank"),
+                    "_v1_ability_value": v1_row.get("_v1_ability_value"),
+                }
+            )
 
     ranked = sorted(
         [horse for horse in horses if horse.get("ability_rank") is not None],
@@ -143,6 +177,19 @@ def build_full_field_comparison(
         "sort_mode": sort_mode if sort_mode in COMPARISON_SORT_LABELS else "horse_number",
         "sort_labels": COMPARISON_SORT_LABELS,
         "rows": horses,
+        "v1_summary": v1.get("summary", {}),
+        "v1_summary_top_horses": v1.get("summary", {}).get("_今回評価_numbers", []),
+        "v1_recommendations": [
+            horse
+            for horse in sorted(
+                [horse for horse in horses if _text(horse.get("v1_final_mark"))],
+                key=lambda horse: (
+                    _int(horse.get("v1_final_rank")) or 99,
+                    -(float(horse.get("v1_final_score") or 0.0)),
+                    _horse_sort_key(horse.get("number")),
+                ),
+            )[:5]
+        ],
         "top1": top1,
         "top2": top2,
         "gap_1_2": gap_1_2,
@@ -150,20 +197,58 @@ def build_full_field_comparison(
     }
 
 
+def validate_v1_consistency(comparison: Mapping[str, Any], *, top_n: int = 5) -> dict[str, Any]:
+    """Validate that every visible v1 conclusion reads the same final order."""
+
+    rows = [row for row in comparison.get("rows", []) if isinstance(row, Mapping)]
+    if not rows:
+        return {"ok": True, "errors": []}
+    by_number = {_text(row.get("number")): row for row in rows}
+    final_rows = sorted(
+        [row for row in rows if _int(row.get("v1_final_rank")) is not None],
+        key=lambda row: (_int(row.get("v1_final_rank")) or 999, _horse_sort_key(row.get("number"))),
+    )
+    final_top = [_text(row.get("number")) for row in final_rows[:top_n]]
+    recommendations = [row for row in comparison.get("v1_recommendations", []) if isinstance(row, Mapping)]
+    rec_top = [_text(row.get("number")) for row in recommendations[:top_n]]
+    summary_top = [_text(value) for value in comparison.get("v1_summary_top_horses", [])][: len(rec_top) or top_n]
+
+    errors: list[str] = []
+    if rec_top and rec_top != final_top[: len(rec_top)]:
+        errors.append("recommendations do not match v1_final_rank order")
+    if summary_top and rec_top and summary_top[: len(rec_top)] != rec_top:
+        errors.append("summary top horses do not match recommendations")
+    final_ranks = [_int(row.get("v1_final_rank")) for row in final_rows]
+    if len(final_ranks) != len(set(final_ranks)):
+        errors.append("v1_final_rank is not unique")
+    for rec in recommendations:
+        number = _text(rec.get("number"))
+        row = by_number.get(number)
+        if not row:
+            errors.append(f"recommended horse missing from comparison rows: {number}")
+            continue
+        if _int(rec.get("v1_final_rank")) != _int(row.get("v1_final_rank")):
+            errors.append(f"rank mismatch for horse {number}")
+        if _text(rec.get("v1_final_mark")) != _text(row.get("v1_final_mark")):
+            errors.append(f"mark mismatch for horse {number}")
+    return {"ok": not errors, "errors": errors}
+
+
 def build_nar_full_field_comparison(
     rows: Sequence[Mapping[str, Any]],
     *,
     race_mode: str = "nar",
     sort_mode: str = "horse_number",
+    race_info: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Backward-compatible wrapper for NAR-only callers and tests."""
 
     if _text(race_mode).lower() != "nar":
         return {"show": False, "research_only": True}
-    return build_full_field_comparison(rows, race_mode=race_mode, sort_mode=sort_mode)
+    return build_full_field_comparison(rows, race_mode=race_mode, sort_mode=sort_mode, race_info=race_info)
 
 
-def _comparison_horse(row: Mapping[str, Any], *, race_mode: str) -> dict[str, Any]:
+def _comparison_horse(row: Mapping[str, Any], *, race_mode: str, race_info: Mapping[str, Any] | None = None) -> dict[str, Any]:
     diagnostic = _diagnostic_horse(row)
     runs = _safe_recent_races(row)
     recent_win_count = 0
@@ -184,7 +269,13 @@ def _comparison_horse(row: Mapping[str, Any], *, race_mode: str) -> dict[str, An
     weight = _weight_text(row)
     jockey_info = _jockey_info(row, jockey_rate, weight)
     matched_runs = _matched_past_runs(row)
-    recent_indices, recent_conditions = _recent_display_cells(runs, matched_runs, row=row, race_mode=race_mode)
+    recent_indices, recent_conditions = _recent_display_cells(
+        runs,
+        matched_runs,
+        row=row,
+        race_mode=race_mode,
+        race_info=race_info or {},
+    )
     distance_index = _index_value(row, "距離指数", "distance_index")
     course_index = _index_value(row, "コース指数", "course_index")
     course_history = _has_course_history(row, runs, same_course=same_course, course_index=course_index)
@@ -313,6 +404,8 @@ def _diagnostic_horse(row: Mapping[str, Any]) -> dict[str, Any]:
         "ability_rank": ability_rank,
         "ability_value": ability_value,
         "current_evaluation_rank": current_rank,
+        "baseline_current_evaluation_rank": current_rank,
+        "baseline_mark": _text(_first(row, "ai_current_mark", "mark", "saved_mark", "表示印", "display_mark", "最終印", "印")),
         "running_style": _text(_first(row, "running_style_market", "running_style", "脚質")),
         "start_label": start_label,
         "corner3_label": corner3_label,
@@ -395,7 +488,7 @@ def _sort_comparison_horses(horses: Sequence[Mapping[str, Any]], sort_mode: str)
         )
     elif mode == "current":
         key = lambda horse: (
-            horse.get("current_evaluation_rank") if horse.get("current_evaluation_rank") is not None else 999,
+            horse.get("v1_final_rank") if horse.get("v1_final_rank") is not None else 999,
             horse.get("ability_rank") if horse.get("ability_rank") is not None else 999,
             _horse_sort_key(horse.get("number")),
         )
@@ -493,6 +586,10 @@ def _jockey_display(row: Mapping[str, Any], rate: str) -> str:
 def _jockey_info(row: Mapping[str, Any], rate: str, weight: str) -> str:
     name = _jockey_info_name(row)
     change = _jockey_change_label(row)
+    if change == "乗替":
+        previous = _previous_jockey_name(row)
+        if previous and name and previous != name:
+            change = f"乗替：{previous}→{name}"
     parts = [name, change]
     if rate and rate != "—":
         parts.append(f"複{rate}" if not rate.startswith("複") else rate)
@@ -537,6 +634,31 @@ def _jockey_change_label(row: Mapping[str, Any]) -> str:
         return "乗替"
     if "継続" in text or "継" in text:
         return "継続"
+    return ""
+
+
+def _previous_jockey_name(row: Mapping[str, Any]) -> str:
+    direct = _text(
+        _first(
+            row,
+            "_display_previous_jockey",
+            "_previous_jockey",
+            "previous_jockey",
+            "last_jockey",
+            "前走騎手",
+            "前走_騎手",
+        )
+    )
+    if direct:
+        return _clean_jockey_info_name(direct)
+    runs = _safe_recent_races(row)
+    if runs:
+        previous = _text(_first(runs[0], "jockey", "騎手", "jockey_name", "前走騎手"))
+        if previous:
+            return _clean_jockey_info_name(previous)
+    display = _text(_first(row, "jockey_display_market", "jockey_display", "騎手詳細", "jockey_detail"))
+    if "→" in display:
+        return _clean_jockey_info_name(display.split("→", 1)[0])
     return ""
 
 
@@ -605,10 +727,11 @@ def _recent_display_cells(
     *,
     row: Mapping[str, Any],
     race_mode: str,
+    race_info: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     indices: list[str] = []
     conditions: list[str] = []
-    current_venue, current_distance = _current_condition_keys(row)
+    current_venue, current_distance = _current_condition_keys(row, race_info or {})
     for run in list(runs)[:3]:
         index = _text(_first(run, "time_index", "value", "index", "指数")) or "—"
         matched_condition = _run_matches_current_condition(
@@ -697,9 +820,16 @@ def _run_matches_current_condition(run: Mapping[str, Any], *, current_venue: str
     )
 
 
-def _current_condition_keys(row: Mapping[str, Any]) -> tuple[str, str]:
-    venue = _venue_key(_first(row, "venue", "開催場", "race_venue", "current_venue", "racecourse", "track", "競馬場", "場所", "場名"))
-    distance = _distance_key(_first(row, "distance", "距離", "race_distance", "current_distance", "distance_m", "距離m", "course_distance"))
+def _current_condition_keys(row: Mapping[str, Any], race_info: Mapping[str, Any] | None = None) -> tuple[str, str]:
+    info = race_info or {}
+    venue = _venue_key(
+        _first(info, "venue", "racecourse", "開催場", "競馬場", "場所")
+        or _first(row, "venue", "開催場", "race_venue", "current_venue", "racecourse", "track", "競馬場", "場所", "場名")
+    )
+    distance = _distance_key(
+        _first(info, "distance", "距離", "race_distance", "current_distance", "distance_m", "距離m", "course_distance")
+        or _first(row, "distance", "距離", "race_distance", "current_distance", "distance_m", "距離m", "course_distance")
+    )
     if venue and distance:
         return venue, distance
     reason = _text(
