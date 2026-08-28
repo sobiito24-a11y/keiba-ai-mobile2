@@ -151,6 +151,52 @@ def test_nar_full_field_comparison_sort_modes() -> None:
     assert [horse["number"] for horse in by_corner["rows"]][0] == "2"
 
 
+def test_full_field_comparison_prefers_historical_ver3_mark_and_score() -> None:
+    rows = [
+        _row(
+            6,
+            2,
+            2,
+            "中団",
+            馬名="メイプルタピット",
+            ai_current_mark="○",
+            最終印="◎",
+            _最終印点=81.0,
+            AI点=79.0,
+            AI順位=2,
+            能力評価値=79.0,
+            recent_runs=[{"venue": "船橋", "distance": "1800m", "time_index": "12"}],
+        ),
+        _row(
+            3,
+            1,
+            1,
+            "先団",
+            馬名="ルトンワージ",
+            ai_current_mark="◎",
+            最終印="○",
+            _最終印点=80.0,
+            AI点=80.0,
+            AI順位=1,
+            能力評価値=80.0,
+            recent_runs=[{"venue": "船橋", "distance": "1800m", "time_index": "18"}],
+        ),
+    ]
+
+    comparison = build_full_field_comparison(rows, race_mode="nar", sort_mode="current")
+    by_number = {horse["number"]: horse for horse in comparison["rows"]}
+
+    assert [horse["number"] for horse in comparison["rows"]] == ["6", "3"]
+    assert by_number["6"]["mark"] == "◎"
+    assert by_number["6"]["current_evaluation_rank"] == 1
+    assert by_number["6"]["ability_rank"] == 2
+    assert by_number["6"]["ability_value"] == 79.0
+    assert by_number["6"]["baseline_mark"] == "○"
+    assert by_number["6"]["baseline_current_evaluation_rank"] == 2
+    assert by_number["3"]["mark"] == "○"
+    assert by_number["3"]["current_evaluation_rank"] == 2
+
+
 def test_monbetsu_5r_expected_research_categories_without_result_data() -> None:
     rows = [
         _row(10, 1, 1, "中団", market_ability_score=26.8, style="差し"),

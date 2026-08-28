@@ -361,19 +361,19 @@ class DetailAnalysisTableTest(unittest.TestCase):
     def test_market_horse_card_order_uses_ver3_mark_then_current_evaluation(self) -> None:
         table = pd.DataFrame(
             [
-                {"馬番": 7, "馬名": "無印二番", "ability_band_v2": "A", "market_ability_rank": pd.NA, "current_evaluation_rank": pd.NA, "ai_current_mark": ""},
-                {"馬番": 2, "馬名": "対抗", "ability_band_v2": "A", "market_ability_rank": 2, "current_evaluation_rank": 2, "ai_current_mark": "○"},
-                {"馬番": 5, "馬名": "押さえ能力二位", "ability_band_v2": "A", "market_ability_rank": 2, "current_evaluation_rank": pd.NA, "ai_current_mark": "△"},
-                {"馬番": 4, "馬名": "星", "ability_band_v2": "A", "market_ability_rank": 4, "current_evaluation_rank": 4, "ai_current_mark": "☆"},
-                {"馬番": 1, "馬名": "本命", "ability_band_v2": "A", "market_ability_rank": 3, "current_evaluation_rank": 3, "ai_current_mark": "◎"},
-                {"馬番": 3, "馬名": "単穴", "ability_band_v2": "A", "market_ability_rank": 1, "current_evaluation_rank": 1, "ai_current_mark": "▲"},
-                {"馬番": 6, "馬名": "チェック", "ability_band_v2": "A", "market_ability_rank": 6, "current_evaluation_rank": 6, "ai_current_mark": "✔︎"},
-                {"馬番": 8, "馬名": "無印一番", "ability_band_v2": "A", "market_ability_rank": pd.NA, "current_evaluation_rank": pd.NA, "ai_current_mark": ""},
-                {"馬番": 9, "馬名": "押さえ能力一位", "ability_band_v2": "A", "market_ability_rank": 1, "current_evaluation_rank": pd.NA, "ai_current_mark": "△"},
+                {"馬番": 7, "馬名": "無印二番", "ability_band_v2": "A", "AI順位": pd.NA, "_最終印点": pd.NA, "最終印": ""},
+                {"馬番": 2, "馬名": "対抗", "ability_band_v2": "A", "AI順位": 2, "_最終印点": 96, "最終印": "○", "ai_current_mark": "▲"},
+                {"馬番": 5, "馬名": "押さえ能力二位", "ability_band_v2": "A", "AI順位": 2, "_最終印点": 92, "最終印": "△"},
+                {"馬番": 4, "馬名": "星", "ability_band_v2": "A", "AI順位": 4, "_最終印点": 91, "最終印": "☆"},
+                {"馬番": 1, "馬名": "本命", "ability_band_v2": "A", "AI順位": 3, "_最終印点": 99, "最終印": "◎", "ai_current_mark": "○"},
+                {"馬番": 3, "馬名": "単穴", "ability_band_v2": "A", "AI順位": 1, "_最終印点": 95, "最終印": "▲", "ai_current_mark": "◎"},
+                {"馬番": 6, "馬名": "チェック", "ability_band_v2": "A", "AI順位": 6, "_最終印点": 90, "最終印": "✔︎"},
+                {"馬番": 8, "馬名": "無印一番", "ability_band_v2": "A", "AI順位": pd.NA, "_最終印点": pd.NA, "最終印": ""},
+                {"馬番": 9, "馬名": "押さえ能力一位", "ability_band_v2": "A", "AI順位": 1, "_最終印点": 93, "最終印": "△"},
             ]
         )
 
-        ordered = self.app.market_horse_cards_ordered(table, race_mode="nar")
+        ordered = self.app.market_horse_cards_ordered(self.app.attach_ver3_display_columns(table), race_mode="nar")
 
         self.assertEqual(
             list(ordered["馬名"]),
@@ -388,10 +388,11 @@ class DetailAnalysisTableTest(unittest.TestCase):
                     {
                         "馬番": 1,
                         "馬名": "表示確認",
-                        "ability_band_v2": "A",
-                        "market_ability_score": 73.2,
-                        "market_ability_rank": 1,
-                        "current_evaluation_rank": 1,
+                        "能力帯": "A",
+                        "AI点": 73.2,
+                        "AI順位": 1,
+                        "最終印": "◎",
+                        "_最終印点": 75.2,
                     }
                 ]
             ),
@@ -432,6 +433,40 @@ class DetailAnalysisTableTest(unittest.TestCase):
                 setattr(self.app, name, func)
 
         self.assertEqual(calls, ["header", "facts", "cards", "full", "selection", "audit"])
+
+    def test_market_source_table_prefers_saved_ver3_columns_over_market_mark(self) -> None:
+        result = SimpleNamespace(
+            race_mode="nar",
+            overall_table=pd.DataFrame(
+                [
+                    {
+                        "馬番": 6,
+                        "馬名": "メイプルタピット",
+                        "AI点": 79.0,
+                        "AI順位": 2,
+                        "最終印": "◎",
+                        "_最終印点": 81.0,
+                        "ai_current_mark": "○",
+                    },
+                    {
+                        "馬番": 3,
+                        "馬名": "ルトンワージ",
+                        "AI点": 80.0,
+                        "AI順位": 1,
+                        "最終印": "○",
+                        "_最終印点": 80.0,
+                        "ai_current_mark": "◎",
+                    },
+                ]
+            ),
+            horse_evaluation=pd.DataFrame(),
+        )
+
+        table = self.app.market_source_table(result)
+
+        self.assertEqual(list(table["ver3_final_mark"]), ["◎", "○"])
+        self.assertEqual(list(table["ver3_current_evaluation_rank"]), [1.0, 2.0])
+        self.assertEqual(list(table["ver3_ability_rank"]), [2, 1])
 
     def test_full_field_comparison_html_uses_metric_sticky_column_with_horse_columns(self) -> None:
         html = self.app.full_field_comparison_html(

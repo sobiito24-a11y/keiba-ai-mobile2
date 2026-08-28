@@ -615,7 +615,7 @@ def main() -> None:
 
     # Keep the normal user flow on the existing Ver3 advanced evaluation.
     # Other engines remain available only to research/audit code paths.
-    selected_logic_version = "market"
+    selected_logic_version = "v3"
     if st.session_state.prediction_logic_version != selected_logic_version:
         clear_prediction_state(keep_input=True)
     st.session_state.prediction_logic_version = selected_logic_version
@@ -637,7 +637,7 @@ def _init_state() -> None:
     st.session_state.setdefault("fetch_failures", [])
     st.session_state.setdefault("fetch_race_id", "")
     st.session_state.setdefault("input_signature", "")
-    st.session_state.setdefault("prediction_logic_version", "market")
+    st.session_state.setdefault("prediction_logic_version", "v3")
 
 
 def render_nar_json_flow() -> None:
@@ -1402,7 +1402,7 @@ def run_prediction(
 ) -> PredictionResult:
     version = prediction_logic_version
     if version is None:
-        version = st.session_state.get("prediction_logic_version", "market")
+        version = st.session_state.get("prediction_logic_version", "v3")
     version = normalize_prediction_logic_version(version)
     return predict_from_html_inputs(
         mode,
@@ -1732,7 +1732,7 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
 
 
 def render_colab_style_result(result: PredictionResult) -> Any:
-    if getattr(result, "logic_version", "v3") == "market":
+    if getattr(result, "logic_version", "v3") in {"v3", "market"}:
         render_market_compare_result(result)
         return None
     render_race_header(result)
@@ -1786,10 +1786,61 @@ def render_market_compare_result(result: PredictionResult) -> None:
 
 def market_source_table(result: PredictionResult) -> pd.DataFrame:
     for table in (result.overall_table, result.horse_evaluation):
-        if isinstance(table, pd.DataFrame) and not table.empty and "ability_band_v2" in table.columns:
+        if isinstance(table, pd.DataFrame) and not table.empty and _has_ver3_display_columns(table):
             merged = merge_market_display_supplements(table.copy(), result)
-            return attach_ability_watch_columns(merged, race_mode=getattr(result, "race_mode", "jra"))
+            return attach_ver3_display_columns(merged)
     return pd.DataFrame()
+
+
+VER3_MARK_COLUMNS = ("最終印", "表示印", "display_mark", "mark", "印", "ai_current_mark")
+VER3_SCORE_COLUMNS = ("_最終印点", "総合評価点", "総合評価", "補正AI点", "final_mark_score", "AI点")
+VER3_ABILITY_VALUE_COLUMNS = ("能力評価値", "AI点", "ability_display_score", "normalized_ai_score", "raw_score", "market_ability_score", "ability_score")
+VER3_ABILITY_RANK_COLUMNS = ("AI順位", "能力順位", "ai_rank", "market_ability_rank", "ability_rank", "saved_ability_rank")
+VER3_RANK_COLUMNS = ("総合評価順位", "ver3_current_evaluation_rank", "_最終印順", "current_evaluation_rank")
+
+
+def _has_ver3_display_columns(table: pd.DataFrame) -> bool:
+    columns = set(table.columns)
+    return bool(columns.intersection(VER3_MARK_COLUMNS) or columns.intersection(VER3_SCORE_COLUMNS) or "ability_band_v2" in columns)
+
+
+def attach_ver3_display_columns(table: pd.DataFrame) -> pd.DataFrame:
+    """Attach display aliases without changing saved Ver3 values."""
+
+    result = table.copy()
+    result["ver3_final_mark"] = [ver3_mark_text(pick(row, *VER3_MARK_COLUMNS)) for row in result.to_dict("records")]
+    result["ver3_ability_value"] = [pick(row, *VER3_ABILITY_VALUE_COLUMNS) for row in result.to_dict("records")]
+    result["ver3_ability_rank"] = [pick(row, *VER3_ABILITY_RANK_COLUMNS) for row in result.to_dict("records")]
+    rank_series = ver3_current_rank_series(result)
+    result["ver3_current_evaluation_rank"] = rank_series
+    return result
+
+
+def ver3_current_rank_series(table: pd.DataFrame) -> pd.Series:
+    explicit = first_numeric_series(table, ("総合評価順位", "ver3_current_evaluation_rank"))
+    if explicit is not None and explicit.notna().any():
+        return explicit
+    score = first_numeric_series(table, VER3_SCORE_COLUMNS)
+    if score is not None and score.notna().any():
+        return score.rank(method="min", ascending=False)
+    fallback = first_numeric_series(table, ("current_evaluation_rank", "_最終印順"))
+    if fallback is not None:
+        return fallback
+    return pd.Series(pd.NA, index=table.index, dtype="object")
+
+
+def first_numeric_series(table: pd.DataFrame, columns: tuple[str, ...]) -> pd.Series | None:
+    for column in columns:
+        if column in table.columns:
+            series = pd.to_numeric(table[column], errors="coerce")
+            if series.notna().any():
+                return series
+    return None
+
+
+def ver3_mark_text(value: Any) -> str:
+    mark = clean_text(value)
+    return "" if mark in {"無印", "-", "—", "なし"} else mark
 
 
 MARKET_DISPLAY_SUPPLEMENT_COLUMNS = (
@@ -1931,7 +1982,7 @@ def render_market_race_facts(result: PredictionResult, table: pd.DataFrame) -> N
         unsafe_allow_html=True,
     )
     if result.race_mode == "nar":
-        st.caption("NAR Ver4：能力順位を最終印に採用")
+        st.caption("Ver3高度設定：総合評価点と最終印を通常表示に使用しています。")
 
 
 def render_nar_race_diagnostics(
@@ -2747,7 +2798,7 @@ def market_horse_age_text(row: dict[str, Any]) -> str:
 def market_ability_value_text(row: dict[str, Any]) -> str:
     """Display the existing Ver3 ability value without changing the stored value."""
 
-    value = pick(row, "market_ability_score", "能力評価値", "ability_score")
+    value = pick(row, "ver3_ability_value", *VER3_ABILITY_VALUE_COLUMNS)
     number = to_float(value)
     if number is None:
         return clean_text(value) or "—"
@@ -2966,11 +3017,11 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "馬番": no,
             "馬名": clean_text(pick(row, "馬名")),
             "馬齢": market_horse_age_text(row) or "—",
-            "印": clean_text(pick(row, "ai_current_mark")),
-            "今回評価順位": clean_text(pick(row, "current_evaluation_rank")) or "—",
-            "能力帯": clean_text(pick(row, "ability_band_v2")) or "Z",
-            "能力順位": clean_text(pick(row, "market_ability_rank")) or "—",
-            "能力値": format_index_value(pick(row, "market_ability_score")),
+            "印": ver3_mark_text(pick(row, "ver3_final_mark", *VER3_MARK_COLUMNS)),
+            "今回評価順位": clean_text(pick(row, "ver3_current_evaluation_rank", "総合評価順位")) or "—",
+            "能力帯": clean_text(pick(row, "ability_band_v2", "能力帯", "ability_band")) or "Z",
+            "能力順位": clean_text(pick(row, "ver3_ability_rank", *VER3_ABILITY_RANK_COLUMNS)) or "—",
+            "能力値": format_index_value(pick(row, "ver3_ability_value", *VER3_ABILITY_VALUE_COLUMNS)),
             "実オッズ": format_odds(pick(row, "actual_odds")) or "—",
             "騎手": market_jockey_display_text(row),
             "斤量": weight,
@@ -3023,14 +3074,22 @@ def market_horse_cards_ordered(
     """Display compact cards in the saved Ver3 final-evaluation order."""
 
     ordered = table.copy()
-    mark_source = ordered["ai_current_mark"] if "ai_current_mark" in ordered.columns else pd.Series("", index=ordered.index)
+    mark_source = (
+        ordered["ver3_final_mark"]
+        if "ver3_final_mark" in ordered.columns
+        else ordered["最終印"]
+        if "最終印" in ordered.columns
+        else ordered["ai_current_mark"]
+        if "ai_current_mark" in ordered.columns
+        else pd.Series("", index=ordered.index)
+    )
     ordered["_card_mark_sort"] = mark_source.map(final_mark_sort_value)
     ordered["_card_ability_rank_sort"] = pd.to_numeric(
-        ordered["market_ability_rank"] if "market_ability_rank" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+        ordered["ver3_ability_rank"] if "ver3_ability_rank" in ordered.columns else ordered["AI順位"] if "AI順位" in ordered.columns else ordered["market_ability_rank"] if "market_ability_rank" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
         errors="coerce",
     )
     ordered["_card_current_rank_sort"] = pd.to_numeric(
-        ordered["current_evaluation_rank"] if "current_evaluation_rank" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+        ordered["ver3_current_evaluation_rank"] if "ver3_current_evaluation_rank" in ordered.columns else ordered["current_evaluation_rank"] if "current_evaluation_rank" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
         errors="coerce",
     )
     ordered["_card_horse_no_sort"] = pd.to_numeric(
@@ -3054,13 +3113,13 @@ def final_mark_sort_value(value: Any) -> int:
 def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     number = horse_no(pick(row, "馬番", "馬")) or "—"
     name = clean_text(pick(row, "馬名")) or "名称未取得"
-    band = clean_text(pick(row, "ability_band_v2")) or "Z"
+    band = clean_text(pick(row, "ability_band_v2", "能力帯", "ability_band")) or "Z"
     odds = format_odds(pick(row, "actual_odds")) or "—"
-    mark = clean_text(pick(row, "ai_current_mark"))
+    mark = ver3_mark_text(pick(row, "ver3_final_mark", *VER3_MARK_COLUMNS))
     age = market_horse_age_text(row)
     ability_value = market_ability_value_text(row)
-    ability_rank = clean_text(pick(row, "market_ability_rank")) or "—"
-    current_rank = clean_text(pick(row, "current_evaluation_rank")) or "—"
+    ability_rank = clean_text(pick(row, "ver3_ability_rank", *VER3_ABILITY_RANK_COLUMNS)) or "—"
+    current_rank = clean_text(pick(row, "ver3_current_evaluation_rank", "総合評価順位", "current_evaluation_rank")) or "—"
     state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_label_market")], sep=" ")
     jockey = market_jockey_display_text(row)
     weight = market_weight_display_text(row)
@@ -3095,9 +3154,9 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     ability_watch_label = clean_text(pick(row, "ability_watch_label"))
     ability_watch_warning = clean_text(pick(row, "ability_unmarked_warning"))
     detail_lines = [
-        f"能力値：{format_index_value(pick(row, 'market_ability_score'))}（能力順位 {ability_rank}位）",
+        f"能力値：{format_index_value(pick(row, 'ver3_ability_value', *VER3_ABILITY_VALUE_COLUMNS))}（能力順位 {ability_rank}位）",
         f"実オッズ：{odds}",
-        f"今回評価：{current_rank}位 {mark}｜{clean_text(pick(row, 'ai_current_reason'))}",
+        f"今回評価：{current_rank}位 {mark}｜{clean_text(pick(row, '印理由', 'ai_current_reason'))}",
     ]
     if ability_watch_label:
         detail_lines.append(f"能力注記：{ability_watch_label}")

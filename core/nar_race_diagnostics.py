@@ -28,6 +28,11 @@ DATA_SHORTAGE_WORDS = ("能力材料不足", "能力評価材料不足", "能力
 JRA_VENUES = {"札幌", "函館", "福島", "新潟", "東京", "中山", "中京", "京都", "阪神", "小倉"}
 NAR_VENUES = {"門別", "盛岡", "水沢", "浦和", "船橋", "大井", "川崎", "金沢", "笠松", "名古屋", "園田", "姫路", "高知", "佐賀", "帯広"}
 VENUE_NAMES = sorted(JRA_VENUES | NAR_VENUES, key=len, reverse=True)
+VER3_MARK_KEYS = ("ver3_final_mark", "最終印", "表示印", "display_mark", "mark", "印", "ai_current_mark")
+VER3_SCORE_KEYS = ("_最終印点", "総合評価点", "総合評価", "補正AI点", "final_mark_score", "AI点")
+VER3_ABILITY_RANK_KEYS = ("ver3_ability_rank", "AI順位", "能力順位", "ai_rank", "market_ability_rank", "ability_rank", "saved_ability_rank")
+VER3_ABILITY_VALUE_KEYS = ("ver3_ability_value", "能力評価値", "AI点", "ability_display_score", "normalized_ai_score", "raw_score", "market_ability_score", "ability_value", "saved_ability_value")
+VER3_RANK_KEYS = ("ver3_current_evaluation_rank", "総合評価順位", "current_evaluation_rank", "saved_current_evaluation_rank", "今回評価順位", "今回順位", "ai_current_rank")
 COMPARISON_SORT_LABELS = {
     "current": "今回評価順",
     "horse_number": "馬番順",
@@ -110,6 +115,7 @@ def build_full_field_comparison(
     horses = [horse for horse in horses if horse.get("number")]
     if not horses:
         return {"show": False, "research_only": True}
+    _attach_ver3_current_ranks(horses)
     v1 = build_v1_evaluations(records, mode, race_info=info)
     v1_by_number = {_text(_first(row, "horse_no", "馬番", "number", "horse_number")): row for row in v1.get("rows", [])}
     for horse in horses:
@@ -425,23 +431,27 @@ def _sex_age_text(row: Mapping[str, Any]) -> str:
 
 
 def _diagnostic_horse(row: Mapping[str, Any]) -> dict[str, Any]:
-    ability_rank = _int(_first(row, "market_ability_rank", "ability_rank", "saved_ability_rank", "能力順位"))
-    ability_value = _float(_first(row, "market_ability_score", "ability_value", "saved_ability_value", "ability_display_score", "能力評価値"))
-    current_rank = _int(_first(row, "current_evaluation_rank", "saved_current_evaluation_rank", "今回評価順位", "今回順位", "ai_current_rank"))
+    ability_rank = _int(_first(row, *VER3_ABILITY_RANK_KEYS))
+    ability_value = _float(_first(row, *VER3_ABILITY_VALUE_KEYS))
+    current_rank = _int(_first(row, *VER3_RANK_KEYS))
     start_label = _position_label(row, "start")
     corner3_label = _position_label(row, "corner3")
     corner4_label = _position_label(row, "corner4")
     has_recent = _has_recent_top3(row)
     insufficient, reason = _data_insufficient(row, ability_rank, ability_value)
+    mark = _mark_text(_first(row, *VER3_MARK_KEYS))
+    baseline_mark = _mark_text(_first(row, "ai_current_mark", "market_mark", "saved_mark"))
+    baseline_rank = _int(_first(row, "current_evaluation_rank", "saved_current_evaluation_rank", "今回評価順位", "今回順位", "ai_current_rank"))
     return {
         "number": _horse_number(_first(row, "馬番", "馬", "horse_no", "horse_number", "number")),
         "name": _text(_first(row, "馬名", "horse_name", "name")),
-        "mark": _text(_first(row, "ai_current_mark", "mark", "saved_mark", "表示印", "display_mark", "最終印", "印")),
+        "mark": mark,
         "ability_rank": ability_rank,
         "ability_value": ability_value,
         "current_evaluation_rank": current_rank,
-        "baseline_current_evaluation_rank": current_rank,
-        "baseline_mark": _text(_first(row, "ai_current_mark", "mark", "saved_mark", "表示印", "display_mark", "最終印", "印")),
+        "ver3_score": _float(_first(row, *VER3_SCORE_KEYS)),
+        "baseline_current_evaluation_rank": baseline_rank,
+        "baseline_mark": baseline_mark,
         "running_style": _text(_first(row, "running_style_market", "running_style", "脚質")),
         "start_label": start_label,
         "corner3_label": corner3_label,
@@ -453,6 +463,25 @@ def _diagnostic_horse(row: Mapping[str, Any]) -> dict[str, Any]:
         "data_insufficient": insufficient,
         "data_insufficient_reason": reason,
     }
+
+
+def _attach_ver3_current_ranks(horses: list[dict[str, Any]]) -> None:
+    scored: list[tuple[int, float, int]] = []
+    for index, horse in enumerate(horses):
+        score = _float(horse.get("ver3_score"))
+        if score is not None:
+            scored.append((index, score, _horse_sort_key(horse.get("number"))))
+    if not scored:
+        return
+    scored.sort(key=lambda item: (-item[1], item[2]))
+    previous_score: float | None = None
+    rank = 0
+    for position, (index, score, _horse_no) in enumerate(scored, start=1):
+        if previous_score is None or abs(score - previous_score) > 0.000001:
+            rank = position
+            previous_score = score
+        horses[index]["current_evaluation_rank"] = rank
+        horses[index]["ver3_current_evaluation_rank"] = rank
 
 
 def normalize_position_group(value: Any) -> str:
@@ -1243,6 +1272,11 @@ def _value_text(value: Any) -> str:
 
 def _short_label(horse: Mapping[str, Any]) -> str:
     return f"{_text(horse.get('mark'))}{_text(horse.get('number'))}".strip()
+
+
+def _mark_text(value: Any) -> str:
+    mark = _text(value)
+    return "" if mark in {"無印", "-", "—", "なし"} else mark
 
 
 def _rank_at_most(value: Any, limit: int) -> bool:
