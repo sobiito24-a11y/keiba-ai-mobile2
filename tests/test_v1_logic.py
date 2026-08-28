@@ -58,6 +58,22 @@ def test_pace_and_state_evaluations_are_display_axes_only() -> None:
     assert state_evaluation({"interval": "休み明け", "weight_diff": 2}, [], "nar")["rank"] == "C"
 
 
+def test_state_evaluation_orders_labeled_runs_for_trend_only() -> None:
+    lapland_runs = [
+        {"label": "3走前", "value": 47},
+        {"label": "2走前", "value": 49},
+        {"label": "前走", "value": 44},
+    ]
+
+    nar_state = state_evaluation({}, lapland_runs, "nar")
+    jra_state = state_evaluation({"training": "B 好気配"}, lapland_runs, "jra")
+
+    assert nar_state == {"rank": "—", "reason": "材料不足"}
+    assert jra_state["rank"] == "B"
+    assert "近走上昇" not in jra_state["reason"]
+    assert "近走下降" not in jra_state["reason"]
+
+
 def test_build_v1_evaluations_assigns_star_and_check_without_odds() -> None:
     rows = [
         {"horse_no": "1", "horse_name": "A", "venue": "船橋", "distance": 2200, "ability_value": 100, "ability_rank": 1, "ai_current_rank": 1, "recent_runs": [{"racecourse": "船橋", "distance": 2200, "position": 2}]},

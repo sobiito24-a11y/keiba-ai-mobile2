@@ -293,7 +293,8 @@ def state_evaluation(row: Mapping[str, Any], runs: Sequence[Mapping[str, Any]], 
         score -= 1
         support_negative += 1
         reasons.append(interval)
-    recent = [to_float(first(run, "time_index", "index", "value", "指数")) for run in list(runs)[:3]]
+    trend_runs = state_trend_runs(runs)
+    recent = [to_float(first(run, "time_index", "index", "value", "指数")) for run in trend_runs[:3]]
     recent = [value for value in recent if value is not None]
     if len(recent) >= 2:
         if recent[0] > recent[-1]:
@@ -653,6 +654,40 @@ def recent_runs(row: Mapping[str, Any]) -> list[Mapping[str, Any]]:
         if run:
             runs.append(run)
     return runs
+
+
+def state_trend_runs(runs: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Return runs newest-first for state trend checks without changing display order."""
+
+    indexed = [(index, run) for index, run in enumerate(runs) if isinstance(run, Mapping)]
+    if not indexed:
+        return []
+    if all(state_trend_label_priority(run) is None for _index, run in indexed):
+        return [run for _index, run in indexed]
+    return [
+        run
+        for _index, run in sorted(
+            indexed,
+            key=lambda item: (
+                state_trend_label_priority(item[1]) if state_trend_label_priority(item[1]) is not None else 99,
+                item[0],
+            ),
+        )
+    ]
+
+
+def state_trend_label_priority(run: Mapping[str, Any]) -> int | None:
+    label = text(first(run, "label", "run_label", "key", "run_key", "走順"))
+    if not label:
+        return None
+    lowered = label.lower()
+    if "前走" in label or lowered == "race1":
+        return 0
+    if "2走前" in label or "二走前" in label or lowered == "race2":
+        return 1
+    if "3走前" in label or "三走前" in label or lowered == "race3":
+        return 2
+    return None
 
 
 def finish_in_top3(run: Mapping[str, Any]) -> bool:
