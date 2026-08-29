@@ -77,7 +77,7 @@ class AbilityBandDisplayTest(unittest.TestCase):
         self.assertEqual(audit.loc[0, "元印"], "◎")
         self.assertEqual(audit.loc[0, "グループ"], "SS")
 
-    def test_display_group_is_derived_from_display_mark_without_changing_original_mark(self) -> None:
+    def test_display_group_is_derived_from_top_ability_gap_without_changing_original_mark(self) -> None:
         frame = pd.DataFrame(
             [
                 {"馬番": 1, "AI点": 100.0, "_raw_score": 90.0, "最終印": "◎"},
@@ -92,12 +92,76 @@ class AbilityBandDisplayTest(unittest.TestCase):
         result = add_audit_evaluation_columns(frame, race_type="nar")
 
         self.assertEqual(list(result["original_mark"]), ["◎", "○", "▲", "△", "✓", ""])
-        self.assertEqual(list(result["display_group"]), ["SS", "A", "A", "B", "C", "Z"])
-        self.assertEqual(list(result["グループ"]), ["SS", "A", "A", "B", "C", "Z"])
+        self.assertEqual(list(result["display_group"]), ["SS", "A", "B", "Z", "Z", "Z"])
+        self.assertEqual(list(result["グループ"]), ["SS", "A", "B", "Z", "Z", "Z"])
+        self.assertEqual(list(result["勢力図グループ"]), ["SS", "A", "B", "Z", "Z", "Z"])
         self.assertNotIn("D", set(result["display_group"]))
         audit = build_audit_export_table(result)
-        self.assertEqual(list(audit["display_group"]), ["SS", "A", "A", "B", "C", "Z"])
+        self.assertEqual(list(audit["display_group"]), ["SS", "A", "B", "Z", "Z", "Z"])
         self.assertEqual(list(audit["original_mark"]), ["◎", "○", "▲", "△", "✓", ""])
+
+    def test_power_groups_follow_top_ability_gap_in_close_race(self) -> None:
+        frame = pd.DataFrame(
+            [
+                {"馬番": number, "AI点": score, "_raw_score": score, "最終印": mark}
+                for number, score, mark in [
+                    (10, 97, "◎"),
+                    (14, 95, ""),
+                    (5, 94, ""),
+                    (12, 93, ""),
+                    (1, 92, ""),
+                    (2, 92, ""),
+                    (9, 91, ""),
+                    (8, 91, ""),
+                    (13, 90, ""),
+                ]
+            ]
+        )
+
+        result = add_audit_evaluation_columns(frame, race_type="nar")
+
+        self.assertEqual(list(result["display_group"]), ["SS", "A", "A", "B", "B", "B", "C", "C", "C"])
+        self.assertNotIn("Z", set(result["display_group"]))
+
+    def test_power_groups_follow_top_ability_gap_when_gaps_are_clear(self) -> None:
+        frame = pd.DataFrame(
+            [
+                {"馬番": idx + 1, "AI点": score, "_raw_score": score, "最終印": ""}
+                for idx, score in enumerate([100, 99, 96, 94, 91, 88, 80])
+            ]
+        )
+
+        result = add_audit_evaluation_columns(frame, race_type="jra")
+
+        self.assertEqual(list(result["display_group"]), ["SS", "SS", "B", "C", "Z", "Z", "Z"])
+
+    def test_power_groups_do_not_use_fixed_counts_or_split_ties(self) -> None:
+        frame = pd.DataFrame(
+            [
+                {"馬番": idx + 1, "AI点": score, "_raw_score": score, "最終印": ""}
+                for idx, score in enumerate([95, 95, 94, 94, 93, 93])
+            ]
+        )
+
+        result = add_audit_evaluation_columns(frame, race_type="nar")
+
+        self.assertEqual(list(result["display_group"]), ["SS", "SS", "SS", "SS", "A", "A"])
+        self.assertEqual(result.loc[0, "display_group"], result.loc[1, "display_group"])
+        self.assertEqual(result.loc[2, "display_group"], result.loc[3, "display_group"])
+        self.assertEqual(result.loc[4, "display_group"], result.loc[5, "display_group"])
+
+    def test_missing_ability_value_is_not_forced_to_z(self) -> None:
+        frame = pd.DataFrame(
+            [
+                {"馬番": 1, "AI点": 100.0, "_raw_score": 97.0, "最終印": "◎"},
+                {"馬番": 2, "AI点": 90.0, "_raw_score": None, "最終印": "○"},
+            ]
+        )
+
+        result = add_audit_evaluation_columns(frame, race_type="nar")
+
+        self.assertEqual(result.loc[0, "display_group"], "SS")
+        self.assertEqual(result.loc[1, "display_group"], "未評価")
 
     def test_png_group_display_matches_audit_groups_and_converts_legacy_d(self) -> None:
         rows = [

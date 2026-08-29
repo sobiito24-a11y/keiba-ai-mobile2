@@ -4602,8 +4602,8 @@ def truthy_display(value: Any) -> bool:
 
 
 def display_group_from_row(row: dict[str, Any]) -> str:
-    group = clean_text(pick(row, "group_v4", "グループ", "display_group"))
-    if group in {"SS", "A", "B", "C", "Z"}:
+    group = clean_text(pick(row, "グループ", "display_group", "能力グループ", "ability_group", "勢力図グループ", "group_v4"))
+    if group in {"SS", "A", "B", "C", "Z", "未評価"}:
         return group
     return display_group_from_mark(display_mark_from_row(row))
 

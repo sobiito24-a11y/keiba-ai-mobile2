@@ -68,6 +68,7 @@ AUDIT_OUTPUT_COLUMNS = [
     "axis_confidence",
     "axis_confidence_reason",
     "ability_band",
+    "ability_group",
     "ability_gap_level",
     "race_difficulty",
     "race_difficulty_reason",
@@ -138,6 +139,7 @@ AUDIT_EXPORT_COLUMNS = [
     "axis_confidence",
     "axis_confidence_reason",
     "ability_band",
+    "ability_group",
     "ability_gap_level",
     "race_difficulty",
     "race_difficulty_reason",
@@ -368,7 +370,8 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["race_difficulty_reason"] = ability_context.reason
     result["display_comment"] = result.apply(_display_comment_for_row, axis=1)
     result["display_mark"] = _display_mark_series(result)
-    result["display_group"] = result["display_mark"].map(_display_group_from_mark)
+    result["display_group"] = _ability_power_group_series(result["ability_display_score"])
+    result["ability_group"] = result["display_group"]
     result["running_style_display"] = _running_style_display_series(result)
 
     # Japanese aliases are kept for normal UI/CSV readability. They mirror the
@@ -383,6 +386,7 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["軸信頼度"] = result["axis_confidence"]
     result["軸信頼度理由"] = result["axis_confidence_reason"]
     result["能力帯"] = result["ability_band"]
+    result["能力グループ"] = result["ability_group"]
     result["能力差"] = result["ability_gap_level"]
     result["レース難易度"] = result["race_difficulty"]
     result["レース難易度理由"] = result["race_difficulty_reason"]
@@ -394,6 +398,7 @@ def add_audit_evaluation_columns(df: pd.DataFrame | None, *, race_type: str = "n
     result["穴候補"] = result["hole_candidate"].map(_bool_label)
     result["注意馬"] = result["watch_horse"].map(_bool_label)
     result = add_form_rank_columns(result, race_type=race_type)
+    result["勢力図グループ"] = result["display_group"]
     if "check_summary" not in result.columns:
         result["check_summary"] = _text_series(result, "チェック項目")
     if "supplement_note" not in result.columns:
@@ -543,6 +548,32 @@ def _display_group_from_mark(value: Any) -> str:
     if mark in {"✓", "✔"}:
         return "C"
     return "Z"
+
+
+def _ability_power_group_series(values: pd.Series) -> pd.Series:
+    numeric = pd.to_numeric(values, errors="coerce")
+    groups = pd.Series("未評価", index=values.index, dtype="object")
+    valid = numeric.dropna()
+    if valid.empty:
+        return groups
+    top = float(valid.max())
+    for index, value in numeric.items():
+        number = _safe_float(value)
+        if number is None:
+            continue
+        gap = top - number
+        if gap <= 1:
+            group = "SS"
+        elif gap <= 3:
+            group = "A"
+        elif gap <= 5:
+            group = "B"
+        elif gap <= 8:
+            group = "C"
+        else:
+            group = "Z"
+        groups.loc[index] = group
+    return groups
 
 
 def _running_style_display_series(df: pd.DataFrame) -> pd.Series:
