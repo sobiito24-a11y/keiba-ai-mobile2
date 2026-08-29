@@ -744,7 +744,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
         )
         result = self.streamlit.last_dataframe
         self.assertIsNotNone(result)
-        self.assertIn("B↑ 仕上上々", result.loc[0, "判断材料"])
+        self.assertIn("B", result.loc[0, "判断材料"])
         self.assertNotIn("83.5", result.loc[0, "判断材料"])
 
     def test_market_full_table_places_jockey_and_weight_after_actual_odds(self) -> None:
@@ -775,9 +775,10 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIsNotNone(result)
         columns = list(result.columns)
         odds_index = columns.index("実オッズ")
-        self.assertEqual(columns[odds_index + 1 : odds_index + 3], ["騎手", "斤量"])
+        self.assertEqual(columns[odds_index + 1 : odds_index + 4], ["騎手", "騎手複勝率", "斤量"])
         self.assertNotIn("AI適正", columns)
-        self.assertEqual(result.loc[0, "騎手"], "矢野貴之（複58%）")
+        self.assertEqual(result.loc[0, "騎手"], "矢野貴之")
+        self.assertEqual(result.loc[0, "騎手複勝率"], "58%")
         self.assertEqual(result.loc[0, "クラス変動"], "同級")
         self.assertEqual(result.loc[0, "クラス実績"], "今回B3 / 前走B3 / B3経験あり")
 
@@ -812,11 +813,11 @@ class DetailAnalysisTableTest(unittest.TestCase):
         result = self.streamlit.last_dataframe
 
         self.assertIsNotNone(result)
-        self.assertEqual(result.loc[0, "騎手"], "川田将雅（継続）")
+        self.assertEqual(result.loc[0, "騎手"], "川田将雅【継続】")
         self.assertEqual(result.loc[0, "今回の展開"], "＋ 差し向き")
         self.assertEqual(result.loc[0, "今回のコース材料"], "—")
         self.assertEqual(result.loc[0, "netkeiba推定"], "○ 推定有利馬")
-        self.assertEqual(result.loc[0, "調教"], "B↑ 仕上上々")
+        self.assertEqual(result.loc[0, "調教"], "B")
         self.assertNotIn("83.5", result.to_string())
         pd.testing.assert_frame_equal(source, before)
 
@@ -876,7 +877,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
             "_jockey_course_place_rate": 30,
         }
 
-        self.assertEqual(self.app.market_jockey_display_text(row), "和田譲（継続・複30%）")
+        self.assertEqual(self.app.market_jockey_display_text(row), "和田譲【継続】｜複勝率30%")
 
     def test_market_jockey_display_reads_place_rate_from_market_stats(self) -> None:
         row = {
@@ -885,7 +886,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
             "jockey_course_stats_market": "大井ダ1600｜10%-20%-30%",
         }
 
-        self.assertEqual(self.app.market_jockey_display_text(row), "和田譲（継続・複30%）")
+        self.assertEqual(self.app.market_jockey_display_text(row), "和田譲【継続】｜複勝率30%")
 
     def test_market_jockey_display_expands_compact_continuation_with_embedded_place_rate(self) -> None:
         row = {
@@ -893,7 +894,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
             "jockey_market": "矢野貴之",
         }
 
-        self.assertEqual(self.app.market_jockey_display_text(row), "矢野貴之（継続・複58%）")
+        self.assertEqual(self.app.market_jockey_display_text(row), "矢野貴之【継続】｜複勝率58%")
 
     def test_market_jockey_display_shows_previous_to_current_with_place_rate(self) -> None:
         row = {
@@ -902,7 +903,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
             "_jockey_course_place_rate": 58,
         }
 
-        self.assertEqual(self.app.market_jockey_display_text(row), "団野大成 → 川田将雅（複58%）")
+        self.assertEqual(self.app.market_jockey_display_text(row), "団野大成 → 川田将雅【乗替】｜複勝率58%")
 
     def test_market_card_restores_weight_change_and_jockey_place_rate_from_sibling_table(self) -> None:
         result = SimpleNamespace(
@@ -941,7 +942,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
         source_before = table.copy(deep=True)
         html = self.app.market_horse_card_html(table.iloc[0].to_dict(), "nar")
 
-        self.assertIn("矢野貴之（継続・複58%）", html)
+        self.assertIn("矢野貴之【継続】｜複勝率58%（n=459）", html)
         self.assertIn("56.0kg（前走比+1.0kg）", html)
         self.assertEqual(table.loc[0, "market_ability_score"], 88.2)
         self.assertEqual(table.loc[0, "market_ability_rank"], 1)
@@ -965,9 +966,9 @@ class DetailAnalysisTableTest(unittest.TestCase):
             "nar",
         )
 
-        self.assertIn("矢野貴之（継続）", html)
+        self.assertIn("矢野貴之【継続】｜複勝率—", html)
         self.assertIn("56.0kg", html)
-        self.assertNotIn("複", html)
+        self.assertNotIn("None", html)
         self.assertNotIn("前走比", html)
 
     def test_market_card_restores_jockey_change_and_place_rate_when_market_display_is_plain(self) -> None:
@@ -991,7 +992,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
             "nar",
         )
 
-        self.assertIn("差｜和田譲（継続・複30%）｜54.0kg", html)
+        self.assertIn("差｜和田譲【継続】｜複勝率30%｜54.0kg", html)
 
     def test_market_source_table_merges_jockey_detail_from_sibling_table_for_display(self) -> None:
         result = SimpleNamespace(
@@ -1023,7 +1024,72 @@ class DetailAnalysisTableTest(unittest.TestCase):
         html = self.app.market_horse_card_html(table.iloc[0].to_dict(), "nar")
 
         self.assertEqual(table.loc[0, "騎手詳細"], "和田譲【継続】")
-        self.assertIn("和田譲（継続・複30%）", html)
+        self.assertIn("和田譲【継続】｜複勝率30%", html)
+
+    def test_market_source_table_keeps_nar_on_baseline_ver3(self) -> None:
+        result = SimpleNamespace(
+            race_mode="nar",
+            race_info={"venue": "船橋", "distance": 2200, "surface": "ダ"},
+            overall_table=pd.DataFrame(
+                [
+                    {
+                        "馬番": 1,
+                        "馬名": "ナーホース",
+                        "market_ability_score": 40,
+                        "market_ability_rank": 2,
+                        "current_evaluation_rank": 1,
+                        "ai_current_mark": "◎",
+                    }
+                ]
+            ),
+            horse_evaluation=pd.DataFrame(),
+        )
+
+        table = self.app.market_source_table(result)
+
+        self.assertEqual(table.loc[0, "ver3_final_mark"], "◎")
+        self.assertEqual(table.loc[0, "ver3_current_evaluation_rank"], 1)
+        self.assertNotIn("shadow_ver3_candidate", table.columns)
+
+    def test_market_source_table_uses_jra_candidate_b_as_display_source(self) -> None:
+        result = SimpleNamespace(
+            race_mode="jra",
+            race_info={"venue": "中京", "distance": 1400, "surface": "芝"},
+            overall_table=pd.DataFrame(
+                [
+                    {
+                        "馬番": 1,
+                        "馬名": "ベースライン",
+                        "market_ability_score": 50,
+                        "market_ability_rank": 2,
+                        "current_evaluation_rank": 1,
+                        "ai_current_mark": "◎",
+                    },
+                    {
+                        "馬番": 2,
+                        "馬名": "候補ビー",
+                        "market_ability_score": 80,
+                        "market_ability_rank": 1,
+                        "current_evaluation_rank": 2,
+                        "ai_current_mark": "○",
+                        "training_display": "A 好気配",
+                        "stable_comment_display": "順調に仕上がった。",
+                    },
+                ]
+            ),
+            horse_evaluation=pd.DataFrame(),
+        )
+
+        table = self.app.market_source_table(result)
+        row1 = table.loc[table["馬番"] == 1].iloc[0]
+        row2 = table.loc[table["馬番"] == 2].iloc[0]
+
+        self.assertEqual(row1["baseline_ver3_final_mark"], "◎")
+        self.assertEqual(row1["baseline_ver3_current_evaluation_rank"], 1)
+        self.assertEqual(row2["shadow_ver3_candidate"], "jra_candidate_b")
+        self.assertEqual(row2["ver3_final_mark"], "◎")
+        self.assertEqual(row2["ver3_current_evaluation_rank"], 1)
+        self.assertIn("調教", row2["shadow_ver3_candidate_reason"])
 
     def test_market_horse_card_summarizes_training_and_stable_comment(self) -> None:
         html = self.app.market_horse_card_html(
@@ -1041,15 +1107,15 @@ class DetailAnalysisTableTest(unittest.TestCase):
                 "jockey_display_market": "川田将雅（継）",
                 "weight_market": "56.0kg",
                 "running_style_market": "差し",
-                "training_market": "A 83.5(16.3)67.2(15.0)",
+                "training_market": "A キビキビ｜83.5(16.3)67.2(15.0)",
                 "stable_comment_market": "順調に仕上がって好気配。ここも期待できる。",
             },
             "jra",
         )
 
-        self.assertIn("＋ 調教A↑ 動き抜群", html)
-        self.assertIn("厩舎コメント：↑ 好気配", html)
-        self.assertIn("厩舎コメント全文", html)
+        self.assertIn("＋ 調教:A/キビキビ", html)
+        self.assertIn("厩舎コメント：順調に仕上がって好気配。ここも期待できる。", html)
+        self.assertNotIn("厩舎コメント全文", html)
         self.assertNotIn("83.5", html)
 
     def test_nar_optional_jockey_page_is_fetched_as_raw_html(self) -> None:

@@ -249,26 +249,59 @@ def value_materials(
 def training_display(row: Mapping[str, Any], race_type: str = "jra") -> dict[str, str]:
     if clean_text(race_type).lower() == "nar":
         return {"display": "", "rank": "", "comment": "", "source": ""}
-    raw = _pick_text(row, "調教評価", "追切評価", "_調教評価記号", "training_grade", "調教ランク")
-    rank = _extract_training_rank(raw)
-    if not rank:
-        return {"display": "", "rank": "", "comment": "", "source": raw}
-    comment = _short_training_comment(
-        _pick_text(row, "調教短評", "追切短評", "追切内容", "調教コメント", "training_comment")
+    source = _pick_text(
+        row,
+        "training_short",
+        "training_market",
+        "調教評価",
+        "追切評価",
+        "_調教評価文",
+        "_調教評価記号",
+        "training_grade",
+        "調教ランク",
+        "training_display",
     )
-    arrow, default_comment = _training_rank_display(rank)
-    comment = comment or default_comment
-    display = f"調教{rank}{arrow}" + (f" {comment}" if comment else "")
-    return {"display": display, "rank": rank, "comment": comment, "source": raw}
+    explicit_comment = _pick_text(
+        row,
+        "training_short_comment",
+        "調教短評",
+        "追切短評",
+        "追切内容",
+        "調教コメント",
+        "training_comment",
+    )
+    rank = _extract_training_rank(_pick_text(row, "_調教評価記号", "training_grade", "調教ランク")) or _extract_training_rank(source)
+    comment = _direct_training_comment(explicit_comment, rank) or _direct_training_comment(source, rank)
+    if not rank and not comment:
+        return {"display": "", "rank": "", "comment": "", "source": source}
+    if rank and comment:
+        display = f"調教:{rank}/{comment}"
+    elif rank:
+        display = f"調教:{rank}"
+    else:
+        display = f"調教:{comment}"
+    return {"display": display, "rank": rank, "comment": comment, "source": source}
 
 
 def stable_comment_display(row: Mapping[str, Any], race_type: str = "jra", *, max_length: int = 64) -> str:
     if clean_text(race_type).lower() == "nar":
         return ""
-    text = _pick_text(row, "厩舎コメント", "新聞コメント", "stable_comment", "stable_comment_market", "一言コメント")
-    if not text:
+    text = _pick_text(
+        row,
+        "stable_comment",
+        "stable_comment_market",
+        "stable_comment_summary",
+        "newspaper_comment",
+        "厩舎コメント",
+        "新聞コメント",
+        "馬コメント",
+        "一言コメント",
+    )
+    if not text or text in {"データなし", "なし", "未取得", "-", "—"}:
         return ""
-    return _stable_comment_summary(text)
+    if _looks_like_generated_stable_summary(text):
+        return ""
+    return f"厩舎コメント：{text}"
 
 
 def course_material_display(row: Mapping[str, Any]) -> dict[str, str]:
@@ -446,12 +479,40 @@ def _extract_training_rank(raw: str) -> str:
         r"評価\s*([SABCD])",
         r"ランク\s*([SABCD])",
         r"^([SABCD])(?:$|[：:\s）)\]])",
+        r"(?:^|[\s　])([SABCD])$",
     ]
     for pattern in patterns:
         match = re.search(pattern, upper)
         if match:
             return match.group(1)
     return ""
+
+
+def _direct_training_comment(raw: str, rank: str = "") -> str:
+    text = clean_text(raw)
+    if not text:
+        return ""
+    head = clean_text(re.split(r"[｜|]", text, maxsplit=1)[0])
+    head = re.sub(r"^調教\s*[：:]*\s*", "", head).strip()
+    head = re.sub(r"^追切\s*[：:]*\s*", "", head).strip()
+    head = re.sub(r"^[SABCD]\s*[↑↓△]?\s*[/／:：]?\s*", "", head, flags=re.I).strip()
+    if rank:
+        head = re.sub(rf"\s*{re.escape(rank)}\s*$", "", head, flags=re.I).strip()
+    head = re.sub(r"^[↑↓△]\s*", "", head).strip()
+    if not head or _looks_like_lap_text(head):
+        return ""
+    return head
+
+
+def _looks_like_generated_stable_summary(text: str) -> bool:
+    return clean_text(text) in {
+        "厩舎コメント：↑ 好気配",
+        "厩舎コメント：↓ 慎重",
+        "厩舎コメント：→ 平常",
+        "↑ 好気配",
+        "↓ 慎重",
+        "→ 平常",
+    }
 
 
 def _training_rank_display(rank: str) -> tuple[str, str]:

@@ -4,6 +4,7 @@ import html
 import json
 import re
 import traceback
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -35,6 +36,7 @@ from core.investment_decision import (
 )
 from core.purchase_conditions import build_purchase_condition_recommendations, horse_no
 from core.research_bets import build_research_bet
+from core.shadow_ver3 import evaluate_shadow_race as evaluate_shadow_ver3_race
 from core.prediction_input import predict_from_html_inputs
 from core.html_classifier import (
     DISPLAY_ORDER,
@@ -1785,7 +1787,12 @@ def market_source_table(result: PredictionResult) -> pd.DataFrame:
     for table in (result.overall_table, result.horse_evaluation):
         if isinstance(table, pd.DataFrame) and not table.empty and _has_ver3_display_columns(table):
             merged = merge_market_display_supplements(table.copy(), result)
-            return attach_ver3_display_columns(merged)
+            display = attach_ver3_display_columns(merged)
+            return attach_shadow_ver3_candidate_columns(
+                display,
+                getattr(result, "race_mode", ""),
+                race_info=getattr(result, "race_info", {}) or {},
+            )
     return pd.DataFrame()
 
 
@@ -1810,6 +1817,53 @@ def attach_ver3_display_columns(table: pd.DataFrame) -> pd.DataFrame:
     result["ver3_ability_rank"] = [pick(row, *VER3_ABILITY_RANK_COLUMNS) for row in result.to_dict("records")]
     rank_series = ver3_current_rank_series(result)
     result["ver3_current_evaluation_rank"] = rank_series
+    return result
+
+
+def attach_shadow_ver3_candidate_columns(
+    table: pd.DataFrame,
+    race_mode: str,
+    *,
+    race_info: dict[str, Any] | None = None,
+) -> pd.DataFrame:
+    """Apply only the accepted Shadow candidate to normal display aliases."""
+
+    if clean_text(race_mode).lower() != "jra" or table.empty:
+        return table
+    result = table.copy()
+    try:
+        evaluated = evaluate_shadow_ver3_race(result.to_dict("records"), "jra", race_info or {}).get("candidate_b", [])
+    except Exception:
+        return result
+    by_no = {horse_no(pick(row, "horse_no", "馬番", "馬", "number")): row for row in evaluated}
+    if not by_no:
+        return result
+    result["baseline_ver3_final_mark"] = result.get("ver3_final_mark", pd.Series("", index=result.index))
+    result["baseline_ver3_current_evaluation_rank"] = result.get(
+        "ver3_current_evaluation_rank",
+        pd.Series(pd.NA, index=result.index),
+    )
+    result["shadow_ver3_candidate"] = "jra_candidate_b"
+    for index, row in result.iterrows():
+        key = horse_no(pick(row.to_dict(), "馬番", "馬", "horse_no", "number"))
+        candidate = by_no.get(key)
+        if not candidate:
+            continue
+        result.at[index, "ver3_final_mark"] = clean_text(candidate.get("candidate_b_mark"))
+        result.at[index, "ver3_current_evaluation_rank"] = candidate.get("candidate_b_rank")
+        result.at[index, "shadow_ver3_candidate_score"] = candidate.get("candidate_b_score")
+        result.at[index, "shadow_reproducibility"] = candidate.get("shadow_reproducibility")
+        result.at[index, "shadow_reproducibility_reason"] = candidate.get("shadow_reproducibility_reason")
+        result.at[index, "shadow_state_eval"] = candidate.get("shadow_state_eval")
+        result.at[index, "shadow_state_reason"] = candidate.get("shadow_state_reason")
+        result.at[index, "shadow_pace_eval"] = candidate.get("shadow_pace_eval")
+        result.at[index, "shadow_pace_reason"] = candidate.get("shadow_pace_reason")
+        reason_parts = [
+            clean_text(candidate.get("shadow_reproducibility_reason")),
+            clean_text(candidate.get("shadow_state_reason")),
+            clean_text(candidate.get("shadow_pace_reason")),
+        ]
+        result.at[index, "shadow_ver3_candidate_reason"] = " / ".join(part for part in reason_parts if part)
     return result
 
 
@@ -2803,44 +2857,204 @@ def market_ability_value_text(row: dict[str, Any]) -> str:
 
 
 def market_training_text(row: dict[str, Any], race_mode: str, *, with_prefix: bool = True) -> str:
-    """Display-only training summary; raw workout laps stay in audit data."""
+    """Display-only JRA workout label from saved training data."""
 
     if clean_text(race_mode).lower() != "jra":
         return ""
-    existing = clean_text(pick(row, "training_display"))
-    if existing:
-        display = existing
-    else:
+    display = training_display(row, race_mode).get("display", "")
+    if not display:
         display = training_display(
             {
-                "調教評価": pick(row, "training_market", "調教評価", "追切評価", "training_grade"),
-                "調教コメント": pick(row, "training_comment", "調教短評", "追切短評", "調教コメント"),
+                "training_short": pick(row, "training_short", "training_market"),
+                "調教評価": pick(row, "調教評価", "追切評価", "training_grade", "_調教評価記号"),
+                "調教コメント": pick(row, "training_short_comment", "training_comment", "調教短評", "追切短評", "調教コメント", "_調教評価文"),
             },
             race_mode,
         ).get("display", "")
     if not display:
         return ""
-    return display if with_prefix else re.sub(r"^調教", "", display)
+    return display if with_prefix else re.sub(r"^調教\s*[：:]*\s*", "", display)
 
 
 def market_stable_comment_text(row: dict[str, Any], race_mode: str) -> str:
     if clean_text(race_mode).lower() != "jra":
         return ""
-    existing = clean_text(pick(row, "stable_comment_display"))
-    if existing:
-        return existing
-    return stable_comment_display({"厩舎コメント": pick(row, "stable_comment_market", "厩舎コメント", "新聞コメント")}, race_mode)
+    return stable_comment_display(
+        {
+            "stable_comment": pick(
+                row,
+                "stable_comment_market",
+                "stable_comment_summary",
+                "stable_comment",
+                "厩舎コメント",
+                "新聞コメント",
+                "newspaper_comment",
+                "馬コメント",
+            )
+        },
+        race_mode,
+    )
 
 
-def market_jockey_display_text(row: dict[str, Any]) -> str:
+MARKET_AMBIGUOUS_JOCKEY_SURNAMES = {
+    "横山",
+    "吉田",
+    "柴田",
+    "木幡",
+    "小林",
+    "西村",
+    "田中",
+    "藤田",
+    "岩田",
+    "鮫島",
+}
+
+MARKET_JOCKEY_NAME_ALIASES = {
+    "Cルメール": "ルメール",
+    "クリストフルメール": "ルメール",
+    "Mデムーロ": "デムーロ",
+    "ミルコデムーロ": "デムーロ",
+    "松山弘平": "松山",
+    "川田将雅": "川田",
+    "坂井瑠星": "坂井",
+    "団野大成": "団野",
+    "森田誠也": "森田",
+    "岩田望来": "岩田望",
+    "鮫島克駿": "鮫島駿",
+}
+
+
+def market_jockey_display_text(row: dict[str, Any], *, include_place_rate: bool = True) -> str:
+    base = market_jockey_base_text(row)
+    if not base:
+        return ""
+    if not include_place_rate:
+        return base
+    return f"{base}｜{jockey_place_rate_display_text(row)}"
+
+
+def market_jockey_base_text(row: dict[str, Any]) -> str:
     display = clean_text(pick(row, "jockey_display_market"))
     detail = clean_text(pick(row, "騎手詳細", "jockey_detail", "騎手継続/乗替", "jockey_change"))
-    current = clean_text(pick(row, "jockey_market", "騎手", "jockey"))
-    text = display
-    if not text or (current and text == current and has_jockey_change_context(detail)):
-        text = detail or current
-    text = normalize_jockey_display_text(text or current)
-    return append_jockey_place_rate(text, jockey_place_rate_text(row))
+    current = market_clean_jockey_display_name(
+        pick(row, "jockey_market", "_display_current_jockey", "_current_jockey", "騎手", "jockey")
+    )
+    previous = market_clean_jockey_display_name(
+        pick(row, "previous_jockey_market", "_display_previous_jockey", "_previous_jockey", "前走騎手", "previous_jockey")
+    )
+    for value in (display, detail):
+        if "→" not in value:
+            continue
+        left, right = [part.strip() for part in value.split("→", 1)]
+        previous = previous or market_clean_jockey_display_name(left)
+        current = current or market_clean_jockey_display_name(right)
+    if "→" not in display and "→" not in detail:
+        displayed_current = market_clean_jockey_display_name(display or detail)
+        if displayed_current and (
+            not current
+            or (
+                market_same_jockey_display_name(current, displayed_current) is True
+                and len(displayed_current) > len(current)
+            )
+        ):
+            current = displayed_current
+    if not current:
+        current = market_clean_jockey_display_name(display or detail)
+    if not current or current == "未取得":
+        return ""
+
+    status = market_jockey_change_status(row, current=current, previous=previous, display=display, detail=detail)
+    if status == "乗替":
+        return f"{previous} → {current}【乗替】" if previous else f"{current}【乗替】"
+    if status == "継続":
+        return f"{current}【継続】"
+    return current
+
+
+def market_jockey_change_status(
+    row: dict[str, Any],
+    *,
+    current: str,
+    previous: str,
+    display: str,
+    detail: str,
+) -> str:
+    current_id = pick(row, "_current_jockey_id", "current_jockey_id", "jockey_id", "騎手ID")
+    previous_id = pick(row, "_previous_jockey_id", "previous_jockey_id", "前走騎手ID")
+    same = market_same_jockey_identity(current, previous, current_id, previous_id) if previous else None
+    if same is True:
+        return "継続"
+    if same is False:
+        return "乗替"
+    raw = clean_text(
+        pick(
+            row,
+            "jockey_change_market",
+            "騎手継続/乗替",
+            "jockey_change",
+            "_display_jockey_changed",
+            "_jockey_changed",
+            "jockey_changed",
+        )
+    )
+    if raw in {"True", "true", "1", "乗替", "乗り替わり", "乗り替", "替"}:
+        return "乗替"
+    if raw in {"False", "false", "0", "継続", "継"}:
+        return "継続"
+    combined = f"{display} {detail}"
+    if "→" in combined or "乗替" in combined or "乗り替" in combined or "【替】" in combined or "（替" in combined:
+        return "乗替"
+    if "継続" in combined or "【継" in combined or "（継" in combined:
+        return "継続"
+    return ""
+
+
+def market_same_jockey_identity(current: Any, previous: Any, current_id: Any = "", previous_id: Any = "") -> bool | None:
+    current_id_text = clean_text(current_id)
+    previous_id_text = clean_text(previous_id)
+    if current_id_text and previous_id_text:
+        return current_id_text == previous_id_text
+    return market_same_jockey_display_name(current, previous)
+
+
+def market_clean_jockey_display_name(value: Any) -> str:
+    text = clean_text(value)
+    if "｜" in text:
+        text = text.split("｜", 1)[0]
+    text = re.sub(r"[\(（]\s*(?:替|継|乗替|乗り替わり|継続|複\d+(?:\.\d+)?%|複勝率\d+(?:\.\d+)?%)\s*[\)）]", "", text)
+    text = re.sub(r"【\s*(?:替|継|乗替|乗り替わり|継続|前走データなし|判定保留)\s*】", "", text)
+    text = re.sub(r"複勝率\d+(?:\.\d+)?%|複\d+(?:\.\d+)?%", "", text)
+    return text.strip()
+
+
+def market_jockey_compare_name(value: Any) -> str:
+    text = unicodedata.normalize("NFKC", market_clean_jockey_display_name(value))
+    text = re.sub(r"^[▲△☆★◇◆▽▼]+", "", text)
+    text = re.sub(r"(?:騎手)$", "", text)
+    text = re.sub(r"[\s・･.．]", "", text)
+    return MARKET_JOCKEY_NAME_ALIASES.get(text, text)
+
+
+def market_same_jockey_display_name(current: Any, previous: Any) -> bool | None:
+    current_text = market_jockey_compare_name(current)
+    previous_text = market_jockey_compare_name(previous)
+    if not current_text or not previous_text:
+        return None
+    if current_text == previous_text:
+        return True
+    short, long = (
+        (current_text, previous_text)
+        if len(current_text) <= len(previous_text)
+        else (previous_text, current_text)
+    )
+    if (
+        long.startswith(short)
+        and len(short) >= 2
+        and short not in MARKET_AMBIGUOUS_JOCKEY_SURNAMES
+        and 1 <= len(long) - len(short) <= 2
+    ):
+        return True
+    return False
 
 
 def market_weight_display_text(row: dict[str, Any]) -> str:
@@ -2910,9 +3124,42 @@ def jockey_place_rate_text(row: dict[str, Any]) -> str:
         elif len(matches) == 1 and "複" in stats:
             rate = to_float(matches[0])
     if rate is None:
+        embedded = clean_text(pick(row, "jockey_display_market", "騎手詳細", "jockey_detail"))
+        match = re.search(r"(?:複勝率|複)\s*(\d+(?:\.\d+)?)\s*%", embedded)
+        if match:
+            rate = to_float(match.group(1))
+    if rate is None:
         return ""
     label = f"{rate:.0f}" if float(rate).is_integer() else f"{rate:.1f}"
     return f"複{label}%"
+
+
+def jockey_course_starts_text(row: dict[str, Any]) -> str:
+    starts = to_float(pick(row, "_jockey_course_starts", "jockey_course_starts", "騎手コース出走回数"))
+    if starts is None:
+        sample = clean_text(pick(row, "jockey_course_sample_market", "騎手コースサンプル"))
+        match = re.search(r"n\s*=\s*(\d+)", sample)
+        if match:
+            starts = to_float(match.group(1))
+    if starts is None:
+        return ""
+    return f"n={int(starts)}"
+
+
+def jockey_place_rate_display_text(row: dict[str, Any]) -> str:
+    rate = jockey_place_rate_text(row)
+    if not rate:
+        return "複勝率—"
+    label = rate.replace("複", "複勝率", 1)
+    sample = jockey_course_starts_text(row)
+    return f"{label}（{sample}）" if sample else label
+
+
+def jockey_place_rate_column_text(row: dict[str, Any]) -> str:
+    display = jockey_place_rate_display_text(row)
+    if display == "複勝率—":
+        return "—"
+    return display.replace("複勝率", "", 1)
 
 
 def append_jockey_place_rate(text: str, rate: str) -> str:
@@ -3020,7 +3267,8 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "能力順位": clean_text(pick(row, "ver3_ability_rank", *VER3_ABILITY_RANK_COLUMNS)) or "—",
             "能力値": format_index_value(pick(row, "ver3_ability_value", *VER3_ABILITY_VALUE_COLUMNS)),
             "実オッズ": format_odds(pick(row, "actual_odds")) or "—",
-            "騎手": market_jockey_display_text(row),
+            "騎手": market_jockey_display_text(row, include_place_rate=False),
+            "騎手複勝率": jockey_place_rate_column_text(row),
             "斤量": weight,
             "能力注記": clean_text(pick(row, "ability_watch_label")) or "—",
             "クラス": clean_text(pick(row, "current_class_market")),
@@ -3189,11 +3437,8 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     if race_mode == "jra":
         if training_display_text:
             detail_lines.append(f"調教：{training_display_text}")
-        stable = clean_text(pick(row, "stable_comment_market"))
         if stable_summary:
             detail_lines.append(stable_summary)
-        if stable:
-            detail_lines.append(f"厩舎コメント全文：{shorten_text(stable, 120)}")
     detail = "<br>".join(plain_text_to_html(line) for line in detail_lines)
     material_lines = ""
     if plus:
@@ -3205,8 +3450,8 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     if netkeiba:
         material_lines += f'<div class="ka-market-card-line ka-market-plus">{plain_text_to_html(netkeiba)}</div>'
     if training_display_text:
-        css = "ka-market-minus" if "D↓" in training_display_text else "ka-market-plus"
-        sign = "－ " if "D↓" in training_display_text else "＋ "
+        css = "ka-market-minus" if "調教:D" in training_display_text else "ka-market-plus"
+        sign = "－ " if "調教:D" in training_display_text else "＋ "
         material_lines += f'<div class="ka-market-card-line {css}">{plain_text_to_html(sign + training_display_text)}</div>'
     if stable_summary:
         material_lines += f'<div class="ka-market-card-line">{plain_text_to_html(stable_summary)}</div>'
@@ -4101,8 +4346,8 @@ def horse_summary_card_html(
     material_badges_markup = material_badges_html(material_badges)
     material_labels = " ／ ".join(label for label, _tone in material_badges)
     first_blinker_source = initial_blinker_source(row, race_mode, index_row)
-    training_label = clean_text(card_pick(row, index_row, "training_display"))
-    stable_comment = clean_text(card_pick(row, index_row, "stable_comment_display"))
+    training_label = market_training_text(recent_source, race_mode)
+    stable_comment = market_stable_comment_text(recent_source, race_mode)
     course_material = clean_text(card_pick(row, index_row, "course_material_label"))
     course_material_detail = clean_text(card_pick(row, index_row, "course_material_detail"))
     netkeiba_favorable = clean_text(card_pick(row, index_row, "netkeiba_favorable_label"))
@@ -4145,6 +4390,7 @@ def horse_summary_card_html(
         quick_items.append(f"直線：{straight}")
     quick = "<br>".join(plain_text_to_html(item) for item in quick_items if clean_text(item))
     central_lines = central_card_lines(row) if race_mode == "jra" else []
+    stable_comment_detail = stable_comment if stable_comment else "厩舎コメント：—"
     detail_lines = [
         "出走馬詳細",
         f"【{group}】{mark_part} {no} {name}".strip(),
@@ -4176,7 +4422,7 @@ def horse_summary_card_html(
         "数値補正：なし（既存の能力評価値をそのまま表示）",
         "二重補正回避：年齢・距離・コース・斤量・騎手は通常カードの材料表示のみ",
         f"調教表示：{training_label or '—'}",
-        f"厩舎コメント：{stable_comment or '—'}",
+        stable_comment_detail if stable_comment_detail.startswith("厩舎コメント") else f"厩舎コメント：{stable_comment_detail}",
         f"展開/コース：{course_material or '—'}",
         f"展開/コース監査：{course_material_detail or '—'}",
         f"netkeiba推定：{netkeiba_favorable or '—'}",
@@ -4589,14 +4835,13 @@ def recent3_detail_text(row: dict[str, Any]) -> str:
 def central_card_lines(row: dict[str, Any]) -> list[str]:
     lines: list[str] = []
     training = training_display(row, "jra").get("display", "")
-    stable = clean_text(pick(row, "厩舎コメント", "新聞コメント", "stable_comment"))
+    stable = clean_text(pick(row, "stable_comment_summary", "stable_comment_market", "厩舎コメント", "新聞コメント", "stable_comment"))
     if training:
         lines.append(f"調教表示：{training}")
     if stable:
         summary = stable_comment_display(row, "jra")
         if summary:
             lines.append(summary)
-        lines.append(f"厩舎コメント全文：{shorten_text(stable, 90)}")
     return lines
 
 
@@ -4674,7 +4919,7 @@ def build_detail_analysis_table(
             for key, value in insert_after:
                 record[key] = value
                 if key == "脚質":
-                    record["調教"] = clean_text(pick(row, "training_display")) or "—"
+                    record["調教"] = market_training_text(row, race_mode, with_prefix=False) or "—"
         records.append(record)
     return pd.DataFrame.from_records(records)
 

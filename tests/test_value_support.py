@@ -7,18 +7,26 @@ import pandas as pd
 
 from core.models import PredictionResult
 from core.prediction_history import build_prediction_snapshot
-from core.value_support import attach_value_signals, course_material_display, training_display
+from core.value_support import attach_value_signals, course_material_display, stable_comment_display, training_display
 
 
 class ValueSupportTest(unittest.TestCase):
-    def test_jra_training_display_uses_rank_and_omits_raw_lap_text(self) -> None:
-        ranked = training_display({"調教評価": "A", "調教コメント": "上昇気配あり"}, "jra")
+    def test_jra_training_display_uses_saved_short_comment_and_omits_laps(self) -> None:
+        ranked = training_display({"training_short": "B キビキビ｜-58.0(14.8)43.2(14.7)"}, "jra")
+        direct = training_display({"調教評価": "A 動き抜群"}, "jra")
         raw_lap = training_display({"調教評価": "83.5(16.3)67.2(15.0)"}, "jra")
         nar = training_display({"調教評価": "A"}, "nar")
 
-        self.assertEqual(ranked["display"], "調教A↑ 仕上上々")
+        self.assertEqual(ranked["display"], "調教:B/キビキビ")
+        self.assertEqual(direct["display"], "調教:A/動き抜群")
         self.assertEqual(raw_lap["display"], "")
         self.assertEqual(nar["display"], "")
+
+    def test_jra_stable_comment_display_uses_raw_newspaper_comment(self) -> None:
+        comment = "芝が合いそうだと思っていたので、いい機会を得ました。距離もぴったり。〈田中淳師〉"
+
+        self.assertEqual(stable_comment_display({"stable_comment_summary": comment}, "jra"), f"厩舎コメント：{comment}")
+        self.assertEqual(stable_comment_display({"stable_comment_summary": "データなし"}, "jra"), "")
 
     def test_value_signal_requires_materials_not_high_odds_only(self) -> None:
         rows = attach_value_signals(
