@@ -32,6 +32,7 @@ VER3_MARK_KEYS = ("ver3_final_mark", "最終印", "表示印", "display_mark", "
 VER3_SCORE_KEYS = ("_最終印点", "総合評価点", "総合評価", "補正AI点", "final_mark_score", "AI点")
 VER3_ABILITY_RANK_KEYS = ("ver3_ability_rank", "AI順位", "能力順位", "ai_rank", "market_ability_rank", "ability_rank", "saved_ability_rank")
 VER3_ABILITY_VALUE_KEYS = ("ver3_ability_value", "能力評価値", "AI点", "ability_display_score", "normalized_ai_score", "raw_score", "market_ability_score", "ability_value", "saved_ability_value")
+NAR_PURE_ABILITY_KEYS = ("market_ability_score", "ability_value", "saved_ability_value")
 VER3_RANK_KEYS = ("ver3_current_evaluation_rank", "総合評価順位", "current_evaluation_rank", "saved_current_evaluation_rank", "今回評価順位", "今回順位", "ai_current_rank")
 COMPARISON_SORT_LABELS = {
     "current": "今回評価順",
@@ -116,6 +117,8 @@ def build_full_field_comparison(
     if not horses:
         return {"show": False, "research_only": True}
     _attach_ver3_current_ranks(horses)
+    if mode == "nar":
+        _attach_nar_top5_fields(horses)
     v1 = build_v1_evaluations(records, mode, race_info=info)
     v1_by_number = {_text(_first(row, "horse_no", "馬番", "number", "horse_number")): row for row in v1.get("rows", [])}
     for horse in horses:
@@ -240,6 +243,17 @@ def build_full_field_comparison(
                 key=lambda horse: (
                     _int(horse.get("v1_final_rank")) or 99,
                     -(float(horse.get("v1_final_score") or 0.0)),
+                    _horse_sort_key(horse.get("number")),
+                ),
+            )[:5]
+        ],
+        "nar_top5_recommendations": [
+            horse
+            for horse in sorted(
+                [horse for horse in horses if _int(horse.get("nar_top5_rank")) is not None],
+                key=lambda horse: (
+                    _int(horse.get("nar_top5_rank")) or 999,
+                    -(float(_float(horse.get("nar_top5_score")) or -999999.0)),
                     _horse_sort_key(horse.get("number")),
                 ),
             )[:5]
@@ -377,6 +391,7 @@ def _comparison_horse(row: Mapping[str, Any], *, race_mode: str, race_info: Mapp
         "corner4_display": _corner4_display(diagnostic),
         "positive_tags": positive_tags,
         "negative_tags": negative_tags,
+        "nar_pure_ability_score": _nar_pure_ability_score(row),
     }
 
 
@@ -496,6 +511,47 @@ def _attach_ver3_current_ranks(horses: list[dict[str, Any]]) -> None:
         horses[index]["ver3_current_evaluation_rank"] = rank
 
 
+def _attach_nar_top5_fields(horses: list[dict[str, Any]]) -> None:
+    """Expose current Ver3 NAR final evaluation as the NAR Top5 display source."""
+
+    pure_scores = [_float(horse.get("nar_pure_ability_score")) for horse in horses]
+    valid_pure_scores = [score for score in pure_scores if score is not None]
+    top_pure = max(valid_pure_scores) if valid_pure_scores else None
+    for horse in horses:
+        pure = _float(horse.get("nar_pure_ability_score"))
+        horse["nar_ability_gap_from_top"] = round(top_pure - pure, 3) if top_pure is not None and pure is not None else None
+        rank = _int(horse.get("ver3_current_evaluation_rank")) or _int(horse.get("current_evaluation_rank"))
+        score = _float(horse.get("ver3_score"))
+        mark = _mark_text(horse.get("mark"))
+        horse["nar_top5_rank"] = rank
+        horse["nar_top5_score"] = score
+        horse["nar_top5_mark"] = mark
+        horse["nar_top5_role"] = _nar_top5_role(rank, mark)
+        horse["nar_distance_bonus"] = 0.0
+        horse["nar_course_bonus"] = 0.0
+        horse["nar_pace_bonus"] = 0.0
+        horse["nar_recent_bonus"] = 0.0
+        horse["nar_repro_bonus"] = 0.0
+        horse["nar_warning_candidate"] = False
+        horse["nar_warning_reason"] = ""
+        horse["nar_top5_reason"] = "現行Ver3最終評価を維持（NAR候補A-Dは研究用、通常印へ未接続）"
+
+
+def _nar_top5_role(rank: Any, mark: Any) -> str:
+    value = _int(rank)
+    if value == 1:
+        return "軸候補"
+    if value in {2, 3}:
+        return "本線候補"
+    if value in {4, 5}:
+        return "相手候補"
+    return "監査対象" if _text(mark) else ""
+
+
+def _nar_pure_ability_score(row: Mapping[str, Any]) -> float | None:
+    return _float(_first(row, *NAR_PURE_ABILITY_KEYS))
+
+
 def normalize_position_group(value: Any) -> str:
     text = _text(value)
     if not text:
@@ -582,8 +638,9 @@ def _sort_comparison_horses(
             )
         else:
             key = lambda horse: (
-                horse.get("current_evaluation_rank") if horse.get("current_evaluation_rank") is not None else 999,
-                _mark_sort_value(horse.get("mark")),
+                _int(horse.get("nar_top5_rank")) or _int(horse.get("current_evaluation_rank")) or 999,
+                -(float(_float(horse.get("nar_top5_score")) or -999999.0)),
+                -(_float(horse.get("nar_pure_ability_score")) or -999999.0),
                 horse.get("ability_rank") if horse.get("ability_rank") is not None else 999,
                 _horse_sort_key(horse.get("number")),
             )

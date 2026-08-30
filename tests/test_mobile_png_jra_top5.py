@@ -67,6 +67,41 @@ class MobilePngJraTop5Test(unittest.TestCase):
         self.assertEqual(rows[0]["v1_final_mark"], "◎")
         self.assertEqual(mobile_png._display_mark({"v1_final_mark": "◎", "mark_v4": "△"}, "jra"), "◎")
 
+    def test_nar_png_top5_rows_use_nar_source_and_ignore_group(self) -> None:
+        result = PredictionResult(
+            race_mode="nar",
+            race_info={"venue": "船橋", "distance": 2200},
+            overall_table=pd.DataFrame(
+                [
+                    {
+                        "馬番": 1,
+                        "馬名": "旧SS",
+                        "グループ": "SS",
+                        "mark_v4": "◎",
+                        "AI点": 100.0,
+                        "market_ability_score": 70.0,
+                        "current_evaluation_rank": 2,
+                    },
+                    {
+                        "馬番": 2,
+                        "馬名": "Top1",
+                        "グループ": "Z",
+                        "表示印": "○",
+                        "AI点": 105.0,
+                        "market_ability_score": 80.0,
+                        "current_evaluation_rank": 1,
+                    },
+                ]
+            ),
+        )
+
+        rows = mobile_png._nar_comparison_rows(result)
+
+        self.assertEqual([str(row["number"]) for row in rows[:2]], ["2", "1"])
+        self.assertEqual(rows[0]["nar_top5_rank"], 1)
+        self.assertEqual(rows[0]["nar_pure_ability_score"], 80.0)
+        self.assertEqual(mobile_png._display_mark({"nar_top5_mark": "○", "mark_v4": "◎"}, "nar"), "○")
+
 
 if __name__ == "__main__":
     unittest.main()
