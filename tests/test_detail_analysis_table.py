@@ -85,8 +85,17 @@ def load_app_module():
     render_package.__path__ = []
     requests_stub = types.ModuleType("requests")
     requests_stub.RequestException = Exception
+    bs4_stub = types.ModuleType("bs4")
+    bs4_stub.BeautifulSoup = lambda *_args, **_kwargs: SimpleNamespace(
+        select=lambda *_args, **_kwargs: [],
+        select_one=lambda *_args, **_kwargs: None,
+        find=lambda *_args, **_kwargs: None,
+        find_all=lambda *_args, **_kwargs: [],
+        get_text=lambda *_args, **_kwargs: "",
+    )
     stubs = {
         "requests": requests_stub,
+        "bs4": bs4_stub,
         "streamlit": streamlit,
         "core.audit_features": stub_module(
             "core.audit_features",
@@ -205,7 +214,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
             ]
         )
 
-        for race_mode in ("jra", "nar"):
+        for race_mode in ("nar",):
             with self.subTest(race_mode=race_mode):
                 detail = self.render_detail(race_mode, overall_table, horse_evaluation)
                 self.assertEqual(list(detail["馬"]), ["2 二番馬", "1 一番馬"])
@@ -229,6 +238,77 @@ class DetailAnalysisTableTest(unittest.TestCase):
                 self.assertEqual(first["グループ"], "A")
                 self.assertEqual(first["状態"], "下降")
                 self.assertEqual(first["コメント"], "一番馬コメント")
+
+    def test_jra_normal_views_use_top5_source_without_power_map_groups(self) -> None:
+        result = SimpleNamespace(
+            race_mode="jra",
+            race_info={"venue": "中京", "surface": "芝", "distance": 1600, "turn": "左"},
+            overall_table=pd.DataFrame(
+                [
+                    {
+                        "馬番": 1,
+                        "馬名": "RawOnly",
+                        "mark_v4": "◎",
+                        "raw_score": 999.0,
+                        "market_ability_score": 50.0,
+                        "market_ability_rank": 2,
+                        "training": "C/平凡",
+                    },
+                    {
+                        "馬番": 2,
+                        "馬名": "PureAbility",
+                        "mark_v4": "",
+                        "raw_score": 1.0,
+                        "market_ability_score": 80.0,
+                        "market_ability_rank": 1,
+                        "training": "B/キビキビ",
+                        "_estimated_position_corner4_label": "先団",
+                        "recent_runs": [
+                            {
+                                "racecourse": "中京",
+                                "surface": "芝",
+                                "distance": 1600,
+                                "direction": "左",
+                                "finish": 2,
+                            }
+                        ],
+                    },
+                ]
+            ),
+            horse_evaluation=pd.DataFrame(),
+            debug_info={},
+            raw_output="",
+            ai_race_review="",
+        )
+
+        self.assertEqual(self.app.display_mark_from_row({"v1_final_mark": "◎", "mark_v4": "△"}, "jra"), "◎")
+
+        rows = self.app.sorted_display_rows(result)
+        self.assertEqual([row["number"] for row in rows[:2]], ["2", "1"])
+        self.assertEqual(rows[0]["v1_final_mark"], "◎")
+        self.assertEqual(rows[0]["jra_pure_ability_score"], 80.0)
+
+        self.streamlit.markdown_calls = []
+        self.app.render_power_map(result)
+        self.assertEqual(self.streamlit.markdown_calls, [])
+
+        self.streamlit.last_dataframe = None
+        self.app.render_overall_table(result)
+        detail = self.streamlit.last_dataframe
+        self.assertIsNotNone(detail)
+        self.assertIn("JRA Top5順位", detail.columns)
+        self.assertIn("JRA Top5スコア", detail.columns)
+        self.assertNotIn("グループ", detail.columns)
+        self.assertEqual(detail.iloc[0]["馬"], "2 PureAbility")
+
+        card_html = self.app.horse_summary_card_html(rows[0], "jra")
+        self.assertIn("JRA Top5", card_html)
+        self.assertIn("調教B", card_html)
+        self.assertNotIn("ka-chip ss", card_html.lower())
+
+        lines = self.app.race_flow_review_lines(rows, "平均ペース", "jra")
+        self.assertTrue(lines)
+        self.assertNotIn("勢力図", "\n".join(lines))
 
     def test_market_card_hides_raw_coordinates_and_uncalibrated_odds(self) -> None:
         html = self.app.market_horse_card_html(
@@ -1267,7 +1347,7 @@ class HorseSummaryCardTest(unittest.TestCase):
             ]
         )
 
-        for race_mode in ("jra", "nar"):
+        for race_mode in ("nar",):
             with self.subTest(race_mode=race_mode):
                 overall_before = overall_table.copy(deep=True)
                 evaluation_before = horse_evaluation.copy(deep=True)
@@ -1410,7 +1490,7 @@ class HorseSummaryCardTest(unittest.TestCase):
             ],
         }
 
-        html = self.app.horse_summary_card_html(horse_row, "jra", overall_row)
+        html = self.app.horse_summary_card_html(horse_row, "nar", overall_row)
 
         self.assertIn("近3走", html)
         self.assertIn("前走", html)
@@ -1438,7 +1518,7 @@ class HorseSummaryCardTest(unittest.TestCase):
         horse_before = horse_row.copy()
         overall_before = overall_row.copy()
 
-        html = self.app.horse_summary_card_html(horse_row, "jra", overall_row)
+        html = self.app.horse_summary_card_html(horse_row, "nar", overall_row)
 
         self.assertEqual(html.count("ka-ability-track"), 1)
         self.assertIn("能力評価", html)
@@ -1526,7 +1606,7 @@ class DisplayGroupViewTest(unittest.TestCase):
         evaluation_before = horse_evaluation.copy(deep=True)
         overall_before = overall_table.copy(deep=True)
         result = SimpleNamespace(
-            race_mode="jra",
+            race_mode="nar",
             overall_table=overall_table,
             horse_evaluation=horse_evaluation,
             raw_output="",

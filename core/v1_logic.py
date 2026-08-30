@@ -11,6 +11,10 @@ V1_MARKS = ("◎", "○", "▲", "☆", "△", "✔︎")
 REPRO_POINTS = {"S": 4.0, "A": 3.0, "B": 2.0, "C": 1.0, "—": 0.0, "-": 0.0, "": 0.0}
 PACE_POINTS = {"○": 1.5, "△": 0.5, "×": -1.0, "—": 0.0, "": 0.0}
 STATE_POINTS = {"A": 1.5, "B": 0.5, "C": -1.0, "—": 0.0, "": 0.0}
+JRA_TOP5_REPRO_BONUS = {"S": 2.0, "A": 1.5, "B": 0.5, "C": 0.0, "—": 0.0, "-": 0.0, "": 0.0}
+JRA_TOP5_PACE_BONUS = {"○": 2.0, "△": 0.0, "×": -2.0, "—": 0.0, "": 0.0}
+JRA_TOP5_TRAINING_BONUS = {"A": 2.5, "B": 0.75, "C": -1.25, "D": -2.5, "—": 0.0, "-": 0.0, "": 0.0}
+JRA_TOP5_WARNING_GAP = 8.0
 SPECIAL_NAR_CONDITIONS = {("船橋", 2200), ("門別", 1700), ("門別", 1800)}
 
 
@@ -23,7 +27,7 @@ def build_v1_evaluations(
     current = current_condition(rows, race_info or {})
     horses = [build_v1_horse(row, mode, current) for row in rows]
     fill_missing_ability_ranks(horses)
-    assign_v1_scores_and_marks(horses)
+    assign_v1_scores_and_marks(horses, race_mode=mode)
     recommendations = final_recommendations(horses)
     return {
         "race_mode": mode,
@@ -48,18 +52,21 @@ def build_v1_horse(row: Mapping[str, Any], race_mode: str, current: Mapping[str,
     ability_rank = to_int(
         first(raw, "market_ability_rank", "ability_rank", "saved_ability_rank", "能力順位", "ability_rank_for_backtest")
     )
-    ability_value = to_float(
-        first(
-            raw,
-            "market_ability_score",
-            "ability_value",
-            "saved_ability_value",
-            "ability_display_score",
-            "能力評価値",
-            "raw_score",
-            "_raw_score",
+    if race_mode == "jra":
+        ability_value = jra_pure_ability_score(raw)
+    else:
+        ability_value = to_float(
+            first(
+                raw,
+                "market_ability_score",
+                "ability_value",
+                "saved_ability_value",
+                "ability_display_score",
+                "能力評価値",
+                "raw_score",
+                "_raw_score",
+            )
         )
-    )
     current_rank = to_int(
         first(
             raw,
@@ -98,6 +105,18 @@ def build_v1_horse(row: Mapping[str, Any], race_mode: str, current: Mapping[str,
             "v1_final_mark": "",
             "v1_final_role": role,
             "v1_final_reason": "",
+            "jra_pure_ability_score": ability_value if race_mode == "jra" else None,
+            "jra_ability_gap_from_top": None,
+            "jra_repro_bonus": None,
+            "jra_pace_bonus": None,
+            "jra_training_bonus": None,
+            "jra_state_bonus": None,
+            "jra_top5_score": None,
+            "jra_top5_rank": None,
+            "jra_warning_candidate": False,
+            "jra_warning_strength": "",
+            "jra_warning_reason": "",
+            "jra_training_grade": training_grade(row) if race_mode == "jra" else "",
             "_v1_ability_rank": ability_rank,
             "_v1_ability_value": ability_value,
             "_v1_current_rank": current_rank,
@@ -109,6 +128,33 @@ def build_v1_horse(row: Mapping[str, Any], race_mode: str, current: Mapping[str,
         }
     )
     return raw
+
+
+def jra_pure_ability_score(row: Mapping[str, Any]) -> float | None:
+    """Return the JRA Top5 pure ability value without raw_score fallbacks."""
+
+    return to_float(first(row, "market_ability_score", "ability_value", "saved_ability_value"))
+
+
+def training_grade(row: Mapping[str, Any]) -> str:
+    training = text(
+        first(
+            row,
+            "jra_training_grade",
+            "training_grade",
+            "training_rank",
+            "training",
+            "training_display",
+            "training_short",
+            "training_market",
+            "調教",
+            "調教評価",
+            "追切評価",
+            "調教/評価/検討材料",
+        )
+    )
+    match = re.search(r"(?<![A-Za-z])([ABCD])(?![A-Za-z])", training.upper())
+    return match.group(1) if match else ""
 
 
 def fill_missing_ability_ranks(horses: list[dict[str, Any]]) -> None:
@@ -353,7 +399,14 @@ def primary_role(
     return "相手候補"
 
 
-def assign_v1_scores_and_marks(horses: list[dict[str, Any]]) -> None:
+def assign_v1_scores_and_marks(horses: list[dict[str, Any]], race_mode: str = "nar") -> None:
+    if text(race_mode).lower() == "jra":
+        assign_jra_top5_scores_and_marks(horses)
+        return
+    assign_default_v1_scores_and_marks(horses)
+
+
+def assign_default_v1_scores_and_marks(horses: list[dict[str, Any]]) -> None:
     if not horses:
         return
     ability_values = [to_float(horse.get("_v1_ability_value")) for horse in horses]
@@ -430,6 +483,133 @@ def assign_v1_scores_and_marks(horses: list[dict[str, Any]]) -> None:
         if mark:
             horse["v1_mark"] = mark
             horse["v1_order"] = index
+
+
+def assign_jra_top5_scores_and_marks(horses: list[dict[str, Any]]) -> None:
+    if not horses:
+        return
+    pure_values = [to_float(horse.get("jra_pure_ability_score")) for horse in horses]
+    numeric_pure = [value for value in pure_values if value is not None]
+    top_pure = max(numeric_pure) if numeric_pure else None
+    for horse in horses:
+        pure = to_float(horse.get("jra_pure_ability_score"))
+        repro = text(horse.get("v1_reproducibility")) or "—"
+        pace = text(horse.get("v1_pace_eval")) or "—"
+        training = training_grade(horse) or "—"
+        repro_bonus = JRA_TOP5_REPRO_BONUS.get(repro, 0.0)
+        pace_bonus = JRA_TOP5_PACE_BONUS.get(pace, 0.0)
+        training_bonus = JRA_TOP5_TRAINING_BONUS.get(training, 0.0)
+        state_bonus = 0.0
+        score = (pure or 0.0) + repro_bonus + pace_bonus + training_bonus + state_bonus
+        horse["jra_pure_ability_score"] = pure
+        horse["jra_ability_gap_from_top"] = round(top_pure - pure, 3) if top_pure is not None and pure is not None else None
+        horse["jra_repro_bonus"] = repro_bonus
+        horse["jra_pace_bonus"] = pace_bonus
+        horse["jra_training_bonus"] = training_bonus
+        horse["jra_state_bonus"] = state_bonus
+        horse["jra_top5_score"] = round(score, 3)
+        horse["jra_training_grade"] = training if training != "—" else ""
+        horse["v1_base_score"] = horse["jra_top5_score"]
+        horse["v1_score"] = horse["jra_top5_score"]
+        horse["v1_final_score"] = horse["jra_top5_score"]
+        horse["v1_mark"] = ""
+        horse["v1_order"] = None
+        horse["v1_final_mark"] = ""
+        horse["v1_final_rank"] = None
+        horse["v1_final_reason"] = ""
+        horse["jra_warning_candidate"] = False
+        horse["jra_warning_strength"] = ""
+        horse["jra_warning_reason"] = ""
+
+    ordered = sorted(horses, key=jra_top5_sort_key)
+    for index, horse in enumerate(ordered, start=1):
+        horse["jra_top5_rank"] = index
+        horse["v1_base_rank"] = index
+        horse["v1_final_rank"] = index
+        role = jra_final_role_for_rank(horse, index)
+        mark = final_mark_for_rank(index, role) if index <= 5 else ""
+        horse["v1_final_role"] = role
+        horse["v1_final_mark"] = mark
+        horse["v1_final_reason"] = jra_top5_reason(horse)
+        horse["v1_score"] = horse["jra_top5_score"]
+        horse["v1_role"] = role
+        if mark:
+            horse["v1_mark"] = mark
+            horse["v1_order"] = index
+
+    for horse in ordered[5:]:
+        candidate, strength, reason = jra_warning_status(horse)
+        horse["jra_warning_candidate"] = candidate
+        horse["jra_warning_strength"] = strength
+        horse["jra_warning_reason"] = reason
+
+
+def jra_top5_sort_key(horse: Mapping[str, Any]) -> tuple[float, float, float, float]:
+    pure = to_float(horse.get("jra_pure_ability_score"))
+    return (
+        -float(to_float(horse.get("jra_top5_score")) or 0.0),
+        -float(pure if pure is not None else -999999.0),
+        float(to_int(horse.get("_v1_ability_rank")) or 999),
+        float(to_int(first(horse, "horse_no", "馬番", "number", "horse_number")) or 999),
+    )
+
+
+def jra_final_role_for_rank(horse: Mapping[str, Any], rank: int) -> str:
+    if rank == 1:
+        return "軸候補"
+    role = text(horse.get("v1_role")) or "相手候補"
+    if rank in {2, 3} and role == "相手候補":
+        return "能力上位"
+    return role
+
+
+def jra_warning_status(horse: Mapping[str, Any]) -> tuple[bool, str, str]:
+    gap = to_float(horse.get("jra_ability_gap_from_top"))
+    repro = text(horse.get("v1_reproducibility"))
+    pace = text(horse.get("v1_pace_eval"))
+    training = text(horse.get("jra_training_grade")) or training_grade(horse)
+    if gap is None or gap < JRA_TOP5_WARNING_GAP or repro not in {"S", "A"}:
+        return False, "", ""
+    has_pace = pace == "○"
+    has_training = training in {"A", "B"}
+    if not (has_pace or has_training):
+        return False, "", ""
+    strength = "strong" if has_pace and has_training else "watch"
+    parts = [f"純能力首位差{gap:.1f}", f"再現性{repro}"]
+    if has_pace:
+        parts.append("展開○")
+    if has_training:
+        parts.append(f"調教{training}")
+    return True, strength, " / ".join(parts)
+
+
+def jra_top5_reason(horse: Mapping[str, Any]) -> str:
+    pure = to_float(horse.get("jra_pure_ability_score"))
+    repro = text(horse.get("v1_reproducibility")) or "—"
+    pace = text(horse.get("v1_pace_eval")) or "—"
+    training = text(horse.get("jra_training_grade")) or "—"
+    state = text(horse.get("v1_state_eval")) or "—"
+    score = to_float(horse.get("jra_top5_score"))
+    ability_text = f"能力 {pure:.1f}" if pure is not None else "能力材料不足"
+    reason = (
+        f"{ability_text} / "
+        f"再現性{repro} {signed_bonus_text(horse.get('jra_repro_bonus'))} / "
+        f"展開{pace} {signed_bonus_text(horse.get('jra_pace_bonus'))} / "
+        f"調教{training} {signed_bonus_text(horse.get('jra_training_bonus'))} / "
+        f"状態{state}（参考表示・スコア加点なし）"
+    )
+    return f"{reason} → JRA Top5スコア {score:.2f}" if score is not None else reason
+
+
+def signed_bonus_text(value: Any) -> str:
+    numeric = to_float(value)
+    if numeric is None:
+        return "+0.0"
+    if abs(numeric) < 0.0001:
+        return "+0.0"
+    if abs(numeric * 10 - round(numeric * 10)) < 0.0001:
+        return f"{numeric:+.1f}"
+    return f"{numeric:+.2f}"
 
 
 def best_candidate(horses: Sequence[dict[str, Any]], predicate) -> dict[str, Any] | None:

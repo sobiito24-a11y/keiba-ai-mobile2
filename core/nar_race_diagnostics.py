@@ -143,6 +143,18 @@ def build_full_field_comparison(
                     "v1_state_eval": _text(v1_row.get("v1_state_eval")),
                     "v1_state_reason": _text(v1_row.get("v1_state_reason")),
                     "v1_special_distance": bool(v1_row.get("v1_special_distance")),
+                    "jra_pure_ability_score": v1_row.get("jra_pure_ability_score"),
+                    "jra_ability_gap_from_top": v1_row.get("jra_ability_gap_from_top"),
+                    "jra_repro_bonus": v1_row.get("jra_repro_bonus"),
+                    "jra_pace_bonus": v1_row.get("jra_pace_bonus"),
+                    "jra_training_bonus": v1_row.get("jra_training_bonus"),
+                    "jra_state_bonus": v1_row.get("jra_state_bonus"),
+                    "jra_top5_score": v1_row.get("jra_top5_score"),
+                    "jra_top5_rank": v1_row.get("jra_top5_rank"),
+                    "jra_warning_candidate": bool(v1_row.get("jra_warning_candidate")),
+                    "jra_warning_strength": _text(v1_row.get("jra_warning_strength")),
+                    "jra_warning_reason": _text(v1_row.get("jra_warning_reason")),
+                    "jra_training_grade": _text(v1_row.get("jra_training_grade")),
                     "_v1_ability_rank": v1_row.get("_v1_ability_rank"),
                     "_v1_ability_value": v1_row.get("_v1_ability_value"),
                 }
@@ -192,7 +204,7 @@ def build_full_field_comparison(
     if top1 and top2 and isinstance(top1.get("ability_value"), (int, float)) and isinstance(top2.get("ability_value"), (int, float)):
         gap_1_2 = top1["ability_value"] - top2["ability_value"]
 
-    horses = _sort_comparison_horses(horses, sort_mode)
+    horses = _sort_comparison_horses(horses, sort_mode, race_mode=mode)
     transfer_watch = bool(
         mode == "nar"
         and
@@ -544,7 +556,12 @@ def _position_groups(horses: Sequence[Mapping[str, Any]], point: str) -> dict[st
     return result
 
 
-def _sort_comparison_horses(horses: Sequence[Mapping[str, Any]], sort_mode: str) -> list[Mapping[str, Any]]:
+def _sort_comparison_horses(
+    horses: Sequence[Mapping[str, Any]],
+    sort_mode: str,
+    *,
+    race_mode: str = "nar",
+) -> list[Mapping[str, Any]]:
     mode = sort_mode if sort_mode in COMPARISON_SORT_LABELS else "horse_number"
     if mode == "v2_ai":
         key = lambda horse: (
@@ -557,12 +574,19 @@ def _sort_comparison_horses(horses: Sequence[Mapping[str, Any]], sort_mode: str)
             _horse_sort_key(horse.get("number")),
         )
     elif mode == "current":
-        key = lambda horse: (
-            horse.get("current_evaluation_rank") if horse.get("current_evaluation_rank") is not None else 999,
-            _mark_sort_value(horse.get("mark")),
-            horse.get("ability_rank") if horse.get("ability_rank") is not None else 999,
-            _horse_sort_key(horse.get("number")),
-        )
+        if _text(race_mode).lower() == "jra":
+            key = lambda horse: (
+                horse.get("v1_final_rank") if horse.get("v1_final_rank") is not None else 999,
+                -(float(_float(horse.get("jra_top5_score")) or 0.0)),
+                _horse_sort_key(horse.get("number")),
+            )
+        else:
+            key = lambda horse: (
+                horse.get("current_evaluation_rank") if horse.get("current_evaluation_rank") is not None else 999,
+                _mark_sort_value(horse.get("mark")),
+                horse.get("ability_rank") if horse.get("ability_rank") is not None else 999,
+                _horse_sort_key(horse.get("number")),
+            )
     elif mode == "corner4_front":
         group_order = {"front": 0, "middle": 1, "back": 2, "unknown": 3}
         key = lambda horse: (

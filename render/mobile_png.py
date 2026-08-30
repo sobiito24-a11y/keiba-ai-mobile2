@@ -15,6 +15,7 @@ from typing import Any, Iterable
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
+from core.nar_race_diagnostics import build_full_field_comparison
 from core.models import PredictionResult
 from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION, PREDICTION_LOGIC_VERSION
@@ -214,6 +215,38 @@ class _Canvas:
             self.text(line, self.fonts["body_bold"] if "レース難易度" in line else self.fonts["body"], INK)
 
     def draw_simple_overall(self, result: PredictionResult) -> None:
+        if _is_jra_result(result):
+            self.section("今回の結論（JRA Top5）")
+            rows = _jra_comparison_rows(result)
+            if not rows:
+                self.text("JRA Top5は未取得です。", self.fonts["body"], MUTED)
+                return
+            for row in rows:
+                mark = _display_mark(row, result.race_mode)
+                no = _pick(row, "number", "馬番", "馬")
+                name = _pick(row, "name", "馬名")
+                score = _format_number(_pick(row, "jra_top5_score"))
+                ability = _format_number(_pick(row, "jra_pure_ability_score"))
+                repro = _clean(_pick(row, "v1_reproducibility")) or "—"
+                pace = _clean(_pick(row, "v1_pace_eval")) or "—"
+                training = _clean(_pick(row, "jra_training_grade")) or "—"
+                warning = _clean(_pick(row, "jra_warning_reason"))
+                title = _join_nonempty([mark, str(no), str(name), f"JRA Top5 {score}" if score else ""], sep="  ")
+                lines = [
+                    _join_nonempty(
+                        [
+                            f"純能力{ability}" if ability else "",
+                            f"再現性{repro} {_signed_bonus(_pick(row, 'jra_repro_bonus'))}",
+                            f"展開{pace} {_signed_bonus(_pick(row, 'jra_pace_bonus'))}",
+                            f"調教{training} {_signed_bonus(_pick(row, 'jra_training_bonus'))}",
+                        ],
+                        sep=" / ",
+                    ),
+                    _clean(_pick(row, "v1_final_role")),
+                    f"注意：{warning}" if warning and _truthy_display(_pick(row, "jra_warning_candidate")) else "",
+                ]
+                self.horse_card(title, [line for line in lines if _clean(line)], is_watch=_truthy_display(_pick(row, "jra_warning_candidate")))
+            return
         self.section("レース全体表")
         rows = _records(result.overall_table)
         if not rows:
@@ -298,6 +331,39 @@ class _Canvas:
 
     def draw_horse_evaluation(self, result: PredictionResult) -> None:
         self.section("馬評価（全頭）")
+        if _is_jra_result(result):
+            rows = _jra_comparison_rows(result)
+            if not rows:
+                self.text("馬評価は未取得です。", self.fonts["body"], MUTED)
+                return
+            for row in rows:
+                no = _pick(row, "number", "馬番", "馬")
+                mark = _display_mark(row, result.race_mode)
+                name = _pick(row, "name", "馬名")
+                score = _format_number(_pick(row, "jra_top5_score"))
+                ability_value = _format_number(_pick(row, "jra_pure_ability_score"))
+                jockey = _pick(row, "jockey_info", "jockey_display", "騎手") or "―"
+                style = _display_running_style(row) or "データなし"
+                state = _clean(_pick(row, "v1_state_eval")) or "判定なし"
+                title = _join_nonempty([str(mark), str(no), str(name)], sep=" ")
+                lines = [
+                    f"JRA Top5スコア：{score}" if score else "",
+                    f"純能力：{ability_value}" if ability_value else "",
+                    _join_nonempty(
+                        [
+                            f"再現性{_clean(_pick(row, 'v1_reproducibility')) or '—'} {_signed_bonus(_pick(row, 'jra_repro_bonus'))}",
+                            f"展開{_clean(_pick(row, 'v1_pace_eval')) or '—'} {_signed_bonus(_pick(row, 'jra_pace_bonus'))}",
+                            f"調教{_clean(_pick(row, 'jra_training_grade')) or '—'} {_signed_bonus(_pick(row, 'jra_training_bonus'))}",
+                        ],
+                        sep="　",
+                    ),
+                    f"状態：{state}（参考表示・スコア加点なし）",
+                    f"騎手：{jockey}",
+                    f"脚質：{style}",
+                    f"理由：{_clean(_pick(row, 'v1_final_reason'))}" if _clean(_pick(row, "v1_final_reason")) else "",
+                ]
+                self.horse_card(title, [line for line in lines if _clean(line)], is_watch=_truthy_display(_pick(row, "jra_warning_candidate")))
+            return
         rows = _records(result.horse_evaluation)
         if not rows:
             self.text("馬評価は未取得です。", self.fonts["body"], MUTED)
@@ -782,13 +848,62 @@ def _conclusion_rows(result: PredictionResult) -> list[dict[str, Any]]:
         rows = _records(result.horse_evaluation)
     selected: list[dict[str, Any]] = []
     for row in rows:
-        mark = _display_mark(row)
+        mark = _display_mark(row, result.race_mode)
         if mark:
             selected.append(row)
     return selected[:7]
 
 
-def _display_mark(row: dict[str, Any]) -> str:
+def _is_jra_result(result: PredictionResult) -> bool:
+    return _clean(getattr(result, "race_mode", "")).lower() == "jra"
+
+
+def _jra_row_sort_key(row: dict[str, Any]) -> tuple[int, float, float, int]:
+    rank = _to_float(_pick(row, "v1_final_rank", "jra_top5_rank"))
+    score = _to_float(_pick(row, "jra_top5_score"))
+    ability = _to_float(_pick(row, "jra_pure_ability_score"))
+    no = _to_float(_pick(row, "number", "馬番", "馬"))
+    return (
+        int(rank) if rank is not None else 999,
+        -(score if score is not None else -9999.0),
+        -(ability if ability is not None else -9999.0),
+        int(no) if no is not None else 999,
+    )
+
+
+def _jra_comparison_rows(result: PredictionResult) -> list[dict[str, Any]]:
+    source_rows = _records(result.overall_table)
+    if not source_rows:
+        source_rows = _records(result.horse_evaluation)
+    if not source_rows:
+        return []
+    comparison = build_full_field_comparison(
+        source_rows,
+        race_mode="jra",
+        sort_mode="current",
+        race_info=getattr(result, "race_info", {}) or {},
+    )
+    rows = [row for row in comparison.get("rows", []) if isinstance(row, dict)]
+    return sorted(rows, key=_jra_row_sort_key)
+
+
+def _signed_bonus(value: Any) -> str:
+    number = _to_float(value)
+    if number is None:
+        return "±0.0"
+    if abs(number) < 0.0001:
+        return "±0.0"
+    return f"{number:+.1f}"
+
+
+def _display_mark(row: dict[str, Any], race_mode: str = "") -> str:
+    if _clean(race_mode).lower() == "jra":
+        mark = _clean(_pick(row, "v1_final_mark"))
+        if mark:
+            return mark
+        fallback = _clean(_pick(row, "ver3_final_mark"))
+        if fallback:
+            return fallback
     if "mark_v4" in row:
         return _clean(row.get("mark_v4"))
     if "表示印" in row:

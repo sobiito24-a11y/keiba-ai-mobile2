@@ -1735,7 +1735,10 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
 
 def render_colab_style_result(result: PredictionResult) -> Any:
     render_race_header(result)
-    render_race_summary(result)
+    if result_race_mode(result) == "jra":
+        render_jra_top5_result_summary(result)
+    else:
+        render_race_summary(result)
     render_power_map(result)
     render_race_flow(result)
     render_horse_summary_cards(result)
@@ -1762,10 +1765,16 @@ def render_market_compare_result(result: PredictionResult) -> None:
     if table.empty:
         st.info("Ver3表示に必要な全頭データを取得できませんでした。")
         return
-    st.caption(
-        "通常画面の結論は、既存Ver3高度設定の保存済み今回評価・最終印です。"
-        "能力値・近走・距離・コースなどの保存情報を確認できます。"
-    )
+    if clean_text(result.race_mode).lower() == "jra":
+        st.caption(
+            "JRAは純能力＋再現性＋展開＋調教でTop5を評価します。"
+            "状態は参考表示で、Top5スコアには加算しません。"
+        )
+    else:
+        st.caption(
+            "通常画面の結論は、既存Ver3高度設定の保存済み今回評価・最終印です。"
+            "能力値・近走・距離・コースなどの保存情報を確認できます。"
+        )
     render_market_race_facts(result, table)
     with st.expander("旧AI診断・研究メモ（監査）", expanded=False):
         if clean_text(result.race_mode).lower() == "nar":
@@ -1996,7 +2005,16 @@ def render_market_race_facts(result: PredictionResult, table: pd.DataFrame) -> N
     st.subheader("レースの事実整理")
     all_debug = getattr(result, "debug_info", {}) or {}
     debug = (all_debug.get("market_compare") or {})
-    summary = list(debug.get("race_summary") or build_market_race_summary(table))
+    if clean_text(result.race_mode).lower() == "jra":
+        comparison = build_full_field_comparison(
+            table.to_dict("records"),
+            race_mode="jra",
+            sort_mode="current",
+            race_info=getattr(result, "race_info", {}) or {},
+        )
+        summary = jra_top5_summary_lines(comparison)
+    else:
+        summary = list(debug.get("race_summary") or build_market_race_summary(table))
     st.markdown(
         '<div class="ka-dashboard-card">' + "<br>".join(plain_text_to_html(line) for line in summary) + "</div>",
         unsafe_allow_html=True,
@@ -2209,8 +2227,13 @@ def render_full_field_comparison(
     if not comparison.get("show"):
         return
     st.subheader("今回の結論")
-    st.markdown(ver3_conclusion_html(comparison), unsafe_allow_html=True)
-    st.caption("Ver3高度設定の保存済み今回評価・印を、この画面の結論として表示しています。")
+    is_jra = clean_text(race_mode).lower() == "jra"
+    if is_jra:
+        st.markdown(jra_top5_conclusion_html(comparison), unsafe_allow_html=True)
+        st.caption("JRAは純能力＋再現性＋展開＋調教のTop5スコアを、この画面の結論として表示しています。")
+    else:
+        st.markdown(ver3_conclusion_html(comparison), unsafe_allow_html=True)
+        st.caption("Ver3高度設定の保存済み今回評価・印を、この画面の結論として表示しています。")
     st.subheader("全頭横比較")
     labels = comparison.get("sort_labels") if isinstance(comparison.get("sort_labels"), dict) else {}
     mode_by_label = {label: mode for mode, label in labels.items()}
@@ -2233,8 +2256,12 @@ def render_full_field_comparison(
     gap = comparison.get("gap_1_2")
     if gap is not None:
         st.caption(f"能力1位と2位の差：{float(gap):.1f}（参考表示。印・研究買いには反映しません）")
-    st.markdown(full_field_ver3_comparison_html(comparison), unsafe_allow_html=True)
-    st.caption("Ver3の今回評価順を基準に、保存済みの全頭材料を比較しています。")
+    if is_jra:
+        st.markdown(full_field_jra_top5_comparison_html(comparison), unsafe_allow_html=True)
+        st.caption("JRA Top5スコア順を基準に、保存済みの全頭材料を比較しています。")
+    else:
+        st.markdown(full_field_ver3_comparison_html(comparison), unsafe_allow_html=True)
+        st.caption("Ver3の今回評価順を基準に、保存済みの全頭材料を比較しています。")
     with st.expander("研究・監査情報", expanded=False):
         if comparison.get("transfer_watch"):
             st.markdown(
@@ -2296,6 +2323,157 @@ def ver3_conclusion_html(comparison: dict[str, Any]) -> str:
     )
 
 
+def jra_comparison_from_result(result: PredictionResult, *, sort_mode: str = "current") -> dict[str, Any]:
+    rows = result_rows(result)
+    if not rows:
+        return {"rows": [], "race_mode": "jra"}
+    return build_full_field_comparison(
+        rows,
+        race_mode="jra",
+        sort_mode=sort_mode,
+        race_info=getattr(result, "race_info", {}) or {},
+    )
+
+
+def render_jra_top5_result_summary(result: PredictionResult) -> None:
+    comparison = jra_comparison_from_result(result, sort_mode="current")
+    if not comparison.get("rows"):
+        return
+    st.markdown(jra_top5_conclusion_html(comparison), unsafe_allow_html=True)
+
+
+def jra_top5_summary_lines(comparison: dict[str, Any]) -> list[str]:
+    rows = [row for row in comparison.get("rows") or [] if isinstance(row, dict)]
+    if not rows:
+        return ["JRA Top5評価に必要な出走馬データを確認できません。"]
+    top_rows = sorted(rows, key=jra_top5_row_sort_key)
+    top5 = [row for row in top_rows if to_float(row.get("v1_final_rank")) is not None and to_float(row.get("v1_final_rank")) <= 5]
+    if not top5:
+        top5 = top_rows[:5]
+    ability_sorted = sorted(
+        rows,
+        key=lambda row: (
+            -(to_float(row.get("jra_pure_ability_score")) if to_float(row.get("jra_pure_ability_score")) is not None else -9999.0),
+            int(to_float(row.get("number")) or 999),
+        ),
+    )
+    top_ability = ability_sorted[0] if ability_sorted else {}
+    second_ability = ability_sorted[1] if len(ability_sorted) > 1 else {}
+    gap = None
+    if top_ability and second_ability:
+        first = to_float(top_ability.get("jra_pure_ability_score"))
+        second = to_float(second_ability.get("jra_pure_ability_score"))
+        if first is not None and second is not None:
+            gap = first - second
+    strong_repro = [row for row in rows if clean_text(row.get("v1_reproducibility")) in {"S", "A"}]
+    top5_pace_front = [row for row in top5 if clean_text(row.get("v1_pace_eval")) == "○"]
+    warnings = jra_warning_rows(rows)
+    leader = top5[0] if top5 else {}
+    return [
+        "純能力＋再現性＋展開＋調教でTop5を評価。状態は参考表示でスコアには加算しません。",
+        "純能力首位："
+        + horse_label_for_summary(top_ability)
+        + (f"、2位との差{gap:.1f}" if gap is not None else "、2位との差—"),
+        "Top5首位："
+        + horse_label_for_summary(leader)
+        + f"（{number_display(leader.get('jra_top5_score'))}）",
+        f"再現性S/A：{len(strong_repro)}頭、Top5内の展開○：{len(top5_pace_front)}頭、注意馬：{len(warnings)}頭",
+    ]
+
+
+def horse_label_for_summary(row: dict[str, Any] | None) -> str:
+    if not isinstance(row, dict) or not row:
+        return "—"
+    number = clean_text(row.get("number")) or clean_text(pick(row, "馬番", "馬"))
+    name = clean_text(row.get("name")) or clean_text(pick(row, "馬名"))
+    return join_nonempty([number, name], sep=" ")
+
+
+def jra_warning_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        rank = to_float(row.get("v1_final_rank"))
+        if rank is not None and rank <= 5:
+            continue
+        if truthy_display(row.get("jra_warning_candidate")):
+            out.append(row)
+    return sorted(out, key=jra_top5_row_sort_key)
+
+
+def jra_top5_conclusion_html(comparison: dict[str, Any]) -> str:
+    rows = [row for row in comparison.get("rows") or [] if isinstance(row, dict)]
+    recommendations = comparison.get("v1_recommendations")
+    if not isinstance(recommendations, list) or not recommendations:
+        recommendations = [row for row in sorted(rows, key=jra_top5_row_sort_key) if (to_float(row.get("v1_final_rank")) or 999) <= 5]
+    summary_lines = jra_top5_summary_lines(comparison)
+    summary = (
+        '<div class="ka-dashboard-card">'
+        '<div class="ka-dashboard-title">JRA Top5サマリー</div>'
+        '<div class="ka-note">'
+        + "<br>".join(plain_text_to_html(line) for line in summary_lines)
+        + "</div></div>"
+    )
+    cards: list[str] = []
+    for horse in sorted(recommendations, key=jra_top5_row_sort_key)[:5]:
+        title = " ".join(
+            part
+            for part in (
+                clean_text(horse.get("v1_final_mark")),
+                clean_text(horse.get("number")),
+                clean_text(horse.get("name")),
+            )
+            if part
+        )
+        detail_lines = [
+            f"JRA Top5 {number_display(horse.get('jra_top5_score'))}",
+            f"純能力 {number_display(horse.get('jra_pure_ability_score'))}",
+            f"再現性{clean_text(horse.get('v1_reproducibility')) or '—'} {signed_number_display(horse.get('jra_repro_bonus'))}",
+            f"展開{clean_text(horse.get('v1_pace_eval')) or '—'} {signed_number_display(horse.get('jra_pace_bonus'))}",
+            f"調教{clean_text(horse.get('jra_training_grade')) or '—'} {signed_number_display(horse.get('jra_training_bonus'))}",
+        ]
+        role = clean_text(horse.get("v1_final_role")) or "Top5候補"
+        cards.append(
+            '<div class="ka-recommend-card">'
+            f'<b>{plain_text_to_html(title or "—")}</b>'
+            f'<div>{plain_text_to_html(role)}</div>'
+            f'<div class="ka-note">{plain_text_to_html(" / ".join(detail_lines))}</div>'
+            '</div>'
+        )
+    top5 = (
+        '<div class="ka-dashboard-card">'
+        '<div class="ka-dashboard-title">今回の結論（JRA Top5）</div>'
+        '<div class="ka-recommend-grid">'
+        + ("".join(cards) or '<div class="ka-note">JRA Top5を表示できません。</div>')
+        + '</div><div class="ka-note">純能力・再現性・展開・調教の計算済みTop5順です。状態は参考表示で、スコアには加算しません。</div></div>'
+    )
+    warnings = jra_warning_rows(rows)
+    warning_html = ""
+    if warnings:
+        blocks = []
+        for horse in warnings:
+            strength = clean_text(horse.get("jra_warning_strength"))
+            label = "強い注意候補" if strength == "strong" else "注意候補"
+            title = join_nonempty(
+                [clean_text(horse.get("number")), clean_text(horse.get("name")), label],
+                sep=" ",
+            )
+            reason = clean_text(horse.get("jra_warning_reason")) or "再現性・展開・調教の注意条件に該当"
+            blocks.append(
+                '<div class="ka-recommend-card">'
+                f'<b>{plain_text_to_html(title)}</b>'
+                f'<div class="ka-note">{plain_text_to_html(reason)}</div>'
+                '</div>'
+            )
+        warning_html = (
+            '<div class="ka-dashboard-card">'
+            '<div class="ka-dashboard-title">注意馬</div>'
+            '<div class="ka-recommend-grid">'
+            + "".join(blocks)
+            + '</div><div class="ka-note">Top5へは強制挿入せず、JRA Top5スコア順の外側で確認します。</div></div>'
+        )
+    return summary + top5 + warning_html
+
+
 def full_field_ver3_comparison_html(comparison: dict[str, Any]) -> str:
     """Render the normal comparison using only existing Ver3 display fields."""
 
@@ -2335,6 +2513,41 @@ def full_field_ver3_comparison_html(comparison: dict[str, Any]) -> str:
         metrics.insert(class_index, ("転入状態", "transfer", lambda horse: clean_text(horse.get("transfer_status")) or "判定不明"))
         metrics.insert(class_index + 1, ("地方実績", "", lambda horse: clean_text(horse.get("local_experience")) or "判定不明"))
     return comparison_table_html(rows, metrics, mark_key="mark")
+
+
+def full_field_jra_top5_comparison_html(comparison: dict[str, Any]) -> str:
+    rows = comparison.get("rows") or []
+    if not rows:
+        return '<div class="ka-dashboard-card">比較できる出走馬データがありません。</div>'
+    metrics: list[tuple[str, str, Any]] = [
+        ("JRA Top5スコア", "", lambda horse: number_display(horse.get("jra_top5_score"))),
+        ("純能力", "", lambda horse: number_display(horse.get("jra_pure_ability_score"))),
+        ("能力首位差", "", lambda horse: signed_number_display(-to_float(horse.get("jra_ability_gap_from_top"))) if to_float(horse.get("jra_ability_gap_from_top")) is not None else "—"),
+        ("再現性", "", lambda horse: f"{clean_text(horse.get('v1_reproducibility')) or '—'} {signed_number_display(horse.get('jra_repro_bonus'))}"),
+        ("再現性根拠", "", lambda horse: clean_text(horse.get("v1_reproducibility_reason")) or "—"),
+        ("展開", "", lambda horse: f"{clean_text(horse.get('v1_pace_eval')) or '—'} {signed_number_display(horse.get('jra_pace_bonus'))}"),
+        ("展開理由", "", lambda horse: clean_text(horse.get("v1_pace_reason")) or "—"),
+        ("調教", "", lambda horse: f"{clean_text(horse.get('jra_training_grade')) or '—'} {signed_number_display(horse.get('jra_training_bonus'))}"),
+        ("調教詳細", "", lambda horse: clean_text(horse.get("training")) or "—"),
+        ("状態（参考）", "", lambda horse: clean_text(horse.get("v1_state_eval")) or "—"),
+        ("状態理由（参考）", "", lambda horse: clean_text(horse.get("v1_state_reason")) or "—"),
+        ("騎手情報", "", comparison_jockey_info_text),
+        ("4角位置", "position", lambda horse: clean_text(horse.get("corner4_display")) or comparison_position_icon(clean_text(horse.get("corner4_group")))),
+        ("脚質", "", lambda horse: clean_text(horse.get("running_style")) or "—"),
+        ("近3走指数", "", lambda horse: clean_text(horse.get("recent3_indices")) or "—"),
+        ("近3走条件", "", lambda horse: clean_text(horse.get("recent3_conditions")) or "—"),
+        ("距離指数", "", lambda horse: clean_text(horse.get("distance_index")) or "—"),
+        ("コース指数", "", lambda horse: clean_text(horse.get("course_index")) or "—"),
+        ("同距離", "", lambda horse: clean_text(horse.get("same_distance")) or "—"),
+        ("同コース", "", lambda horse: clean_text(horse.get("same_course")) or "—"),
+        ("同回り", "", lambda horse: clean_text(horse.get("same_turn_display")) or "—"),
+        ("JRA注意", "", lambda horse: clean_text(horse.get("jra_warning_reason")) or "—"),
+        ("JRA Top5順位", "", lambda horse: rank_display(horse.get("v1_final_rank"))),
+        ("JRA最終印", "", lambda horse: clean_text(horse.get("v1_final_mark")) or "—"),
+        ("JRA役割", "", lambda horse: clean_text(horse.get("v1_final_role")) or "—"),
+        ("JRA最終理由", "", lambda horse: clean_text(horse.get("v1_final_reason")) or "—"),
+    ]
+    return comparison_table_html(rows, metrics, mark_key="v1_final_mark")
 
 
 def full_field_comparison_sort_key(table: pd.DataFrame, race_mode: str) -> str:
@@ -3305,6 +3518,28 @@ def render_market_horse_cards(
     race_info: dict[str, Any] | None = None,
 ) -> None:
     st.subheader("馬別コンパクトカード")
+    if clean_text(race_mode).lower() == "jra":
+        comparison = build_full_field_comparison(
+            table.to_dict("records"),
+            race_mode="jra",
+            sort_mode="current",
+            race_info=race_info or {},
+        )
+        comparison_by_number = {
+            normalize_horse_number_key(row.get("number")): row
+            for row in comparison.get("rows", [])
+            if isinstance(row, dict) and normalize_horse_number_key(row.get("number"))
+        }
+        rows: list[dict[str, Any]] = []
+        for row in table.to_dict("records"):
+            merged = dict(row)
+            number_key = normalize_horse_number_key(pick(row, "馬番", "馬", "horse_no", "number"))
+            if number_key in comparison_by_number:
+                merged.update(comparison_by_number[number_key])
+            rows.append(merged)
+        for row in sorted(rows, key=jra_top5_row_sort_key):
+            st.markdown(market_horse_card_html(row, race_mode), unsafe_allow_html=True)
+        return
     ordered = market_horse_cards_ordered(table, race_mode=race_mode, race_info=race_info or {})
     for row in ordered.to_dict("records"):
         st.markdown(market_horse_card_html(row, race_mode), unsafe_allow_html=True)
@@ -3319,6 +3554,30 @@ def market_horse_cards_ordered(
     """Display compact cards in the saved Ver3 final-evaluation order."""
 
     ordered = table.copy()
+    if clean_text(race_mode).lower() == "jra":
+        ordered["_card_final_rank_sort"] = pd.to_numeric(
+            ordered["v1_final_rank"] if "v1_final_rank" in ordered.columns else ordered["jra_top5_rank"] if "jra_top5_rank" in ordered.columns else ordered["ver3_current_evaluation_rank"] if "ver3_current_evaluation_rank" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+            errors="coerce",
+        )
+        ordered["_card_top5_score_sort"] = pd.to_numeric(
+            ordered["jra_top5_score"] if "jra_top5_score" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+            errors="coerce",
+        )
+        ordered["_card_ability_sort"] = pd.to_numeric(
+            ordered["jra_pure_ability_score"] if "jra_pure_ability_score" in ordered.columns else ordered["market_ability_score"] if "market_ability_score" in ordered.columns else ordered["ability_value"] if "ability_value" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+            errors="coerce",
+        )
+        ordered["_card_horse_no_sort"] = pd.to_numeric(
+            ordered["馬番"] if "馬番" in ordered.columns else ordered["number"] if "number" in ordered.columns else pd.Series(pd.NA, index=ordered.index),
+            errors="coerce",
+        )
+        ordered = ordered.sort_values(
+            ["_card_final_rank_sort", "_card_top5_score_sort", "_card_ability_sort", "_card_horse_no_sort"],
+            ascending=[True, False, False, True],
+            na_position="last",
+            kind="mergesort",
+        )
+        return ordered.drop(columns=["_card_final_rank_sort", "_card_top5_score_sort", "_card_ability_sort", "_card_horse_no_sort"])
     mark_source = (
         ordered["ver3_final_mark"]
         if "ver3_final_mark" in ordered.columns
@@ -3356,15 +3615,28 @@ def final_mark_sort_value(value: Any) -> int:
 
 
 def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
+    is_jra = clean_text(race_mode).lower() == "jra"
     number = horse_no(pick(row, "馬番", "馬")) or "—"
     name = clean_text(pick(row, "馬名")) or "名称未取得"
     band = clean_text(pick(row, "ability_band_v2", "能力帯", "ability_band")) or "Z"
     odds = format_odds(pick(row, "actual_odds")) or "—"
-    mark = ver3_mark_text(pick(row, "ver3_final_mark", *VER3_MARK_COLUMNS))
+    mark = (
+        clean_text(pick(row, "v1_final_mark"))
+        if is_jra
+        else ver3_mark_text(pick(row, "ver3_final_mark", *VER3_MARK_COLUMNS))
+    )
     age = market_horse_age_text(row)
-    ability_value = market_ability_value_text(row)
+    ability_value = (
+        format_number(pick(row, "jra_pure_ability_score", "market_ability_score", "ability_value", "saved_ability_value", "能力評価値")) or "—"
+        if is_jra
+        else market_ability_value_text(row)
+    )
     ability_rank = clean_text(pick(row, "ver3_ability_rank", *VER3_ABILITY_RANK_COLUMNS)) or "—"
-    current_rank = clean_text(pick(row, "ver3_current_evaluation_rank", "総合評価順位", "current_evaluation_rank")) or "—"
+    current_rank = (
+        clean_text(pick(row, "v1_final_rank", "jra_top5_rank")) or "—"
+        if is_jra
+        else clean_text(pick(row, "ver3_current_evaluation_rank", "総合評価順位", "current_evaluation_rank")) or "—"
+    )
     state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_label_market")], sep=" ")
     jockey = market_jockey_display_text(row)
     weight = market_weight_display_text(row)
@@ -3398,11 +3670,31 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     stable_summary = market_stable_comment_text(row, race_mode)
     ability_watch_label = clean_text(pick(row, "ability_watch_label"))
     ability_watch_warning = clean_text(pick(row, "ability_unmarked_warning"))
+    detail_ability_value = (
+        pick(row, "jra_pure_ability_score", "market_ability_score", "ability_value", "saved_ability_value", "能力評価値")
+        if is_jra
+        else pick(row, "ver3_ability_value", *VER3_ABILITY_VALUE_COLUMNS)
+    )
     detail_lines = [
-        f"能力値：{format_index_value(pick(row, 'ver3_ability_value', *VER3_ABILITY_VALUE_COLUMNS))}（能力順位 {ability_rank}位）",
+        f"{'純能力' if is_jra else '能力値'}：{format_index_value(detail_ability_value)}（能力順位 {ability_rank}位）",
         f"実オッズ：{odds}",
-        f"今回評価：{current_rank}位 {mark}｜{clean_text(pick(row, '印理由', 'ai_current_reason'))}",
+        (
+            f"JRA Top5評価：{current_rank}位 {mark}｜{clean_text(pick(row, 'v1_final_reason'))}"
+            if is_jra
+            else f"今回評価：{current_rank}位 {mark}｜{clean_text(pick(row, '印理由', 'ai_current_reason'))}"
+        ),
     ]
+    if is_jra:
+        detail_lines.extend(
+            [
+                f"JRA Top5スコア：{format_number(pick(row, 'jra_top5_score')) or '—'}",
+                f"能力首位差：{format_number(pick(row, 'jra_ability_gap_from_top')) or '—'}",
+                f"再現性：{clean_text(pick(row, 'v1_reproducibility')) or '—'}（{signed_number_display(pick(row, 'jra_repro_bonus'))}）",
+                f"展開：{clean_text(pick(row, 'v1_pace_eval')) or '—'}（{signed_number_display(pick(row, 'jra_pace_bonus'))}）",
+                f"調教：{clean_text(pick(row, 'jra_training_grade')) or '—'}（{signed_number_display(pick(row, 'jra_training_bonus'))}）",
+                f"状態：{clean_text(pick(row, 'v1_state_eval')) or '—'}（参考表示・スコア加点なし）",
+            ]
+        )
     if ability_watch_label:
         detail_lines.append(f"能力注記：{ability_watch_label}")
     if state:
@@ -3462,13 +3754,18 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         mark,
         odds,
         age,
-        f"能力値{ability_value}",
-        f"能力{ability_rank}位・今回{current_rank}位",
+        f"{'純能力' if is_jra else '能力値'}{ability_value}",
+        (f"JRA Top5 {current_rank}位" if is_jra else f"能力{ability_rank}位・今回{current_rank}位"),
     ]
+    title_text = (
+        f"{plain_text_to_html(mark)} {plain_text_to_html(number)} {plain_text_to_html(name)}".strip()
+        if is_jra
+        else f"{plain_text_to_html(band)} {plain_text_to_html(number)} {plain_text_to_html(name)}"
+    )
     return (
         '<div class="ka-horse-card"><details>'
         '<summary>'
-        f'<div class="ka-market-card-title">{plain_text_to_html(band)} {plain_text_to_html(number)} {plain_text_to_html(name)}</div>'
+        f'<div class="ka-market-card-title">{title_text}</div>'
         f'<div class="ka-market-card-line"><b>{plain_text_to_html("｜".join(part for part in main_parts if clean_text(part)))}</b></div>'
         f'<div class="ka-market-card-line">{plain_text_to_html(quick)}</div>'
         f'{material_lines}'
@@ -4019,6 +4316,8 @@ def render_purchase_condition_recommendations(
 
 
 def render_power_map(result: PredictionResult) -> None:
+    if result_race_mode(result) == "jra":
+        return
     rows = sorted_display_rows(result)
     if not rows:
         return
@@ -4055,7 +4354,7 @@ def render_race_flow(result: PredictionResult) -> None:
     if unknown:
         body.append(flow_line_html("未分類", unknown))
     body.append("</div>")
-    flow_review = race_flow_review_lines(rows, pace)
+    flow_review = race_flow_review_lines(rows, pace, result.race_mode)
     if flow_review:
         body.append('<div class="ka-dashboard-card"><div class="ka-dashboard-title">レース考察</div>')
         body.append(
@@ -4084,6 +4383,10 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
         return horse_summary_card_html(row, result.race_mode, overall_rows_by_horse.get(horse_key, {}), getattr(result, "race_info", {}) or {})
 
     st.subheader("馬別サマリーカード")
+    if result_race_mode(result) == "jra":
+        for row in rows:
+            st.markdown(card_html(row), unsafe_allow_html=True)
+        return
     visible = [row for row in rows if display_group_from_row(row) != "Z"]
     hidden = [row for row in rows if display_group_from_row(row) == "Z"]
     for row in visible:
@@ -4097,7 +4400,7 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
 def render_backtest_reference(result: PredictionResult) -> None:
     rows = sorted_display_rows_with_value_support(result)
     references = value_reference_rows()
-    honmei = next((row for row in rows if display_mark_from_row(row) == "◎"), None)
+    honmei = next((row for row in rows if display_mark_from_row(row, result.race_mode) == "◎"), None)
     current_ref = current_mark_reference(honmei) if honmei else None
     blocks: list[str] = []
     for item in references:
@@ -4160,7 +4463,17 @@ def merged_card_source(row: dict[str, Any], index_row: dict[str, Any]) -> dict[s
     return merged
 
 
-def ability_value_for_card(row: dict[str, Any], index_row: dict[str, Any]) -> Any:
+def ability_value_for_card(row: dict[str, Any], index_row: dict[str, Any], race_mode: str = "") -> Any:
+    if clean_text(race_mode).lower() == "jra":
+        return card_pick(
+            row,
+            index_row,
+            "jra_pure_ability_score",
+            "market_ability_score",
+            "ability_value",
+            "saved_ability_value",
+            "能力評価値",
+        )
     return card_pick(row, index_row, "horse_score_v4", "能力評価値", "ability_display_score", "raw_score", "_raw_score")
 
 
@@ -4171,8 +4484,8 @@ def clamp_ability_display_value(value: Any) -> int | None:
     return int(round(max(0.0, min(100.0, number))))
 
 
-def ability_bar_html(row: dict[str, Any], index_row: dict[str, Any]) -> str:
-    display_value = clamp_ability_display_value(ability_value_for_card(row, index_row))
+def ability_bar_html(row: dict[str, Any], index_row: dict[str, Any], race_mode: str = "") -> str:
+    display_value = clamp_ability_display_value(ability_value_for_card(row, index_row, race_mode))
     if display_value is None:
         return ""
     return (
@@ -4310,13 +4623,14 @@ def horse_summary_card_html(
     overall_row: dict[str, Any] | None = None,
     race_info: dict[str, Any] | None = None,
 ) -> str:
+    is_jra = clean_text(race_mode).lower() == "jra"
     index_row = row if overall_row is None else overall_row
     recent_source = merged_card_source(row, index_row)
-    mark = display_mark_from_row(row)
+    mark = display_mark_from_row(row, race_mode)
     no = clean_text(pick(row, "馬番", "馬"))
     name = clean_text(pick(row, "馬名"))
     odds = format_odds(pick(row, "単勝オッズ", "オッズ", "単勝"))
-    group = display_group_from_row(row)
+    group = "" if is_jra else display_group_from_row(row)
     age = clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—"
     weight = compact_weight_text(row)
     jockey = compact_jockey_text(row)
@@ -4339,9 +4653,9 @@ def horse_summary_card_html(
             recent_detail = legacy_recent_detail
     corner4 = clean_text(card_pick(row, index_row, "4隗剃ｺ域Φ", "4角予想", "4角評価", "corner4_evaluation"))
     straight = clean_text(card_pick(row, index_row, "逶ｴ邱夊ｩ穂ｾ｡", "直線評価", "straight_evaluation"))
-    ability_raw = ability_value_for_card(row, index_row)
+    ability_raw = ability_value_for_card(row, index_row, race_mode)
     ability_display = clamp_ability_display_value(ability_raw)
-    ability_bar = ability_bar_html(row, index_row)
+    ability_bar = ability_bar_html(row, index_row, race_mode)
     material_badges = ability_material_badges(row, index_row, race_mode)
     material_badges_markup = material_badges_html(material_badges)
     material_labels = " ／ ".join(label for label, _tone in material_badges)
@@ -4378,7 +4692,15 @@ def horse_summary_card_html(
         quick_items.append(f"妙味あり：{value_reason}")
     horse_score_v4 = card_pick(row, index_row, "horse_score_v4")
     race_rank_v4 = card_pick(row, index_row, "race_rank_v4")
-    if not is_missing_value(horse_score_v4):
+    if is_jra:
+        jra_rank = card_pick(row, index_row, "v1_final_rank", "jra_top5_rank")
+        jra_score = card_pick(row, index_row, "jra_top5_score")
+        jra_reason = clean_text(card_pick(row, index_row, "v1_final_reason"))
+        if not is_missing_value(jra_score):
+            quick_items.insert(0, f"JRA Top5：{format_number(jra_score)}（{rank_display(jra_rank)}）")
+        if jra_reason:
+            quick_items.append(f"JRA理由：{jra_reason}")
+    elif not is_missing_value(horse_score_v4):
         quick_items.insert(0, f"Horse Score：{format_number(horse_score_v4)}（Race Rank {format_number(race_rank_v4)}）")
     if recent_summary:
         quick_items.append(f"近3走\n{recent_summary}")
@@ -4393,7 +4715,7 @@ def horse_summary_card_html(
     stable_comment_detail = stable_comment if stable_comment else "厩舎コメント：—"
     detail_lines = [
         "出走馬詳細",
-        f"【{group}】{mark_part} {no} {name}".strip(),
+        (f"{mark_part} {no} {name}".strip() if is_jra else f"【{group}】{mark_part} {no} {name}".strip()),
         f"{age}",
         weight,
         jockey,
@@ -4416,7 +4738,7 @@ def horse_summary_card_html(
         f"condition data status：{condition_status}",
         f"条件実績該当走：{condition_fit_matched_runs_text(condition_fit)}",
         f"warning：{practical_warning or '—'}",
-        f"能力評価値：{format_number(ability_raw) or '—'}",
+        f"{'純能力' if is_jra else '能力評価値'}：{format_number(ability_raw) or '—'}",
         f"能力評価表示：{ability_display if ability_display is not None else '—'}",
         f"表示材料：{material_labels or '—'}",
         "数値補正：なし（既存の能力評価値をそのまま表示）",
@@ -4435,7 +4757,23 @@ def horse_summary_card_html(
         f"コメント：{short_comment_from_row(row)}",
         f"穴候補：{'該当' if truthy_display(pick(row, '穴候補', 'hole_candidate')) else '—'}　注意馬：{'該当' if truthy_display(pick(row, '注意馬', 'watch_horse')) else '—'}",
     ]
-    if not is_missing_value(horse_score_v4):
+    if is_jra:
+        detail_lines.extend(
+            [
+                "",
+                f"JRA Top5順位：{rank_display(card_pick(row, index_row, 'v1_final_rank', 'jra_top5_rank'))}",
+                f"JRA Top5スコア：{format_number(card_pick(row, index_row, 'jra_top5_score')) or '—'}",
+                f"JRA最終印：{clean_text(card_pick(row, index_row, 'v1_final_mark')) or '—'}",
+                f"JRA役割：{clean_text(card_pick(row, index_row, 'v1_final_role')) or '—'}",
+                f"JRA最終理由：{clean_text(card_pick(row, index_row, 'v1_final_reason')) or '—'}",
+                f"能力首位差：{format_number(card_pick(row, index_row, 'jra_ability_gap_from_top')) or '—'}",
+                f"再現性補正：{signed_number_display(card_pick(row, index_row, 'jra_repro_bonus'))}",
+                f"展開補正：{signed_number_display(card_pick(row, index_row, 'jra_pace_bonus'))}",
+                f"調教補正：{signed_number_display(card_pick(row, index_row, 'jra_training_bonus'))}",
+                f"状態：{clean_text(card_pick(row, index_row, 'v1_state_eval')) or '—'}（参考表示・スコア加点なし）",
+            ]
+        )
+    elif not is_missing_value(horse_score_v4):
         positive_reasons = card_pick(row, index_row, "positive_reasons_v4")
         negative_reasons = card_pick(row, index_row, "negative_reasons_v4")
         detail_lines.extend(
@@ -4457,14 +4795,15 @@ def horse_summary_card_html(
         )
     if central_lines:
         detail_lines.extend(["", *central_lines])
-    title = f"【{group}】{mark_part} {no} {name}　{odds}".strip()
+    title = (f"{mark_part} {no} {name}　{odds}" if is_jra else f"【{group}】{mark_part} {no} {name}　{odds}").strip()
     if first_blinker_source:
         title = f"{title}　初B"
     return (
         f'<div class="ka-horse-card">'
         f'<details><summary>'
-        f'<div class="ka-horse-title-line"><span class="ka-chip {group.lower()}">{plain_text_to_html(group)}</span>'
-        f'<span>{plain_text_to_html(title)}</span></div>'
+        f'<div class="ka-horse-title-line">'
+        + ("" if is_jra else f'<span class="ka-chip {group.lower()}">{plain_text_to_html(group)}</span>')
+        + f'<span>{plain_text_to_html(title)}</span></div>'
         f'<div class="ka-horse-quick">{quick}</div>'
         f'{ability_bar}'
         f'{material_badges_markup}'
@@ -4481,8 +4820,52 @@ def result_rows(result: PredictionResult) -> list[dict[str, Any]]:
     return []
 
 
+def result_race_mode(result: PredictionResult) -> str:
+    return clean_text(getattr(result, "race_mode", "")).lower()
+
+
+def jra_top5_row_sort_key(row: dict[str, Any]) -> tuple[int, float, float, int]:
+    rank = to_float(row.get("v1_final_rank"))
+    score = to_float(row.get("jra_top5_score"))
+    ability = to_float(row.get("jra_pure_ability_score"))
+    number = to_float(row.get("number")) or to_float(pick(row, "馬番", "馬"))
+    return (
+        int(rank) if rank is not None else 999,
+        -(score if score is not None else -9999.0),
+        -(ability if ability is not None else -9999.0),
+        int(number) if number is not None else 999,
+    )
+
+
+def jra_enriched_display_rows(result: PredictionResult, rows: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    source_rows = list(rows or result_rows(result))
+    if not source_rows:
+        return []
+    comparison = build_full_field_comparison(
+        source_rows,
+        race_mode="jra",
+        sort_mode="current",
+        race_info=getattr(result, "race_info", {}) or {},
+    )
+    comparison_by_number = {
+        normalize_horse_number_key(row.get("number")): row
+        for row in comparison.get("rows", [])
+        if isinstance(row, dict) and normalize_horse_number_key(row.get("number"))
+    }
+    merged_rows: list[dict[str, Any]] = []
+    for row in source_rows:
+        number_key = normalize_horse_number_key(pick(row, "馬番", "馬", "number", "horse_no", "horse_number"))
+        merged = dict(row)
+        if number_key in comparison_by_number:
+            merged.update(comparison_by_number[number_key])
+        merged_rows.append(merged)
+    return sorted(merged_rows, key=jra_top5_row_sort_key)
+
+
 def sorted_display_rows(result: PredictionResult) -> list[dict[str, Any]]:
     rows = result_rows(result)
+    if result_race_mode(result) == "jra":
+        return jra_enriched_display_rows(result, rows)
     group_order = {"SS": 0, "A": 1, "B": 2, "C": 3, "Z": 4}
     mark_order = {"◎": 0, "○": 1, "▲": 2, "△": 3, "✓": 4, "✔": 4, "": 9}
 
@@ -4666,7 +5049,9 @@ def horse_refs(rows: list[dict[str, Any]], numbers: list[str], limit: int = 4) -
     return "・".join(refs) if refs else "該当なし"
 
 
-def race_flow_review_lines(rows: list[dict[str, Any]], pace: str) -> list[str]:
+def race_flow_review_lines(rows: list[dict[str, Any]], pace: str, race_mode: str = "") -> list[str]:
+    if clean_text(race_mode).lower() == "jra":
+        return jra_race_flow_review_lines(rows, pace)
     front, middle, back, _unknown = running_position_groups(rows)
     upper = [
         clean_text(pick(row, "馬番", "馬"))
@@ -4696,6 +5081,45 @@ def race_flow_review_lines(rows: list[dict[str, Any]], pace: str) -> list[str]:
             f"{horse_refs(rows, lower_front)}は勢力図では下位寄りですが、単騎逃げや楽な先行なら前残り余地があります。"
         )
     return lines
+
+
+def jra_race_flow_review_lines(rows: list[dict[str, Any]], pace: str) -> list[str]:
+    top_rows = sorted(rows, key=jra_top5_row_sort_key)
+    top5 = [row for row in top_rows if (to_float(row.get("v1_final_rank")) or 999) <= 5]
+    if not top5:
+        top5 = top_rows[:5]
+    front_top5 = [clean_text(row.get("number")) or clean_text(pick(row, "馬番", "馬")) for row in top5 if jra_row_position_group(row) == "front"]
+    middle_top5 = [clean_text(row.get("number")) or clean_text(pick(row, "馬番", "馬")) for row in top5 if jra_row_position_group(row) == "middle"]
+    back_top5 = [clean_text(row.get("number")) or clean_text(pick(row, "馬番", "馬")) for row in top5 if jra_row_position_group(row) == "back"]
+    pace_positive = [clean_text(row.get("number")) or clean_text(pick(row, "馬番", "馬")) for row in top5 if clean_text(row.get("v1_pace_eval")) == "○"]
+    warnings = jra_warning_rows(rows)
+    warning_numbers = [clean_text(row.get("number")) or clean_text(pick(row, "馬番", "馬")) for row in warnings]
+    top3_numbers = [clean_text(row.get("number")) or clean_text(pick(row, "馬番", "馬")) for row in top5[:3]]
+    lines = [
+        f"【スタート】\n想定ペースは{pace}。Top5候補の脚質と序盤位置を分けて確認します。",
+        f"【4角】\nTop5内で前方想定は{horse_refs(rows, front_top5)}。中団は{horse_refs(rows, middle_top5)}、後方は{horse_refs(rows, back_top5)}です。",
+        f"【直線】\n中心候補はTop5 1〜3位の{horse_refs(rows, top3_numbers)}。展開○は{horse_refs(rows, pace_positive)}です。",
+    ]
+    if warnings:
+        lines.append(
+            "【注意馬】\n"
+            f"Top5外では{horse_refs(rows, warning_numbers)}が再現性・展開・調教の条件で注意対象です。"
+        )
+    return lines
+
+
+def jra_row_position_group(row: dict[str, Any]) -> str:
+    group = clean_text(row.get("corner4_group"))
+    if group in {"front", "middle", "back"}:
+        return group
+    label = clean_text(pick(row, "corner4_display", "4角位置", "4角予想", "_estimated_position_corner4_label", "estimated_position_label", "想定位置"))
+    if any(key in label for key in ("逃げ", "逃", "先頭", "先団", "前方")):
+        return "front"
+    if "中団" in label:
+        return "middle"
+    if any(key in label for key in ("後方", "追込", "追")):
+        return "back"
+    return ""
 
 
 def extract_named_value(text: str, names: list[str]) -> str:
@@ -4888,38 +5312,65 @@ def build_detail_analysis_table(
         else:
             horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
             index_row = overall_rows_by_horse.get(horse_key, {})
-        record = {
-            "グループ": display_group_from_row(row),
-            "馬": join_nonempty([no, name], sep=" "),
-            "オッズ": format_odds(pick(row, "単勝オッズ", "オッズ", "単勝")) or "—",
-            "年齢": clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—",
-            "騎手": compact_table_jockey_text(row),
-            "斤量": compact_weight_text(row).replace("kg", "") or "—",
-            "脚質": short_running_style(row),
-            "今回の展開": clean_text(pick(row, "pace_material_label", "pace_mark_market", "展開印")) or "—",
-            "今回のコース材料": clean_text(pick(row, "course_material_label")) or "—",
-            "netkeiba推定": clean_text(pick(row, "netkeiba_favorable_label")) or "—",
-            "想定位置": clean_text(pick(row, "estimated_position_label", "position_path_market", "推定位置", "想定位置")) or "位置不明",
-            "距離": format_index_value(pick(index_row, "距離指数")),
-            "コース": format_index_value(pick(index_row, "コース指数")),
-            "★": format_star_value(pick(index_row, "★最高指数", "star_max_index")),
-            "3走前": format_index_value(pick(index_row, "3走前")),
-            "2走前": format_index_value(pick(index_row, "2走前")),
-            "前走": format_index_value(pick(index_row, "前走")),
-            "3走平均": format_index_value(pick(index_row, "平均指数", "3走平均", "近3走平均")),
-            "状態": state_label_from_row(row),
-            "妙味": "妙味あり" if truthy_display(pick(row, "value_signal")) else "—",
-            "＋材料": reason_list_text(pick(row, "value_plus_materials")) or "—",
-            "－材料": reason_list_text(pick(row, "value_minus_materials")) or "—",
-            "コメント": short_comment_from_row(row),
-        }
-        if race_mode == "jra":
-            insert_after = list(record.items())
-            record = {}
-            for key, value in insert_after:
-                record[key] = value
-                if key == "脚質":
-                    record["調教"] = market_training_text(row, race_mode, with_prefix=False) or "—"
+        if clean_text(race_mode).lower() == "jra":
+            record = {
+                "JRA Top5順位": rank_display(pick(row, "v1_final_rank", "jra_top5_rank")),
+                "JRA Top5スコア": format_index_value(pick(row, "jra_top5_score")),
+                "JRA最終印": clean_text(pick(row, "v1_final_mark")) or "—",
+                "純能力": format_index_value(pick(row, "jra_pure_ability_score", "market_ability_score", "ability_value", "saved_ability_value", "能力評価値")),
+                "能力首位差": format_index_value(pick(row, "jra_ability_gap_from_top")),
+                "再現性": join_nonempty(
+                    [
+                        clean_text(pick(row, "v1_reproducibility")),
+                        signed_number_display(pick(row, "jra_repro_bonus")),
+                    ],
+                    sep=" ",
+                ) or "—",
+                "展開": join_nonempty(
+                    [
+                        clean_text(pick(row, "v1_pace_eval")),
+                        signed_number_display(pick(row, "jra_pace_bonus")),
+                    ],
+                    sep=" ",
+                ) or "—",
+                "調教": join_nonempty(
+                    [
+                        clean_text(pick(row, "jra_training_grade")),
+                        signed_number_display(pick(row, "jra_training_bonus")),
+                    ],
+                    sep=" ",
+                ) or market_training_text(row, race_mode, with_prefix=False) or "—",
+                "状態（参考）": clean_text(pick(row, "v1_state_eval")) or state_label_from_row(row),
+                "注意馬": clean_text(pick(row, "jra_warning_reason")) or "—",
+            }
+        else:
+            record = {"グループ": display_group_from_row(row)}
+        record.update(
+            {
+                "馬": join_nonempty([no, name], sep=" "),
+                "オッズ": format_odds(pick(row, "単勝オッズ", "オッズ", "単勝")) or "—",
+                "年齢": clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—",
+                "騎手": compact_table_jockey_text(row),
+                "斤量": compact_weight_text(row).replace("kg", "") or "—",
+                "脚質": short_running_style(row),
+                "今回の展開": clean_text(pick(row, "pace_material_label", "pace_mark_market", "展開印")) or "—",
+                "今回のコース材料": clean_text(pick(row, "course_material_label")) or "—",
+                "netkeiba推定": clean_text(pick(row, "netkeiba_favorable_label")) or "—",
+                "想定位置": clean_text(pick(row, "estimated_position_label", "position_path_market", "推定位置", "想定位置")) or "位置不明",
+                "距離": format_index_value(pick(index_row, "距離指数")),
+                "コース": format_index_value(pick(index_row, "コース指数")),
+                "★": format_star_value(pick(index_row, "★最高指数", "star_max_index")),
+                "3走前": format_index_value(pick(index_row, "3走前")),
+                "2走前": format_index_value(pick(index_row, "2走前")),
+                "前走": format_index_value(pick(index_row, "前走")),
+                "3走平均": format_index_value(pick(index_row, "平均指数", "3走平均", "近3走平均")),
+                "状態": state_label_from_row(row),
+                "妙味": "妙味あり" if truthy_display(pick(row, "value_signal")) else "—",
+                "＋材料": reason_list_text(pick(row, "value_plus_materials")) or "—",
+                "－材料": reason_list_text(pick(row, "value_minus_materials")) or "—",
+                "コメント": short_comment_from_row(row),
+            }
+        )
         records.append(record)
     return pd.DataFrame.from_records(records)
 
@@ -5065,7 +5516,7 @@ def render_attention_horses(result: PredictionResult) -> None:
 
 
 def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
-    mark = display_mark_from_row(row)
+    mark = display_mark_from_row(row, race_mode)
     no = pick(row, "馬番", "馬")
     name = pick(row, "馬名")
     horse_age = pick(row, "馬年齢", "性齢", "馬齢") or "データなし"
@@ -5075,7 +5526,10 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
     jockey_detail = pick(row, "騎手詳細") or jockey
     odds = format_odds(pick(row, "単勝オッズ", "オッズ", "単勝"))
     market = pick(row, "市場評価")
-    ability_value = format_number(pick(row, "能力評価値", "ability_display_score", "raw_score"))
+    if clean_text(race_mode).lower() == "jra":
+        ability_value = format_number(pick(row, "jra_pure_ability_score", "market_ability_score", "ability_value", "saved_ability_value", "能力評価値"))
+    else:
+        ability_value = format_number(pick(row, "能力評価値", "ability_display_score", "raw_score"))
     ability_band = clean_text(pick(row, "能力帯", "ability_band")) or "-"
     class_shift = pick(row, "クラス変動") or "-"
     material = pick(row, "評価／検討材料", "評価/検討材料", "評価材料") or "-"
@@ -5118,7 +5572,14 @@ def horse_evaluation_card_html(row: dict[str, Any], race_mode: str) -> str:
     return f'<div class="{card_class}"><div class="ka-horse-title">{plain_text_to_html(title)}</div><div class="ka-horse-meta">{content}</div></div>'
 
 
-def display_mark_from_row(row: dict[str, Any]) -> str:
+def display_mark_from_row(row: dict[str, Any], race_mode: str = "") -> str:
+    if clean_text(race_mode).lower() == "jra":
+        mark = clean_text(pick(row, "v1_final_mark"))
+        if mark:
+            return mark
+        fallback = clean_text(pick(row, "ver3_final_mark"))
+        if fallback:
+            return fallback
     if "mark_v4" in row and not is_missing_value(row.get("mark_v4")):
         return clean_text(row.get("mark_v4"))
     if "表示印" in row:
