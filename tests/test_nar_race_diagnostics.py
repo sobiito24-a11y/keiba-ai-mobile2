@@ -197,6 +197,29 @@ def test_full_field_comparison_prefers_historical_ver3_mark_and_score() -> None:
     assert by_number["3"]["current_evaluation_rank"] == 2
 
 
+def test_nar_pure_ability_rank_uses_market_score_not_legacy_ai_rank() -> None:
+    rows = [
+        _row(9, 1, 1, "中団", market_ability_score=54.6),
+        _row(6, 2, 2, "中団", market_ability_score=50.2),
+        _row(4, 3, 3, "中団", market_ability_score=41.0),
+        _row(1, 4, 4, "中団", market_ability_score=39.4),
+        _row(8, 5, 5, "中団", market_ability_score=37.4),
+        _row(3, 6, 6, "中団", market_ability_score=35.4),
+        _row(7, 7, 7, "中団", market_ability_score=33.4),
+        _row(5, 10, 10, "先団", market_ability_rank="", AI順位=10, market_ability_score=31.9),
+        _row(11, 8, 8, "中団", market_ability_score=30.6),
+    ]
+
+    comparison = build_full_field_comparison(rows, race_mode="nar")
+    by_number = {horse["number"]: horse for horse in comparison["rows"]}
+
+    assert by_number["5"]["nar_pure_ability_score"] == 31.9
+    assert by_number["5"]["nar_pure_ability_rank"] == 8
+    assert by_number["5"]["ability_rank"] == 8
+    assert "能力10位" not in by_number["5"]["negative_tags"]
+    assert "能力8位" in by_number["5"]["negative_tags"]
+
+
 def test_monbetsu_5r_expected_research_categories_without_result_data() -> None:
     rows = [
         _row(10, 1, 1, "中団", market_ability_score=26.8, style="差し"),

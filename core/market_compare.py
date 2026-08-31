@@ -1365,12 +1365,6 @@ def _materials(
         add(plus, "course", f"展開/コース：{development_reason}")
     elif development_mark in {"△", "－"} and development_reason:
         add(minus, "course", f"展開/コース：{development_reason}")
-    jockey_mark = clean_text(jockey_course.get("mark"))
-    jockey_reason = clean_text(jockey_course.get("reason"))
-    if jockey_mark == "○" and jockey_reason:
-        add(plus, "jockey", "騎手：コース成績良好")
-    elif jockey_mark == "△" and jockey_reason:
-        add(minus, "jockey", "騎手：コース成績低調")
     if race_type == "jra" and training not in {"", "未取得", "対象外"}:
         grade_match = re.match(r"\s*([A-D])", training.upper())
         if grade_match and grade_match.group(1) == "A":

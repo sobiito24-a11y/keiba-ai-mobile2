@@ -145,6 +145,8 @@ def test_position_coordinates_are_converted_by_relative_horizontal_order() -> No
     parsed = parse_netkeiba_course_materials(newspaper_html())
     assert parsed.position_categories["start"] == {1: "逃げ", 2: "先団", 3: "中団"}
     assert parsed.position_categories["corner4"] == {1: "逃げ", 2: "先団", 3: "中団"}
+    assert parsed.position_ranks["start"] == {1: 1, 2: 2, 3: 3}
+    assert parsed.position_ranks["corner4"] == {1: 1, 2: 2, 3: 3}
 
 
 def test_jockey_cid2_table_parses_real_rate_columns_for_jra_and_nar() -> None:
@@ -161,6 +163,7 @@ def test_jockey_cid2_table_parses_real_rate_columns_for_jra_and_nar() -> None:
                 "win_rate": 28.0,
                 "quinella_rate": 46.0,
                 "place_rate": 58.0,
+                "course_rank": 1,
             }
 
 
@@ -264,9 +267,33 @@ def test_optional_jockey_html_attaches_stats_without_touching_ability() -> None:
     pd.testing.assert_frame_equal(result.overall_table[before.columns], before)
     assert result.overall_table.loc[0, "_jockey_course_starts"] == 459
     assert result.overall_table.loc[0, "_jockey_course_place_rate"] == 58.0
+    assert result.overall_table.loc[0, "jockey_course_top3_rate"] == 58.0
+    assert result.overall_table.loc[0, "jockey_course_runs"] == 459
+    assert result.overall_table.loc[0, "jockey_course_rank"] == 1
+    assert result.overall_table.loc[0, "jockey_watch"] == "騎手コース上位"
     assert result.overall_table.loc[1, "_jockey_course_starts"] == 184
     assert result.overall_table.loc[1, "_jockey_course_place_rate"] == 45.0
     assert result.overall_table.loc[0, "_estimated_position_path"] == "逃げ → 逃げ → 逃げ"
+    assert result.overall_table.loc[0, "netkeiba_position_path"] == "逃げ → 逃げ → 逃げ"
+    assert result.overall_table.loc[0, "netkeiba_corner4_rank"] == 1
+    assert result.overall_table.loc[1, "netkeiba_corner4_rank"] == 2
+
+
+def test_jockey_html_course_mismatch_does_not_attach_by_horse_number_only() -> None:
+    source = market_rows()
+    result = PredictionResult(
+        race_mode="nar",
+        race_info={"race_id": RACE_ID, "venue": "盛岡", "distance": 1000},
+        overall_table=source.copy(deep=True),
+        horse_evaluation=source.copy(deep=True),
+    )
+    attach_course_materials_to_result(
+        result,
+        {"newspaper": newspaper_html(mode="nar"), "jockey": jockey_html(mode="nar")},
+    )
+    assert result.debug_info["jockey_course_materials"]["source_status"] == "race条件不一致"
+    assert result.overall_table["_jockey_course_place_rate"].isna().all()
+    assert result.overall_table["jockey_course_top3_rate"].isna().all()
 
 
 def test_jra_all_optional_html_bundle_with_jockey_stats_still_predicts_market_view() -> None:
@@ -434,7 +461,13 @@ def test_jockey_rate_and_jockey_name_changes_do_not_change_ability() -> None:
     right = evaluate_market_table(changed, "jra", {"race_id": RACE_ID})
     for column in ("market_ability_score", "market_ability_rank", "ability_band_v2"):
         assert left[column].tolist() == right[column].tolist()
+    for column in ("current_evaluation_rank", "ai_current_mark"):
+        assert left[column].tolist() == right[column].tolist()
     assert right["jockey_course_mark_market"].tolist() == ["○", "△"]
+    assert not any(
+        any(text.startswith("騎手：") for text in values)
+        for values in right["positive_materials"].tolist() + right["negative_materials"].tolist()
+    )
 
 
 def test_small_jockey_sample_is_reference_only_not_strong_material() -> None:

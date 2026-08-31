@@ -7,7 +7,7 @@ import traceback
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import parse_qs, urlparse
 
 import pandas as pd
@@ -1806,8 +1806,8 @@ def market_source_table(result: PredictionResult) -> pd.DataFrame:
 
 VER3_MARK_COLUMNS = ("最終印", "表示印", "display_mark", "mark", "印", "ai_current_mark")
 VER3_SCORE_COLUMNS = ("_最終印点", "総合評価点", "総合評価", "補正AI点", "final_mark_score", "AI点")
-VER3_ABILITY_VALUE_COLUMNS = ("能力評価値", "AI点", "ability_display_score", "normalized_ai_score", "raw_score", "market_ability_score", "ability_score")
-VER3_ABILITY_RANK_COLUMNS = ("AI順位", "能力順位", "ai_rank", "market_ability_rank", "ability_rank", "saved_ability_rank")
+VER3_ABILITY_VALUE_COLUMNS = ("market_ability_score", "ability_value", "saved_ability_value", "能力評価値", "AI点", "ability_display_score", "normalized_ai_score", "raw_score", "ability_score")
+VER3_ABILITY_RANK_COLUMNS = ("market_ability_rank", "ability_rank", "saved_ability_rank", "AI順位", "能力順位", "ai_rank")
 VER3_RANK_COLUMNS = ("総合評価順位", "ver3_current_evaluation_rank", "_最終印順", "current_evaluation_rank")
 
 
@@ -1911,8 +1911,14 @@ MARKET_DISPLAY_SUPPLEMENT_COLUMNS = (
     "_previous_jockey",
     "前走騎手",
     "previous_jockey",
+    "_previous_jockey_id",
+    "previous_jockey_id",
+    "前走騎手ID",
     "_display_current_jockey",
     "_current_jockey",
+    "_current_jockey_id",
+    "current_jockey_id",
+    "jockey_id",
     "jockey_display_market",
     "_jockey_course_win_rate",
     "_jockey_course_quinella_rate",
@@ -1920,6 +1926,27 @@ MARKET_DISPLAY_SUPPLEMENT_COLUMNS = (
     "_jockey_course_starts",
     "_jockey_course_condition",
     "_jockey_course_source",
+    "jockey_course_win_rate",
+    "jockey_course_top2_rate",
+    "jockey_course_top3_rate",
+    "jockey_course_runs",
+    "jockey_course_rank",
+    "jockey_watch",
+    "jockey_upgrade_candidate",
+    "netkeiba_pace",
+    "netkeiba_start_position",
+    "netkeiba_start_rank",
+    "netkeiba_corner3_position",
+    "netkeiba_corner3_rank",
+    "netkeiba_corner4_position",
+    "netkeiba_corner4_rank",
+    "netkeiba_old_style",
+    "netkeiba_position_path",
+    "netkeiba_corner4_front",
+    "netkeiba_position_agreement",
+    "netkeiba_pace_watch",
+    "netkeiba_position_watch",
+    "netkeiba_position_disagreement",
     "jockey_course_place_rate",
     "騎手コース複勝率",
     "jockey_course_stats_market",
@@ -3612,6 +3639,39 @@ def market_netkeiba_favorable_text(row: dict[str, Any]) -> str:
     return label
 
 
+def market_netkeiba_position_text(row: dict[str, Any]) -> str:
+    path = clean_text(
+        pick(
+            row,
+            "netkeiba_position_path",
+            "_netkeiba_position_path",
+            "position_path_market",
+            "_estimated_position_path",
+        )
+    )
+    corner4 = clean_text(
+        pick(
+            row,
+            "netkeiba_corner4_position",
+            "_netkeiba_corner4_position",
+            "position_corner4_label_market",
+            "_estimated_position_corner4_label",
+        )
+    )
+    rank = to_float(pick(row, "netkeiba_corner4_rank", "_netkeiba_corner4_rank"))
+    pace = clean_text(pick(row, "netkeiba_pace", "_netkeiba_pace"))
+    parts: list[str] = []
+    if path and "top=" not in path and "left=" not in path:
+        parts.append(path.replace(" → ", "→"))
+    elif corner4 and "top=" not in corner4 and "left=" not in corner4:
+        parts.append(f"4角：{corner4}")
+    if rank is not None:
+        parts.append(f"4角{int(rank)}番手")
+    if pace:
+        parts.append(f"ペース{pace}")
+    return " / ".join(parts) or market_netkeiba_favorable_text(row)
+
+
 def market_pace_material_text(row: dict[str, Any]) -> str:
     text = join_nonempty([pick(row, "pace_mark_market"), pick(row, "pace_reason_market")], sep=" ")
     if not text:
@@ -3624,7 +3684,7 @@ def market_ai_material_text(row: dict[str, Any], race_mode: str) -> str:
         clean_text(pick(row, "ai_current_reason")),
         market_pace_material_text(row),
         market_course_material_text(row),
-        market_netkeiba_favorable_text(row),
+        market_netkeiba_position_text(row),
         market_training_text(row, race_mode, with_prefix=False),
         market_stable_comment_text(row, race_mode),
     ]
@@ -3660,11 +3720,12 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "印": ver3_mark_text(pick(row, "ver3_final_mark", *VER3_MARK_COLUMNS)),
             "今回評価順位": clean_text(pick(row, "ver3_current_evaluation_rank", "総合評価順位")) or "—",
             "能力帯": clean_text(pick(row, "ability_band_v2", "能力帯", "ability_band")) or "Z",
-            "能力順位": clean_text(pick(row, "ver3_ability_rank", *VER3_ABILITY_RANK_COLUMNS)) or "—",
-            "能力値": format_index_value(pick(row, "ver3_ability_value", *VER3_ABILITY_VALUE_COLUMNS)),
+            "能力順位": clean_text(pick(row, "nar_pure_ability_rank", "ver3_ability_rank", *VER3_ABILITY_RANK_COLUMNS)) or "—",
+            "能力値": format_index_value(pick(row, "nar_pure_ability_score", "ver3_ability_value", *VER3_ABILITY_VALUE_COLUMNS)),
             "実オッズ": format_odds(pick(row, "actual_odds")) or "—",
             "騎手": market_jockey_display_text(row, include_place_rate=False),
             "騎手複勝率": jockey_place_rate_column_text(row),
+            "騎手注目": clean_text(pick(row, "jockey_watch")) or "—",
             "斤量": weight,
             "能力注記": clean_text(pick(row, "ability_watch_label")) or "—",
             "クラス": clean_text(pick(row, "current_class_market")),
@@ -3675,7 +3736,7 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "脚質": clean_text(pick(row, "running_style_market")),
             "今回の展開": market_pace_material_text(row) or "—",
             "今回のコース材料": market_course_material_text(row) or "—",
-            "netkeiba推定": market_netkeiba_favorable_text(row) or "—",
+            "netkeiba推定": market_netkeiba_position_text(row) or "—",
             "想定位置": market_position_path_text(row),
             "距離": format_index_value(pick(row, "距離指数")),
             "コース": format_index_value(pick(row, "コース指数")),
@@ -3853,7 +3914,11 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         if is_jra
         else format_number(pick(row, "nar_pure_ability_score", "market_ability_score", "ability_value", "saved_ability_value", "能力評価値")) or "—"
     )
-    ability_rank = clean_text(pick(row, "ver3_ability_rank", *VER3_ABILITY_RANK_COLUMNS)) or "—"
+    ability_rank = (
+        clean_text(pick(row, "jra_pure_ability_rank", *VER3_ABILITY_RANK_COLUMNS)) or "—"
+        if is_jra
+        else clean_text(pick(row, "nar_pure_ability_rank", "ver3_ability_rank", *VER3_ABILITY_RANK_COLUMNS)) or "—"
+    )
     current_rank = (
         clean_text(pick(row, "v1_final_rank", "jra_top5_rank")) or "—"
         if is_jra
@@ -3887,7 +3952,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     position_path = market_position_path_text(row)
     pace = market_pace_material_text(row)
     course = market_course_material_text(row)
-    netkeiba = market_netkeiba_favorable_text(row)
+    netkeiba = market_netkeiba_position_text(row)
     training_display_text = market_training_text(row, race_mode)
     stable_summary = market_stable_comment_text(row, race_mode)
     ability_watch_label = clean_text(pick(row, "ability_watch_label"))
@@ -3956,6 +4021,9 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         detail_lines.append(f"コース：{course}")
     if netkeiba:
         detail_lines.append(f"netkeiba推定：{netkeiba}")
+    jockey_watch = clean_text(pick(row, "jockey_watch"))
+    if jockey_watch:
+        detail_lines.append(f"騎手注目：{jockey_watch}")
     detail_lines.append(
         f"距離：{format_index_value(pick(row, '距離指数'))}｜コース：{format_index_value(pick(row, 'コース指数'))}"
     )
@@ -4899,7 +4967,12 @@ def horse_summary_card_html(
     stable_comment = market_stable_comment_text(recent_source, race_mode)
     course_material = clean_text(card_pick(row, index_row, "course_material_label"))
     course_material_detail = clean_text(card_pick(row, index_row, "course_material_detail"))
-    netkeiba_favorable = clean_text(card_pick(row, index_row, "netkeiba_favorable_label"))
+    merged_netkeiba_row = {}
+    if isinstance(index_row, Mapping):
+        merged_netkeiba_row.update(index_row)
+    if isinstance(row, Mapping):
+        merged_netkeiba_row.update(row)
+    netkeiba_favorable = clean_text(market_netkeiba_position_text(merged_netkeiba_row))
     value_signal = truthy_display(card_pick(row, index_row, "value_signal"))
     value_reason = clean_text(card_pick(row, index_row, "value_reason"))
     value_plus = card_pick(row, index_row, "value_plus_materials")
@@ -5636,7 +5709,7 @@ def build_detail_analysis_table(
                 "脚質": short_running_style(row),
                 "今回の展開": clean_text(pick(row, "v1_pace_reason", "pace_material_label", "pace_mark_market", "展開印")) or "—",
                 "今回のコース材料": clean_text(pick(row, "course_material_label")) or "—",
-                "netkeiba推定": clean_text(pick(row, "netkeiba_favorable_label")) or "—",
+                "netkeiba推定": market_netkeiba_position_text(row) or "—",
                 "想定位置": clean_text(pick(row, "corner4_display", "estimated_position_label", "position_path_market", "推定位置", "想定位置")) or "位置不明",
                 "距離": format_index_value(pick(index_row, "距離指数")),
                 "コース": format_index_value(pick(index_row, "コース指数")),
@@ -5673,7 +5746,7 @@ def build_detail_analysis_table(
                 "脚質": short_running_style(row),
                 "今回の展開": clean_text(pick(row, "pace_material_label", "pace_mark_market", "展開印")) or "—",
                 "今回のコース材料": clean_text(pick(row, "course_material_label")) or "—",
-                "netkeiba推定": clean_text(pick(row, "netkeiba_favorable_label")) or "—",
+                "netkeiba推定": market_netkeiba_position_text(row) or "—",
                 "想定位置": clean_text(pick(row, "estimated_position_label", "position_path_market", "推定位置", "想定位置")) or "位置不明",
                 "距離": format_index_value(pick(index_row, "距離指数")),
                 "コース": format_index_value(pick(index_row, "コース指数")),
@@ -5813,9 +5886,16 @@ def course_material_audit_rows(result: PredictionResult) -> list[dict[str, Any]]
                 "馬名": pick(row, "馬名"),
                 "展開/コース": pick(row, "course_material_label"),
                 "展開/コース詳細": pick(row, "course_material_detail"),
-                "netkeiba推定": pick(row, "netkeiba_favorable_label"),
+                "netkeiba推定": market_netkeiba_position_text(row),
+                "netkeibaペース": pick(row, "netkeiba_pace", "_netkeiba_pace"),
+                "netkeiba4角": pick(row, "netkeiba_corner4_position"),
+                "netkeiba4角順位": pick(row, "netkeiba_corner4_rank"),
+                "netkeiba位置注目": pick(row, "netkeiba_position_watch"),
                 "netkeiba元値": pick(row, "netkeiba_favorable_source"),
                 "推定位置": pick(row, "estimated_position_label"),
+                "騎手コース複勝率": pick(row, "jockey_course_top3_rate", "_jockey_course_place_rate"),
+                "騎手コース出走": pick(row, "jockey_course_runs", "_jockey_course_starts"),
+                "騎手注目": pick(row, "jockey_watch"),
                 "妙味": "妙味あり" if truthy_display(pick(row, "value_signal")) else "",
                 "妙味理由": pick(row, "value_reason"),
             }

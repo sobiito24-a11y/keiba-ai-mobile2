@@ -30,8 +30,8 @@ NAR_VENUES = {"門別", "盛岡", "水沢", "浦和", "船橋", "大井", "川�
 VENUE_NAMES = sorted(JRA_VENUES | NAR_VENUES, key=len, reverse=True)
 VER3_MARK_KEYS = ("ver3_final_mark", "最終印", "表示印", "display_mark", "mark", "印", "ai_current_mark")
 VER3_SCORE_KEYS = ("_最終印点", "総合評価点", "総合評価", "補正AI点", "final_mark_score", "AI点")
-VER3_ABILITY_RANK_KEYS = ("ver3_ability_rank", "AI順位", "能力順位", "ai_rank", "market_ability_rank", "ability_rank", "saved_ability_rank")
-VER3_ABILITY_VALUE_KEYS = ("ver3_ability_value", "能力評価値", "AI点", "ability_display_score", "normalized_ai_score", "raw_score", "market_ability_score", "ability_value", "saved_ability_value")
+VER3_ABILITY_RANK_KEYS = ("market_ability_rank", "ability_rank", "saved_ability_rank", "ver3_ability_rank", "AI順位", "能力順位", "ai_rank")
+VER3_ABILITY_VALUE_KEYS = ("market_ability_score", "ability_value", "saved_ability_value", "ver3_ability_value", "能力評価値", "AI点", "ability_display_score", "normalized_ai_score", "raw_score")
 NAR_PURE_ABILITY_KEYS = ("market_ability_score", "ability_value", "saved_ability_value")
 VER3_RANK_KEYS = ("ver3_current_evaluation_rank", "総合評価順位", "current_evaluation_rank", "saved_current_evaluation_rank", "今回評価順位", "今回順位", "ai_current_rank")
 COMPARISON_SORT_LABELS = {
@@ -517,9 +517,28 @@ def _attach_nar_top5_fields(horses: list[dict[str, Any]]) -> None:
     pure_scores = [_float(horse.get("nar_pure_ability_score")) for horse in horses]
     valid_pure_scores = [score for score in pure_scores if score is not None]
     top_pure = max(valid_pure_scores) if valid_pure_scores else None
-    for horse in horses:
+    pure_rank_map: dict[int, int] = {}
+    ranked_pure: list[tuple[int, float, int]] = [
+        (index, score, _horse_sort_key(horse.get("number")))
+        for index, (horse, score) in enumerate(zip(horses, pure_scores))
+        if score is not None
+    ]
+    ranked_pure.sort(key=lambda item: (-item[1], item[2]))
+    previous_score: float | None = None
+    current_rank = 0
+    for position, (index, score, _horse_no) in enumerate(ranked_pure, start=1):
+        if previous_score is None or abs(score - previous_score) > 0.000001:
+            current_rank = position
+            previous_score = score
+        pure_rank_map[index] = current_rank
+    for index, horse in enumerate(horses):
         pure = _float(horse.get("nar_pure_ability_score"))
         horse["nar_ability_gap_from_top"] = round(top_pure - pure, 3) if top_pure is not None and pure is not None else None
+        pure_rank = pure_rank_map.get(index)
+        horse["nar_pure_ability_rank"] = pure_rank
+        if pure_rank is not None:
+            horse["ability_rank"] = pure_rank
+            _replace_ability_rank_materials(horse, pure_rank)
         rank = _int(horse.get("ver3_current_evaluation_rank")) or _int(horse.get("current_evaluation_rank"))
         score = _float(horse.get("ver3_score"))
         mark = _mark_text(horse.get("mark"))
@@ -535,6 +554,21 @@ def _attach_nar_top5_fields(horses: list[dict[str, Any]]) -> None:
         horse["nar_warning_candidate"] = False
         horse["nar_warning_reason"] = ""
         horse["nar_top5_reason"] = "現行Ver3最終評価を維持（NAR候補A-Dは研究用、通常印へ未接続）"
+
+
+def _replace_ability_rank_materials(horse: dict[str, Any], pure_rank: int) -> None:
+    pattern = re.compile(r"^能力\d+位$")
+    for key in ("positive_tags", "negative_tags"):
+        values = horse.get(key)
+        if isinstance(values, list):
+            horse[key] = [value for value in values if not pattern.fullmatch(_text(value))]
+        else:
+            horse[key] = []
+    label = f"能力{pure_rank}位"
+    if pure_rank <= 5:
+        horse["positive_tags"].append(label)
+    elif pure_rank >= 8:
+        horse["negative_tags"].append(label)
 
 
 def _nar_top5_role(rank: Any, mark: Any) -> str:

@@ -40,6 +40,7 @@ class ParsedCourseMaterials:
     pace: str = ""
     positions: dict[str, dict[int, dict[str, str]]] = field(default_factory=dict)
     position_categories: dict[str, dict[int, str]] = field(default_factory=dict)
+    position_ranks: dict[str, dict[int, int]] = field(default_factory=dict)
     position_coverage: dict[str, int] = field(default_factory=dict)
     horse_count: int = 0
     four_corner_place_rates: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -141,6 +142,7 @@ def parse_netkeiba_course_materials(
     }
     parsed.horse_count = len(actual_horse_numbers) or max(parsed.position_coverage.values(), default=0)
     parsed.position_categories = _position_categories(parsed.positions)
+    parsed.position_ranks = _position_ranks(parsed.positions)
 
     parsed.four_corner_place_rates = _parse_four_corner_rates(soup)
     position_map = soup.select_one(".PositionMapImg")
@@ -258,6 +260,7 @@ def parse_netkeiba_jockey_course_stats(
             "quinella_rate": quinella,
             "place_rate": place,
         }
+    _attach_jockey_course_ranks(parsed.horses)
     parsed.source_status = "取得" if parsed.horses else "騎手コース成績表に実値なし"
     return parsed
 
@@ -285,9 +288,16 @@ def attach_course_materials_to_result(
         files.get("jockey") or "",
         expected_mode=str(getattr(result, "race_mode", "") or ""),
     )
+    jockey_condition_matches = _course_condition_matches_race_info(
+        jockey_parsed.course_condition,
+        race_info,
+    )
     if expected_race_id and jockey_parsed.race_id and expected_race_id != jockey_parsed.race_id:
         jockey_parsed.source_status = "race_id不一致"
         jockey_by_number: dict[int, dict[str, Any]] = {}
+    elif not jockey_condition_matches:
+        jockey_parsed.source_status = "race条件不一致"
+        jockey_by_number = {}
     else:
         jockey_by_number = jockey_parsed.horses
 
@@ -316,6 +326,7 @@ def attach_course_materials_to_result(
             target.at[index, "_course_context_status"] = parsed.source_status
             target.at[index, "_course_condition_html"] = parsed.course_condition
             target.at[index, "_netkeiba_pace"] = parsed.pace
+            target.at[index, "netkeiba_pace"] = parsed.pace
             target.at[index, "_favorable_position_label"] = parsed.favorable_position_label
             target.at[index, "_four_corner_place_rates"] = rates_display
             target.at[index, "_position_coverage"] = _coverage_display(parsed)
@@ -341,10 +352,35 @@ def attach_course_materials_to_result(
                 ("corner4", "_estimated_position_corner4_label"),
             ):
                 target.at[index, column] = parsed.position_categories.get(corner, {}).get(number, "")
+            for corner, label_column, rank_column in (
+                ("start", "netkeiba_start_position", "netkeiba_start_rank"),
+                ("corner3", "netkeiba_corner3_position", "netkeiba_corner3_rank"),
+                ("corner4", "netkeiba_corner4_position", "netkeiba_corner4_rank"),
+            ):
+                target.at[index, label_column] = parsed.position_categories.get(corner, {}).get(number, "")
+                target.at[index, rank_column] = parsed.position_ranks.get(corner, {}).get(number)
             target.at[index, "_estimated_position_path"] = position_path_display(
                 parsed.position_categories,
                 number,
             )
+            target.at[index, "netkeiba_position_path"] = position_path_display(
+                parsed.position_categories,
+                number,
+            )
+            target.at[index, "netkeiba_old_style"] = None
+            corner4_label = parsed.position_categories.get("corner4", {}).get(number, "")
+            corner4_rank = parsed.position_ranks.get("corner4", {}).get(number)
+            target.at[index, "netkeiba_corner4_front"] = (
+                corner4_label in {"逃げ", "先団"} if corner4_label else None
+            )
+            target.at[index, "netkeiba_position_watch"] = _netkeiba_position_watch(
+                corner4_label,
+                corner4_rank,
+                parsed.pace,
+            )
+            target.at[index, "netkeiba_pace_watch"] = _netkeiba_pace_watch(parsed.pace, corner4_label)
+            target.at[index, "netkeiba_position_agreement"] = ""
+            target.at[index, "netkeiba_position_disagreement"] = ""
             if number in favorite_numbers:
                 target.at[index, "_position_favorable_horse"] = True
             elif parsed.favorable_horses_complete:
@@ -358,6 +394,8 @@ def attach_course_materials_to_result(
                 target.at[index, "_ai_predicted_late3f"] = parsed.predicted_3f[number].get("late_3f")
             jockey_stats = jockey_by_number.get(number)
             if jockey_stats:
+                course_rank = jockey_stats.get("course_rank") or (ranking or {}).get("rank")
+                target.at[index, "_jockey_course_rank"] = course_rank
                 target.at[index, "_jockey_course_win_rate"] = jockey_stats.get("win_rate")
                 target.at[index, "_jockey_course_quinella_rate"] = jockey_stats.get("quinella_rate")
                 target.at[index, "_jockey_course_place_rate"] = jockey_stats.get("place_rate")
@@ -365,6 +403,17 @@ def attach_course_materials_to_result(
                 target.at[index, "_jockey_course_condition"] = jockey_parsed.course_condition
                 target.at[index, "_jockey_course_source"] = "netkeiba courseanalysis cid=2"
                 target.at[index, "_jockey_course_html_name"] = jockey_stats.get("jockey_name")
+                target.at[index, "jockey_course_win_rate"] = jockey_stats.get("win_rate")
+                target.at[index, "jockey_course_top2_rate"] = jockey_stats.get("quinella_rate")
+                target.at[index, "jockey_course_top3_rate"] = jockey_stats.get("place_rate")
+                target.at[index, "jockey_course_runs"] = jockey_stats.get("starts")
+                target.at[index, "jockey_course_rank"] = course_rank
+                target.at[index, "jockey_watch"] = _jockey_watch_label(
+                    jockey_stats.get("starts"),
+                    jockey_stats.get("place_rate"),
+                    course_rank,
+                )
+                target.at[index, "jockey_upgrade_candidate"] = bool(target.at[index, "jockey_watch"])
         setattr(result, attribute, target)
 
     _store_debug(result, parsed, jockey_parsed)
@@ -403,6 +452,27 @@ COURSE_CONTEXT_COLUMNS = (
     "_jockey_course_condition",
     "_jockey_course_source",
     "_jockey_course_html_name",
+    "netkeiba_pace",
+    "netkeiba_start_position",
+    "netkeiba_start_rank",
+    "netkeiba_corner3_position",
+    "netkeiba_corner3_rank",
+    "netkeiba_corner4_position",
+    "netkeiba_corner4_rank",
+    "netkeiba_old_style",
+    "netkeiba_position_path",
+    "netkeiba_corner4_front",
+    "netkeiba_position_agreement",
+    "netkeiba_pace_watch",
+    "netkeiba_position_watch",
+    "netkeiba_position_disagreement",
+    "jockey_course_win_rate",
+    "jockey_course_top2_rate",
+    "jockey_course_top3_rate",
+    "jockey_course_runs",
+    "jockey_course_rank",
+    "jockey_watch",
+    "jockey_upgrade_candidate",
 )
 
 
@@ -555,6 +625,83 @@ def _position_categories(
     return categorized
 
 
+def _position_ranks(
+    positions: Mapping[str, Mapping[int, Mapping[str, str]]],
+) -> dict[str, dict[int, int]]:
+    """Preserve the explicit left-to-right order from the netkeiba map."""
+
+    ranks: dict[str, dict[int, int]] = {}
+    for corner in ("start", "corner3", "corner4"):
+        ordered: list[tuple[float, int]] = []
+        for number, values in (positions.get(corner) or {}).items():
+            match = re.search(r"-?\d+(?:\.\d+)?", str(values.get("left") or ""))
+            if match:
+                ordered.append((float(match.group(0)), int(number)))
+        ordered.sort(key=lambda item: (item[0], item[1]))
+        if ordered:
+            ranks[corner] = {number: rank for rank, (_left, number) in enumerate(ordered, start=1)}
+    return ranks
+
+
+def _netkeiba_position_watch(label: Any, rank: Any, pace: Any) -> str:
+    label_text = str(label or "").strip()
+    rank_value = _coerce_int(rank)
+    pace_text = str(pace or "").strip().upper()
+    if rank_value is not None and rank_value <= 3:
+        return "netkeiba4角上位"
+    if label_text in {"逃げ", "先団"}:
+        return "netkeiba4角前方"
+    if pace_text == "H" and label_text in {"先団", "中団"}:
+        return "Hペース好位置"
+    return ""
+
+
+def _netkeiba_pace_watch(pace: Any, label: Any) -> str:
+    pace_text = str(pace or "").strip().upper()
+    label_text = str(label or "").strip()
+    if pace_text == "H" and label_text in {"先団", "中団"}:
+        return "Hペース好位置"
+    if pace_text == "S" and label_text in {"逃げ", "先団"}:
+        return "Sペース前方"
+    return ""
+
+
+def _jockey_watch_label(starts: Any, place_rate: Any, rank: Any) -> str:
+    rank_value = _coerce_int(rank)
+    if rank_value is not None and rank_value <= 3:
+        return "騎手コース上位"
+    starts_value = _coerce_int(starts)
+    rate_value = _coerce_float(place_rate)
+    if starts_value is not None and starts_value >= JOCKEY_COURSE_MIN_STARTS and rate_value is not None and rate_value >= 35.0:
+        return "騎手コース複勝率高"
+    return ""
+
+
+def _course_condition_matches_race_info(course_condition: Any, race_info: Mapping[str, Any]) -> bool:
+    condition = _text(course_condition)
+    if not condition:
+        return True
+    venue = _normalize_venue_name(_first_mapping_value(race_info, ("venue", "racecourse", "place", "競馬場", "会場")))
+    distance = _coerce_int(_first_mapping_value(race_info, ("distance", "distance_m", "距離")))
+    if venue and venue not in condition:
+        return False
+    if distance is not None and str(distance) not in condition:
+        return False
+    return True
+
+
+def _first_mapping_value(row: Mapping[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        if key in row and _text(row.get(key)):
+            return row.get(key)
+    return None
+
+
+def _normalize_venue_name(value: Any) -> str:
+    text = _text(value)
+    return re.sub(r"(競馬場|レース場)$", "", text)
+
+
 def _parse_four_corner_rates(soup: BeautifulSoup) -> dict[str, dict[str, int]]:
     rows = soup.select(".PositionMapImg .PositionMarkList > li")
     if len(rows) != 3:
@@ -677,6 +824,30 @@ def _parse_jockey_course_ranking(soup: BeautifulSoup) -> list[dict[str, Any]]:
     return []
 
 
+def _attach_jockey_course_ranks(horses: dict[int, dict[str, Any]]) -> None:
+    ordered = sorted(
+        horses.values(),
+        key=lambda item: (
+            -float(item.get("place_rate") or 0.0),
+            -float(item.get("quinella_rate") or 0.0),
+            -float(item.get("win_rate") or 0.0),
+            int(item.get("horse_number") or 999),
+        ),
+    )
+    previous_key: tuple[float, float, float] | None = None
+    current_rank = 0
+    for position, item in enumerate(ordered, start=1):
+        key = (
+            float(item.get("place_rate") or 0.0),
+            float(item.get("quinella_rate") or 0.0),
+            float(item.get("win_rate") or 0.0),
+        )
+        if previous_key is None or key != previous_key:
+            current_rank = position
+            previous_key = key
+        item["course_rank"] = current_rank
+
+
 def _coverage_display(parsed: ParsedCourseMaterials) -> str:
     denominator: Any = parsed.horse_count or "?"
     return " / ".join(
@@ -699,6 +870,24 @@ def _integer_cell(cell: Any) -> int | None:
 
 def _percentage_cell(cell: Any) -> float | None:
     match = re.search(r"\d+(?:\.\d+)?", _text(cell).replace(",", ""))
+    return float(match.group(0)) if match else None
+
+
+def _coerce_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    match = re.search(r"-?\d+", str(value).replace(",", ""))
+    return int(match.group(0)) if match else None
+
+
+def _coerce_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    match = re.search(r"-?\d+(?:\.\d+)?", str(value).replace(",", ""))
     return float(match.group(0)) if match else None
 
 
