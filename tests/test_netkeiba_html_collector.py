@@ -7,6 +7,32 @@ from tools.netkeiba_html_collector import selected_specs
 
 
 class NetkeibaHtmlCollectorTest(unittest.TestCase):
+    def test_jra_default_kinds_collect_prediction_pages_and_jockey_only(self):
+        specs = selected_specs("jra", "default")
+        kinds = [spec.kind for spec in specs]
+        self.assertEqual(["newspaper", "oikiri", "speed", "style", "jockey"], kinds)
+        self.assertNotIn("result", kinds)
+        self.assertNotIn("shutuba", kinds)
+
+    def test_nar_default_kinds_collect_prediction_pages_and_jockey_only(self):
+        specs = selected_specs("nar", "default")
+        kinds = [spec.kind for spec in specs]
+        self.assertEqual(["newspaper", "speed", "style", "jockey"], kinds)
+        self.assertNotIn("result", kinds)
+        self.assertNotIn("shutuba", kinds)
+
+    def test_result_and_shutuba_remain_explicitly_supported(self):
+        specs = selected_specs("nar", "result,shutuba")
+        self.assertEqual(["result", "shutuba"], [spec.kind for spec in specs])
+
+    def test_jra_jockey_courseanalysis_is_a_supported_collection_page(self):
+        specs = selected_specs("jra", "jockey")
+        self.assertEqual(len(specs), 1)
+        self.assertEqual(specs[0].kind, "jockey")
+        self.assertIn("race.netkeiba.com", specs[0].url_template)
+        self.assertIn("mode=courseanalysis", specs[0].url_template)
+        self.assertIn("cid=2", specs[0].url_template)
+
     def test_nar_jockey_courseanalysis_is_a_supported_collection_page(self):
         specs = selected_specs("nar", "jockey")
         self.assertEqual(len(specs), 1)

@@ -54,6 +54,11 @@ JRA_PAGE_SPECS: dict[str, PageSpec] = {
         "courseanalysis",
         "https://race.netkeiba.com/race/data_list.html?race_id={race_id}&mode=courseanalysis&cid=1",
     ),
+    "jockey": PageSpec(
+        "jockey",
+        "jockey-courseanalysis",
+        "https://race.netkeiba.com/race/data_list.html?race_id={race_id}&mode=courseanalysis&cid=2",
+    ),
     "result": PageSpec(
         "result",
         "result",
@@ -108,8 +113,8 @@ PAGE_SPECS = {
 
 
 DEFAULT_KINDS = {
-    "jra": ("newspaper", "oikiri", "speed", "style", "result"),
-    "nar": ("newspaper", "speed", "style", "result"),
+    "jra": ("newspaper", "oikiri", "speed", "style", "jockey"),
+    "nar": ("newspaper", "speed", "style", "jockey"),
 }
 
 
@@ -223,7 +228,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--kinds",
         default="default",
-        help="default / all / comma-separated kinds. NAR example: newspaper,speed,style,jockey,result",
+        help="default / all / comma-separated kinds. Example: newspaper,oikiri,speed,style,jockey",
     )
     parser.add_argument("--out", default="collected_html", help="Output directory. Default: collected_html")
     parser.add_argument("--profile-dir", default=".collector_profile", help="Persistent browser profile directory for login state.")
