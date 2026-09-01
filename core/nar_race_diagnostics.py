@@ -512,7 +512,7 @@ def _attach_ver3_current_ranks(horses: list[dict[str, Any]]) -> None:
 
 
 def _attach_nar_top5_fields(horses: list[dict[str, Any]]) -> None:
-    """Expose current Ver3 NAR final evaluation as the NAR Top5 display source."""
+    """Expose pure-ability rank as the official NAR Top5 display source."""
 
     pure_scores = [_float(horse.get("nar_pure_ability_score")) for horse in horses]
     valid_pure_scores = [score for score in pure_scores if score is not None]
@@ -539,22 +539,57 @@ def _attach_nar_top5_fields(horses: list[dict[str, Any]]) -> None:
         if pure_rank is not None:
             horse["ability_rank"] = pure_rank
             _replace_ability_rank_materials(horse, pure_rank)
-        rank = _int(horse.get("ver3_current_evaluation_rank")) or _int(horse.get("current_evaluation_rank"))
-        score = _float(horse.get("ver3_score"))
+        ver3_rank = _int(horse.get("ver3_current_evaluation_rank")) or _int(horse.get("current_evaluation_rank"))
         mark = _mark_text(horse.get("mark"))
-        horse["nar_top5_rank"] = rank
-        horse["nar_top5_score"] = score
+        pure_top5 = pure_rank is not None and pure_rank <= 5
+        ver3_top5 = ver3_rank is not None and ver3_rank <= 5
+        if pure_top5 and ver3_top5:
+            swap_status = "COMMON"
+        elif pure_top5:
+            swap_status = "PURE_ONLY"
+        elif ver3_top5:
+            swap_status = "VER3_ONLY"
+        else:
+            swap_status = "OUTSIDE"
+        warning_reason = _nar_warning_reason(horse, pure_rank, ver3_top5)
+        horse["baseline_ver3_current_evaluation_rank"] = ver3_rank
         horse["baseline_ver3_final_mark"] = mark
-        horse["nar_top5_mark"] = _nar_top5_mark_from_rank(rank)
-        horse["nar_top5_role"] = _nar_top5_role(rank, horse["nar_top5_mark"])
+        horse["nar_top5_rank"] = pure_rank
+        horse["nar_top5_score"] = pure
+        horse["nar_top5_mark"] = _nar_top5_mark_from_rank(pure_rank)
+        horse["nar_top5_role"] = _nar_top5_role(pure_rank, horse["nar_top5_mark"])
+        horse["nar_pure_top5"] = pure_top5
+        horse["nar_ver3_top5"] = ver3_top5
+        horse["nar_top5_swap_status"] = swap_status
         horse["nar_distance_bonus"] = 0.0
         horse["nar_course_bonus"] = 0.0
         horse["nar_pace_bonus"] = 0.0
         horse["nar_recent_bonus"] = 0.0
         horse["nar_repro_bonus"] = 0.0
-        horse["nar_warning_candidate"] = False
-        horse["nar_warning_reason"] = ""
-        horse["nar_top5_reason"] = "現行Ver3最終評価を維持（NAR候補A-Dは研究用、通常印へ未接続）"
+        horse["nar_warning_candidate"] = bool(warning_reason)
+        horse["nar_warning_reason"] = warning_reason
+        horse["nar_top5_reason"] = "純能力順位を正式Top5に使用。Ver3今回評価は補助・監査用に保持。"
+
+
+def _nar_warning_reason(horse: Mapping[str, Any], pure_rank: int | None, ver3_top5: bool) -> str:
+    if pure_rank is None or pure_rank <= 5:
+        return ""
+    reasons: list[str] = []
+    if ver3_top5:
+        reasons.append("Ver3今回評価Top5")
+    if horse.get("corner4_group") == "front":
+        reasons.append("4角前方想定")
+    if horse.get("has_recent_top3"):
+        reasons.append("近走3着内あり")
+    if _text(horse.get("same_course")) == "★":
+        reasons.append("同コース材料")
+    if _text(horse.get("same_distance")) == "★":
+        reasons.append("同距離材料")
+    if _float(horse.get("course_index")) is not None and (_float(horse.get("course_index")) or 0.0) >= 80:
+        reasons.append("コース指数上位")
+    if _float(horse.get("distance_index")) is not None and (_float(horse.get("distance_index")) or 0.0) >= 80:
+        reasons.append("距離指数上位")
+    return "能力外警戒：" + " / ".join(reasons) if reasons else ""
 
 
 def _replace_ability_rank_materials(horse: dict[str, Any], pure_rank: int) -> None:
@@ -677,7 +712,7 @@ def _sort_comparison_horses(
             )
         else:
             key = lambda horse: (
-                _int(horse.get("nar_top5_rank")) or _int(horse.get("current_evaluation_rank")) or 999,
+                _int(horse.get("nar_top5_rank")) or 999,
                 -(float(_float(horse.get("nar_top5_score")) or -999999.0)),
                 -(_float(horse.get("nar_pure_ability_score")) or -999999.0),
                 horse.get("ability_rank") if horse.get("ability_rank") is not None else 999,

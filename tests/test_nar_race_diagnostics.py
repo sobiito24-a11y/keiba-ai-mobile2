@@ -147,11 +147,11 @@ def test_nar_full_field_comparison_sort_modes() -> None:
     assert [horse["number"] for horse in by_ability["rows"]] == ["2", "3", "1"]
     assert [horse["ability_value"] for horse in by_ability["rows"]] == [80.0, 60.0, 50.0]
     assert [horse["recent3_indices"] for horse in by_ability["rows"]] == ["22", "33", "11"]
-    assert [horse["number"] for horse in by_current["rows"]] == ["3", "1", "2"]
+    assert [horse["number"] for horse in by_current["rows"]] == ["2", "3", "1"]
     assert [horse["number"] for horse in by_corner["rows"]][0] == "2"
 
 
-def test_full_field_comparison_prefers_historical_ver3_mark_and_score() -> None:
+def test_full_field_comparison_keeps_ver3_audit_but_uses_pure_ability_top5() -> None:
     rows = [
         _row(
             6,
@@ -186,7 +186,7 @@ def test_full_field_comparison_prefers_historical_ver3_mark_and_score() -> None:
     comparison = build_full_field_comparison(rows, race_mode="nar", sort_mode="current")
     by_number = {horse["number"]: horse for horse in comparison["rows"]}
 
-    assert [horse["number"] for horse in comparison["rows"]] == ["6", "3"]
+    assert [horse["number"] for horse in comparison["rows"]] == ["3", "6"]
     assert by_number["6"]["mark"] == "◎"
     assert by_number["6"]["current_evaluation_rank"] == 1
     assert by_number["6"]["ability_rank"] == 2
@@ -194,33 +194,45 @@ def test_full_field_comparison_prefers_historical_ver3_mark_and_score() -> None:
     assert by_number["6"]["baseline_mark"] == "○"
     assert by_number["6"]["baseline_current_evaluation_rank"] == 2
     assert by_number["6"]["baseline_ver3_final_mark"] == "◎"
-    assert by_number["6"]["nar_top5_rank"] == 1
-    assert by_number["6"]["nar_top5_mark"] == "◎"
+    assert by_number["6"]["baseline_ver3_current_evaluation_rank"] == 1
+    assert by_number["6"]["nar_top5_rank"] == 2
+    assert by_number["6"]["nar_top5_score"] == 98.0
+    assert by_number["6"]["nar_top5_mark"] == "○"
     assert by_number["3"]["mark"] == "○"
     assert by_number["3"]["current_evaluation_rank"] == 2
-    assert by_number["3"]["nar_top5_rank"] == 2
-    assert by_number["3"]["nar_top5_mark"] == "○"
+    assert by_number["3"]["nar_top5_rank"] == 1
+    assert by_number["3"]["nar_top5_score"] == 99.0
+    assert by_number["3"]["nar_top5_mark"] == "◎"
 
 
 def test_nar_top5_final_mark_is_rank_based_not_legacy_mark() -> None:
     rows = [
-        _row(1, 1, 1, "中団", ai_current_mark="◎", 最終印="☆", AI点=100),
-        _row(2, 2, 2, "中団", ai_current_mark="○", 最終印="◎", AI点=90),
-        _row(3, 3, 3, "中団", ai_current_mark="▲", 最終印="◎", AI点=80),
-        _row(4, 4, 4, "中団", ai_current_mark="△", 最終印="◎", AI点=70),
-        _row(5, 5, 5, "中団", ai_current_mark="☆", 最終印="☆", AI点=60),
-        _row(6, 6, 6, "中団", ai_current_mark="◎", 最終印="◎", AI点=50),
+        _row(1, 1, 1, "中団", ai_current_mark="◎", 最終印="☆", _最終印点=100),
+        _row(2, 2, 2, "中団", ai_current_mark="○", 最終印="◎", _最終印点=90),
+        _row(3, 3, 3, "中団", ai_current_mark="▲", 最終印="◎", _最終印点=80),
+        _row(4, 4, 6, "中団", ai_current_mark="△", 最終印="◎", _最終印点=50),
+        _row(5, 5, 4, "中団", ai_current_mark="☆", 最終印="☆", _最終印点=70),
+        _row(6, 6, 5, "先団", ai_current_mark="◎", 最終印="◎", _最終印点=60),
     ]
 
     comparison = build_full_field_comparison(rows, race_mode="nar", sort_mode="current")
     by_number = {horse["number"]: horse for horse in comparison["rows"]}
 
+    assert [horse["number"] for horse in comparison["rows"]] == ["1", "2", "3", "4", "5", "6"]
+    assert [horse["nar_top5_rank"] for horse in comparison["rows"]] == [1, 2, 3, 4, 5, 6]
     assert [horse["nar_top5_mark"] for horse in comparison["rows"]] == ["◎", "○", "▲", "△", "△", ""]
     assert by_number["1"]["baseline_ver3_final_mark"] == "☆"
     assert by_number["5"]["baseline_ver3_final_mark"] == "☆"
     assert by_number["5"]["nar_top5_mark"] == "△"
     assert by_number["6"]["baseline_ver3_final_mark"] == "◎"
+    assert by_number["6"]["baseline_ver3_current_evaluation_rank"] == 5
+    assert by_number["6"]["nar_ver3_top5"] is True
+    assert by_number["6"]["nar_pure_top5"] is False
+    assert by_number["6"]["nar_top5_swap_status"] == "VER3_ONLY"
+    assert by_number["6"]["nar_warning_candidate"] is True
+    assert "能力外警戒" in by_number["6"]["nar_warning_reason"]
     assert by_number["6"]["nar_top5_mark"] == ""
+    assert by_number["4"]["nar_top5_swap_status"] == "PURE_ONLY"
 
 
 def test_nar_pure_ability_rank_uses_market_score_not_legacy_ai_rank() -> None:

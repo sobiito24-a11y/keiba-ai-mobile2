@@ -201,6 +201,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
                     "近3走傾向": "下降",
                     "表示コメント": "一番馬コメント",
                     "current_evaluation_rank": 2,
+                    "market_ability_score": 50,
                 },
                 {
                     "馬番": "2",
@@ -216,6 +217,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
                     "近3走傾向": "上昇",
                     "表示コメント": "二番馬コメント",
                     "current_evaluation_rank": 1,
+                    "market_ability_score": 80,
                 },
             ]
         )
@@ -382,6 +384,8 @@ class DetailAnalysisTableTest(unittest.TestCase):
                 "ability_band_v2": "B",
                 "market_ability_score": 36.0,
                 "market_ability_rank": 6,
+                "nar_top5_rank": 6,
+                "nar_top5_score": 36.0,
                 "current_evaluation_rank": 6,
                 "ai_current_mark": "",
                 "actual_odds": 62.6,
@@ -392,7 +396,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("9 リュウノギフト", html)
         self.assertIn("<b>62.6倍｜牡3｜能力値36｜NAR Top5 6位</b>", html)
 
-    def test_market_horse_cards_are_displayed_by_ver3_final_evaluation_order(self) -> None:
+    def test_market_horse_cards_are_displayed_by_nar_pure_ability_top5_order(self) -> None:
         self.streamlit.markdown_calls = []
         table = pd.DataFrame(
             [
@@ -443,32 +447,34 @@ class DetailAnalysisTableTest(unittest.TestCase):
 
         cards = [html for html in self.streamlit.markdown_calls if "ka-horse-card" in html]
         self.assertGreaterEqual(len(cards), 4)
-        self.assertIn("◎ 2 本命", cards[0])
-        self.assertIn("○ 4 対抗一番手", cards[1])
-        self.assertIn("▲ 3 対抗二番手", cards[2])
-        self.assertIn("△ 1 無印能力一位", cards[3])
+        self.assertIn("◎ 1 無印能力一位", cards[0])
+        self.assertIn("○ 3 対抗二番手", cards[1])
+        self.assertIn("▲ 4 対抗一番手", cards[2])
+        self.assertIn("△ 2 本命", cards[3])
 
-    def test_market_horse_card_order_uses_ver3_mark_then_current_evaluation(self) -> None:
+    def test_market_horse_card_order_uses_nar_pure_ability_rank_not_ver3_mark(self) -> None:
         table = pd.DataFrame(
             [
-                {"馬番": 7, "馬名": "無印二番", "ability_band_v2": "A", "AI順位": pd.NA, "_最終印点": pd.NA, "最終印": ""},
-                {"馬番": 2, "馬名": "対抗", "ability_band_v2": "A", "AI順位": 2, "_最終印点": 96, "最終印": "○", "ai_current_mark": "▲"},
-                {"馬番": 5, "馬名": "押さえ能力二位", "ability_band_v2": "A", "AI順位": 2, "_最終印点": 92, "最終印": "△"},
-                {"馬番": 4, "馬名": "星", "ability_band_v2": "A", "AI順位": 4, "_最終印点": 91, "最終印": "☆"},
-                {"馬番": 1, "馬名": "本命", "ability_band_v2": "A", "AI順位": 3, "_最終印点": 99, "最終印": "◎", "ai_current_mark": "○"},
-                {"馬番": 3, "馬名": "単穴", "ability_band_v2": "A", "AI順位": 1, "_最終印点": 95, "最終印": "▲", "ai_current_mark": "◎"},
-                {"馬番": 6, "馬名": "チェック", "ability_band_v2": "A", "AI順位": 6, "_最終印点": 90, "最終印": "✔︎"},
-                {"馬番": 8, "馬名": "無印一番", "ability_band_v2": "A", "AI順位": pd.NA, "_最終印点": pd.NA, "最終印": ""},
-                {"馬番": 9, "馬名": "押さえ能力一位", "ability_band_v2": "A", "AI順位": 1, "_最終印点": 93, "最終印": "△"},
+                {"馬番": 7, "馬名": "無印二番", "ability_band_v2": "A", "market_ability_score": 20, "_最終印点": pd.NA, "最終印": ""},
+                {"馬番": 2, "馬名": "対抗", "ability_band_v2": "A", "market_ability_score": 80, "_最終印点": 96, "最終印": "○", "ai_current_mark": "▲"},
+                {"馬番": 5, "馬名": "押さえ能力二位", "ability_band_v2": "A", "market_ability_score": 60, "_最終印点": 92, "最終印": "△"},
+                {"馬番": 4, "馬名": "星", "ability_band_v2": "A", "market_ability_score": 70, "_最終印点": 91, "最終印": "☆"},
+                {"馬番": 1, "馬名": "本命", "ability_band_v2": "A", "market_ability_score": 75, "_最終印点": 99, "最終印": "◎", "ai_current_mark": "○"},
+                {"馬番": 3, "馬名": "単穴", "ability_band_v2": "A", "market_ability_score": 90, "_最終印点": 95, "最終印": "▲", "ai_current_mark": "◎"},
+                {"馬番": 6, "馬名": "チェック", "ability_band_v2": "A", "market_ability_score": 50, "_最終印点": 90, "最終印": "✔︎"},
+                {"馬番": 8, "馬名": "無印一番", "ability_band_v2": "A", "market_ability_score": 10, "_最終印点": pd.NA, "最終印": ""},
+                {"馬番": 9, "馬名": "押さえ能力一位", "ability_band_v2": "A", "market_ability_score": 85, "_最終印点": 93, "最終印": "△"},
             ]
         )
 
-        ordered = self.app.market_horse_cards_ordered(self.app.attach_ver3_display_columns(table), race_mode="nar")
+        display = self.app.attach_nar_pure_top5_columns(self.app.attach_ver3_display_columns(table), "nar")
+        ordered = self.app.market_horse_cards_ordered(display, race_mode="nar")
 
         self.assertEqual(
             list(ordered["馬名"]),
-            ["本命", "対抗", "単穴", "押さえ能力一位", "押さえ能力二位", "星", "チェック", "無印二番", "無印一番"],
+            ["単穴", "押さえ能力一位", "対抗", "本命", "星", "押さえ能力二位", "チェック", "無印二番", "無印一番"],
         )
+        self.assertEqual(list(ordered["nar_top5_mark"])[:6], ["◎", "○", "▲", "△", "△", ""])
 
     def test_market_compare_normal_flow_hides_band_price_and_ai_evaluation_tables(self) -> None:
         result = SimpleNamespace(
@@ -1348,6 +1354,7 @@ class HorseSummaryCardTest(unittest.TestCase):
                     "近3走傾向": "安定",
                     "表示コメント": "一番馬コメント",
                     "current_evaluation_rank": 2,
+                    "market_ability_score": 50,
                 },
                 {
                     "馬番": "2",
@@ -1360,6 +1367,7 @@ class HorseSummaryCardTest(unittest.TestCase):
                     "近3走傾向": "上昇",
                     "表示コメント": "二番馬コメント",
                     "current_evaluation_rank": 1,
+                    "market_ability_score": 80,
                 },
             ]
         )
@@ -1611,12 +1619,12 @@ class DisplayGroupViewTest(unittest.TestCase):
     def test_nar_normal_views_use_top5_source_without_power_map_groups(self) -> None:
         horse_evaluation = pd.DataFrame(
             [
-                {"馬番": 1, "馬名": "本命", "表示印": "◎", "グループ": "SS", "AI点": 100, "current_evaluation_rank": 1},
-                {"馬番": 2, "馬名": "対抗", "表示印": "○", "グループ": "A", "AI点": 90, "current_evaluation_rank": 2},
-                {"馬番": 3, "馬名": "単穴", "表示印": "▲", "グループ": "A", "AI点": 85, "current_evaluation_rank": 3},
-                {"馬番": 4, "馬名": "押さえ", "表示印": "△", "グループ": "B", "AI点": 80, "current_evaluation_rank": 4},
-                {"馬番": 5, "馬名": "穴候補", "表示印": "✓", "グループ": "D", "AI点": 75, "current_evaluation_rank": 5},
-                {"馬番": 6, "馬名": "圏外", "表示印": "", "グループ": "D", "AI点": 70, "current_evaluation_rank": 6},
+                {"馬番": 1, "馬名": "本命", "表示印": "◎", "グループ": "SS", "AI点": 100, "current_evaluation_rank": 1, "market_ability_score": 100},
+                {"馬番": 2, "馬名": "対抗", "表示印": "○", "グループ": "A", "AI点": 90, "current_evaluation_rank": 2, "market_ability_score": 90},
+                {"馬番": 3, "馬名": "単穴", "表示印": "▲", "グループ": "A", "AI点": 85, "current_evaluation_rank": 3, "market_ability_score": 85},
+                {"馬番": 4, "馬名": "押さえ", "表示印": "△", "グループ": "B", "AI点": 80, "current_evaluation_rank": 4, "market_ability_score": 80},
+                {"馬番": 5, "馬名": "穴候補", "表示印": "✓", "グループ": "D", "AI点": 75, "current_evaluation_rank": 5, "market_ability_score": 75},
+                {"馬番": 6, "馬名": "圏外", "表示印": "", "グループ": "D", "AI点": 70, "current_evaluation_rank": 6, "market_ability_score": 70},
             ]
         )
         overall_table = horse_evaluation.copy(deep=True)

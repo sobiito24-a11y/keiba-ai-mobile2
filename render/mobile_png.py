@@ -934,8 +934,8 @@ def _jra_row_sort_key(row: dict[str, Any]) -> tuple[int, float, float, int]:
 
 
 def _nar_row_sort_key(row: dict[str, Any]) -> tuple[int, float, float, int]:
-    rank = _to_float(_pick(row, "nar_top5_rank", "current_evaluation_rank"))
-    score = _to_float(_pick(row, "nar_top5_score", "ver3_score"))
+    rank = _to_float(_pick(row, "nar_top5_rank"))
+    score = _to_float(_pick(row, "nar_top5_score"))
     ability = _to_float(_pick(row, "nar_pure_ability_score", "market_ability_score", "ability_value", "saved_ability_value"))
     number = _to_float(_pick(row, "number", "馬番", "馬"))
     return (
