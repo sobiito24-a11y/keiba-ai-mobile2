@@ -3545,7 +3545,7 @@ def normalize_jockey_display_text(text: str) -> str:
 
 
 def jockey_place_rate_text(row: dict[str, Any]) -> str:
-    rate = to_float(pick(row, "_jockey_course_place_rate", "jockey_course_place_rate", "騎手コース複勝率"))
+    rate = jockey_course_top3_rate_value(row)
     if rate is None:
         stats = clean_text(pick(row, "jockey_course_stats_market", "騎手コース成績"))
         matches = re.findall(r"(\d+(?:\.\d+)?)\s*%", stats)
@@ -3564,8 +3564,61 @@ def jockey_place_rate_text(row: dict[str, Any]) -> str:
     return f"複{label}%"
 
 
+def percent_value(value: Any) -> float | None:
+    text = clean_text(value).replace("％", "%").replace("%", "")
+    return to_float(text)
+
+
+def jockey_course_runs_value(row: dict[str, Any]) -> float | None:
+    return to_float(pick(row, "jockey_course_runs", "_jockey_course_starts", "jockey_course_starts", "騎手コース出走回数"))
+
+
+def jockey_course_top3_rate_value(row: dict[str, Any]) -> float | None:
+    return percent_value(
+        pick(
+            row,
+            "jockey_course_top3_rate",
+            "_jockey_course_place_rate",
+            "jockey_course_place_rate",
+            "騎手コース複勝率",
+        )
+    )
+
+
+def percent_fullwidth_text(value: Any) -> str:
+    number = percent_value(value)
+    if number is None:
+        return ""
+    label = f"{number:.0f}" if float(number).is_integer() else f"{number:.1f}"
+    return f"{label}％"
+
+
+def jockey_course_stats_card_text(row: dict[str, Any]) -> str:
+    parts: list[str] = []
+    runs = jockey_course_runs_value(row)
+    rate = jockey_course_top3_rate_value(row)
+    if runs is not None:
+        parts.append(f"騎乗回数 {int(runs)}")
+    rate_text = percent_fullwidth_text(rate)
+    if rate_text:
+        parts.append(f"複勝率 {rate_text}")
+    return " / ".join(parts)
+
+
+def jockey_course_stats_compact_text(row: dict[str, Any]) -> str:
+    parts: list[str] = []
+    runs = jockey_course_runs_value(row)
+    rate = jockey_course_top3_rate_value(row)
+    if runs is not None:
+        parts.append(f"{int(runs)}走")
+    rate_text = percent_fullwidth_text(rate)
+    if rate_text:
+        parts.append(f"複{rate_text}")
+    return " / ".join(parts) or "—"
+
+
 def jockey_course_starts_text(row: dict[str, Any]) -> str:
-    starts = to_float(pick(row, "_jockey_course_starts", "jockey_course_starts", "騎手コース出走回数"))
+    starts = jockey_course_runs_value(row)
     if starts is None:
         sample = clean_text(pick(row, "jockey_course_sample_market", "騎手コースサンプル"))
         match = re.search(r"n\s*=\s*(\d+)", sample)
@@ -3933,7 +3986,8 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         else clean_text(pick(row, "nar_top5_rank", "ver3_current_evaluation_rank", "総合評価順位", "current_evaluation_rank")) or "—"
     )
     state = join_nonempty([pick(row, "state_arrow"), pick(row, "state_label_market")], sep=" ")
-    jockey = market_jockey_display_text(row)
+    jockey = market_jockey_display_text(row, include_place_rate=False)
+    jockey_stats = jockey_course_stats_card_text(row)
     weight = market_weight_display_text(row)
     body_weight = clean_text(pick(row, "body_weight_market"))
     if body_weight == "未取得":
@@ -3948,6 +4002,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
             clean_text(pick(row, "running_style_market")),
             f"4角：{corner4_label}" if corner4_label else "",
             jockey,
+            jockey_stats,
             weight,
             body_weight,
             interval,
@@ -3973,6 +4028,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     detail_lines = [
         f"{'純能力' if is_jra else '能力値'}：{format_index_value(detail_ability_value)}（能力順位 {ability_rank}位）",
         f"実オッズ：{odds}",
+        f"騎手成績：{jockey_stats or '—'}",
         (
             f"JRA Top5評価：{current_rank}位 {mark}｜{clean_text(pick(row, 'v1_final_reason'))}"
             if is_jra
@@ -4945,6 +5001,7 @@ def horse_summary_card_html(
     age = clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—"
     weight = compact_weight_text(row)
     jockey = compact_jockey_text(row)
+    jockey_stats = jockey_course_stats_card_text(recent_source)
     style = display_running_style_from_row(row) or "データなし"
     star = star_summary_text(index_row)
     distance = index_summary_text("距離", pick(index_row, "距離指数"))
@@ -4989,6 +5046,7 @@ def horse_summary_card_html(
     quick_items = [
         f"{age}　{weight}" if weight else age,
         jockey,
+        jockey_stats,
         f"脚質：{style}",
         star,
         distance,
@@ -5043,6 +5101,7 @@ def horse_summary_card_html(
         f"{age}",
         weight,
         jockey,
+        f"騎手成績：{jockey_stats or '—'}",
         f"脚質：{style}",
         f"オッズ：{odds or '—'}",
         "",
@@ -5724,6 +5783,7 @@ def build_detail_analysis_table(
                 "オッズ": format_odds(pick(row, "単勝オッズ", "オッズ", "単勝")) or "—",
                 "年齢": clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—",
                 "騎手": compact_table_jockey_text(row),
+                "騎手成績": jockey_course_stats_compact_text(row),
                 "斤量": compact_weight_text(row).replace("kg", "") or "—",
                 "脚質": short_running_style(row),
                 "今回の展開": clean_text(pick(row, "v1_pace_reason", "pace_material_label", "pace_mark_market", "展開印")) or "—",
@@ -5761,6 +5821,7 @@ def build_detail_analysis_table(
                 "オッズ": format_odds(pick(row, "単勝オッズ", "オッズ", "単勝")) or "—",
                 "年齢": clean_text(pick(row, "馬年齢", "性齢", "馬齢")) or "—",
                 "騎手": compact_table_jockey_text(row),
+                "騎手成績": jockey_course_stats_compact_text(row),
                 "斤量": compact_weight_text(row).replace("kg", "") or "—",
                 "脚質": short_running_style(row),
                 "今回の展開": clean_text(pick(row, "pace_material_label", "pace_mark_market", "展開印")) or "—",
