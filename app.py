@@ -2592,7 +2592,7 @@ def nar_top5_conclusion_html(comparison: dict[str, Any]) -> str:
         title = " ".join(
             part
             for part in (
-                clean_text(horse.get("nar_top5_mark")) or clean_text(horse.get("mark")),
+                nar_top5_mark_from_row(horse),
                 clean_text(horse.get("number")),
                 clean_text(horse.get("name")),
             )
@@ -2688,13 +2688,20 @@ def full_field_ver3_comparison_html(comparison: dict[str, Any]) -> str:
 
 
 def full_field_nar_top5_comparison_html(comparison: dict[str, Any]) -> str:
-    rows = comparison.get("rows") or []
-    if not rows:
+    source_rows = comparison.get("rows") or []
+    if not source_rows:
         return '<div class="ka-dashboard-card">比較できる出走馬データがありません。</div>'
+    rows: list[dict[str, Any]] = []
+    for row in source_rows:
+        if not isinstance(row, dict):
+            continue
+        normalized = dict(row)
+        normalized["nar_top5_mark"] = nar_top5_mark_from_row(normalized)
+        rows.append(normalized)
     metrics: list[tuple[str, str, Any]] = [
         ("NAR Top5順位", "", lambda horse: rank_display(horse.get("nar_top5_rank"))),
         ("NAR Top5スコア", "", lambda horse: number_display(horse.get("nar_top5_score"))),
-        ("NAR最終印", "", lambda horse: clean_text(horse.get("nar_top5_mark")) or "—"),
+        ("NAR最終印", "", lambda horse: nar_top5_mark_from_row(horse) or "—"),
         ("純能力", "", lambda horse: number_display(horse.get("nar_pure_ability_score"))),
         ("能力順位", "", lambda horse: rank_display(horse.get("ability_rank"))),
         ("能力首位差", "", lambda horse: format_number(horse.get("nar_ability_gap_from_top")) or "—"),
@@ -3903,11 +3910,12 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     name = clean_text(pick(row, "馬名")) or "名称未取得"
     band = clean_text(pick(row, "ability_band_v2", "能力帯", "ability_band")) or "Z"
     odds = format_odds(pick(row, "actual_odds")) or "—"
-    mark = (
-        clean_text(pick(row, "v1_final_mark"))
-        if is_jra
-        else ver3_mark_text(pick(row, "nar_top5_mark", "ver3_final_mark", *VER3_MARK_COLUMNS))
-    )
+    if is_jra:
+        mark = clean_text(pick(row, "v1_final_mark"))
+    elif is_nar:
+        mark = nar_top5_mark_from_row(row)
+    else:
+        mark = ver3_mark_text(pick(row, "ver3_final_mark", *VER3_MARK_COLUMNS))
     age = market_horse_age_text(row)
     ability_value = (
         format_number(pick(row, "jra_pure_ability_score", "market_ability_score", "ability_value", "saved_ability_value", "能力評価値")) or "—"
@@ -5182,6 +5190,17 @@ def nar_top5_row_sort_key(row: dict[str, Any]) -> tuple[int, float, float, int]:
     )
 
 
+def nar_top5_mark_from_rank(rank: Any) -> str:
+    value = to_float(rank)
+    if value is None:
+        return ""
+    return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(int(value), "")
+
+
+def nar_top5_mark_from_row(row: dict[str, Any]) -> str:
+    return nar_top5_mark_from_rank(pick(row, "nar_top5_rank"))
+
+
 def jra_enriched_display_rows(result: PredictionResult, rows: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     source_rows = list(rows or result_rows(result))
     if not source_rows:
@@ -5979,9 +5998,7 @@ def display_mark_from_row(row: dict[str, Any], race_mode: str = "") -> str:
         if fallback:
             return fallback
     if clean_text(race_mode).lower() == "nar":
-        mark = clean_text(pick(row, "nar_top5_mark", "ver3_final_mark"))
-        if mark:
-            return mark
+        return nar_top5_mark_from_row(row)
     if "mark_v4" in row and not is_missing_value(row.get("mark_v4")):
         return clean_text(row.get("mark_v4"))
     if "表示印" in row:

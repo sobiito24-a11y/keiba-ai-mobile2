@@ -190,11 +190,37 @@ def test_full_field_comparison_prefers_historical_ver3_mark_and_score() -> None:
     assert by_number["6"]["mark"] == "◎"
     assert by_number["6"]["current_evaluation_rank"] == 1
     assert by_number["6"]["ability_rank"] == 2
-    assert by_number["6"]["ability_value"] == 79.0
+    assert by_number["6"]["ability_value"] == 98.0
     assert by_number["6"]["baseline_mark"] == "○"
     assert by_number["6"]["baseline_current_evaluation_rank"] == 2
+    assert by_number["6"]["baseline_ver3_final_mark"] == "◎"
+    assert by_number["6"]["nar_top5_rank"] == 1
+    assert by_number["6"]["nar_top5_mark"] == "◎"
     assert by_number["3"]["mark"] == "○"
     assert by_number["3"]["current_evaluation_rank"] == 2
+    assert by_number["3"]["nar_top5_rank"] == 2
+    assert by_number["3"]["nar_top5_mark"] == "○"
+
+
+def test_nar_top5_final_mark_is_rank_based_not_legacy_mark() -> None:
+    rows = [
+        _row(1, 1, 1, "中団", ai_current_mark="◎", 最終印="☆", AI点=100),
+        _row(2, 2, 2, "中団", ai_current_mark="○", 最終印="◎", AI点=90),
+        _row(3, 3, 3, "中団", ai_current_mark="▲", 最終印="◎", AI点=80),
+        _row(4, 4, 4, "中団", ai_current_mark="△", 最終印="◎", AI点=70),
+        _row(5, 5, 5, "中団", ai_current_mark="☆", 最終印="☆", AI点=60),
+        _row(6, 6, 6, "中団", ai_current_mark="◎", 最終印="◎", AI点=50),
+    ]
+
+    comparison = build_full_field_comparison(rows, race_mode="nar", sort_mode="current")
+    by_number = {horse["number"]: horse for horse in comparison["rows"]}
+
+    assert [horse["nar_top5_mark"] for horse in comparison["rows"]] == ["◎", "○", "▲", "△", "△", ""]
+    assert by_number["1"]["baseline_ver3_final_mark"] == "☆"
+    assert by_number["5"]["baseline_ver3_final_mark"] == "☆"
+    assert by_number["5"]["nar_top5_mark"] == "△"
+    assert by_number["6"]["baseline_ver3_final_mark"] == "◎"
+    assert by_number["6"]["nar_top5_mark"] == ""
 
 
 def test_nar_pure_ability_rank_uses_market_score_not_legacy_ai_rank() -> None:
@@ -293,7 +319,7 @@ def test_full_field_comparison_supports_jra_display_fields_without_diagnostics()
     assert comparison["rows"][0]["same_turn_display"] == "○"
     assert comparison["rows"][0]["jockey_display"] == "川田将雅（継続） 35%"
     assert comparison["rows"][0]["jockey_info"] == "川田将雅｜継続｜複35%｜54.0kg（-2.0）"
-    assert comparison["rows"][0]["training"] == "B/仕上上々"
+    assert comparison["rows"][0]["training"] == "B"
     assert comparison["rows"][0]["stable_comment"] == "順調に仕上がった。状態は良い。"
     assert "83.5" not in comparison["rows"][0]["training"]
     assert comparison["rows"][0]["weight"] == "54.0kg（-2.0）"

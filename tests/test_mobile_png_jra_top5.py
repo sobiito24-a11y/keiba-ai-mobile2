@@ -100,7 +100,9 @@ class MobilePngJraTop5Test(unittest.TestCase):
         self.assertEqual([str(row["number"]) for row in rows[:2]], ["2", "1"])
         self.assertEqual(rows[0]["nar_top5_rank"], 1)
         self.assertEqual(rows[0]["nar_pure_ability_score"], 80.0)
-        self.assertEqual(mobile_png._display_mark({"nar_top5_mark": "○", "mark_v4": "◎"}, "nar"), "○")
+        self.assertEqual(mobile_png._display_mark({"nar_top5_rank": 2, "nar_top5_mark": "◎", "mark_v4": "◎"}, "nar"), "○")
+        self.assertEqual(mobile_png._display_mark({"nar_top5_rank": 5, "nar_top5_mark": "✓", "mark_v4": "◎"}, "nar"), "△")
+        self.assertEqual(mobile_png._display_mark({"nar_top5_rank": 6, "nar_top5_mark": "◎", "mark_v4": "◎"}, "nar"), "")
 
 
 if __name__ == "__main__":

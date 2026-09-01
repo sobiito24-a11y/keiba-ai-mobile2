@@ -1003,6 +1003,13 @@ def _conclusion_rows(result: PredictionResult) -> list[dict[str, Any]]:
     return selected[:7]
 
 
+def _nar_top5_mark_from_rank(rank: Any) -> str:
+    value = _to_float(rank)
+    if value is None:
+        return ""
+    return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(int(value), "")
+
+
 def _display_mark(row: dict[str, Any], race_mode: str = "") -> str:
     if _clean(race_mode).lower() == "jra":
         mark = _clean(_pick(row, "v1_final_mark"))
@@ -1012,9 +1019,7 @@ def _display_mark(row: dict[str, Any], race_mode: str = "") -> str:
         if fallback:
             return fallback
     if _clean(race_mode).lower() == "nar":
-        mark = _clean(_pick(row, "nar_top5_mark", "ver3_final_mark"))
-        if mark:
-            return mark
+        return _nar_top5_mark_from_rank(_pick(row, "nar_top5_rank"))
     if "mark_v4" in row:
         return _clean(row.get("mark_v4"))
     if "表示印" in row:

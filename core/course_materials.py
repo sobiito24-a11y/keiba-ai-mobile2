@@ -939,6 +939,10 @@ def _mode(source: str) -> str:
 def _text(node: Any) -> str:
     if node is None:
         return ""
+    if isinstance(node, str):
+        return re.sub(r"\s+", " ", node).strip()
+    if not hasattr(node, "get_text"):
+        return re.sub(r"\s+", " ", str(node)).strip()
     return re.sub(r"\s+", " ", node.get_text(" ", strip=True)).strip()
 
 

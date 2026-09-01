@@ -323,6 +323,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
                 "market_ability_score": 90,
                 "market_ability_rank": 3,
                 "current_evaluation_rank": 1,
+                "nar_top5_rank": 1,
                 "ai_current_mark": "◎",
                 "ai_current_reason": "能力Aを土台 / 展開適合",
                 "actual_odds": 2.3,
@@ -438,8 +439,8 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertGreaterEqual(len(cards), 4)
         self.assertIn("◎ 2 本命", cards[0])
         self.assertIn("○ 4 対抗一番手", cards[1])
-        self.assertIn("○ 3 対抗二番手", cards[2])
-        self.assertIn("1 無印能力一位", cards[3])
+        self.assertIn("▲ 3 対抗二番手", cards[2])
+        self.assertIn("△ 1 無印能力一位", cards[3])
 
     def test_market_horse_card_order_uses_ver3_mark_then_current_evaluation(self) -> None:
         table = pd.DataFrame(
@@ -858,10 +859,11 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIsNotNone(result)
         columns = list(result.columns)
         odds_index = columns.index("実オッズ")
-        self.assertEqual(columns[odds_index + 1 : odds_index + 4], ["騎手", "騎手複勝率", "斤量"])
+        self.assertEqual(columns[odds_index + 1 : odds_index + 5], ["騎手", "騎手複勝率", "騎手注目", "斤量"])
         self.assertNotIn("AI適正", columns)
         self.assertEqual(result.loc[0, "騎手"], "矢野貴之")
         self.assertEqual(result.loc[0, "騎手複勝率"], "58%")
+        self.assertEqual(result.loc[0, "騎手注目"], "—")
         self.assertEqual(result.loc[0, "クラス変動"], "同級")
         self.assertEqual(result.loc[0, "クラス実績"], "今回B3 / 前走B3 / B3経験あり")
 
@@ -899,7 +901,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertEqual(result.loc[0, "騎手"], "川田将雅【継続】")
         self.assertEqual(result.loc[0, "今回の展開"], "＋ 差し向き")
         self.assertEqual(result.loc[0, "今回のコース材料"], "—")
-        self.assertEqual(result.loc[0, "netkeiba推定"], "○ 推定有利馬")
+        self.assertEqual(result.loc[0, "netkeiba推定"], "中団→中団→中団")
         self.assertEqual(result.loc[0, "調教"], "B")
         self.assertNotIn("83.5", result.to_string())
         pd.testing.assert_frame_equal(source, before)
@@ -1648,8 +1650,10 @@ class DisplayGroupViewTest(unittest.TestCase):
         self.streamlit.expander_labels.clear()
         self.app.render_horse_summary_cards(result)
         card_markup = "\n".join(self.streamlit.markdown_calls)
-        self.assertIn("✓ 5 穴候補", card_markup)
+        self.assertIn("△ 5 穴候補", card_markup)
+        self.assertNotIn("✓ 5 穴候補", card_markup)
         self.assertIn("6 圏外", card_markup)
+        self.assertNotIn("【】", card_markup)
         self.assertNotIn("【C】", card_markup)
         self.assertNotIn("【Z】", card_markup)
         self.assertNotIn("【D】", card_markup)
@@ -1659,8 +1663,23 @@ class DisplayGroupViewTest(unittest.TestCase):
         self.app.render_overall_table(result)
         self.assertNotIn("グループ", self.streamlit.last_dataframe.columns)
         self.assertEqual(list(self.streamlit.last_dataframe["NAR Top5順位"]), ["1位", "2位", "3位", "4位", "5位", "6位"])
+        self.assertEqual(list(self.streamlit.last_dataframe["NAR最終印"]), ["◎", "○", "▲", "△", "△", "—"])
         pd.testing.assert_frame_equal(horse_evaluation, evaluation_before)
         pd.testing.assert_frame_equal(overall_table, overall_before)
+
+    def test_nar_display_mark_is_generated_from_top5_rank(self) -> None:
+        self.assertEqual(
+            self.app.display_mark_from_row({"nar_top5_rank": 1, "nar_top5_mark": "△", "ver3_final_mark": "☆"}, "nar"),
+            "◎",
+        )
+        self.assertEqual(
+            self.app.display_mark_from_row({"nar_top5_rank": 5, "nar_top5_mark": "✓", "ver3_final_mark": "◎"}, "nar"),
+            "△",
+        )
+        self.assertEqual(
+            self.app.display_mark_from_row({"nar_top5_rank": 6, "nar_top5_mark": "◎", "ver3_final_mark": "○"}, "nar"),
+            "",
+        )
 
 
 if __name__ == "__main__":
