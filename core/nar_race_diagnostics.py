@@ -9,6 +9,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .recent_races import build_recent_races
+from .nar_purchase_judgement import annotate_nar_purchase_judgement
 from .value_support import training_display as _training_display
 from .v1_logic import build_v1_evaluations
 from .v2_logic import build_v2_evaluations
@@ -207,6 +208,10 @@ def build_full_field_comparison(
     if top1 and top2 and isinstance(top1.get("ability_value"), (int, float)) and isinstance(top2.get("ability_value"), (int, float)):
         gap_1_2 = top1["ability_value"] - top2["ability_value"]
 
+    race_purchase = {}
+    if mode == "nar":
+        race_purchase = annotate_nar_purchase_judgement(horses)
+
     horses = _sort_comparison_horses(horses, sort_mode, race_mode=mode)
     transfer_watch = bool(
         mode == "nar"
@@ -258,6 +263,16 @@ def build_full_field_comparison(
                 ),
             )[:5]
         ],
+        "race_purchase": race_purchase,
+        "race_purchase_judgement": race_purchase.get("race_purchase_judgement") if race_purchase else None,
+        "race_purchase_score": race_purchase.get("race_purchase_score") if race_purchase else None,
+        "race_purchase_reason": race_purchase.get("race_purchase_reason") if race_purchase else "",
+        "ability_gap_1_2": race_purchase.get("ability_gap_1_2") if race_purchase else None,
+        "ability_gap_1_2_level": race_purchase.get("ability_gap_1_2_level") if race_purchase else "",
+        "win_bet_allowed": race_purchase.get("win_bet_allowed") if race_purchase else None,
+        "win_bet_block_reason": race_purchase.get("win_bet_block_reason") if race_purchase else "",
+        "trusted_partner_count": race_purchase.get("trusted_partner_count") if race_purchase else None,
+        "recommended_ticket_mode": race_purchase.get("recommended_ticket_mode") if race_purchase else "",
         "top1": top1,
         "top2": top2,
         "gap_1_2": gap_1_2,
@@ -383,6 +398,8 @@ def _comparison_horse(row: Mapping[str, Any], *, race_mode: str, race_info: Mapp
         "training": _training_text(row),
         "stable_comment": _stable_comment_text(row),
         "jockey_change": _text(_first(row, "騎手継続/乗替", "jockey_change", "jockey_change_market")),
+        "market_rank": _int(_first(row, "market_rank", "popularity_rank", "人気", "単勝人気", "market_popularity_rank", "odds_rank", "人気順位", "市場順位")),
+        "recent_trend": _text(_first(row, "近3走傾向", "recent3_trend", "state_label_market", "state_arrow")),
         "weight": weight,
         "body_weight": _body_weight_text(row),
         "interval": _interval_text(row),
@@ -619,7 +636,7 @@ def _nar_top5_role(rank: Any, mark: Any) -> str:
 
 
 def _nar_top5_mark_from_rank(rank: Any) -> str:
-    return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(_int(rank), "")
+    return {1: "◎", 2: "○", 3: "▲", 4: "△1", 5: "△2"}.get(_int(rank), "")
 
 
 def _nar_pure_ability_score(row: Mapping[str, Any]) -> float | None:

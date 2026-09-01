@@ -1920,6 +1920,22 @@ def attach_nar_pure_top5_columns(
         "nar_top5_swap_status",
         "nar_warning_candidate",
         "nar_warning_reason",
+        "partner_trust_score",
+        "partner_trust_level",
+        "partner_trust_reason",
+        "race_purchase_judgement",
+        "race_purchase_label",
+        "race_purchase_score",
+        "race_purchase_reason",
+        "ability_gap_1_2",
+        "ability_gap_1_2_level",
+        "honmei_market_rank",
+        "honmei_odds",
+        "win_bet_allowed",
+        "win_bet_block_reason",
+        "trusted_partner_count",
+        "recommended_ticket_mode",
+        "top5_data_shortage_count",
         "baseline_ver3_final_mark",
         "baseline_ver3_current_evaluation_rank",
         "ver3_score",
@@ -2560,6 +2576,70 @@ def nar_warning_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(out, key=nar_top5_row_sort_key)
 
 
+def nar_purchase_judgement_html(comparison: dict[str, Any]) -> str:
+    purchase = comparison.get("race_purchase") if isinstance(comparison.get("race_purchase"), dict) else {}
+    rows = [row for row in comparison.get("rows") or [] if isinstance(row, dict)]
+    if not purchase and rows:
+        purchase = {
+            "race_purchase_judgement": clean_text(rows[0].get("race_purchase_judgement")),
+            "race_purchase_label": clean_text(rows[0].get("race_purchase_label")),
+            "race_purchase_score": rows[0].get("race_purchase_score"),
+            "race_purchase_reason": clean_text(rows[0].get("race_purchase_reason")),
+            "ability_gap_1_2": rows[0].get("ability_gap_1_2"),
+            "ability_gap_1_2_level": clean_text(rows[0].get("ability_gap_1_2_level")),
+            "honmei_market_rank": rows[0].get("honmei_market_rank"),
+            "honmei_odds": rows[0].get("honmei_odds"),
+            "win_bet_allowed": rows[0].get("win_bet_allowed"),
+            "win_bet_block_reason": clean_text(rows[0].get("win_bet_block_reason")),
+            "trusted_partner_count": rows[0].get("trusted_partner_count"),
+            "recommended_ticket_mode": clean_text(rows[0].get("recommended_ticket_mode")),
+        }
+    judgement = clean_text(purchase.get("race_purchase_judgement")) or "—"
+    label = clean_text(purchase.get("race_purchase_label")) or {"A": "勝負", "B": "買い", "C": "注意", "D": "見送り"}.get(judgement, "")
+    win_allowed = truthy_display(purchase.get("win_bet_allowed"))
+    win_text = "購入可" if win_allowed else "購入対象外"
+    win_reason = clean_text(purchase.get("win_bet_block_reason"))
+    ticket_mode = clean_text(purchase.get("recommended_ticket_mode")) or "PASS"
+    reason = clean_text(purchase.get("race_purchase_reason")) or "判定材料不足"
+    partner_rows = [
+        row
+        for row in sorted(rows, key=nar_top5_row_sort_key)
+        if (to_float(row.get("nar_top5_rank")) or 999) in {2, 3, 4, 5}
+    ]
+    partner_lines = []
+    for row in partner_rows:
+        mark = nar_top5_mark_from_row(row)
+        label_text = join_nonempty(
+            [
+                mark,
+                clean_text(row.get("number")),
+                clean_text(row.get("name")),
+                clean_text(row.get("partner_trust_level")) or "—",
+            ],
+            sep=" ",
+        )
+        partner_lines.append(plain_text_to_html(label_text))
+    detail_lines = [
+        f"◎○能力差：{format_number(purchase.get('ability_gap_1_2')) or '—'}（{clean_text(purchase.get('ability_gap_1_2_level')) or 'UNKNOWN'}）",
+        f"◎市場順位：{rank_display(purchase.get('honmei_market_rank'))}",
+        f"◎単勝：{format_odds(purchase.get('honmei_odds')) or '—'}",
+        f"信頼相手：{clean_text(purchase.get('trusted_partner_count')) or '0'}頭",
+        f"候補：{ticket_mode}",
+    ]
+    return (
+        '<div class="ka-dashboard-card">'
+        '<div class="ka-dashboard-title">レース購入判定</div>'
+        f'<div><b>{plain_text_to_html(join_nonempty([judgement, label], sep=" "))}</b></div>'
+        f'<div class="ka-note">{plain_text_to_html(" / ".join(detail_lines))}</div>'
+        f'<div class="ka-note">単勝判定：{plain_text_to_html(win_text)}'
+        + (f'｜{plain_text_to_html(win_reason)}' if win_reason else "")
+        + '</div>'
+        f'<div class="ka-note">相手信頼度：{" / ".join(partner_lines) if partner_lines else "—"}</div>'
+        f'<div class="ka-note">理由：{plain_text_to_html(reason)}</div>'
+        '</div>'
+    )
+
+
 def jra_top5_conclusion_html(comparison: dict[str, Any]) -> str:
     rows = [row for row in comparison.get("rows") or [] if isinstance(row, dict)]
     recommendations = comparison.get("v1_recommendations")
@@ -2661,6 +2741,7 @@ def nar_top5_conclusion_html(comparison: dict[str, Any]) -> str:
         detail_lines = [
             f"NAR Top5 {number_display(horse.get('nar_top5_score'))}",
             f"純能力 {number_display(horse.get('nar_pure_ability_score'))}",
+            f"相手信頼度 {clean_text(horse.get('partner_trust_level')) or '—'}",
             f"距離補正 {signed_number_display(horse.get('nar_distance_bonus'))}",
             f"コース補正 {signed_number_display(horse.get('nar_course_bonus'))}",
             f"展開補正 {signed_number_display(horse.get('nar_pace_bonus'))}",
@@ -2703,7 +2784,8 @@ def nar_top5_conclusion_html(comparison: dict[str, Any]) -> str:
             + "".join(blocks)
             + '</div><div class="ka-note">Top5へは強制挿入せず、NAR Top5順位の外側で確認します。</div></div>'
         )
-    return summary + top5 + warning_html
+    purchase_html = nar_purchase_judgement_html(comparison)
+    return summary + purchase_html + top5 + warning_html
 
 
 def full_field_ver3_comparison_html(comparison: dict[str, Any]) -> str:
@@ -2765,6 +2847,13 @@ def full_field_nar_top5_comparison_html(comparison: dict[str, Any]) -> str:
         ("純能力", "", lambda horse: number_display(horse.get("nar_pure_ability_score"))),
         ("純能力順位", "", lambda horse: rank_display(horse.get("nar_pure_ability_rank"))),
         ("能力首位差", "", lambda horse: format_number(horse.get("nar_ability_gap_from_top")) or "—"),
+        ("相手信頼度", "", lambda horse: clean_text(horse.get("partner_trust_level")) or "—"),
+        ("相手信頼理由", "", lambda horse: clean_text(horse.get("partner_trust_reason")) or "—"),
+        ("購入判定", "", lambda horse: join_nonempty([horse.get("race_purchase_judgement"), horse.get("race_purchase_label")], sep=" ") or "—"),
+        ("◎○能力差", "", lambda horse: format_number(horse.get("ability_gap_1_2")) or "—"),
+        ("信頼相手数", "", lambda horse: clean_text(horse.get("trusted_partner_count")) or "0"),
+        ("単勝判定", "", lambda horse: "購入可" if truthy_display(horse.get("win_bet_allowed")) else clean_text(horse.get("win_bet_block_reason")) or "購入対象外"),
+        ("券種候補", "", lambda horse: clean_text(horse.get("recommended_ticket_mode")) or "PASS"),
         ("Ver3今回評価順位", "", lambda horse: rank_display(pick(horse, "baseline_ver3_current_evaluation_rank", "ver3_current_evaluation_rank", "current_evaluation_rank"))),
         ("Ver3スコア", "", lambda horse: number_display(horse.get("ver3_score"))),
         ("Ver3印", "", lambda horse: clean_text(pick(horse, "baseline_ver3_final_mark", "ver3_final_mark")) or "—"),
@@ -4108,6 +4197,9 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         detail_lines.extend(
             [
                 f"NAR Top5スコア：{format_number(pick(row, 'nar_top5_score')) or '—'}",
+                f"相手信頼度：{clean_text(pick(row, 'partner_trust_level')) or '—'}",
+                f"相手信頼理由：{clean_text(pick(row, 'partner_trust_reason')) or '—'}",
+                f"購入判定：{clean_text(pick(row, 'race_purchase_judgement')) or '—'} {clean_text(pick(row, 'race_purchase_label'))}",
                 f"Ver3今回評価順位：{rank_display(pick(row, 'baseline_ver3_current_evaluation_rank', 'ver3_current_evaluation_rank', 'current_evaluation_rank'))}",
                 f"Ver3最終印：{clean_text(pick(row, 'baseline_ver3_final_mark', 'ver3_final_mark')) or '—'}",
                 f"能力首位差：{format_number(pick(row, 'nar_ability_gap_from_top')) or '—'}",
@@ -5224,6 +5316,9 @@ def horse_summary_card_html(
                 f"NAR Top5スコア：{format_number(card_pick(row, index_row, 'nar_top5_score')) or '—'}",
                 f"NAR最終印：{display_mark_from_row(row, race_mode) or '—'}",
                 f"NAR役割：{clean_text(card_pick(row, index_row, 'nar_top5_role')) or '—'}",
+                f"相手信頼度：{clean_text(card_pick(row, index_row, 'partner_trust_level')) or '—'}",
+                f"相手信頼理由：{clean_text(card_pick(row, index_row, 'partner_trust_reason')) or '—'}",
+                f"購入判定：{clean_text(card_pick(row, index_row, 'race_purchase_judgement')) or '—'} {clean_text(card_pick(row, index_row, 'race_purchase_label'))}",
                 f"NAR理由：{clean_text(card_pick(row, index_row, 'nar_top5_reason')) or '—'}",
                 f"Ver3今回評価順位：{rank_display(card_pick(row, index_row, 'baseline_ver3_current_evaluation_rank', 'ver3_current_evaluation_rank', 'current_evaluation_rank'))}",
                 f"Ver3最終印：{clean_text(card_pick(row, index_row, 'baseline_ver3_final_mark', 'ver3_final_mark')) or '—'}",
@@ -5315,7 +5410,7 @@ def nar_top5_mark_from_rank(rank: Any) -> str:
     value = to_float(rank)
     if value is None:
         return ""
-    return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(int(value), "")
+    return {1: "◎", 2: "○", 3: "▲", 4: "△1", 5: "△2"}.get(int(value), "")
 
 
 def nar_top5_mark_from_row(row: dict[str, Any]) -> str:
@@ -5875,6 +5970,13 @@ def build_detail_analysis_table(
                 "純能力": format_number(pick(row, "nar_pure_ability_score", "market_ability_score", "ability_value", "saved_ability_value")) or "—",
                 "純能力順位": rank_display(pick(row, "nar_pure_ability_rank")),
                 "能力首位差": format_number(pick(row, "nar_ability_gap_from_top")) or "—",
+                "相手信頼度": clean_text(pick(row, "partner_trust_level")) or "—",
+                "相手信頼理由": clean_text(pick(row, "partner_trust_reason")) or "—",
+                "購入判定": join_nonempty([pick(row, "race_purchase_judgement"), pick(row, "race_purchase_label")], sep=" ") or "—",
+                "◎○能力差": format_number(pick(row, "ability_gap_1_2")) or "—",
+                "信頼相手数": clean_text(pick(row, "trusted_partner_count")) or "0",
+                "単勝判定": "購入可" if truthy_display(pick(row, "win_bet_allowed")) else clean_text(pick(row, "win_bet_block_reason")) or "購入対象外",
+                "券種候補": clean_text(pick(row, "recommended_ticket_mode")) or "PASS",
                 "Ver3今回評価順位": rank_display(pick(row, "baseline_ver3_current_evaluation_rank", "ver3_current_evaluation_rank", "current_evaluation_rank")),
                 "Ver3スコア": format_number(pick(row, "ver3_score")) or "—",
                 "Ver3印": clean_text(pick(row, "baseline_ver3_final_mark", "ver3_final_mark")) or "—",

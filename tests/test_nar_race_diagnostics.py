@@ -220,10 +220,10 @@ def test_nar_top5_final_mark_is_rank_based_not_legacy_mark() -> None:
 
     assert [horse["number"] for horse in comparison["rows"]] == ["1", "2", "3", "4", "5", "6"]
     assert [horse["nar_top5_rank"] for horse in comparison["rows"]] == [1, 2, 3, 4, 5, 6]
-    assert [horse["nar_top5_mark"] for horse in comparison["rows"]] == ["◎", "○", "▲", "△", "△", ""]
+    assert [horse["nar_top5_mark"] for horse in comparison["rows"]] == ["◎", "○", "▲", "△1", "△2", ""]
     assert by_number["1"]["baseline_ver3_final_mark"] == "☆"
     assert by_number["5"]["baseline_ver3_final_mark"] == "☆"
-    assert by_number["5"]["nar_top5_mark"] == "△"
+    assert by_number["5"]["nar_top5_mark"] == "△2"
     assert by_number["6"]["baseline_ver3_final_mark"] == "◎"
     assert by_number["6"]["baseline_ver3_current_evaluation_rank"] == 5
     assert by_number["6"]["nar_ver3_top5"] is True

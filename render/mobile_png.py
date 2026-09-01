@@ -253,6 +253,26 @@ class _Canvas:
             if not rows:
                 self.text("NAR Top5は未取得です。", self.fonts["body"], MUTED)
                 return
+            purchase = rows[0]
+            judgement = _clean(_pick(purchase, "race_purchase_judgement"))
+            purchase_label = _clean(_pick(purchase, "race_purchase_label"))
+            if judgement or purchase_label:
+                self.horse_card(
+                    _join_nonempty(["レース購入判定", judgement, purchase_label], sep=" "),
+                    [
+                        _join_nonempty(
+                            [
+                                f"◎○差{_format_number(_pick(purchase, 'ability_gap_1_2'))}" if _pick(purchase, "ability_gap_1_2") is not None else "",
+                                f"信頼相手{_pick(purchase, 'trusted_partner_count') or 0}頭",
+                                f"候補{_clean(_pick(purchase, 'recommended_ticket_mode')) or 'PASS'}",
+                            ],
+                            sep=" / ",
+                        ),
+                        _clean(_pick(purchase, "win_bet_block_reason")) or "単勝購入可",
+                        f"理由：{_clean(_pick(purchase, 'race_purchase_reason'))}" if _clean(_pick(purchase, "race_purchase_reason")) else "",
+                    ],
+                    is_watch=judgement in {"C", "D"},
+                )
             top5 = [row for row in rows if (_to_float(_pick(row, "nar_top5_rank")) or 999) <= 5] or rows[:5]
             for row in top5:
                 mark = _display_mark(row, result.race_mode)
@@ -265,6 +285,7 @@ class _Canvas:
                     _join_nonempty(
                         [
                             f"純能力{ability}" if ability else "",
+                            f"相手信頼度{_clean(_pick(row, 'partner_trust_level')) or '—'}",
                             f"距離補正{_signed_bonus(_pick(row, 'nar_distance_bonus'))}",
                             f"コース補正{_signed_bonus(_pick(row, 'nar_course_bonus'))}",
                             f"展開補正{_signed_bonus(_pick(row, 'nar_pace_bonus'))}",
@@ -419,6 +440,7 @@ class _Canvas:
                 lines = [
                     f"NAR Top5スコア：{score}" if score else "",
                     f"純能力：{ability_value}" if ability_value else "",
+                    f"相手信頼度：{_clean(_pick(row, 'partner_trust_level')) or '—'}",
                     _join_nonempty(
                         [
                             f"距離補正{_signed_bonus(_pick(row, 'nar_distance_bonus'))}",
@@ -1007,7 +1029,7 @@ def _nar_top5_mark_from_rank(rank: Any) -> str:
     value = _to_float(rank)
     if value is None:
         return ""
-    return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(int(value), "")
+    return {1: "◎", 2: "○", 3: "▲", 4: "△1", 5: "△2"}.get(int(value), "")
 
 
 def _display_mark(row: dict[str, Any], race_mode: str = "") -> str:

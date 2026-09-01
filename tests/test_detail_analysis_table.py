@@ -450,7 +450,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("◎ 1 無印能力一位", cards[0])
         self.assertIn("○ 3 対抗二番手", cards[1])
         self.assertIn("▲ 4 対抗一番手", cards[2])
-        self.assertIn("△ 2 本命", cards[3])
+        self.assertIn("△1 2 本命", cards[3])
 
     def test_market_horse_card_order_uses_nar_pure_ability_rank_not_ver3_mark(self) -> None:
         table = pd.DataFrame(
@@ -474,7 +474,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
             list(ordered["馬名"]),
             ["単穴", "押さえ能力一位", "対抗", "本命", "星", "押さえ能力二位", "チェック", "無印二番", "無印一番"],
         )
-        self.assertEqual(list(ordered["nar_top5_mark"])[:6], ["◎", "○", "▲", "△", "△", ""])
+        self.assertEqual(list(ordered["nar_top5_mark"])[:6], ["◎", "○", "▲", "△1", "△2", ""])
 
     def test_market_compare_normal_flow_hides_band_price_and_ai_evaluation_tables(self) -> None:
         result = SimpleNamespace(
@@ -1668,7 +1668,7 @@ class DisplayGroupViewTest(unittest.TestCase):
         self.streamlit.expander_labels.clear()
         self.app.render_horse_summary_cards(result)
         card_markup = "\n".join(self.streamlit.markdown_calls)
-        self.assertIn("△ 5 穴候補", card_markup)
+        self.assertIn("△2 5 穴候補", card_markup)
         self.assertNotIn("✓ 5 穴候補", card_markup)
         self.assertIn("6 圏外", card_markup)
         self.assertNotIn("【】", card_markup)
@@ -1681,7 +1681,7 @@ class DisplayGroupViewTest(unittest.TestCase):
         self.app.render_overall_table(result)
         self.assertNotIn("グループ", self.streamlit.last_dataframe.columns)
         self.assertEqual(list(self.streamlit.last_dataframe["NAR Top5順位"]), ["1位", "2位", "3位", "4位", "5位", "6位"])
-        self.assertEqual(list(self.streamlit.last_dataframe["NAR最終印"]), ["◎", "○", "▲", "△", "△", "—"])
+        self.assertEqual(list(self.streamlit.last_dataframe["NAR最終印"]), ["◎", "○", "▲", "△1", "△2", "—"])
         pd.testing.assert_frame_equal(horse_evaluation, evaluation_before)
         pd.testing.assert_frame_equal(overall_table, overall_before)
 
@@ -1692,7 +1692,7 @@ class DisplayGroupViewTest(unittest.TestCase):
         )
         self.assertEqual(
             self.app.display_mark_from_row({"nar_top5_rank": 5, "nar_top5_mark": "✓", "ver3_final_mark": "◎"}, "nar"),
-            "△",
+            "△2",
         )
         self.assertEqual(
             self.app.display_mark_from_row({"nar_top5_rank": 6, "nar_top5_mark": "◎", "ver3_final_mark": "○"}, "nar"),

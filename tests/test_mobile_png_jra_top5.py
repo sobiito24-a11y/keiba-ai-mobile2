@@ -7,15 +7,18 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-bs4_stub = types.ModuleType("bs4")
-bs4_stub.BeautifulSoup = lambda *_args, **_kwargs: SimpleNamespace(
-    select=lambda *_args, **_kwargs: [],
-    select_one=lambda *_args, **_kwargs: None,
-    find=lambda *_args, **_kwargs: None,
-    find_all=lambda *_args, **_kwargs: [],
-    get_text=lambda *_args, **_kwargs: "",
-)
-sys.modules.setdefault("bs4", bs4_stub)
+try:
+    import bs4  # noqa: F401
+except ImportError:
+    bs4_stub = types.ModuleType("bs4")
+    bs4_stub.BeautifulSoup = lambda *_args, **_kwargs: SimpleNamespace(
+        select=lambda *_args, **_kwargs: [],
+        select_one=lambda *_args, **_kwargs: None,
+        find=lambda *_args, **_kwargs: None,
+        find_all=lambda *_args, **_kwargs: [],
+        get_text=lambda *_args, **_kwargs: "",
+    )
+    sys.modules.setdefault("bs4", bs4_stub)
 
 from core.models import PredictionResult
 from render import mobile_png
@@ -101,7 +104,7 @@ class MobilePngJraTop5Test(unittest.TestCase):
         self.assertEqual(rows[0]["nar_top5_rank"], 1)
         self.assertEqual(rows[0]["nar_pure_ability_score"], 80.0)
         self.assertEqual(mobile_png._display_mark({"nar_top5_rank": 2, "nar_top5_mark": "◎", "mark_v4": "◎"}, "nar"), "○")
-        self.assertEqual(mobile_png._display_mark({"nar_top5_rank": 5, "nar_top5_mark": "✓", "mark_v4": "◎"}, "nar"), "△")
+        self.assertEqual(mobile_png._display_mark({"nar_top5_rank": 5, "nar_top5_mark": "✓", "mark_v4": "◎"}, "nar"), "△2")
         self.assertEqual(mobile_png._display_mark({"nar_top5_rank": 6, "nar_top5_mark": "◎", "mark_v4": "◎"}, "nar"), "")
 
 
