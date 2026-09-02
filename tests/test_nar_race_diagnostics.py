@@ -220,17 +220,17 @@ def test_nar_top5_final_mark_is_rank_based_not_legacy_mark() -> None:
 
     assert [horse["number"] for horse in comparison["rows"]] == ["1", "2", "3", "4", "5", "6"]
     assert [horse["nar_top5_rank"] for horse in comparison["rows"]] == [1, 2, 3, 4, 5, 6]
-    assert [horse["nar_top5_mark"] for horse in comparison["rows"]] == ["◎", "○", "▲", "△1", "△2", ""]
+    assert [horse["nar_top5_mark"] for horse in comparison["rows"]] == ["◎", "○", "▲", "△", "△", ""]
     assert by_number["1"]["baseline_ver3_final_mark"] == "☆"
     assert by_number["5"]["baseline_ver3_final_mark"] == "☆"
-    assert by_number["5"]["nar_top5_mark"] == "△2"
+    assert by_number["5"]["nar_top5_mark"] == "△"
     assert by_number["6"]["baseline_ver3_final_mark"] == "◎"
     assert by_number["6"]["baseline_ver3_current_evaluation_rank"] == 5
     assert by_number["6"]["nar_ver3_top5"] is True
     assert by_number["6"]["nar_pure_top5"] is False
     assert by_number["6"]["nar_top5_swap_status"] == "VER3_ONLY"
     assert by_number["6"]["nar_warning_candidate"] is True
-    assert "能力外警戒" in by_number["6"]["nar_warning_reason"]
+    assert "能力順位以上に警戒" in by_number["6"]["nar_warning_reason"]
     assert by_number["6"]["nar_top5_mark"] == ""
     assert by_number["4"]["nar_top5_swap_status"] == "PURE_ONLY"
 

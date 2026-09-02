@@ -29,6 +29,85 @@ def _strong_partners():
     ]
 
 
+def _raw_popularity_rows(*, honmei_popularity: int = 1, honmei_odds: float = 2.8, second_score: float = 88):
+    return [
+        {"馬番": 1, "馬名": "一位", "market_ability_score": 100, "market_ability_rank": 1, "popularity": honmei_popularity, "odds": honmei_odds},
+        {
+            "馬番": 2,
+            "馬名": "二位",
+            "market_ability_score": second_score,
+            "market_ability_rank": 2,
+            "popularity": 2,
+            "condition_fit_mark": "★",
+            "_estimated_position_corner4_label": "先団",
+            "jockey_change": "継続",
+        },
+        {
+            "馬番": 3,
+            "馬名": "三位",
+            "market_ability_score": 80,
+            "market_ability_rank": 3,
+            "popularity": 3,
+            "condition_fit_mark": "★",
+            "_estimated_position_corner4_label": "先団",
+            "jockey_change": "継続",
+        },
+        {"馬番": 4, "馬名": "四位", "market_ability_score": 74, "market_ability_rank": 4, "popularity": 4, "condition_fit_mark": "★", "_estimated_position_corner4_label": "先団"},
+        {"馬番": 5, "馬名": "五位", "market_ability_score": 70, "market_ability_rank": 5, "popularity": 5},
+    ]
+
+
+def test_popularity_is_mapped_to_market_rank_in_full_field_comparison():
+    result = build_full_field_comparison(_raw_popularity_rows(), race_mode="nar", sort_mode="current")
+    by_number = {row["number"]: row for row in result["rows"]}
+
+    assert by_number["1"]["market_rank"] == 1
+    assert by_number["2"]["market_rank"] == 2
+    assert result["honmei_market_rank"] == 1
+
+
+def test_popularity_drives_purchase_judgement_to_a_when_conditions_match():
+    result = build_full_field_comparison(_raw_popularity_rows(), race_mode="nar", sort_mode="current")
+
+    assert result["race_purchase_judgement"] == "A"
+    assert result["honmei_market_rank"] == 1
+    assert result["ability_gap_1_2"] == 12
+    assert result["trusted_partner_count"] >= 2
+
+
+def test_popularity_market_bonus_reaches_partner_trust():
+    result = build_full_field_comparison(_raw_popularity_rows(), race_mode="nar", sort_mode="current")
+    by_number = {row["number"]: row for row in result["rows"]}
+
+    assert by_number["2"]["partner_trust_level"] == "HIGH"
+    assert by_number["3"]["partner_trust_level"] == "HIGH"
+    assert "市場上位" in by_number["2"]["partner_trust_reason"]
+    assert by_number["2"]["partner_trust_score"] >= 5.0
+
+
+def test_purchase_judgement_does_not_collapse_to_c_with_popularity_inputs():
+    scenarios = [
+        build_full_field_comparison(_raw_popularity_rows(), race_mode="nar", sort_mode="current"),
+        build_full_field_comparison(_raw_popularity_rows(second_score=94), race_mode="nar", sort_mode="current"),
+        build_full_field_comparison(
+            [
+                {"馬番": 1, "馬名": "近差一位", "market_ability_score": 100, "market_ability_rank": 1, "popularity": 1, "odds": 2.8},
+                {"馬番": 2, "馬名": "近差二位", "market_ability_score": 99, "market_ability_rank": 2, "popularity": 8},
+                {"馬番": 3, "馬名": "近差三位", "market_ability_score": 98, "market_ability_rank": 3, "popularity": 9},
+                {"馬番": 4, "馬名": "近差四位", "market_ability_score": 97, "market_ability_rank": 4, "popularity": 10},
+                {"馬番": 5, "馬名": "近差五位", "market_ability_score": 96, "market_ability_rank": 5, "popularity": 11},
+            ],
+            race_mode="nar",
+            sort_mode="current",
+        ),
+        build_full_field_comparison(_raw_popularity_rows(honmei_popularity=4), race_mode="nar", sort_mode="current"),
+    ]
+    judgements = {result["race_purchase_judgement"] for result in scenarios}
+
+    assert {"A", "B", "D"}.issubset(judgements)
+    assert len(judgements) >= 3
+
+
 def test_strong_market_top_honmei_with_high_partners_is_a_and_win_allowed():
     horses = _strong_partners()
     result = annotate_nar_purchase_judgement(horses)
@@ -130,7 +209,7 @@ def test_nar_comparison_uses_pure_rank_marks_and_keeps_jra_rank_unchanged():
     ]
     nar = build_full_field_comparison(nar_rows, race_mode="nar", sort_mode="current")
     assert [row["number"] for row in nar["rows"]] == ["1", "2", "3", "4", "5", "6"]
-    assert [row["nar_top5_mark"] for row in nar["rows"]] == ["◎", "○", "▲", "△1", "△2", ""]
+    assert [row["nar_top5_mark"] for row in nar["rows"]] == ["◎", "○", "▲", "△", "△", ""]
     assert nar["rows"][5]["nar_ver3_top5"] is True
     assert nar["rows"][5]["nar_top5_swap_status"] == "VER3_ONLY"
 

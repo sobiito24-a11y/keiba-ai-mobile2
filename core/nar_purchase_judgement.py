@@ -347,7 +347,7 @@ def _empty_race_judgement() -> dict[str, Any]:
 
 
 def _market_rank(row: Mapping[str, Any]) -> int | None:
-    return _int(_first(row, "market_rank", "popularity_rank", "人気", "単勝人気", "market_popularity_rank", "odds_rank", "人気順位", "市場順位"))
+    return _int(_first(row, "market_rank", "popularity", "popularity_rank", "人気", "単勝人気", "market_popularity_rank", "odds_rank", "人気順位", "市場順位"))
 
 
 def _odds(row: Mapping[str, Any]) -> float | None:

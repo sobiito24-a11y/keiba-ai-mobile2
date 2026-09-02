@@ -257,14 +257,15 @@ class _Canvas:
             judgement = _clean(_pick(purchase, "race_purchase_judgement"))
             purchase_label = _clean(_pick(purchase, "race_purchase_label"))
             if judgement or purchase_label:
+                gap = _pick(purchase, "ability_gap_1_2")
                 self.horse_card(
                     _join_nonempty(["レース購入判定", judgement, purchase_label], sep=" "),
                     [
                         _join_nonempty(
                             [
-                                f"◎○差{_format_number(_pick(purchase, 'ability_gap_1_2'))}" if _pick(purchase, "ability_gap_1_2") is not None else "",
+                                f"◎○差{_format_number(gap)}（{_nar_gap_label(gap)}）" if gap is not None else "",
                                 f"信頼相手{_pick(purchase, 'trusted_partner_count') or 0}頭",
-                                f"候補{_clean(_pick(purchase, 'recommended_ticket_mode')) or 'PASS'}",
+                                f"推奨{_clean(_pick(purchase, 'recommended_ticket_mode')) or 'PASS'}",
                             ],
                             sep=" / ",
                         ),
@@ -278,33 +279,45 @@ class _Canvas:
                 mark = _display_mark(row, result.race_mode)
                 no = _pick(row, "number", "馬番", "馬")
                 name = _pick(row, "name", "馬名")
-                score = _format_number(_pick(row, "nar_top5_score"))
                 ability = _format_number(_pick(row, "nar_pure_ability_score"))
-                title = _join_nonempty([mark, str(no), str(name), f"NAR Top5 {score}" if score else ""], sep="  ")
+                rank = _pick(row, "nar_pure_ability_rank", "nar_top5_rank")
+                odds = _format_odds(_pick(row, "actual_odds", "単勝オッズ", "オッズ", "単勝"))
+                title = _join_nonempty([mark, str(no), str(name)], sep="  ")
                 lines = [
                     _join_nonempty(
                         [
-                            f"純能力{ability}" if ability else "",
+                            f"純能力{ability}（{_rank_display(rank)}）" if ability else "",
+                            f"単勝{odds}" if odds else "",
                             f"相手信頼度{_clean(_pick(row, 'partner_trust_level')) or '—'}",
-                            f"距離補正{_signed_bonus(_pick(row, 'nar_distance_bonus'))}",
-                            f"コース補正{_signed_bonus(_pick(row, 'nar_course_bonus'))}",
-                            f"展開補正{_signed_bonus(_pick(row, 'nar_pace_bonus'))}",
-                            f"近走補正{_signed_bonus(_pick(row, 'nar_recent_bonus'))}",
                         ],
                         sep=" / ",
                     ),
                     _clean(_pick(row, "nar_top5_role")),
-                    f"根拠：{_clean(_pick(row, 'nar_top5_reason'))}" if _clean(_pick(row, "nar_top5_reason")) else "",
                 ]
                 self.horse_card(title, [line for line in lines if _clean(line)], is_watch=False)
             warnings = [row for row in rows if _truthy_display(_pick(row, "nar_warning_candidate")) and (_to_float(_pick(row, "nar_top5_rank")) or 999) > 5]
             if warnings:
-                self.section("注意馬")
-                for row in warnings:
+                self.section("✓注目馬")
+                for row in warnings[:3]:
                     no = _pick(row, "number", "馬番", "馬")
                     name = _pick(row, "name", "馬名")
-                    reason = _clean(_pick(row, "nar_warning_reason")) or "Top5外の注意条件に該当"
-                    self.horse_card(_join_nonempty([str(no), str(name), "注意馬"], sep=" "), [reason], is_watch=True)
+                    ability = _format_number(_pick(row, "nar_pure_ability_score"))
+                    rank = _pick(row, "nar_pure_ability_rank")
+                    attention = _rank_display(_pick(row, "baseline_ver3_current_evaluation_rank", "ver3_current_evaluation_rank", "current_evaluation_rank"))
+                    odds = _format_odds(_pick(row, "actual_odds", "単勝オッズ", "オッズ", "単勝"))
+                    reason = _nar_warning_reason_display(_pick(row, "nar_warning_reason")) or "能力順位以上に警戒"
+                    lines = [
+                        _join_nonempty(
+                            [
+                                f"純能力{ability}（{_rank_display(rank)}）" if ability else "",
+                                f"総合注目度{attention}",
+                                f"単勝{odds}" if odds else "",
+                            ],
+                            sep=" / ",
+                        ),
+                        f"注目理由：{reason}",
+                    ]
+                    self.horse_card(_join_nonempty(["✓", str(no), str(name)], sep=" "), [line for line in lines if _clean(line)], is_watch=True)
             return
         self.section("レース全体表")
         rows = _records(result.overall_table)
@@ -432,27 +445,17 @@ class _Canvas:
                 no = _pick(row, "number", "馬番", "馬")
                 mark = _display_mark(row, result.race_mode)
                 name = _pick(row, "name", "馬名")
-                score = _format_number(_pick(row, "nar_top5_score"))
                 ability_value = _format_number(_pick(row, "nar_pure_ability_score"))
                 jockey = _pick(row, "jockey_info", "jockey_display", "騎手") or "―"
                 style = _display_running_style(row) or "データなし"
+                rank = _pick(row, "nar_pure_ability_rank", "nar_top5_rank")
                 title = _join_nonempty([str(mark), str(no), str(name)], sep=" ")
                 lines = [
-                    f"NAR Top5スコア：{score}" if score else "",
-                    f"純能力：{ability_value}" if ability_value else "",
+                    f"純能力：{ability_value}（{_rank_display(rank)}）" if ability_value else "",
                     f"相手信頼度：{_clean(_pick(row, 'partner_trust_level')) or '—'}",
-                    _join_nonempty(
-                        [
-                            f"距離補正{_signed_bonus(_pick(row, 'nar_distance_bonus'))}",
-                            f"コース補正{_signed_bonus(_pick(row, 'nar_course_bonus'))}",
-                            f"展開補正{_signed_bonus(_pick(row, 'nar_pace_bonus'))}",
-                            f"近走補正{_signed_bonus(_pick(row, 'nar_recent_bonus'))}",
-                        ],
-                        sep="　",
-                    ),
                     f"騎手：{jockey}",
                     f"脚質：{style}",
-                    f"理由：{_clean(_pick(row, 'nar_top5_reason'))}" if _clean(_pick(row, "nar_top5_reason")) else "",
+                    f"注目理由：{_nar_warning_reason_display(_pick(row, 'nar_warning_reason'))}" if mark == "✓" else "",
                 ]
                 self.horse_card(title, [line for line in lines if _clean(line)], is_watch=_truthy_display(_pick(row, "nar_warning_candidate")))
             return
@@ -997,7 +1000,7 @@ def _nar_comparison_rows(result: PredictionResult) -> list[dict[str, Any]]:
         race_info=getattr(result, "race_info", {}) or {},
     )
     rows = [row for row in comparison.get("rows", []) if isinstance(row, dict)]
-    return sorted(rows, key=_nar_row_sort_key)
+    return _apply_nar_warning_display_limit(sorted(rows, key=_nar_row_sort_key))
 
 
 def _signed_bonus(value: Any) -> str:
@@ -1029,7 +1032,68 @@ def _nar_top5_mark_from_rank(rank: Any) -> str:
     value = _to_float(rank)
     if value is None:
         return ""
-    return {1: "◎", 2: "○", 3: "▲", 4: "△1", 5: "△2"}.get(int(value), "")
+    return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(int(value), "")
+
+
+def _nar_display_mark(row: dict[str, Any]) -> str:
+    mark = _nar_top5_mark_from_rank(_pick(row, "nar_top5_rank"))
+    if mark:
+        return mark
+    if "nar_warning_display" in row:
+        return "✓" if _truthy_display(_pick(row, "nar_warning_display")) else ""
+    if _truthy_display(_pick(row, "nar_warning_candidate")):
+        return "✓"
+    return ""
+
+
+def _apply_nar_warning_display_limit(rows: list[dict[str, Any]], limit: int = 3) -> list[dict[str, Any]]:
+    copied = [dict(row) for row in rows]
+    warnings = [
+        row
+        for row in copied
+        if _truthy_display(_pick(row, "nar_warning_candidate"))
+        and (_to_float(_pick(row, "nar_top5_rank")) or 999) > 5
+    ][:limit]
+    display_numbers = {_clean(_pick(row, "number", "馬番", "馬", "horse_no", "horse_number")) for row in warnings}
+    for row in copied:
+        number = _clean(_pick(row, "number", "馬番", "馬", "horse_no", "horse_number"))
+        row["nar_warning_display"] = bool(number and number in display_numbers)
+    return copied
+
+
+def _rank_display(value: Any) -> str:
+    number = _to_float(value)
+    if number is None:
+        text = _clean(value)
+        return text if text else "—"
+    return f"{int(number)}位"
+
+
+def _nar_gap_label(value: Any) -> str:
+    number = _to_float(value)
+    if number is None:
+        return "判定保留"
+    if number <= 1.0:
+        return "同格圏"
+    if number <= 3.0:
+        return "接戦"
+    return "通常"
+
+
+def _nar_warning_reason_display(value: Any) -> str:
+    text = _clean(value)
+    if not text:
+        return ""
+    replacements = {
+        "Ver3今回評価Top5": "総合注目度上位",
+        "能力外警戒": "能力順位以上に警戒",
+        "VER3_ONLY": "総合注目度上位",
+        "PURE_ONLY": "純能力Top5のみ",
+        "IN/OUT": "",
+    }
+    for before, after in replacements.items():
+        text = text.replace(before, after)
+    return text.strip(" ：/")
 
 
 def _display_mark(row: dict[str, Any], race_mode: str = "") -> str:
@@ -1041,7 +1105,7 @@ def _display_mark(row: dict[str, Any], race_mode: str = "") -> str:
         if fallback:
             return fallback
     if _clean(race_mode).lower() == "nar":
-        return _nar_top5_mark_from_rank(_pick(row, "nar_top5_rank"))
+        return _nar_display_mark(row)
     if "mark_v4" in row:
         return _clean(row.get("mark_v4"))
     if "表示印" in row:
