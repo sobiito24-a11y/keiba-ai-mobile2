@@ -1,4 +1,7 @@
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from tools.netkeiba_html_collector import extract_nar_race_list_venue_urls
 from tools.netkeiba_html_collector import collect_race_targets_from_list_urls
@@ -7,6 +10,8 @@ from tools.netkeiba_html_collector import format_race_target_for_log
 from tools.netkeiba_html_collector import get_race_link_items
 from tools.netkeiba_html_collector import is_login_like
 from tools.netkeiba_html_collector import list_urls_from_dates
+from tools.netkeiba_html_collector import main as collector_main
+from tools.netkeiba_html_collector import NO_RACES_EXIT_CODE
 from tools.netkeiba_html_collector import parse_args
 from tools.netkeiba_html_collector import selected_specs
 
@@ -178,6 +183,98 @@ class NetkeibaHtmlCollectorTest(unittest.TestCase):
         self.assertEqual(1, len(calls))
         self.assertEqual('a[href*="race_id="]', calls[0][0])
         self.assertEqual({"mode": "nar", "visibleOnly": False}, calls[0][2])
+
+    def test_main_returns_dedicated_no_races_exit_code_for_empty_race_list(self):
+        class EmptyRaceListPage:
+            url = "https://race.netkeiba.com/top/race_list.html?kaisai_date=20260909"
+
+            def set_default_timeout(self, _timeout):
+                return None
+
+            def goto(self, url, **_kwargs):
+                self.url = url
+
+            def wait_for_load_state(self, *_args, **_kwargs):
+                return None
+
+            def wait_for_timeout(self, *_args, **_kwargs):
+                return None
+
+            def content(self):
+                return "<html><body>レース一覧</body></html>"
+
+            def eval_on_selector_all(self, selector, expression, arg=None):
+                return []
+
+        class FakeContext:
+            def __init__(self):
+                self.pages = [EmptyRaceListPage()]
+
+            def new_page(self):
+                return EmptyRaceListPage()
+
+            def close(self):
+                return None
+
+        class FakeChromium:
+            def launch_persistent_context(self, *_args, **_kwargs):
+                return FakeContext()
+
+        class FakePlaywright:
+            chromium = FakeChromium()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_exc):
+                return False
+
+        def fake_sync_playwright():
+            return FakePlaywright()
+
+        with tempfile.TemporaryDirectory() as temp:
+            with patch("tools.netkeiba_html_collector.import_playwright", return_value=(fake_sync_playwright, TimeoutError)):
+                exit_code = collector_main(
+                    [
+                        "--mode",
+                        "jra",
+                        "--date",
+                        "20260909",
+                        "--out",
+                        str(Path(temp) / "html"),
+                        "--profile-dir",
+                        str(Path(temp) / "profile"),
+                        "--no-pause-on-login",
+                    ]
+                )
+
+        self.assertEqual(NO_RACES_EXIT_CODE, exit_code)
+
+    def test_race_list_read_error_is_not_treated_as_no_races(self):
+        current = "https://race.netkeiba.com/top/race_list.html?kaisai_date=20260909"
+
+        class BrokenRaceListPage:
+            url = current
+
+            def goto(self, url, **_kwargs):
+                self.url = url
+
+            def wait_for_load_state(self, *_args, **_kwargs):
+                return None
+
+            def wait_for_timeout(self, *_args, **_kwargs):
+                return None
+
+            def content(self):
+                return "<html><body>レース一覧</body></html>"
+
+            def eval_on_selector_all(self, selector, expression, arg=None):
+                raise RuntimeError("DOM read failed")
+
+        args = parse_args(["--mode", "jra", "--date", "20260909", "--no-pause-on-login"])
+
+        with self.assertRaises(RuntimeError):
+            collect_race_targets_from_list_urls(BrokenRaceListPage(), [current], args, TimeoutError)
 
     def test_nar_date_collection_reads_all_detected_venue_pages(self):
         current = "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908"

@@ -15,6 +15,7 @@ RACE_ID_RE = re.compile(r"(?:race_id=|/race/)?(\d{12})")
 DATE_RE = re.compile(r"^\d{4}-?\d{2}-?\d{2}$")
 COLLECTOR_VERSION = "Collector version 3"
 DEBUG_LINK_LIMIT = 12
+NO_RACES_EXIT_CODE = 3
 
 
 @dataclass(frozen=True)
@@ -191,12 +192,17 @@ def main(argv: list[str] | None = None) -> int:
 
         try:
             if list_urls:
-                race_targets.extend(collect_race_targets_from_list_urls(page, list_urls, args, timeout_error))
-                race_targets = unique_race_targets(race_targets)
+                try:
+                    race_targets.extend(collect_race_targets_from_list_urls(page, list_urls, args, timeout_error))
+                    race_targets = unique_race_targets(race_targets)
+                except Exception as exc:
+                    print(f"Race-list collection failed: {exc}", file=sys.stderr)
+                    return 1
 
             if not race_targets:
+                print(f"COLLECTOR_RESULT: NO_RACES mode={args.mode} date={','.join(args.date or [])}", file=sys.stderr)
                 print("Could not find any race links.", file=sys.stderr)
-                return 2
+                return NO_RACES_EXIT_CODE
 
             print_collection_plan(args.mode, args.date, race_targets, specs)
             total = len(race_targets) * len(specs)
@@ -324,7 +330,9 @@ def collect_race_targets_from_single_list_url(page, url: str, args: argparse.Nam
             print(f"    {format_race_target_for_log(target)}")
         targets.extend(found)
     except Exception as exc:
-        print(f"  failed to read race list: {exc}", file=sys.stderr)
+        message = f"failed to read race list {url}: {exc}"
+        print(f"  {message}", file=sys.stderr)
+        raise RuntimeError(message) from exc
     return unique_race_targets(targets)
 
 
@@ -352,8 +360,9 @@ def discover_nar_race_list_urls(page, url: str, args: argparse.Namespace, timeou
             print(f"    venue page: {venue_url}")
         return venue_urls or [url]
     except Exception as exc:
-        print(f"  failed to discover NAR venue pages: {exc}", file=sys.stderr)
-        return [url]
+        message = f"failed to discover NAR venue pages from {url}: {exc}"
+        print(f"  {message}", file=sys.stderr)
+        raise RuntimeError(message) from exc
 
 
 def get_nar_race_list_venue_url_items(page) -> list[dict[str, str]]:
