@@ -141,7 +141,7 @@ python -m playwright install chromium
 
 ### 開催日だけで中央全レースの5種HTMLを保存
 
-中央競馬は開催日だけ指定できます。指定日のレース一覧ページへアクセスし、画面に表示されているレースリンクだけを表示順に巡回してHTML収集を開始します。
+中央競馬は開催日だけ指定できます。指定日のレース一覧ページへアクセスし、表示順にHTML収集を開始します。
 
 例：`2026-07-26` を指定すると、その日に開催されている福島・新潟・札幌などの全レースを対象にします。
 
@@ -158,7 +158,16 @@ python tools/netkeiba_html_collector.py ^
 - 調教
 - タイム指数
 - 脚質分析
-- レース結果
+- 騎手コース成績
+
+当日の中央を保存する場合は `--today` も使えます。
+
+```bash
+python tools/netkeiba_html_collector.py ^
+  --mode jra ^
+  --today ^
+  --out collected_html
+```
 
 ### race_id一覧から中央5種HTMLを保存
 
@@ -183,18 +192,29 @@ python tools/netkeiba_html_collector.py ^
 ```bash
 python tools/netkeiba_html_collector.py ^
   --mode nar ^
-  --race-ids-file race_ids.txt ^
+  --date 2026-09-08 ^
   --out collected_html
 ```
+
+地方も開催日だけで当日の全開催場・全レースを検出します。会場タブや非表示のrace_idリンクを含めて確認するため、現在表示中の1会場だけに限定されません。
 
 地方の既定保存対象は以下4種です。
 
 - 競馬新聞
 - タイム指数
 - 脚質分析
-- レース結果
+- 騎手コース成績
 
-地方で出馬表も保存したい場合は、`--kinds` で明示します。
+地方の当日分を保存する場合は以下です。
+
+```bash
+python tools/netkeiba_html_collector.py ^
+  --mode nar ^
+  --today ^
+  --out collected_html
+```
+
+地方で結果・出馬表も保存したい特殊用途では、`--kinds` で明示します。通常収集には `result` / `shutuba` は含めません。
 
 ```bash
 python tools/netkeiba_html_collector.py ^

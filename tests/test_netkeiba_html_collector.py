@@ -1,8 +1,12 @@
 import unittest
 
+from tools.netkeiba_html_collector import extract_nar_race_list_venue_urls
+from tools.netkeiba_html_collector import collect_race_targets_from_list_urls
 from tools.netkeiba_html_collector import extract_race_targets_from_links
 from tools.netkeiba_html_collector import format_race_target_for_log
 from tools.netkeiba_html_collector import is_login_like
+from tools.netkeiba_html_collector import list_urls_from_dates
+from tools.netkeiba_html_collector import parse_args
 from tools.netkeiba_html_collector import selected_specs
 
 
@@ -111,6 +115,112 @@ class NetkeibaHtmlCollectorTest(unittest.TestCase):
         """
 
         self.assertTrue(is_login_like("https://regist.netkeiba.com/account/?pid=login", html))
+
+    def test_today_and_date_are_mutually_exclusive(self):
+        with self.assertRaises(SystemExit):
+            parse_args(["--mode", "nar", "--today", "--date", "20260908"])
+
+    def test_nar_date_builds_race_list_url(self):
+        self.assertEqual(
+            list_urls_from_dates("nar", ["2026-09-08"]),
+            ["https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908"],
+        )
+
+    def test_nar_date_venue_links_are_all_discovered(self):
+        current = "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908"
+        items = [
+            {"href": "/top/race_list.html?kaisai_date=20260908&jyo_cd=45", "text": "川崎"},
+            {"href": "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908&jyo_cd=48", "text": "名古屋"},
+            {"href": "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908&jyo_cd=36", "text": "水沢"},
+            {"href": "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260907&jyo_cd=45", "text": "前日"},
+            {"href": "https://race.netkeiba.com/top/race_list.html?kaisai_date=20260908", "text": "JRA"},
+        ]
+
+        urls = extract_nar_race_list_venue_urls(items, current, "20260908")
+
+        self.assertEqual(
+            urls,
+            [
+                current,
+                "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908&jyo_cd=45",
+                "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908&jyo_cd=48",
+                "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908&jyo_cd=36",
+            ],
+        )
+
+    def test_nar_date_venue_link_without_date_inherits_current_date(self):
+        current = "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908"
+        items = [
+            {"href": "/top/race_list.html?jyo_cd=45", "text": "川崎"},
+        ]
+
+        urls = extract_nar_race_list_venue_urls(items, current, "20260908")
+
+        self.assertEqual(
+            urls,
+            [
+                current,
+                "https://nar.netkeiba.com/top/race_list.html?jyo_cd=45&kaisai_date=20260908",
+            ],
+        )
+
+    def test_nar_date_collection_reads_all_detected_venue_pages(self):
+        current = "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908"
+        venue_urls = [
+            "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908&jyo_cd=45",
+            "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908&jyo_cd=48",
+            "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908&jyo_cd=36",
+        ]
+
+        class FakePage:
+            url = current
+
+            def goto(self, url, **_kwargs):
+                self.url = url
+
+            def wait_for_load_state(self, *_args, **_kwargs):
+                return None
+
+            def wait_for_timeout(self, *_args, **_kwargs):
+                return None
+
+            def content(self):
+                return "<html><body>地方競馬レース一覧</body></html>"
+
+            def eval_on_selector_all(self, selector, *_args):
+                if selector == "a[href]":
+                    return [{"href": url, "text": f"venue {index}"} for index, url in enumerate(venue_urls, start=1)]
+                race_links = {
+                    venue_urls[0]: [
+                        {"href": "https://nar.netkeiba.com/race/newspaper.html?race_id=202645090801", "text": "川崎1R", "race_id": "202645090801", "venue": "川崎", "race_number": "1R"},
+                        {"href": "https://nar.netkeiba.com/race/newspaper.html?race_id=202645090802", "text": "川崎2R", "race_id": "202645090802", "venue": "川崎", "race_number": "2R"},
+                    ],
+                    venue_urls[1]: [
+                        {"href": "https://nar.netkeiba.com/race/newspaper.html?race_id=202648090801", "text": "名古屋1R", "race_id": "202648090801", "venue": "名古屋", "race_number": "1R"},
+                        {"href": "https://nar.netkeiba.com/race/newspaper.html?race_id=202648090802", "text": "名古屋2R", "race_id": "202648090802", "venue": "名古屋", "race_number": "2R"},
+                    ],
+                    venue_urls[2]: [
+                        {"href": "https://nar.netkeiba.com/race/newspaper.html?race_id=202636090801", "text": "水沢1R", "race_id": "202636090801", "venue": "水沢", "race_number": "1R"},
+                        {"href": "https://nar.netkeiba.com/race/newspaper.html?race_id=202636090802", "text": "水沢2R", "race_id": "202636090802", "venue": "水沢", "race_number": "2R"},
+                    ],
+                }
+                return race_links.get(self.url, [])
+
+        args = parse_args(["--mode", "nar", "--date", "20260908", "--no-pause-on-login"])
+
+        targets = collect_race_targets_from_list_urls(FakePage(), [current], args, TimeoutError)
+
+        self.assertEqual(
+            [target.race_id for target in targets],
+            [
+                "202645090801",
+                "202645090802",
+                "202648090801",
+                "202648090802",
+                "202636090801",
+                "202636090802",
+            ],
+        )
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 
 RACE_ID_RE = re.compile(r"(?:race_id=|/race/)?(\d{12})")
@@ -198,6 +198,7 @@ def main(argv: list[str] | None = None) -> int:
                 print("Could not find any race links.", file=sys.stderr)
                 return 2
 
+            print_collection_plan(args.mode, args.date, race_targets, specs)
             total = len(race_targets) * len(specs)
             print(f"target: {len(race_targets)} races x {len(specs)} kinds = {total} pages")
 
@@ -224,6 +225,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--race-id", action="append", default=[], help="race_id or race URL. Can be repeated.")
     parser.add_argument("--race-ids-file", help="Text/CSV file containing race_id values or URLs.")
     parser.add_argument("--date", action="append", default=[], help="Race date. Example: 2026-07-26 or 20260726. Can be repeated.")
+    parser.add_argument("--today", action="store_true", help="Use today's date in the local environment.")
     parser.add_argument("--list-url", action="append", default=[], help="Race-list page URL. Race links on the page are followed in display order. Can be repeated.")
     parser.add_argument(
         "--kinds",
@@ -240,7 +242,12 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--viewport-width", type=int, default=1365)
     parser.add_argument("--viewport-height", type=int, default=900)
     parser.add_argument("--no-pause-on-login", action="store_true", help="Do not pause when a login-like page is detected.")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.today and args.date:
+        parser.error("--today and --date cannot be used together.")
+    if args.today:
+        args.date = [today_kaisai_date()]
+    return args
 
 
 def import_playwright():
@@ -289,32 +296,139 @@ def normalize_kaisai_date(value: str) -> str:
 def collect_race_targets_from_list_urls(page, urls: Iterable[str], args: argparse.Namespace, timeout_error) -> list[RaceTarget]:
     targets: list[RaceTarget] = []
     for url in urls:
-        print(f"open race list: {url}")
-        try:
-            page.goto(url, wait_until="domcontentloaded", timeout=args.timeout_ms)
-            wait_network_idle(page, timeout_error)
-            page.wait_for_timeout(int(args.wait_after_load_sec * 1000))
-            content = page.content()
-            if is_login_like(page.url, content) and should_pause_for_login(args):
-                args.login_pause_used = True
-                wait_for_manual_login(page, url, args, timeout_error)
-            links = get_visible_race_link_items(page, args.mode)
-            print_visible_link_debug(links)
-            found = extract_race_targets_from_links(args.mode, links)
-            print(f"  race links: {len(found)}")
-            for target in found:
-                print(f"    {format_race_target_for_log(target)}")
-            targets.extend(found)
-        except Exception as exc:
-            print(f"  failed to read race list: {exc}", file=sys.stderr)
+        if args.mode == "nar":
+            targets.extend(collect_nar_race_targets_from_list_url(page, url, args, timeout_error))
+            continue
+        targets.extend(collect_race_targets_from_single_list_url(page, url, args, timeout_error))
     return unique_race_targets(targets)
 
 
-def get_visible_race_link_items(page, mode: str) -> list[dict[str, str]]:
+def collect_nar_race_targets_from_list_url(page, url: str, args: argparse.Namespace, timeout_error) -> list[RaceTarget]:
+    venue_urls = discover_nar_race_list_urls(page, url, args, timeout_error)
+    targets: list[RaceTarget] = []
+    for venue_url in venue_urls:
+        targets.extend(collect_race_targets_from_single_list_url(page, venue_url, args, timeout_error))
+    return unique_race_targets(targets)
+
+
+def collect_race_targets_from_single_list_url(page, url: str, args: argparse.Namespace, timeout_error) -> list[RaceTarget]:
+    targets: list[RaceTarget] = []
+    print(f"open race list: {url}")
+    try:
+        open_race_list_page(page, url, args, timeout_error)
+        links = get_race_link_items(page, args.mode, visible_only=args.mode != "nar")
+        print_visible_link_debug(links)
+        found = extract_race_targets_from_links(args.mode, links)
+        print(f"  race links: {len(found)}")
+        for target in found:
+            print(f"    {format_race_target_for_log(target)}")
+        targets.extend(found)
+    except Exception as exc:
+        print(f"  failed to read race list: {exc}", file=sys.stderr)
+    return unique_race_targets(targets)
+
+
+def open_race_list_page(page, url: str, args: argparse.Namespace, timeout_error) -> str:
+    page.goto(url, wait_until="domcontentloaded", timeout=args.timeout_ms)
+    wait_network_idle(page, timeout_error)
+    page.wait_for_timeout(int(args.wait_after_load_sec * 1000))
+    content = page.content()
+    if is_login_like(page.url, content) and should_pause_for_login(args):
+        args.login_pause_used = True
+        wait_for_manual_login(page, url, args, timeout_error)
+        content = page.content()
+    return content
+
+
+def discover_nar_race_list_urls(page, url: str, args: argparse.Namespace, timeout_error) -> list[str]:
+    print(f"open NAR race list index: {url}")
+    try:
+        open_race_list_page(page, url, args, timeout_error)
+        kaisai_date = kaisai_date_from_url(url) or kaisai_date_from_url(getattr(page, "url", ""))
+        venue_items = get_nar_race_list_venue_url_items(page)
+        venue_urls = extract_nar_race_list_venue_urls(venue_items, getattr(page, "url", url), kaisai_date)
+        print(f"  NAR venue race-list pages: {len(venue_urls)}")
+        for venue_url in venue_urls:
+            print(f"    venue page: {venue_url}")
+        return venue_urls or [url]
+    except Exception as exc:
+        print(f"  failed to discover NAR venue pages: {exc}", file=sys.stderr)
+        return [url]
+
+
+def get_nar_race_list_venue_url_items(page) -> list[dict[str, str]]:
+    return page.eval_on_selector_all(
+        'a[href]',
+        """
+        (anchors) => {
+            const cleanText = (value) => (value || "").replace(/\\s+/g, " ").trim();
+            return anchors.flatMap(anchor => {
+                const href = anchor.href || anchor.getAttribute("href") || "";
+                if (!href) return [];
+                return [{
+                    href,
+                    text: cleanText(anchor.innerText || anchor.textContent || "")
+                }];
+            });
+        }
+        """,
+    )
+
+
+def extract_nar_race_list_venue_urls(
+    items: Iterable[dict[str, str]],
+    current_url: str,
+    kaisai_date: str | None,
+) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: str) -> None:
+        absolute = normalize_nar_race_list_url(value, current_url, kaisai_date)
+        if not absolute or absolute in seen:
+            return
+        seen.add(absolute)
+        result.append(absolute)
+
+    add(current_url)
+    for item in items or []:
+        add(str(item.get("href") or ""))
+    return result
+
+
+def normalize_nar_race_list_url(value: str, base_url: str, kaisai_date: str | None) -> str:
+    absolute = urljoin(base_url, str(value or "").strip())
+    try:
+        parsed = urlparse(absolute)
+    except ValueError:
+        return ""
+    if parsed.netloc.lower() != "nar.netkeiba.com":
+        return ""
+    if not parsed.path.endswith("/top/race_list.html"):
+        return ""
+    query = parse_qs(parsed.query)
+    found_date = (query.get("kaisai_date") or [""])[0]
+    if kaisai_date and found_date and found_date != kaisai_date:
+        return ""
+    if kaisai_date and not found_date:
+        query["kaisai_date"] = [kaisai_date]
+        parsed = parsed._replace(query=urlencode(query, doseq=True))
+    return parsed._replace(fragment="").geturl()
+
+
+def kaisai_date_from_url(value: str) -> str:
+    try:
+        query = parse_qs(urlparse(str(value or "")).query)
+    except ValueError:
+        return ""
+    return (query.get("kaisai_date") or [""])[0]
+
+
+def get_race_link_items(page, mode: str, *, visible_only: bool) -> list[dict[str, str]]:
     return page.eval_on_selector_all(
         'a[href*="race_id="]',
         """
-        (anchors, mode) => {
+        (anchors, mode, visibleOnly) => {
             const hrefRe = /(?:[?&]|&amp;)race_id=(\\d{12})(?:[&#]|&amp;|$)/;
             const domainRe = mode === "jra"
                 ? /^https?:\\/\\/race\\.netkeiba\\.com\\//i
@@ -385,9 +499,9 @@ def get_visible_race_link_items(page, mode: str) -> list[dict[str, str]]:
                 ));
                 let venue = "";
                 for (const candidate of candidates) {
-                    if (!isVisible(candidate)) continue;
                     const relation = candidate.compareDocumentPosition(anchor);
                     if (!(relation & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+                    if (visibleOnly && !isVisible(candidate)) continue;
                     const match = cleanText(candidate.innerText || candidate.textContent || "").match(venueRe);
                     if (match) venue = match[1];
                 }
@@ -395,7 +509,7 @@ def get_visible_race_link_items(page, mode: str) -> list[dict[str, str]]:
             };
 
             return anchors.flatMap(anchor => {
-                if (!isVisible(anchor)) return [];
+                if (visibleOnly && !isVisible(anchor)) return [];
 
                 const href = anchor.href || anchor.getAttribute("href") || "";
                 if (!domainRe.test(href)) return [];
@@ -421,7 +535,41 @@ def get_visible_race_link_items(page, mode: str) -> list[dict[str, str]]:
         }
         """,
         mode,
+        visible_only,
     )
+
+
+def get_visible_race_link_items(page, mode: str) -> list[dict[str, str]]:
+    return get_race_link_items(page, mode, visible_only=True)
+
+
+def print_collection_plan(
+    mode: str,
+    date_values: Iterable[str],
+    race_targets: Iterable[RaceTarget],
+    specs: Iterable[PageSpec],
+) -> None:
+    targets = list(race_targets)
+    spec_list = list(specs)
+    normalized_dates = [normalize_kaisai_date(value) for value in date_values or []]
+    if normalized_dates:
+        print(f"Date: {', '.join(normalized_dates)}")
+    venue_counts: dict[str, int] = {}
+    for target in targets:
+        venue = target.venue or "venue unknown"
+        venue_counts[venue] = venue_counts.get(venue, 0) + 1
+    print("Detected venues:")
+    for venue in venue_counts:
+        print(venue)
+    for venue, count in venue_counts.items():
+        print(f"{venue}: {count} races")
+    print(f"Total races: {len(targets)}")
+    print(f"Pages per race: {len(spec_list)}")
+    print(f"Expected pages: {len(targets) * len(spec_list)}")
+
+
+def today_kaisai_date() -> str:
+    return datetime.now().strftime("%Y%m%d")
 
 
 def extract_race_targets_from_links(mode: str, links: Iterable[dict[str, str]]) -> list[RaceTarget]:
@@ -514,8 +662,13 @@ def collect_one_page(page, race_target: RaceTarget, spec: PageSpec, args: argpar
 
     prefix = f"[{done}/{total}] {race_id} {spec.label}"
     if target.exists() and not args.overwrite:
-        print(f"{prefix}: skip")
-        return {**base_row, "status": "skipped", "message": "already exists"}
+        try:
+            existing = target.read_text(encoding="utf-8", errors="replace")
+            message = validate_saved_html(race_id, existing, url)
+            print(f"{prefix}: skip" + (f" / {message}" if message else ""))
+            return {**base_row, "status": "skipped", "message": "already exists" + (f" / {message}" if message else "")}
+        except Exception as exc:
+            print(f"{prefix}: existing file is invalid, refetching: {exc}", file=sys.stderr)
 
     print(f"{prefix}: open")
     content = ""
