@@ -4,6 +4,7 @@ from tools.netkeiba_html_collector import extract_nar_race_list_venue_urls
 from tools.netkeiba_html_collector import collect_race_targets_from_list_urls
 from tools.netkeiba_html_collector import extract_race_targets_from_links
 from tools.netkeiba_html_collector import format_race_target_for_log
+from tools.netkeiba_html_collector import get_race_link_items
 from tools.netkeiba_html_collector import is_login_like
 from tools.netkeiba_html_collector import list_urls_from_dates
 from tools.netkeiba_html_collector import parse_args
@@ -164,6 +165,20 @@ class NetkeibaHtmlCollectorTest(unittest.TestCase):
             ],
         )
 
+    def test_get_race_link_items_uses_single_playwright_argument_object(self):
+        calls = []
+
+        class StrictPage:
+            def eval_on_selector_all(self, selector, expression, arg=None):
+                calls.append((selector, expression, arg))
+                return []
+
+        get_race_link_items(StrictPage(), "nar", visible_only=False)
+
+        self.assertEqual(1, len(calls))
+        self.assertEqual('a[href*="race_id="]', calls[0][0])
+        self.assertEqual({"mode": "nar", "visibleOnly": False}, calls[0][2])
+
     def test_nar_date_collection_reads_all_detected_venue_pages(self):
         current = "https://nar.netkeiba.com/top/race_list.html?kaisai_date=20260908"
         venue_urls = [
@@ -187,9 +202,13 @@ class NetkeibaHtmlCollectorTest(unittest.TestCase):
             def content(self):
                 return "<html><body>地方競馬レース一覧</body></html>"
 
-            def eval_on_selector_all(self, selector, *_args):
+            def eval_on_selector_all(self, selector, expression, arg=None):
                 if selector == "a[href]":
+                    assert arg is None
                     return [{"href": url, "text": f"venue {index}"} for index, url in enumerate(venue_urls, start=1)]
+                assert isinstance(arg, dict)
+                assert arg["mode"] == "nar"
+                assert arg["visibleOnly"] is False
                 race_links = {
                     venue_urls[0]: [
                         {"href": "https://nar.netkeiba.com/race/newspaper.html?race_id=202645090801", "text": "川崎1R", "race_id": "202645090801", "venue": "川崎", "race_number": "1R"},

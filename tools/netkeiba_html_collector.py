@@ -428,7 +428,9 @@ def get_race_link_items(page, mode: str, *, visible_only: bool) -> list[dict[str
     return page.eval_on_selector_all(
         'a[href*="race_id="]',
         """
-        (anchors, mode, visibleOnly) => {
+        (anchors, args) => {
+            const mode = args.mode;
+            const visibleOnly = args.visibleOnly;
             const hrefRe = /(?:[?&]|&amp;)race_id=(\\d{12})(?:[&#]|&amp;|$)/;
             const domainRe = mode === "jra"
                 ? /^https?:\\/\\/race\\.netkeiba\\.com\\//i
@@ -534,8 +536,7 @@ def get_race_link_items(page, mode: str, *, visible_only: bool) -> list[dict[str
             });
         }
         """,
-        mode,
-        visible_only,
+        {"mode": mode, "visibleOnly": visible_only},
     )
 
 
