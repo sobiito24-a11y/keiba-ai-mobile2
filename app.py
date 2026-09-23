@@ -31,6 +31,7 @@ from core.condition_fit import condition_fit_badge_text, resolved_condition_fit
 from core.course_materials import four_corner_rates_display
 from core.jra_display_mark import jra_display_mark_from_row
 from core.jra_purchase_navigation_ui import jra_purchase_navigation_html
+from core.prediction_table_ui import prediction_table_records, prediction_table_html, horse_key
 from core.jra_purchase_navigator import build_jra_purchase_navigation
 from core.investment_decision import (
     InvestmentDecision,
@@ -1740,33 +1741,21 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
 
 def render_colab_style_result(result: PredictionResult) -> Any:
     render_race_header(result)
-    race_mode = result_race_mode(result)
-    is_nar = race_mode == "nar"
-    if race_mode == "jra":
+    if result_race_mode(result) == "jra":
         render_jra_top5_result_summary(result)
     else:
         render_nar_top5_result_summary(result)
-    render_race_flow(result)
-    render_horse_summary_cards(result)
-    if is_nar:
-        investment_decision = None
-    else:
-        render_backtest_reference(result)
-        investment_decision = render_investment_decision(result)
-    render_overall_table(result)
+    render_prediction_detail_table(result)
     with st.expander("研究・監査情報", expanded=False):
-        if is_nar:
+        render_overall_table(result)
+        render_race_flow(result)
+        render_horse_summary_cards(result)
+        if result_race_mode(result) == "nar":
             render_backtest_reference(result)
-            render_investment_decision(result)
-        render_raw_text_section(
-            "会場別試験評価",
-            extract_raw_section(result, ["会場別試験評価", "JRA会場別試験評価"]),
-        )
-        render_raw_text_section(
-            "展開予想",
-            extract_raw_section(result, ["展開予想"]),
-        )
-    return investment_decision
+        render_raw_text_section("会場別試験評価", extract_raw_section(result, ["会場別試験評価", "JRA会場別試験評価"]))
+        render_raw_text_section("展開予想", extract_raw_section(result, ["展開予想"]))
+    # Preserve the export decision without rendering its obsolete purchase block.
+    return None if result_race_mode(result) == "nar" else build_investment_decision(result_prediction_table(result), result.race_mode, race_info=result.race_info, prediction_logic_version=getattr(result, "logic_version", "v3"))
 
 
 def render_market_compare_result(result: PredictionResult) -> None:
@@ -2459,16 +2448,15 @@ def jra_comparison_from_result(result: PredictionResult, *, sort_mode: str = "cu
 def render_jra_top5_result_summary(result: PredictionResult) -> None:
     comparison = jra_comparison_from_result(result, sort_mode="current")
     navigation = build_jra_purchase_navigation(
-        jra_enriched_display_rows(result),
-        race_mode=result.race_mode,
+        jra_enriched_display_rows(result), race_mode=result.race_mode,
         race_info=getattr(result, "race_info", {}) or {},
         saved_rows=result.overall_table.to_dict("records") if result.overall_table is not None else [],
     )
-    navigation_html = jra_purchase_navigation_html(navigation)
-    if navigation_html:
-        st.markdown(navigation_html, unsafe_allow_html=True)
-    if comparison.get("rows"):
-        st.markdown(jra_top5_conclusion_html(comparison), unsafe_allow_html=True)
+    markup = jra_purchase_navigation_html(navigation).replace("JRA 最終購入判断", "今回の結論")
+    markup = markup.replace(str(navigation.get("purchase_grade")) + " " + str(navigation.get("purchase_label")), str(navigation.get("purchase_grade")) + "｜" + str(navigation.get("purchase_label")))
+    if markup:
+        st.markdown(markup, unsafe_allow_html=True)
+
 
 def nar_comparison_from_result(result: PredictionResult, *, sort_mode: str = "current") -> dict[str, Any]:
     rows = result_rows(result)
@@ -2487,9 +2475,15 @@ def nar_comparison_from_result(result: PredictionResult, *, sort_mode: str = "cu
 
 def render_nar_top5_result_summary(result: PredictionResult) -> None:
     comparison = nar_comparison_from_result(result, sort_mode="current")
-    if not comparison.get("rows"):
-        return
-    st.markdown(nar_top5_conclusion_html(comparison), unsafe_allow_html=True)
+    if comparison.get("rows"):
+        markup = nar_purchase_judgement_html(comparison).replace("NAR 最終購入判断", "今回の結論")
+        for grade in ("A", "B", "C", "D"):
+            markup = markup.replace(grade + " ", grade + "｜", 1)
+        rescue_numbers = {h['number'] for h in comparison.get('condition_rescue', [])}
+        warnings = [h for h in nar_warning_rows(comparison['rows'])[:3] if str(h.get('number')) not in rescue_numbers]
+        warning_text = ' / '.join(horse_label_for_summary(h) for h in warnings) or 'なし'
+        markup = markup.replace('<details>', '<p><b>✔︎注目</b>：' + plain_text_to_html(warning_text) + '</p><details>', 1)
+        st.markdown(markup, unsafe_allow_html=True)
 
 
 def jra_top5_summary_lines(comparison: dict[str, Any]) -> list[str]:
@@ -6051,6 +6045,22 @@ def short_comment_from_row(row: dict[str, Any]) -> str:
     parts = re.split(r"[／/、,\s]+", material)
     parts = [part for part in parts if part]
     return " / ".join(parts[:2]) if parts else shorten_text(material, 42)
+
+
+def prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]:
+    rows = sorted_display_rows(result)
+    if result.race_mode == "nar":
+        rows = apply_nar_warning_display_limit(rows)
+    overall = result.overall_table.to_dict("records") if result.overall_table is not None else []
+    rescue = build_nar_condition_rescue(rows, index_rows=overall, ability_rows=result_rows(result)) if result.race_mode == "nar" else []
+    marks = {horse_key(h): display_mark_from_row(h, result.race_mode) for h in rows}
+    return prediction_table_records(rows, overall, getattr(result, "race_info", {}) or {}, result.race_mode, marks=marks, rescue=rescue)
+
+
+def render_prediction_detail_table(result: PredictionResult) -> None:
+    st.subheader("詳細予想表")
+    records = prediction_detail_records(result)
+    st.markdown(prediction_table_html(records, result.race_mode), unsafe_allow_html=True)
 
 
 def render_overall_table(result: PredictionResult) -> None:

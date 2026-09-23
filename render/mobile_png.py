@@ -19,6 +19,7 @@ from core.nar_condition_rescue import build_nar_condition_rescue
 from core.nar_race_diagnostics import build_full_field_comparison
 from core.jra_purchase_navigator import build_jra_purchase_navigation
 from core.models import PredictionResult
+from core.prediction_table_ui import prediction_table_records, horse_key
 from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION, PREDICTION_LOGIC_VERSION
 
@@ -43,6 +44,20 @@ WATCH_RULE = (117, 158, 198)
 CONCLUSION_BG = (248, 251, 255)
 
 
+def _draw_text_with_marks(draw, position, value, *, font, fill):
+    """Render saved check marks even when the Japanese font lacks Dingbats."""
+    x, y = position
+    for part in re.split(r"([✔✓][\ufe0e\ufe0f]?)", value):
+        if part.startswith(("✔", "✓")):
+            width = max(draw.textlength(part, font=font), 14)
+            size = getattr(font, 'size', 21)
+            draw.line([(x+2,y+size*.60),(x+width*.38,y+size*.87),(x+width-2,y+size*.23)], fill=fill, width=3 if part[0]=='✔' else 2)
+            x += width
+        else:
+            draw.text((x,y), part, font=font, fill=fill)
+            x += draw.textlength(part, font=font)
+
+
 class MobilePngRenderError(RuntimeError):
     """Raised when the mobile PNG cannot be rendered safely."""
 
@@ -53,17 +68,16 @@ def render_mobile_png(result: PredictionResult) -> bytes:
     _append_png_star_trace(result)
     fonts = _load_fonts()
     canvas = _Canvas(fonts)
-    canvas.draw_simple_overall(result)
-    for title, aliases in [("会場別試験評価", ["会場別試験評価", "JRA会場別試験評価"]), ("展開予想", ["展開予想"])]:
-        value = _extract_raw_section(result, aliases)
-        if _clean(value) and _clean(value) not in {"未取得", "未取得です。", "—", "なし"}:
-            canvas.draw_text_section(title, value)
-    if result.race_mode not in {"jra", "nar"}:
-        canvas.draw_race_difficulty(result)
-    canvas.draw_horse_evaluation(result)
-    canvas.draw_attention_horses(result)
-    canvas.draw_ai_race_review(result)
-    canvas.draw_text_section("今回の馬券構成", _strip_section_title(result.betting_structure, "今回の馬券構成"), compact=True)
+    canvas.draw_header(result)
+    if result.race_mode in {"jra", "nar"}:
+        canvas.draw_prediction_conclusion(result)
+        canvas.section("詳細予想表")
+        for record in _prediction_detail_records(result):
+            lines = [f"{key}：{value}" for key, value in record.items()]
+            canvas.horse_card(record['馬番 / 馬名'], lines)
+    else:
+        canvas.draw_simple_overall(result)
+        canvas.draw_horse_evaluation(result)
     canvas.draw_version(result)
     return canvas.to_png()
 
@@ -215,6 +229,33 @@ class _Canvas:
         ]
         for line in [line for line in lines if _clean(line)]:
             self.text(line, self.fonts["body_bold"] if "レース難易度" in line else self.fonts["body"], INK)
+
+    def draw_prediction_conclusion(self, result: PredictionResult) -> None:
+        self.section("今回の結論")
+        if result.race_mode == "jra":
+            nav = build_jra_purchase_navigation(_jra_purchase_rows(result), race_mode="jra", race_info=result.race_info or {}, saved_rows=_records(result.overall_table))
+            grade = nav.get('purchase_grade') or 'D'
+            label = nav.get('purchase_label') or '見送り'
+            groups = nav.get('buy_groups') or {}
+            lines = []
+            for role in ('中心', '本線', '狙い', '押さえ参考'):
+                lines.append(role + '：' + (' / '.join(str(h['number'])+' '+str(h['name']) for h in groups.get(role, [])) or 'なし'))
+            lines.append('穴注意：' + (' / '.join(str(h['number'])+' '+str(h['name']) for h in nav.get('hole_attention', [])) or 'なし'))
+            lines.append('買い方：' + str(nav.get('purchase_style') or '見送り'))
+        else:
+            purchase = _nar_purchase_summary(result)
+            grade = purchase.get('race_purchase_judgement') or '—'
+            label = purchase.get('race_purchase_label') or '判定材料不足'
+            rows = _nar_comparison_rows(result)
+            rescue = _nar_condition_rescue(result)
+            rescued = {h['number'] for h in rescue}
+            display = lambda xs: ' / '.join(str(h.get('number'))+' '+str(h.get('name')) for h in xs) or 'なし'
+            axes = [h for h in rows if h.get('nar_pure_ability_rank') == 1]
+            mains = [h for h in rows if (_to_float(h.get('nar_pure_ability_rank')) or 999) in (2,3,4,5) and h.get('partner_trust_level') == 'HIGH']
+            warnings = [h for h in rows if _truthy_display(h.get('nar_warning_candidate')) and (_to_float(h.get('nar_top5_rank')) or 999)>5][:3]
+            warnings = [h for h in warnings if str(h.get('number')) not in rescued]
+            lines = ['軸候補：'+display(axes), '本線：'+display(mains), '✔ 注目：'+display(warnings), '✔ 条件救済：'+display(rescue), '条件救済はTop5外の警戒情報です。自動購入はしません。']
+        self.horse_card(str(grade)+'｜'+str(label), lines, is_watch=grade in ('C','D'))
 
     def draw_simple_overall(self, result: PredictionResult) -> None:
         if _is_jra_result(result):
@@ -672,11 +713,11 @@ class _Canvas:
         y = self.y + padding
         x_text = x0 + padding + (8 if is_watch else 0)
         for line in wrapped_title:
-            self.draw.text((x_text, y), line, font=self.fonts["body_bold"], fill=INK)
+            _draw_text_with_marks(self.draw, (x_text, y), line, font=self.fonts["body_bold"], fill=INK)
             y += _line_height(self.fonts["body_bold"])
         y += 3
         for line, font, color in wrapped_lines:
-            self.draw.text((x_text, y), line, font=font, fill=color)
+            _draw_text_with_marks(self.draw, (x_text, y), line, font=font, fill=color)
             y += _line_height(font)
         self.y += height + 7
 
@@ -1006,6 +1047,21 @@ def _nar_purchase_summary(result: PredictionResult) -> dict[str, Any]:
         source, race_mode="nar", sort_mode="current",
         race_info=getattr(result, "race_info", {}) or {},
     ).get("race_purchase", {})
+
+
+def _prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]:
+    source = _records(result.horse_evaluation) or _records(result.overall_table)
+    comparison = build_full_field_comparison(source, race_mode=result.race_mode, sort_mode="current", race_info=result.race_info or {})
+    by_number = {horse_key(h): h for h in comparison.get('rows', [])}
+    rows = [dict(h, **by_number.get(horse_key(h), {})) for h in source]
+    rank_key = 'jra_top5_rank' if result.race_mode == 'jra' else 'nar_pure_ability_rank'
+    rows.sort(key=lambda h: (_to_float(h.get(rank_key)) or 999, _to_float(horse_key(h)) or 999))
+    if result.race_mode == 'nar':
+        rows = _apply_nar_warning_display_limit(rows)
+    marks = {horse_key(h): _display_mark(h, result.race_mode) for h in rows}
+    overall = _records(result.overall_table)
+    rescue = build_nar_condition_rescue(rows, index_rows=overall, ability_rows=source) if result.race_mode == 'nar' else []
+    return prediction_table_records(rows, overall, result.race_info or {}, result.race_mode, marks=marks, rescue=rescue)
 
 
 def _jra_purchase_rows(result: PredictionResult) -> list[dict[str, Any]]:

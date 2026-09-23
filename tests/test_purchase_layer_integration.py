@@ -77,9 +77,11 @@ def test_actual_snapshot_web_png_use_entire_field_and_same_marks(monkeypatch):
     monkeypatch.setattr(mobile_png._Canvas,'horse_card',capture)
     data=mobile_png.render_mobile_png(result)
     image=Image.open(BytesIO(data));image.verify()
-    title,lines=next(c for c in cards if 'JRA 最終購入判断' in c[0])
+    title,lines=cards[0]
+    assert not any('最終購入判断' in t for t,_ in cards)
     assert web['purchase_grade'] in title
-    assert '狙い 7・12' in ' '.join(lines) and '穴注意 10' in ' '.join(lines)
+    assert '狙い：7 レッドフレーザー / 12 リリーサンダー' in lines
+    assert '穴注意：10 エアフォースワン' in lines
     pd.testing.assert_frame_equal(result.horse_evaluation,before)
 
 
@@ -93,7 +95,9 @@ def test_nar_png_purchase_card_keeps_original_prediction(monkeypatch):
         return original(self,title,lines,**kwargs)
     monkeypatch.setattr(mobile_png._Canvas,'horse_card',capture)
     Image.open(BytesIO(mobile_png.render_mobile_png(result))).verify()
-    assert any('軸条件' in ' '.join(lines) and '会場' in ' '.join(lines) for _,lines in cards)
+    assert '｜' in cards[0][0]
+    assert any(line.startswith('軸候補：') for line in cards[0][1])
+    assert any(line.startswith('本線：') for line in cards[0][1])
     assert not any('JRA 最終購入判断' in title for title,_ in cards)
     pd.testing.assert_frame_equal(result.overall_table,before)
 

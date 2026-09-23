@@ -1652,7 +1652,8 @@ class DisplayGroupViewTest(unittest.TestCase):
         self.assertNotIn("render_market_compare_result(result)", result_source)
         self.assertLess(result_source.index("render_nar_top5_result_summary"), result_source.index("render_race_flow"))
         self.assertLess(result_source.index("render_race_flow"), result_source.index("render_horse_summary_cards"))
-        self.assertLess(result_source.index("render_horse_summary_cards"), result_source.index("render_overall_table"))
+        self.assertLess(result_source.index("render_prediction_detail_table"), result_source.index("研究・監査情報"))
+        self.assertLess(result_source.index("研究・監査情報"), result_source.index("render_overall_table"))
         self.assertNotIn("render_investment_target_horses", result_source)
 
         self.streamlit.markdown_calls.clear()
