@@ -1,6 +1,9 @@
 """NAR race diagnostics built only from saved prediction display values."""
 from __future__ import annotations
 
+from .nar_ability_rank import canonical_nar_ability_rank
+from .nar_condition_rescue import build_nar_condition_rescue
+
 import ast
 import json
 import math
@@ -53,7 +56,7 @@ def build_nar_race_diagnostics(
 
     if _text(race_mode).lower() != "nar":
         return {"show": False, "research_only": True}
-    horses = [_diagnostic_horse(row) for row in rows if isinstance(row, Mapping)]
+    horses = [_diagnostic_horse(row, canonical_nar=True) for row in rows if isinstance(row, Mapping)]
     horses = [horse for horse in horses if horse.get("number")]
     if not horses:
         return {"show": False, "research_only": True}
@@ -210,7 +213,7 @@ def build_full_field_comparison(
 
     race_purchase = {}
     if mode == "nar":
-        race_purchase = annotate_nar_purchase_judgement(horses)
+        race_purchase = annotate_nar_purchase_judgement(horses, race_info=info)
 
     horses = _sort_comparison_horses(horses, sort_mode, race_mode=mode)
     transfer_watch = bool(
@@ -255,14 +258,15 @@ def build_full_field_comparison(
         "nar_top5_recommendations": [
             horse
             for horse in sorted(
-                [horse for horse in horses if _int(horse.get("nar_top5_rank")) is not None],
+                [horse for horse in horses if _int(horse.get("nar_top5_rank")) is not None and 1 <= _int(horse.get("nar_top5_rank")) <= 5],
                 key=lambda horse: (
                     _int(horse.get("nar_top5_rank")) or 999,
                     -(float(_float(horse.get("nar_top5_score")) or -999999.0)),
                     _horse_sort_key(horse.get("number")),
                 ),
-            )[:5]
+            )
         ],
+        **({"condition_rescue": build_nar_condition_rescue(horses, index_rows=records, ability_rows=records)} if mode == "nar" else {}),
         "race_purchase": race_purchase,
         "race_purchase_judgement": race_purchase.get("race_purchase_judgement") if race_purchase else None,
         "race_purchase_score": race_purchase.get("race_purchase_score") if race_purchase else None,
@@ -335,7 +339,7 @@ def build_nar_full_field_comparison(
 
 
 def _comparison_horse(row: Mapping[str, Any], *, race_mode: str, race_info: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    diagnostic = _diagnostic_horse(row)
+    diagnostic = _diagnostic_horse(row, canonical_nar=race_mode == "nar")
     runs = _safe_recent_races(row)
     recent_win_count = 0
     recent_top3_count = 0
@@ -477,8 +481,8 @@ def _sex_age_text(row: Mapping[str, Any]) -> str:
     return sex or age
 
 
-def _diagnostic_horse(row: Mapping[str, Any]) -> dict[str, Any]:
-    ability_rank = _int(_first(row, *VER3_ABILITY_RANK_KEYS))
+def _diagnostic_horse(row: Mapping[str, Any], *, canonical_nar: bool = False) -> dict[str, Any]:
+    ability_rank = canonical_nar_ability_rank(row) if canonical_nar else _int(_first(row, *VER3_ABILITY_RANK_KEYS))
     ability_value = _float(_first(row, *VER3_ABILITY_VALUE_KEYS))
     current_rank = _int(_first(row, *VER3_RANK_KEYS))
     start_label = _position_label(row, "start")
@@ -537,24 +541,10 @@ def _attach_nar_top5_fields(horses: list[dict[str, Any]]) -> None:
     pure_scores = [_float(horse.get("nar_pure_ability_score")) for horse in horses]
     valid_pure_scores = [score for score in pure_scores if score is not None]
     top_pure = max(valid_pure_scores) if valid_pure_scores else None
-    pure_rank_map: dict[int, int] = {}
-    ranked_pure: list[tuple[int, float, int]] = [
-        (index, score, _horse_sort_key(horse.get("number")))
-        for index, (horse, score) in enumerate(zip(horses, pure_scores))
-        if score is not None
-    ]
-    ranked_pure.sort(key=lambda item: (-item[1], item[2]))
-    previous_score: float | None = None
-    current_rank = 0
-    for position, (index, score, _horse_no) in enumerate(ranked_pure, start=1):
-        if previous_score is None or abs(score - previous_score) > 0.000001:
-            current_rank = position
-            previous_score = score
-        pure_rank_map[index] = current_rank
     for index, horse in enumerate(horses):
         pure = _float(horse.get("nar_pure_ability_score"))
         horse["nar_ability_gap_from_top"] = round(top_pure - pure, 3) if top_pure is not None and pure is not None else None
-        pure_rank = pure_rank_map.get(index)
+        pure_rank = canonical_nar_ability_rank(horse)
         horse["nar_pure_ability_rank"] = pure_rank
         if pure_rank is not None:
             horse["ability_rank"] = pure_rank

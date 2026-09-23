@@ -15,7 +15,9 @@ from typing import Any, Iterable
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
+from core.nar_condition_rescue import build_nar_condition_rescue
 from core.nar_race_diagnostics import build_full_field_comparison
+from core.jra_purchase_navigator import build_jra_purchase_navigation
 from core.models import PredictionResult
 from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION, PREDICTION_LOGIC_VERSION
@@ -51,13 +53,13 @@ def render_mobile_png(result: PredictionResult) -> bytes:
     _append_png_star_trace(result)
     fonts = _load_fonts()
     canvas = _Canvas(fonts)
-    canvas.draw_text_section(
-        "会場別試験評価",
-        _extract_raw_section(result, ["会場別試験評価", "JRA会場別試験評価"]),
-    )
-    canvas.draw_text_section("展開予想", _extract_raw_section(result, ["展開予想"]))
-    canvas.draw_race_difficulty(result)
     canvas.draw_simple_overall(result)
+    for title, aliases in [("会場別試験評価", ["会場別試験評価", "JRA会場別試験評価"]), ("展開予想", ["展開予想"])]:
+        value = _extract_raw_section(result, aliases)
+        if _clean(value) and _clean(value) not in {"未取得", "未取得です。", "—", "なし"}:
+            canvas.draw_text_section(title, value)
+    if result.race_mode not in {"jra", "nar"}:
+        canvas.draw_race_difficulty(result)
     canvas.draw_horse_evaluation(result)
     canvas.draw_attention_horses(result)
     canvas.draw_ai_race_review(result)
@@ -221,6 +223,26 @@ class _Canvas:
             if not rows:
                 self.text("JRA Top5は未取得です。", self.fonts["body"], MUTED)
                 return
+            navigation = build_jra_purchase_navigation(
+                _jra_purchase_rows(result),
+                race_mode="jra",
+                race_info=getattr(result, "race_info", {}) or {},
+                saved_rows=_records(result.overall_table),
+            )
+            grade = _clean(navigation.get("purchase_grade")) or "D"
+            label = _clean(navigation.get("purchase_label")) or "見送り"
+            groups = navigation.get("buy_groups") or {}
+            def _nums(role: str) -> str:
+                return "・".join(str(item.get("number") or "") for item in groups.get(role, []) if item.get("number")) or "—"
+            self.horse_card(
+                _join_nonempty(["JRA 最終購入判断", grade, label, _purchase_difficulty(result)], sep=" "),
+                [
+                    _join_nonempty([f"中心 {_nums('中心')}", f"本線 {_nums('本線')}", f"狙い {_nums('狙い')}", f"押さえ参考 {_nums('押さえ参考')}", f"穴注意 {'・'.join(str(x.get('number') or '') for x in navigation.get('hole_attention', []) if x.get('number')) or '—'}"], sep=" / "),
+                    f"買い方：{_clean(navigation.get('purchase_style')) or '見送り'}",
+                    "取得時オッズ・人気は購入判定に不使用",
+                ],
+                is_watch=grade in {"C", "D"},
+            )
             for row in rows:
                 mark = _display_mark(row, result.race_mode)
                 no = _pick(row, "number", "馬番", "馬")
@@ -253,18 +275,20 @@ class _Canvas:
             if not rows:
                 self.text("NAR Top5は未取得です。", self.fonts["body"], MUTED)
                 return
-            purchase = rows[0]
+            purchase = _nar_purchase_summary(result)
             judgement = _clean(_pick(purchase, "race_purchase_judgement"))
             purchase_label = _clean(_pick(purchase, "race_purchase_label"))
             if judgement or purchase_label:
                 gap = _pick(purchase, "ability_gap_1_2")
                 self.horse_card(
-                    _join_nonempty(["レース購入判定", judgement, purchase_label], sep=" "),
+                    _join_nonempty(["NAR 最終購入判断", judgement, purchase_label, _purchase_difficulty(result)], sep=" "),
                     [
                         _join_nonempty(
                             [
                                 f"◎○差{_format_number(gap)}（{_nar_gap_label(gap)}）" if gap is not None else "",
+                                f"軸条件{_clean(_pick(purchase, 'axis_support_level')) or '—'}",
                                 f"信頼相手{_pick(purchase, 'trusted_partner_count') or 0}頭",
+                                f"会場{_clean(_pick(purchase, 'venue_profile_type')) or '標準型'}",
                                 f"推奨{_clean(_pick(purchase, 'recommended_ticket_mode')) or 'PASS'}",
                             ],
                             sep=" / ",
@@ -274,7 +298,11 @@ class _Canvas:
                     ],
                     is_watch=judgement in {"C", "D"},
                 )
-            top5 = [row for row in rows if (_to_float(_pick(row, "nar_top5_rank")) or 999) <= 5] or rows[:5]
+            rescue = _nar_condition_rescue(result)
+            for horse in rescue:
+                self.horse_card("条件救済 " + horse['number'] + " " + horse['name'], ["条件適性救済（Top5外の警戒候補）", horse['nar_condition_rescue_reason'], _nar_warning_reason_display(horse['existing_warning_reason'])], is_watch=True)
+            rescue_numbers = {horse['number'] for horse in rescue}
+            top5 = [row for row in rows if (_to_float(_pick(row, "nar_top5_rank")) or 999) <= 5]
             for row in top5:
                 mark = _display_mark(row, result.race_mode)
                 no = _pick(row, "number", "馬番", "馬")
@@ -287,7 +315,7 @@ class _Canvas:
                     _join_nonempty(
                         [
                             f"純能力{ability}（{_rank_display(rank)}）" if ability else "",
-                            f"単勝{odds}" if odds else "",
+                            f"取得時単勝(参考){odds}" if odds else "",
                             f"相手信頼度{_clean(_pick(row, 'partner_trust_level')) or '—'}",
                         ],
                         sep=" / ",
@@ -295,7 +323,7 @@ class _Canvas:
                     _clean(_pick(row, "nar_top5_role")),
                 ]
                 self.horse_card(title, [line for line in lines if _clean(line)], is_watch=False)
-            warnings = [row for row in rows if _truthy_display(_pick(row, "nar_warning_candidate")) and (_to_float(_pick(row, "nar_top5_rank")) or 999) > 5]
+            warnings = [row for row in rows if str(row.get("number")) not in rescue_numbers and _truthy_display(_pick(row, "nar_warning_candidate")) and (_to_float(_pick(row, "nar_top5_rank")) or 999) > 5]
             if warnings:
                 self.section("✓注目馬")
                 for row in warnings[:3]:
@@ -311,7 +339,7 @@ class _Canvas:
                             [
                                 f"純能力{ability}（{_rank_display(rank)}）" if ability else "",
                                 f"総合注目度{attention}",
-                                f"単勝{odds}" if odds else "",
+                                f"取得時単勝(参考){odds}" if odds else "",
                             ],
                             sep=" / ",
                         ),
@@ -971,6 +999,29 @@ def _nar_row_sort_key(row: dict[str, Any]) -> tuple[int, float, float, int]:
     )
 
 
+def _nar_purchase_summary(result: PredictionResult) -> dict[str, Any]:
+    """Use the detail table for purchase judgment without changing PNG predictions."""
+    source = _records(result.horse_evaluation) or _records(result.overall_table)
+    return build_full_field_comparison(
+        source, race_mode="nar", sort_mode="current",
+        race_info=getattr(result, "race_info", {}) or {},
+    ).get("race_purchase", {})
+
+
+def _jra_purchase_rows(result: PredictionResult) -> list[dict[str, Any]]:
+    """Purchase-only full field, using the same source priority as the detail table."""
+    source = _records(result.horse_evaluation) or _records(result.overall_table)
+    comparison = build_full_field_comparison(
+        source, race_mode="jra", sort_mode="current",
+        race_info=getattr(result, "race_info", {}) or {},
+    )
+    def number(row):
+        value = _to_float(_pick(row, "馬番", "馬", "number", "horse_no", "horse_number"))
+        return str(int(value)) if value is not None else ""
+    by_number = {number(row): row for row in comparison.get("rows", [])}
+    return [dict(row, **by_number.get(number(row), {})) for row in source]
+
+
 def _jra_comparison_rows(result: PredictionResult) -> list[dict[str, Any]]:
     source_rows = _records(result.overall_table)
     if not source_rows:
@@ -1496,3 +1547,14 @@ def _break_long_token(
 def _line_height(font: ImageFont.FreeTypeFont) -> int:
     bbox = font.getbbox("あいうえおABCDEFGHIJKLMNOPQRSTUVWXYZ")
     return max(17, bbox[3] - bbox[1] + 7)
+
+
+def _nar_condition_rescue(result: PredictionResult) -> list[dict[str, Any]]:
+    source = _records(result.horse_evaluation) or _records(result.overall_table)
+    comparison = build_full_field_comparison(source, race_mode="nar", race_info=getattr(result, "race_info", {}) or {})
+    return build_nar_condition_rescue(comparison.get("rows", []), index_rows=_records(result.overall_table), ability_rows=source)
+
+
+def _purchase_difficulty(result: PredictionResult) -> str:
+    rows = _records(result.overall_table) or _records(result.horse_evaluation)
+    return _clean(_pick(rows[0], "レース難易度", "race_difficulty")) if rows else ""

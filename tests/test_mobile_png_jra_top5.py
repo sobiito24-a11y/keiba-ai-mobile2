@@ -76,7 +76,7 @@ class MobilePngJraTop5Test(unittest.TestCase):
             race_info={"venue": "船橋", "distance": 2200},
             overall_table=pd.DataFrame(
                 [
-                    {
+                    {"market_ability_rank": 2,
                         "馬番": 1,
                         "馬名": "旧SS",
                         "グループ": "SS",
@@ -85,7 +85,7 @@ class MobilePngJraTop5Test(unittest.TestCase):
                         "market_ability_score": 70.0,
                         "current_evaluation_rank": 2,
                     },
-                    {
+                    {"market_ability_rank": 1,
                         "馬番": 2,
                         "馬名": "Top1",
                         "グループ": "Z",

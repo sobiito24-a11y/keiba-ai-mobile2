@@ -235,7 +235,7 @@ def test_nar_top5_final_mark_is_rank_based_not_legacy_mark() -> None:
     assert by_number["4"]["nar_top5_swap_status"] == "PURE_ONLY"
 
 
-def test_nar_pure_ability_rank_uses_market_score_not_legacy_ai_rank() -> None:
+def test_nar_missing_saved_rank_is_not_inferred_from_score_or_ai_rank() -> None:
     rows = [
         _row(9, 1, 1, "中団", market_ability_score=54.6),
         _row(6, 2, 2, "中団", market_ability_score=50.2),
@@ -252,10 +252,11 @@ def test_nar_pure_ability_rank_uses_market_score_not_legacy_ai_rank() -> None:
     by_number = {horse["number"]: horse for horse in comparison["rows"]}
 
     assert by_number["5"]["nar_pure_ability_score"] == 31.9
-    assert by_number["5"]["nar_pure_ability_rank"] == 8
-    assert by_number["5"]["ability_rank"] == 8
+    assert by_number["5"]["nar_pure_ability_rank"] is None
+    assert by_number["5"]["ability_rank"] is None
     assert "能力10位" not in by_number["5"]["negative_tags"]
-    assert "能力8位" in by_number["5"]["negative_tags"]
+    assert "能力8位" not in by_number["5"]["negative_tags"]
+    assert by_number["5"]["nar_pure_top5"] is False
 
 
 def test_monbetsu_5r_expected_research_categories_without_result_data() -> None:
