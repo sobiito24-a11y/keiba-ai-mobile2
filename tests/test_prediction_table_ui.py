@@ -10,11 +10,11 @@ def run(label,venue,distance,value):
     return dict(label=label,racecourse=venue,distance=distance,value=value)
 
 @pytest.mark.parametrize('runs,expected',[
- ([run('前走','浦和',1400,54)],{'★':'★ 54','☆':'—'}),
+ ([run('前走','浦和',1400,54)],{'★':'★54','☆':'—'}),
  ([run('前走','川崎',1400,52)],{'★':'—','☆':'☆ 川崎1400 52'}),
- ([run('前走','浦和',1400,54),run('2走前','船橋',1400,49)],{'★':'★ 54','☆':'☆ 船橋1400 49'}),
+ ([run('前走','浦和',1400,54),run('2走前','船橋',1400,49)],{'★':'★54','☆':'☆ 船橋1400 49'}),
  ([run('前走','浦和',1500,60),run('4走前','浦和',1400,99)],{'★':'—','☆':'—'}),
- ([run('3走前','浦和',1400,51),run('前走','浦和',1400,54)],{'★':'★ 54 / 51','☆':'—'}),
+ ([run('3走前','浦和',1400,51),run('前走','浦和',1400,54)],{'★':'★54','☆':'—'}),
 ])
 def test_recent_three_stars(runs,expected):
     row={'_past_runs':runs,'star_max_index':999};before=copy.deepcopy(row)
@@ -76,7 +76,7 @@ def test_main_flow_has_one_conclusion_then_table(monkeypatch):
     monkeypatch.setattr(app,'render_investment_decision',lambda *a:pytest.fail('obsolete block rendered'))
     for mode in ['jra','nar']:
         calls.clear();app.render_colab_style_result(PredictionResult(race_mode=mode))
-        assert calls[:4]==['render_race_header',f'render_{mode}_top5_result_summary','render_prediction_detail_table','audit']
+        assert calls[:5]==['render_race_header',f'render_{mode}_top5_result_summary','render_prediction_detail_table','render_horse_summary_cards','audit']
         if mode=='jra':assert 'render_backtest_reference' not in calls
 
 @pytest.mark.parametrize('mode,fixture',[('jra','purchase_hanshin_20260921_r8.json'),('nar','purchase_nar_snapshot.json')])

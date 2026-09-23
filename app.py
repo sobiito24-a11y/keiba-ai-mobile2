@@ -31,7 +31,7 @@ from core.condition_fit import condition_fit_badge_text, resolved_condition_fit
 from core.course_materials import four_corner_rates_display
 from core.jra_display_mark import jra_display_mark_from_row
 from core.jra_purchase_navigation_ui import jra_purchase_navigation_html
-from core.prediction_table_ui import prediction_table_records, prediction_table_html, horse_key
+from core.prediction_table_ui import prediction_table_records, prediction_table_html, horse_key, jockey_place_text, recent_condition_stars, recommended_cards_html
 from core.jra_purchase_navigator import build_jra_purchase_navigation
 from core.investment_decision import (
     InvestmentDecision,
@@ -1746,10 +1746,10 @@ def render_colab_style_result(result: PredictionResult) -> Any:
     else:
         render_nar_top5_result_summary(result)
     render_prediction_detail_table(result)
+    render_horse_summary_cards(result)
     with st.expander("研究・監査情報", expanded=False):
         render_overall_table(result)
         render_race_flow(result)
-        render_horse_summary_cards(result)
         if result_race_mode(result) == "nar":
             render_backtest_reference(result)
         render_raw_text_section("会場別試験評価", extract_raw_section(result, ["会場別試験評価", "JRA会場別試験評価"]))
@@ -2445,6 +2445,33 @@ def jra_comparison_from_result(result: PredictionResult, *, sort_mode: str = "cu
     )
 
 
+def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, Any]], rows: list[dict[str, Any]]) -> str:
+    sources = {horse_key(h): h for h in (result.overall_table.to_dict('records') if result.overall_table is not None else [])}
+    enriched = {horse_key(h): h for h in rows}
+    cards, seen = [], set()
+    for item in selected:
+        key = horse_key(item)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        row = dict(sources.get(key, {})); row.update(enriched.get(key, {}))
+        ability = pick(row, 'nar_pure_ability_score', 'jra_pure_ability_score', 'market_ability_score', 'ability_value')
+        rank = canonical_nar_ability_rank(row) if result.race_mode == 'nar' else pick(row, '_v1_ability_rank', 'market_ability_rank', 'ability_rank')
+        mark = display_mark_from_row(row, result.race_mode)
+        role = item.get('card_role') or ''
+        if role in ('条件適性救済', '注目馬'):
+            mark = '✔︎'
+        stars = recent_condition_stars(sources.get(key, row), getattr(result, 'race_info', {}) or {})
+        conditions = ' / '.join(x for x in [stars['★'], stars['☆']] if x != '—') or '—'
+        lines = [f"純能力 {format_number(ability) or '—'}（{rank_display(rank)}）",
+                 f"単勝 {format_odds(pick(row, '単勝オッズ', 'オッズ', '単勝', 'actual_odds')) or '—'}",
+                 '相手信頼度 ' + (clean_text(row.get('partner_trust_level')) or '—'),
+                 '騎手：' + compact_jockey_text(row), jockey_place_text(row),
+                 '脚質：' + short_running_style(row), '条件材料：' + conditions]
+        cards.append(dict(number=key, name=pick(row, 'name', '馬名') or item.get('name', ''), mark=mark, role=role, lines=lines))
+    return recommended_cards_html(cards)
+
+
 def render_jra_top5_result_summary(result: PredictionResult) -> None:
     comparison = jra_comparison_from_result(result, sort_mode="current")
     navigation = build_jra_purchase_navigation(
@@ -2454,6 +2481,12 @@ def render_jra_top5_result_summary(result: PredictionResult) -> None:
     )
     markup = jra_purchase_navigation_html(navigation).replace("JRA 最終購入判断", "今回の結論")
     markup = markup.replace(str(navigation.get("purchase_grade")) + " " + str(navigation.get("purchase_label")), str(navigation.get("purchase_grade")) + "｜" + str(navigation.get("purchase_label")))
+    selected = []
+    for role, horses in navigation.get('buy_groups', {}).items():
+        selected.extend(dict(h, card_role=role) for h in horses)
+    selected.extend(dict(h, card_role='穴注意') for h in navigation.get('hole_attention', []))
+    cards = conclusion_horse_cards(result, selected, jra_enriched_display_rows(result))
+    markup = markup.replace('</strong></p>', '</strong></p>' + cards, 1)
     if markup:
         st.markdown(markup, unsafe_allow_html=True)
 
@@ -2483,6 +2516,11 @@ def render_nar_top5_result_summary(result: PredictionResult) -> None:
         warnings = [h for h in nar_warning_rows(comparison['rows'])[:3] if str(h.get('number')) not in rescue_numbers]
         warning_text = ' / '.join(horse_label_for_summary(h) for h in warnings) or 'なし'
         markup = markup.replace('<details>', '<p><b>✔︎注目</b>：' + plain_text_to_html(warning_text) + '</p><details>', 1)
+        selected = [dict(h, card_role=clean_text(h.get('nar_top5_role')) or '相手候補') for h in comparison['rows'] if (to_float(h.get('nar_pure_ability_rank')) or 999) <= 5]
+        selected.extend(dict(h, card_role='条件適性救済') for h in comparison.get('condition_rescue', []))
+        selected.extend(dict(h, card_role='注目馬') for h in warnings)
+        cards = conclusion_horse_cards(result, selected, nar_enriched_display_rows(result))
+        markup = markup.replace('</b></div>', '</b></div>' + cards, 1)
         st.markdown(markup, unsafe_allow_html=True)
 
 
@@ -4979,7 +5017,19 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
 
     def card_html(row: dict[str, Any]) -> str:
         horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
-        return horse_summary_card_html(row, result.race_mode, overall_rows_by_horse.get(horse_key, {}), getattr(result, "race_info", {}) or {})
+        index_row = overall_rows_by_horse.get(horse_key, {})
+        markup = horse_summary_card_html(row, result.race_mode, index_row, getattr(result, "race_info", {}) or {})
+        source = merged_card_source(row, index_row)
+        old_stats = jockey_course_stats_card_text(source)
+        if old_stats:
+            markup = markup.replace(plain_text_to_html(old_stats), plain_text_to_html(jockey_place_text(source)))
+        else:
+            markup = markup.replace('</div>', '<div class="ka-note">' + plain_text_to_html(jockey_place_text(source)) + '</div></div>', 1)
+        old_star = star_summary_text(index_row)
+        new_star = recent_condition_stars(index_row, getattr(result, 'race_info', {}) or {})['★']
+        if old_star:
+            markup = markup.replace(plain_text_to_html(old_star), plain_text_to_html(new_star))
+        return markup
 
     st.subheader("馬別サマリーカード")
     for row in rows:

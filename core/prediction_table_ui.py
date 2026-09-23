@@ -51,9 +51,33 @@ def recent_condition_stars(row, race_info):
         course=text(pick(run,'racecourse','venue','track','previous_track'))
         value=number(run.get('value'))
         if not course or value is None or number(run.get('distance'))!=distance:continue
-        if course==venue:same.append(fmt(value))
+        if course==venue:same.append(value)
         else:away.append(f'{course}{distance:g} {fmt(value)}')
-    return {'★':'★ '+ ' / '.join(same) if same else '—', '☆':'☆ '+ ' / '.join(away) if away else '—'}
+    return {'★':'★'+fmt(max(same)) if same else '—', '☆':'☆ '+ ' / '.join(away) if away else '—'}
+
+def jockey_place_text(row):
+    """Read an explicit saved place percentage; never infer from wins or starts."""
+    raw=pick(row,'jockey_course_top3_rate','_jockey_course_place_rate','jockey_course_place_rate','騎手コース複勝率','jockey_place_rate','騎手複勝率')
+    rate=number(text(raw).replace('％','%').replace('%',''))
+    if rate is None:
+        for key in ('jockey_course_stats_market','騎手コース成績','jockey_course_stats','jockey_display_market','騎手詳細'):
+            saved=unicodedata.normalize('NFKC',text(row.get(key)))
+            explicit=re.search(r'(?:複勝率|複)\s*(\d+(?:\.\d+)?)\s*%',saved)
+            triple=re.search(r'\d+(?:\.\d+)?%\s*[-/]\s*\d+(?:\.\d+)?%\s*[-/]\s*(\d+(?:\.\d+)?)%',saved)
+            match=explicit or triple
+            if match:
+                rate=number(match[1]);break
+    return f'複勝率 {rate:g}%' if rate is not None and 0<=rate<=100 else '複勝率 —'
+
+def recommended_cards_html(horses):
+    """Render the supplied, already-selected horses without choosing new candidates."""
+    cards=[]
+    for horse in horses:
+        title=' '.join(text(horse.get(k)) for k in ('mark','number','name') if text(horse.get(k)))
+        lines=[text(horse.get('role')),*horse.get('lines',[])]
+        cards.append('<article class="recommended-horse" style="min-width:0;border:1px solid #dbe1eb;border-radius:8px;padding:8px;font-size:12px;line-height:1.5;overflow-wrap:anywhere;">'
+                     +'<b style="font-size:13px;">'+escape(title)+'</b><div>'+'<br>'.join(escape(text(s)) for s in lines if text(s))+'</div></article>')
+    return '<div class="recommended-horses" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0;">'+''.join(cards)+'</div>'
 
 def age_text(row):
     value=unicodedata.normalize('NFKC',text(pick(row,'馬年齢','年齢','性齢','馬齢','age','sex_age')))
@@ -90,7 +114,7 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
         style=text(pick(h,'脚質表示','running_style_display','脚質','running_style','style','running_style_market'))
         style={'逃げ':'逃','先行':'先','差し':'差','追込':'追'}.get(style,style) or '—'
         common={'馬番 / 馬名':label,'年齢':age_text(h),'騎手（継続 / 乗り替わり）':jockey_text(h),
-                '騎手成績':text(pick(h,'jockey_course_stats_market','騎手コース成績','jockey_course_stats')) or '—',
+                '騎手成績':jockey_place_text(h),
                 '脚質':style,'距離':fmt(pick(idx,'距離指数','distance_index')),'コース':fmt(pick(idx,'コース指数','course_index')),**stars}
         final=(marks or {}).get(key)
         if race_mode=='jra':
@@ -121,17 +145,17 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
 def prediction_table_html(records, race_mode):
     columns=JRA_COLUMNS if race_mode=='jra' else NAR_COLUMNS
     parts=['<div class="prediction-table-scroll" role="region" aria-label="詳細予想表" tabindex="0" style="max-width:100%;overflow-x:auto;">',
-           '<table class="prediction-detail-table" style="border-collapse:collapse;width:max-content;font-size:0.85rem;">',
-           '<thead><tr>'+''.join('<th style="padding:8px;white-space:nowrap;">'+escape(k)+'</th>' for k in columns)+'</tr></thead><tbody>']
+           '<table class="prediction-detail-table" style="border-collapse:collapse;width:max-content;font-size:12px;line-height:1.35;">',
+           '<thead><tr>'+''.join('<th style="padding:4px 6px;white-space:nowrap;">'+escape(k)+'</th>' for k in columns)+'</tr></thead><tbody>']
     for row in records:
         parts.append('<tr>')
         for key in columns:
             value=text(row[key]);width=230 if key in ('コメント','厩舎コメント','☆') else 180 if key in ('馬番 / 馬名','★','騎手成績') else 100
             shown=value
-            if key in ('コメント','厩舎コメント') and len(value)>72:
-                shown='<details><summary>'+escape(value[:72])+'…</summary>'+escape(value)+'</details>'
-            else:shown=escape(value)
-            parts.append(f'<td title="{escape(value,quote=True)}" style="min-width:{width}px;max-width:{width}px;padding:8px;vertical-align:top;overflow-wrap:anywhere;border-top:1px solid #dbe1eb;">{shown}</td>')
+            if len(value)>32:
+                shown='<details><summary style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escape(value[:28])+'…</summary><div style="white-space:normal;">'+escape(value)+'</div></details>'
+            else:shown='<span style="white-space:nowrap;">'+escape(value)+'</span>'
+            parts.append(f'<td title="{escape(value,quote=True)}" style="min-width:{width}px;max-width:{width}px;padding:4px 6px;vertical-align:top;overflow-wrap:anywhere;border-top:1px solid #dbe1eb;">{shown}</td>')
         parts.append('</tr>')
     parts.append('</tbody></table></div>')
     return ''.join(parts)
