@@ -6,6 +6,7 @@ import unicodedata
 from .jra_display_mark import jra_display_mark_from_row
 from .nar_ability_rank import canonical_nar_ability_rank
 from .position_signals import corner4_rank, nar_position_reference
+from .condition_support import matching_recent_runs, annotate_condition_support, condition_support_text, condition_support_html
 
 NAR_COLUMNS = ['純能力順位', '最終印', '✔︎注目度', '純能力', '馬番 / 馬名', '年齢',
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '距離', 'コース', '★', '☆', 'コメント']
@@ -80,7 +81,7 @@ def position_display_text(row, mode):
         if rate is not None:value+=f' / 4角参考勝率 {rate:.1f}%'
     return value
 
-def display_index_rows(rows, index_rows=()):
+def display_index_rows(rows, index_rows=(), race_info=None, race_mode=""):
     """Copy-only whole-field competition ranks. Never passed to rescue/scoring."""
     saved={horse_key(h):h for h in index_rows}
     out=[]
@@ -96,7 +97,8 @@ def display_index_rows(rows, index_rows=()):
         for h in out:
             value=h['_display_'+key]
             h[key+'_rank']=1+sum(x>value for x in values) if value is not None else None
-    return out
+    sources=[saved.get(horse_key(h),h) for h in rows]
+    return annotate_condition_support(out, sources, race_info or {}, race_mode)
 
 def index_cell_text(row,key):
     value=row.get('_display_'+key)
@@ -105,8 +107,8 @@ def index_cell_text(row,key):
 
 def index_badges_html(row):
     parts=[]
-    for key,label in [('distance_index','距離指数'),('course_index','コース指数')]:
-        rank=row.get(key+'_rank');value=row.get('_display_'+key)
+    for key,label in [('distance_index','距離指数'),('course_index','コース指数'),('star_index','★'),('away_same_distance_index','☆')]:
+        rank=row.get(key+'_rank');value=row.get(key+'_value') if key in ('star_index','away_same_distance_index') else row.get('_display_'+key)
         background={1:'#e1edf9',2:'#edf3f9',3:'#f4f7fa'}.get(rank,'#f7f7f7')
         parts.append(f'<div class="index-badge" style="min-width:0;text-align:center;background:{background};border:1px solid #dbe1eb;border-radius:5px;padding:4px;">'
           +f'<div style="font-size:11px;">{label}</div><b style="font-size:17px;">{escape(fmt(value))}</b>'
@@ -120,24 +122,14 @@ def supplementary_card_html(row,mode):
         if rate is not None:lines.append(f'4角参考勝率 {rate:.1f}%（71Rバックテスト参考）')
     elif number(row.get('jra_position_bonus')) is not None:
         lines.append(f'位置bonus {number(row["jra_position_bonus"]):+.1f}')
-    return '<div class="horse-position-detail" style="font-size:12px;">'+'<br>'.join(escape(s) for s in lines)+index_badges_html(row)+'</div>'
+    return '<div class="horse-position-detail" style="font-size:12px;">'+'<br>'.join(escape(s) for s in lines)+index_badges_html(row)+condition_support_html(row,mode)+'</div>'
 
 def recent_condition_stars(row, race_info):
     """Only explicitly labelled last three starts; no 4th-start or max-index fallback."""
-    venue=text(pick(race_info,'racecourse','venue','track'))
-    distance=number(race_info.get('distance'))
-    runs=row.get('_past_runs')
-    if not venue or distance is None or not isinstance(runs,list):return {'★':'—','☆':'—'}
-    same=[];away=[]
-    order={'前走':0,'2走前':1,'3走前':2}
-    valid=[r for r in runs if isinstance(r,dict) and r.get('label') in order]
-    for run in sorted(valid,key=lambda r:order[r['label']]):
-        course=text(pick(run,'racecourse','venue','track','previous_track'))
-        value=number(run.get('value'))
-        if not course or value is None or number(run.get('distance'))!=distance:continue
-        if course==venue:same.append(value)
-        else:away.append(f'{course}{distance:g} {fmt(value)}')
-    return {'★':'★'+fmt(max(same)) if same else '—', '☆':'☆ '+ ' / '.join(away) if away else '—'}
+    same,away=matching_recent_runs(row,race_info)
+    return {'★':'★'+fmt(max(r['value'] for r in same)) if same else '—',
+            '☆':'☆ '+ ' / '.join(f"{r['venue']}{r['distance']:g} {fmt(r['value'])}" for r in away) if away else '—'}
+
 
 def jockey_place_text(row):
     """Read an explicit saved place percentage; never infer from wins or starts."""
@@ -160,7 +152,7 @@ def recommended_cards_html(horses):
         title=' '.join(text(horse.get(k)) for k in ('mark','number','name') if text(horse.get(k)))
         lines=[text(horse.get('role')),*horse.get('lines',[])]
         cards.append('<article class="recommended-horse" style="min-width:0;border:1px solid #dbe1eb;border-radius:8px;padding:8px;font-size:12px;line-height:1.5;overflow-wrap:anywhere;">'
-                     +'<b style="font-size:13px;">'+escape(title)+'</b><div>'+'<br>'.join(escape(text(s)) for s in lines if text(s))+'</div>'+horse.get('badges_html','')+'<div>'+escape(text(horse.get('conditions')) or '')+'</div></article>')
+                     +'<b style="font-size:13px;">'+escape(title)+'</b><div>'+'<br>'.join(escape(text(s)) for s in lines if text(s))+'</div>'+horse.get('badges_html','')+'<div>'+escape(text(horse.get('conditions')) or '')+'</div>'+horse.get('support_html','')+'</article>')
     return '<div class="recommended-horses" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0;">'+''.join(cards)+'</div>'
 
 def age_text(row):
@@ -188,12 +180,16 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
     index={horse_key(h):h for h in index_rows}
     rescued={str(h['number']):h for h in rescue}
     records=[]
-    for row in display_index_rows(rows, index_rows):
+    for row in display_index_rows(rows, index_rows, race_info, race_mode):
         key=horse_key(row);saved=index.get(key,{})
         h=dict(saved);h.update(row)
         # Index provenance always prefers the matching saved overall row.
         idx=saved if saved else row
         stars=recent_condition_stars(idx,race_info)
+        if row.get('star_index_rank') is not None:
+            stars['★']+=f" / {row['star_index_rank']}位"
+        if row.get('away_same_distance_index_rank') is not None:
+            stars['☆']=f"☆{fmt(row['away_same_distance_index_value'])} / {row['away_same_distance_index_rank']}位（{stars['☆']}）"
         label=' '.join(x for x in [key,text(pick(h,'name','馬名'))] if x)
         style=text(pick(h,'脚質表示','running_style_display','脚質','running_style','style','running_style_market'))
         style={'逃げ':'逃','先行':'先','差し':'差','追込':'追'}.get(style,style) or '—'

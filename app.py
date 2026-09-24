@@ -30,6 +30,7 @@ from core.betting_recommendation import (
 from core.condition_fit import condition_fit_badge_text, resolved_condition_fit
 from core.course_materials import four_corner_rates_display
 from core.position_signals import nar_position_reference
+from core.condition_support import condition_support_text, condition_support_html
 from core.jra_display_mark import jra_display_mark_from_row
 from core.jra_purchase_navigation_ui import jra_purchase_navigation_html
 from core.prediction_table_ui import prediction_table_records, prediction_table_html, horse_key, jockey_place_text, recent_condition_stars, recommended_cards_html, sex_age_text, load_weight_text, netkeiba_position_text, display_index_rows, index_badges_html, supplementary_card_html, jockey_text
@@ -1754,6 +1755,8 @@ def render_colab_style_result(result: PredictionResult) -> Any:
         if audit:
             st.caption("位置・指数監査（NAR shadowは正式評価に不使用）")
             st.dataframe(pd.DataFrame(audit), use_container_width=True, hide_index=True)
+            st.download_button("条件サポート監査CSV", pd.DataFrame(audit).to_csv(index=False).encode('utf-8-sig'),
+                               file_name='condition_support_audit.csv', mime='text/csv')
         render_race_flow(result)
         if result_race_mode(result) == "nar":
             render_backtest_reference(result)
@@ -2455,7 +2458,7 @@ def jra_comparison_from_result(result: PredictionResult, *, sort_mode: str = "cu
 
 def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, Any]], rows: list[dict[str, Any]]) -> str:
     sources = {horse_key(h): h for h in (result.overall_table.to_dict('records') if result.overall_table is not None else [])}
-    enriched = {horse_key(h): h for h in display_index_rows(rows, list(sources.values()))}
+    enriched = {horse_key(h): h for h in display_index_rows(rows, list(sources.values()), getattr(result, "race_info", {}) or {}, result.race_mode)}
     cards, seen = [], set()
     for item in selected:
         key = horse_key(item)
@@ -2484,7 +2487,7 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
         else:
             lines.append(f"位置bonus {float(row.get('jra_position_bonus') or 0):+.1f}")
         cards.append(dict(number=key, name=pick(row, 'name', '馬名') or item.get('name', ''), mark=mark, role=role, lines=lines,
-                          badges_html=index_badges_html(row), conditions='条件材料：' + conditions))
+                          badges_html=index_badges_html(row), conditions='条件材料：' + conditions, support_html=condition_support_html(row, result.race_mode)))
     return recommended_cards_html(cards)
 
 
@@ -5030,7 +5033,7 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
     if result_race_mode(result) == "nar":
         rows = apply_nar_warning_display_limit(rows)
     overall_rows_by_horse = build_overall_rows_by_horse(result.overall_table)
-    display_rows = {horse_key(h): h for h in display_index_rows(rows, list(overall_rows_by_horse.values()))}
+    display_rows = {horse_key(h): h for h in display_index_rows(rows, list(overall_rows_by_horse.values()), getattr(result, "race_info", {}) or {}, result.race_mode)}
 
     def card_html(row: dict[str, Any]) -> str:
         horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
@@ -6119,17 +6122,51 @@ def short_comment_from_row(row: dict[str, Any]) -> str:
     return " / ".join(parts[:2]) if parts else shorten_text(material, 42)
 
 
+def condition_support_rows(result: PredictionResult) -> list[dict[str, Any]]:
+    rows = sorted_display_rows(result)
+    overall = result.overall_table.to_dict("records") if result.overall_table is not None else []
+    return display_index_rows(rows, overall, getattr(result, "race_info", {}) or {}, result.race_mode)
+
+
+def render_condition_attention(result: PredictionResult) -> None:
+    rows = condition_support_rows(result)
+    selected = []
+    for h in rows:
+        if result.race_mode == 'jra':
+            rank = to_float(h.get('jra_top5_rank'))
+            include = rank is not None and rank > 5 and h.get('jra_condition_attention')
+        else:
+            include = h.get('nar_condition_attention')
+        if include:
+            selected.append(h)
+    if not selected:
+        return
+    parts = ['<div class="condition-attention"><b>✓ 条件注目（参考・購入候補への自動追加なし）</b>']
+    for h in selected:
+        number = horse_key(h)
+        name = clean_text(pick(h, 'name', '馬名'))
+        ability = pick(h, 'jra_pure_ability_score', 'nar_pure_ability_score', 'market_ability_score', 'ability_value')
+        rank = canonical_nar_ability_rank(h) if result.race_mode == 'nar' else pick(h, '_v1_ability_rank', 'market_ability_rank', 'ability_rank')
+        parts.append('<div style="font-size:12px;margin:6px 0;">✓ ' + plain_text_to_html(number + ' ' + name)
+                     + '<br>' + plain_text_to_html(f"純能力 {format_number(ability) or '—'}（{rank_display(rank)}）")
+                     + '<br>' + plain_text_to_html(condition_support_text(h, result.race_mode)) + '</div>')
+    parts.append('</div>')
+    st.markdown(''.join(parts), unsafe_allow_html=True)
+
+
 def position_index_audit_records(result: PredictionResult) -> list[dict[str, Any]]:
     rows = sorted_display_rows(result)
     overall = result.overall_table.to_dict("records") if result.overall_table is not None else []
     audit = []
-    for h in display_index_rows(rows, overall):
+    for h in display_index_rows(rows, overall, getattr(result, "race_info", {}) or {}, result.race_mode):
         item = {"馬番": horse_key(h), "distance_index_rank": h['distance_index_rank'],
                 "course_index_rank": h['course_index_rank']}
         if result.race_mode == 'nar':
             item.update(nar_position_reference(h))
         else:
             item['jra_position_bonus'] = h.get('jra_position_bonus')
+        item.update({key: value for key, value in h.items() if key.startswith(('jra_condition_', 'nar_condition_'))
+                     or key in ('star_index_value', 'star_index_rank', 'away_same_distance_index_value', 'away_same_distance_index_rank')})
         audit.append(item)
     return audit
 

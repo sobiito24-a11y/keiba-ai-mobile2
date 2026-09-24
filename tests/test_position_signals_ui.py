@@ -88,7 +88,7 @@ def test_table_badges_sticky_and_cards(mode):
     assert soup.th.text=='馬番 / 馬名'
     assert '1 確認馬' in soup.td.text
     badge=index_badges_html(display_index_rows([row])[0])
-    assert badge.count('class="index-badge"')==2 and '75' in badge and '1位' in badge
+    assert badge.count('class="index-badge"')==4 and '75' in badge and '1位' in badge
 
 @pytest.mark.parametrize('mode,fixture',[('jra','purchase_hanshin_20260921_r8.json'),('nar','purchase_nar_snapshot.json')])
 def test_real_card_fields_and_snapshot_read_only(monkeypatch,mode,fixture):
@@ -108,10 +108,11 @@ def test_real_card_fields_and_snapshot_read_only(monkeypatch,mode,fixture):
     soup=BeautifulSoup(html[0],'html.parser')
     for card in soup.select('.recommended-horse'):
         assert 'netkeiba想定' in card.text and '複勝率' in card.text
-        assert len(card.select('.index-badge'))==2
+        assert len(card.select('.index-badge'))==4
         assert '条件材料' in card.text
         if mode=='jra':assert '位置bonus' in card.text
-        assert 'shadow' not in card.text
+        if mode=='nar':assert 'shadow' not in card.text
+        else:assert '正式加点なし' in card.text
     html.clear();app.render_horse_summary_cards(p)
     assert len(html)==len(p.horse_evaluation)
     for markup in html:
