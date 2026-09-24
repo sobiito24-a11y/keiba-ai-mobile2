@@ -29,9 +29,10 @@ from core.betting_recommendation import (
 )
 from core.condition_fit import condition_fit_badge_text, resolved_condition_fit
 from core.course_materials import four_corner_rates_display
+from core.position_signals import nar_position_reference
 from core.jra_display_mark import jra_display_mark_from_row
 from core.jra_purchase_navigation_ui import jra_purchase_navigation_html
-from core.prediction_table_ui import prediction_table_records, prediction_table_html, horse_key, jockey_place_text, recent_condition_stars, recommended_cards_html
+from core.prediction_table_ui import prediction_table_records, prediction_table_html, horse_key, jockey_place_text, recent_condition_stars, recommended_cards_html, sex_age_text, load_weight_text, netkeiba_position_text, display_index_rows, index_badges_html, supplementary_card_html, jockey_text
 from core.jra_purchase_navigator import build_jra_purchase_navigation
 from core.investment_decision import (
     InvestmentDecision,
@@ -1749,6 +1750,10 @@ def render_colab_style_result(result: PredictionResult) -> Any:
     render_horse_summary_cards(result)
     with st.expander("研究・監査情報", expanded=False):
         render_overall_table(result)
+        audit = position_index_audit_records(result)
+        if audit:
+            st.caption("位置・指数監査（NAR shadowは正式評価に不使用）")
+            st.dataframe(pd.DataFrame(audit), use_container_width=True, hide_index=True)
         render_race_flow(result)
         if result_race_mode(result) == "nar":
             render_backtest_reference(result)
@@ -2018,6 +2023,9 @@ MARKET_DISPLAY_SUPPLEMENT_COLUMNS = (
     "netkeiba_corner3_rank",
     "netkeiba_corner4_position",
     "netkeiba_corner4_rank",
+    "_netkeiba_corner4_rank",
+    "nar_position_bonus_shadow",
+    "nar_corner4_reference_win_rate",
     "netkeiba_old_style",
     "netkeiba_position_path",
     "netkeiba_corner4_front",
@@ -2447,7 +2455,7 @@ def jra_comparison_from_result(result: PredictionResult, *, sort_mode: str = "cu
 
 def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, Any]], rows: list[dict[str, Any]]) -> str:
     sources = {horse_key(h): h for h in (result.overall_table.to_dict('records') if result.overall_table is not None else [])}
-    enriched = {horse_key(h): h for h in rows}
+    enriched = {horse_key(h): h for h in display_index_rows(rows, list(sources.values()))}
     cards, seen = [], set()
     for item in selected:
         key = horse_key(item)
@@ -2466,9 +2474,17 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
         lines = [f"純能力 {format_number(ability) or '—'}（{rank_display(rank)}）",
                  f"単勝 {format_odds(pick(row, '単勝オッズ', 'オッズ', '単勝', 'actual_odds')) or '—'}",
                  '相手信頼度 ' + (clean_text(row.get('partner_trust_level')) or '—'),
-                 '騎手：' + compact_jockey_text(row), jockey_place_text(row),
-                 '脚質：' + short_running_style(row), '条件材料：' + conditions]
-        cards.append(dict(number=key, name=pick(row, 'name', '馬名') or item.get('name', ''), mark=mark, role=role, lines=lines))
+                 sex_age_text(row) + '　' + load_weight_text(row),
+                 '騎手：' + jockey_text(row), jockey_place_text(row),
+                 '脚質：' + short_running_style(row), 'netkeiba想定：' + netkeiba_position_text(row)]
+        if result.race_mode == 'nar':
+            rate = nar_position_reference(row)['nar_corner4_reference_win_rate']
+            if rate is not None:
+                lines.append(f'4角参考勝率 {rate:.1f}%（71Rバックテスト参考）')
+        else:
+            lines.append(f"位置bonus {float(row.get('jra_position_bonus') or 0):+.1f}")
+        cards.append(dict(number=key, name=pick(row, 'name', '馬名') or item.get('name', ''), mark=mark, role=role, lines=lines,
+                          badges_html=index_badges_html(row), conditions='条件材料：' + conditions))
     return recommended_cards_html(cards)
 
 
@@ -4026,7 +4042,7 @@ def render_market_full_table(table: pd.DataFrame, race_mode: str) -> None:
             "脚質": clean_text(pick(row, "running_style_market")),
             "今回の展開": market_pace_material_text(row) or "—",
             "今回のコース材料": market_course_material_text(row) or "—",
-            "netkeiba推定": market_netkeiba_position_text(row) or "—",
+            "netkeiba想定": market_netkeiba_position_text(row) or "—",
             "想定位置": market_position_path_text(row),
             "距離": format_index_value(pick(row, "距離指数")),
             "コース": format_index_value(pick(row, "コース指数")),
@@ -4309,7 +4325,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
     if course:
         detail_lines.append(f"コース：{course}")
     if netkeiba:
-        detail_lines.append(f"netkeiba推定：{netkeiba}")
+        detail_lines.append(f"netkeiba想定：{netkeiba}")
     jockey_watch = clean_text(pick(row, "jockey_watch"))
     if jockey_watch:
         detail_lines.append(f"騎手注目：{jockey_watch}")
@@ -5014,6 +5030,7 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
     if result_race_mode(result) == "nar":
         rows = apply_nar_warning_display_limit(rows)
     overall_rows_by_horse = build_overall_rows_by_horse(result.overall_table)
+    display_rows = {horse_key(h): h for h in display_index_rows(rows, list(overall_rows_by_horse.values()))}
 
     def card_html(row: dict[str, Any]) -> str:
         horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
@@ -5029,6 +5046,9 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
         new_star = recent_condition_stars(index_row, getattr(result, 'race_info', {}) or {})['★']
         if old_star:
             markup = markup.replace(plain_text_to_html(old_star), plain_text_to_html(new_star))
+        source.update(display_rows.get(horse_key, {}))
+        extra = supplementary_card_html(source, result.race_mode)
+        markup = markup.replace('<div class="ka-muted">詳細を見る</div>', extra + '<div class="ka-muted">詳細を見る</div>', 1)
         return markup
 
     st.subheader("馬別サマリーカード")
@@ -5415,7 +5435,7 @@ def horse_summary_card_html(
         stable_comment_detail if stable_comment_detail.startswith("厩舎コメント") else f"厩舎コメント：{stable_comment_detail}",
         f"展開/コース：{course_material or '—'}",
         f"展開/コース監査：{course_material_detail or '—'}",
-        f"netkeiba推定：{netkeiba_favorable or '—'}",
+        f"netkeiba想定：{netkeiba_favorable or '—'}",
         f"妙味あり：{'該当' if value_signal else '—'}",
         f"妙味理由：{value_reason or '—'}",
         f"妙味＋材料：{reason_list_text(value_plus) or '—'}",
@@ -5673,6 +5693,8 @@ def nar_enriched_display_rows(result: PredictionResult, rows: list[dict[str, Any
         if number_key in comparison_by_number:
             merged.update(comparison_by_number[number_key])
         merged_rows.append(merged)
+    for merged in merged_rows:
+        merged.update(nar_position_reference(merged))
     return sorted(merged_rows, key=nar_top5_row_sort_key)
 
 
@@ -6097,6 +6119,21 @@ def short_comment_from_row(row: dict[str, Any]) -> str:
     return " / ".join(parts[:2]) if parts else shorten_text(material, 42)
 
 
+def position_index_audit_records(result: PredictionResult) -> list[dict[str, Any]]:
+    rows = sorted_display_rows(result)
+    overall = result.overall_table.to_dict("records") if result.overall_table is not None else []
+    audit = []
+    for h in display_index_rows(rows, overall):
+        item = {"馬番": horse_key(h), "distance_index_rank": h['distance_index_rank'],
+                "course_index_rank": h['course_index_rank']}
+        if result.race_mode == 'nar':
+            item.update(nar_position_reference(h))
+        else:
+            item['jra_position_bonus'] = h.get('jra_position_bonus')
+        audit.append(item)
+    return audit
+
+
 def prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]:
     rows = sorted_display_rows(result)
     if result.race_mode == "nar":
@@ -6170,7 +6207,7 @@ def build_detail_analysis_table(
                 "脚質": short_running_style(row),
                 "今回の展開": clean_text(pick(row, "v1_pace_reason", "pace_material_label", "pace_mark_market", "展開印")) or "—",
                 "今回のコース材料": clean_text(pick(row, "course_material_label")) or "—",
-                "netkeiba推定": market_netkeiba_position_text(row) or "—",
+                "netkeiba想定": market_netkeiba_position_text(row) or "—",
                 "想定位置": clean_text(pick(row, "corner4_display", "estimated_position_label", "position_path_market", "推定位置", "想定位置")) or "位置不明",
                 "距離": format_index_value(pick(index_row, "距離指数")),
                 "コース": format_index_value(pick(index_row, "コース指数")),
@@ -6298,7 +6335,7 @@ def render_audit_details(result: PredictionResult) -> None:
         st.dataframe(audit_table, use_container_width=True, hide_index=True)
         course_rows = course_material_audit_rows(result)
         if course_rows:
-            st.caption("展開/コース材料監査（netkeiba推定有利馬とは別表示）")
+            st.caption("展開/コース材料監査（netkeiba想定有利馬とは別表示）")
             st.dataframe(pd.DataFrame(course_rows), use_container_width=True, hide_index=True)
         col1, col2, col3 = st.columns(3)
         base_name = make_download_file_name(result).replace(".png", "")
@@ -6335,7 +6372,7 @@ def course_material_audit_rows(result: PredictionResult) -> list[dict[str, Any]]
                 "馬名": pick(row, "馬名"),
                 "展開/コース": pick(row, "course_material_label"),
                 "展開/コース詳細": pick(row, "course_material_detail"),
-                "netkeiba推定": market_netkeiba_position_text(row),
+                "netkeiba想定": market_netkeiba_position_text(row),
                 "netkeibaペース": pick(row, "netkeiba_pace", "_netkeiba_pace"),
                 "netkeiba4角": pick(row, "netkeiba_corner4_position"),
                 "netkeiba4角順位": pick(row, "netkeiba_corner4_rank"),

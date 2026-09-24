@@ -904,7 +904,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertEqual(result.loc[0, "騎手"], "川田将雅【継続】")
         self.assertEqual(result.loc[0, "今回の展開"], "＋ 差し向き")
         self.assertEqual(result.loc[0, "今回のコース材料"], "—")
-        self.assertEqual(result.loc[0, "netkeiba推定"], "中団→中団→中団")
+        self.assertEqual(result.loc[0, "netkeiba想定"], "中団→中団→中団")
         self.assertEqual(result.loc[0, "調教"], "B")
         self.assertNotIn("83.5", result.to_string())
         pd.testing.assert_frame_equal(source, before)

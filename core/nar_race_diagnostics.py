@@ -128,6 +128,8 @@ def build_full_field_comparison(
     for horse in horses:
         v1_row = v1_by_number.get(_text(horse.get("number")))
         if v1_row:
+            if mode == "jra":
+                horse["jra_position_bonus"] = v1_row.get("jra_position_bonus", 0.0)
             horse.update(
                 {
                     "v1_mark": _text(v1_row.get("v1_mark")),
