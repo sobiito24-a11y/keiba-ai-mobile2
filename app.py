@@ -33,6 +33,7 @@ from core.position_signals import nar_position_reference
 from core.condition_support import condition_support_text, condition_support_html
 from core.jra_display_mark import jra_display_mark_from_row
 from core.jra_purchase_navigation_ui import jra_purchase_navigation_html
+from core.jra_win_probability import probability_text, JRA_WIN_PROB_LABEL
 from core.prediction_table_ui import prediction_table_records, prediction_table_html, horse_key, jockey_place_text, recent_condition_stars, recommended_cards_html, sex_age_text, load_weight_text, netkeiba_position_text, display_index_rows, index_badges_html, supplementary_card_html, jockey_text
 from core.jra_purchase_navigator import build_jra_purchase_navigation
 from core.investment_decision import (
@@ -2485,6 +2486,7 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
             if rate is not None:
                 lines.append(f'4角参考勝率 {rate:.1f}%（71Rバックテスト参考）')
         else:
+            lines.insert(0, JRA_WIN_PROB_LABEL + " " + probability_text(row))
             lines.append(f"位置bonus {float(row.get('jra_position_bonus') or 0):+.1f}")
         cards.append(dict(number=key, name=pick(row, 'name', '馬名') or item.get('name', ''), mark=mark, role=role, lines=lines,
                           badges_html=index_badges_html(row), conditions='条件材料：' + conditions, support_html=condition_support_html(row, result.race_mode)))

@@ -4,13 +4,14 @@ import math
 import re
 import unicodedata
 from .jra_display_mark import jra_display_mark_from_row
+from .jra_win_probability import annotate_jra_win_probabilities, probability_text, JRA_WIN_PROB_LABEL
 from .nar_ability_rank import canonical_nar_ability_rank
 from .position_signals import corner4_rank, nar_position_reference
 from .condition_support import matching_recent_runs, annotate_condition_support, condition_support_text, condition_support_html
 
 NAR_COLUMNS = ['純能力順位', '最終印', '✔︎注目度', '純能力', '馬番 / 馬名', '年齢',
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '距離', 'コース', '★', '☆', 'コメント']
-JRA_COLUMNS = ['JRA順位', 'JRAスコア', '最終印', '馬番 / 馬名', '年齢',
+JRA_COLUMNS = ['JRA順位', 'JRAスコア', JRA_WIN_PROB_LABEL, '最終印', '馬番 / 馬名', '年齢',
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '展開', '調教', '距離', 'コース', '★', '☆', '厩舎コメント']
 
 def text(value):
@@ -98,7 +99,8 @@ def display_index_rows(rows, index_rows=(), race_info=None, race_mode=""):
             value=h['_display_'+key]
             h[key+'_rank']=1+sum(x>value for x in values) if value is not None else None
     sources=[saved.get(horse_key(h),h) for h in rows]
-    return annotate_condition_support(out, sources, race_info or {}, race_mode)
+    out = annotate_condition_support(out, sources, race_info or {}, race_mode)
+    return annotate_jra_win_probabilities(out) if race_mode == "jra" else out
 
 def index_cell_text(row,key):
     value=row.get('_display_'+key)
@@ -117,6 +119,8 @@ def index_badges_html(row):
 
 def supplementary_card_html(row,mode):
     lines=[sex_age_text(row)+'　'+load_weight_text(row),'netkeiba想定：'+netkeiba_position_text(row)]
+    if mode == 'jra':
+        lines.insert(0, JRA_WIN_PROB_LABEL + ' ' + probability_text(row))
     if mode=='nar':
         rate=nar_position_reference(row)['nar_corner4_reference_win_rate']
         if rate is not None:lines.append(f'4角参考勝率 {rate:.1f}%（71Rバックテスト参考）')
@@ -199,6 +203,7 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
         final=(marks or {}).get(key)
         if race_mode=='jra':
             record={'JRA順位':fmt(pick(h,'jra_top5_rank','v1_final_rank')),'JRAスコア':fmt(h.get('jra_top5_score'),True),
+                    JRA_WIN_PROB_LABEL:probability_text(row),
                     '最終印':(final if final is not None else jra_display_mark_from_row(row)) or '—',**common,
                     'netkeiba想定':position_display_text(h,race_mode),
                     '展開':text(pick(h,'v1_pace_eval','shadow_pace_eval','pace_mark_market')) or '—',

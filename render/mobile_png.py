@@ -18,6 +18,7 @@ from PIL import Image, ImageDraw, ImageFont
 from core.nar_condition_rescue import build_nar_condition_rescue
 from core.nar_race_diagnostics import build_full_field_comparison
 from core.jra_purchase_navigator import build_jra_purchase_navigation
+from core.jra_win_probability import annotate_jra_win_probabilities, probability_text, JRA_WIN_PROB_LABEL
 from core.models import PredictionResult
 from core.prediction_table_ui import prediction_table_records, horse_key
 from core.star_trace import log_star_trace, star_trace_row
@@ -237,11 +238,19 @@ class _Canvas:
             grade = nav.get('purchase_grade') or 'D'
             label = nav.get('purchase_label') or '見送り'
             groups = nav.get('buy_groups') or {}
+            probabilities = {horse_key(h): h for h in annotate_jra_win_probabilities(_jra_purchase_rows(result))}
             lines = []
             for role in ('中心', '本線', '狙い', '押さえ参考'):
                 lines.append(role + '：' + (' / '.join(str(h['number'])+' '+str(h['name']) for h in groups.get(role, [])) or 'なし'))
             lines.append('穴注意：' + (' / '.join(str(h['number'])+' '+str(h['name']) for h in nav.get('hole_attention', [])) or 'なし'))
             lines.append('買い方：' + str(nav.get('purchase_style') or '見送り'))
+            selected = [h for group in groups.values() for h in group]
+            seen = set()
+            for horse in selected:
+                number = str(horse.get('number'))
+                if number not in seen:
+                    lines.append(number + ' ' + str(horse.get('name') or '') + '：' + JRA_WIN_PROB_LABEL + ' ' + probability_text(probabilities.get(number, {})))
+                    seen.add(number)
         else:
             purchase = _nar_purchase_summary(result)
             grade = purchase.get('race_purchase_judgement') or '—'

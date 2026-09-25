@@ -90,6 +90,14 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
             "horses": market.get("horses", []),
             "user_selection": market.get("user_selection", {}),
         }
+    from .jra_win_probability import jra_win_probability_snapshot
+    probability_snapshot = jra_win_probability_snapshot(result)
+    if probability_snapshot is not None:
+        payload["jra_win_probability_calibration"] = probability_snapshot
+        by_no = {str(h["horse_no"]): h for h in probability_snapshot["horses"]}
+        for horse in horses:
+            extra = by_no.get(str(horse.get("horse_no")), {})
+            horse.update({k: v for k, v in extra.items() if k != "horse_no"})
     return _json_ready(payload)
 
 
