@@ -19,6 +19,7 @@ from core.nar_condition_rescue import build_nar_condition_rescue
 from core.nar_race_diagnostics import build_full_field_comparison
 from core.jra_purchase_navigator import build_jra_purchase_navigation
 from core.jra_win_probability import annotate_jra_win_probabilities, probability_text, JRA_WIN_PROB_LABEL
+from core.nar_win_probability import annotate_nar_win_probabilities, nar_probability_text, NAR_WINPROB_LABEL
 from core.models import PredictionResult
 from core.prediction_table_ui import prediction_table_records, horse_key
 from core.star_trace import log_star_trace, star_trace_row
@@ -264,6 +265,13 @@ class _Canvas:
             warnings = [h for h in rows if _truthy_display(h.get('nar_warning_candidate')) and (_to_float(h.get('nar_top5_rank')) or 999)>5][:3]
             warnings = [h for h in warnings if str(h.get('number')) not in rescued]
             lines = ['軸候補：'+display(axes), '本線：'+display(mains), '✔ 注目：'+display(warnings), '✔ 条件救済：'+display(rescue), '条件救済はTop5外の警戒情報です。自動購入はしません。']
+            probabilities = {horse_key(h): h for h in annotate_nar_win_probabilities(rows, _records(result.overall_table))}
+            seen = set()
+            for horse in axes + mains + warnings + rescue:
+                key = horse_key(horse)
+                if key not in seen:
+                    lines.append(key + ' ' + str(horse.get('name') or '') + '：' + NAR_WINPROB_LABEL + ' ' + nar_probability_text(probabilities.get(key, {})))
+                    seen.add(key)
         self.horse_card(str(grade)+'｜'+str(label), lines, is_watch=grade in ('C','D'))
 
     def draw_simple_overall(self, result: PredictionResult) -> None:

@@ -25,6 +25,7 @@ from .version import APP_VERSION
 HISTORY_ROOT = Path("prediction_history")
 
 
+
 def build_prediction_snapshot(result: PredictionResult, investment_decision: Any = None) -> dict[str, Any]:
     race_type = "nar" if clean_text(result.race_mode).lower() == "nar" else "jra"
     logic_version = clean_text(getattr(result, "logic_version", "v3")) or "v3"
@@ -98,6 +99,19 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
         for horse in horses:
             extra = by_no.get(str(horse.get("horse_no")), {})
             horse.update({k: v for k, v in extra.items() if k != "horse_no"})
+    from .nar_win_probability import nar_win_probability_snapshot
+    from .jra_rescue_shadow import jra_rescue_shadow_snapshot
+    nar_probability = nar_win_probability_snapshot(result)
+    if nar_probability is not None:
+        payload["nar_winprob_calibration"] = nar_probability
+        by_no = {str(h["horse_no"]): h for h in nar_probability["horses"]}
+        for horse in horses:
+            horse.update({k: v for k, v in by_no.get(str(horse.get("horse_no")), {}).items() if k != "horse_no"})
+    rescue = jra_rescue_shadow_snapshot(result)
+    if rescue is not None:
+        by_no = {h["horse_no"]: h for h in rescue}
+        for horse in horses:
+            horse.update({k: v for k, v in by_no.get(str(horse.get("horse_no")), {}).items() if k != "horse_no"})
     return _json_ready(payload)
 
 
@@ -328,6 +342,9 @@ def prediction_zip_bytes(result: PredictionResult, investment_decision: Any = No
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("prediction.json", json.dumps(snapshot, ensure_ascii=False, indent=2))
         archive.writestr("prediction.csv", prediction_csv_bytes(snapshot))
+        if result.race_mode == "nar":
+            from .nar_win_probability import nar_winprob_validation_rows
+            archive.writestr("nar_winprob_validation.json", json.dumps(nar_winprob_validation_rows(snapshot), ensure_ascii=False, indent=2))
         archive.writestr("summary.txt", summary_text(snapshot).encode("utf-8"))
         if clean_text(snapshot.get("logic_version")) in {"practical", "market"}:
             archive.writestr(

@@ -85,7 +85,8 @@ def test_web_cards_png_and_nar_separation(monkeypatch):
     assert any(JRA_WIN_PROB_LABEL in s for s in calls)
     nar=saved_result('nar');nr=app.sorted_display_rows(nar)
     assert not any('jra_win_probability' in h for h in display_index_rows(nr,[],nar.race_info,'nar'))
-    assert JRA_WIN_PROB_LABEL not in str(app.prediction_detail_records(nar))
+    assert JRA_WIN_PROB_LABEL in str(app.prediction_detail_records(nar))
+    assert all('jra_win_probability' not in h for h in display_index_rows(nr, [], nar.race_info, 'nar'))
     assert jra_win_probability_snapshot(nar) is None
 
 

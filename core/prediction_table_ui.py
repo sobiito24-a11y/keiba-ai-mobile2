@@ -5,11 +5,12 @@ import re
 import unicodedata
 from .jra_display_mark import jra_display_mark_from_row
 from .jra_win_probability import annotate_jra_win_probabilities, probability_text, JRA_WIN_PROB_LABEL
+from .nar_win_probability import annotate_nar_win_probabilities, nar_probability_text, NAR_WINPROB_LABEL
 from .nar_ability_rank import canonical_nar_ability_rank
 from .position_signals import corner4_rank, nar_position_reference
 from .condition_support import matching_recent_runs, annotate_condition_support, condition_support_text, condition_support_html
 
-NAR_COLUMNS = ['純能力順位', '最終印', '✔︎注目度', '純能力', '馬番 / 馬名', '年齢',
+NAR_COLUMNS = ['純能力順位', '最終印', '✔︎注目度', '純能力', NAR_WINPROB_LABEL, '馬番 / 馬名', '年齢',
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '距離', 'コース', '★', '☆', 'コメント']
 JRA_COLUMNS = ['JRA順位', 'JRAスコア', JRA_WIN_PROB_LABEL, '最終印', '馬番 / 馬名', '年齢',
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '展開', '調教', '距離', 'コース', '★', '☆', '厩舎コメント']
@@ -100,6 +101,8 @@ def display_index_rows(rows, index_rows=(), race_info=None, race_mode=""):
             h[key+'_rank']=1+sum(x>value for x in values) if value is not None else None
     sources=[saved.get(horse_key(h),h) for h in rows]
     out = annotate_condition_support(out, sources, race_info or {}, race_mode)
+    if race_mode == "nar":
+        return annotate_nar_win_probabilities(out, index_rows)
     return annotate_jra_win_probabilities(out) if race_mode == "jra" else out
 
 def index_cell_text(row,key):
@@ -122,6 +125,7 @@ def supplementary_card_html(row,mode):
     if mode == 'jra':
         lines.insert(0, JRA_WIN_PROB_LABEL + ' ' + probability_text(row))
     if mode=='nar':
+        lines.insert(0, NAR_WINPROB_LABEL + ' ' + nar_probability_text(row))
         rate=nar_position_reference(row)['nar_corner4_reference_win_rate']
         if rate is not None:lines.append(f'4角参考勝率 {rate:.1f}%（71Rバックテスト参考）')
     elif number(row.get('jra_position_bonus')) is not None:
@@ -215,7 +219,7 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
             attention='✔︎ 条件' if key in rescued else '✔︎' if warning or text(final).replace('\ufe0e','') in ('✓','✔') else '—'
             comment=text(pick(h,'表示コメント','display_comment','一言コメント','コメント','評価／検討材料','評価/検討材料')) or '—'
             if key in rescued:comment=rescued[key]['nar_condition_rescue_reason'] + (' / '+comment if comment!='—' else '')
-            record={'純能力順位':fmt(canonical_nar_ability_rank(row)), '最終印':final or '—','✔︎注目度':attention,
+            record={NAR_WINPROB_LABEL:nar_probability_text(row), '純能力順位':fmt(canonical_nar_ability_rank(row)), '最終印':final or '—','✔︎注目度':attention,
                     '純能力':fmt(pick(h,'nar_pure_ability_score','market_ability_score','ability_value','saved_ability_value'),True),**common,
                     'netkeiba想定':position_display_text(h,race_mode), 'コメント':comment}
             columns=NAR_COLUMNS

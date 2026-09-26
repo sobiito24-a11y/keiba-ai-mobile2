@@ -34,6 +34,7 @@ from core.condition_support import condition_support_text, condition_support_htm
 from core.jra_display_mark import jra_display_mark_from_row
 from core.jra_purchase_navigation_ui import jra_purchase_navigation_html
 from core.jra_win_probability import probability_text, JRA_WIN_PROB_LABEL
+from core.nar_win_probability import nar_probability_text, NAR_WINPROB_LABEL
 from core.prediction_table_ui import prediction_table_records, prediction_table_html, horse_key, jockey_place_text, recent_condition_stars, recommended_cards_html, sex_age_text, load_weight_text, netkeiba_position_text, display_index_rows, index_badges_html, supplementary_card_html, jockey_text
 from core.jra_purchase_navigator import build_jra_purchase_navigation
 from core.investment_decision import (
@@ -2482,6 +2483,7 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
                  '騎手：' + jockey_text(row), jockey_place_text(row),
                  '脚質：' + short_running_style(row), 'netkeiba想定：' + netkeiba_position_text(row)]
         if result.race_mode == 'nar':
+            lines.insert(0, NAR_WINPROB_LABEL + ' ' + nar_probability_text(row))
             rate = nar_position_reference(row)['nar_corner4_reference_win_rate']
             if rate is not None:
                 lines.append(f'4角参考勝率 {rate:.1f}%（71Rバックテスト参考）')
