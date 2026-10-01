@@ -36,4 +36,6 @@ def predict_nar(
                 sources[number] = merged
             debug["condition_fit_sources"] = sources
             result.debug_info = debug
-    return apply_prediction_logic(result, prediction_logic_version)
+    result = apply_prediction_logic(result, prediction_logic_version)
+    from .newspaper_v2_engine import attach_newspaper_v2_shadow
+    return attach_newspaper_v2_shadow(result, html_files)

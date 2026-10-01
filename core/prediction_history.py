@@ -6,7 +6,7 @@ import io
 import json
 import re
 import zipfile
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -112,7 +112,10 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
         by_no = {h["horse_no"]: h for h in rescue}
         for horse in horses:
             horse.update({k: v for k, v in by_no.get(str(horse.get("horse_no")), {}).items() if k != "horse_no"})
-    return _json_ready(payload)
+    from .newspaper_v2_snapshot import newspaper_v2_snapshot
+    payload = _json_ready(payload)
+    payload.update(newspaper_v2_snapshot(result))
+    return payload
 
 
 def result_stub_schema(race_info: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -771,6 +774,8 @@ def _safe_filename(value: Any) -> str:
 
 
 def _json_ready(value: Any) -> Any:
+    if isinstance(value, (date, datetime)) and not pd.isna(value):
+        return value.isoformat()
     if isinstance(value, Mapping):
         return {str(key): _json_ready(item) for key, item in value.items()}
     if isinstance(value, list):

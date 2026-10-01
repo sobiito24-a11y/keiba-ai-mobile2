@@ -1,0 +1,23 @@
+{
+  "version": "newspaper_shadow_weights_v1",
+  "status": "untuned_research_hypothesis",
+  "normalization": "ability anchor in original index points; recent/condition residual divided by 10 and clipped to [-1,1]; all auxiliary features bounded [-1,1]; missing component contributes zero with missing flag, not a fabricated observation",
+  "jra": {
+    "top5": {"ability": 1.0, "recent_form": 1.0, "class": 0.5, "condition": 0.5, "pace": 0.25, "training": 0.5, "jockey": 0.15, "weight": 0.0},
+    "win": {"ability": 1.0, "recent_form": 2.0, "class": 0.75, "condition": 0.75, "pace": 0.5, "training": 0.75, "jockey": 0.25, "weight": 0.0}
+  },
+  "nar": {
+    "top5": {"ability": 1.0, "recent_form": 0.75, "class": 0.5, "condition": 0.75, "pace": 0.25, "training": 0.0, "jockey": 0.15, "weight": 0.0},
+    "win": {"ability": 1.0, "recent_form": 1.5, "class": 0.75, "condition": 1.0, "pace": 0.75, "training": 0.0, "jockey": 0.25, "weight": 0.0}
+  },
+  "rationale": {
+    "ability": "Preserve original pure ability as anchor; do not start from official Top5 with existing bonuses.",
+    "recent_form": "Use trend residual (last index minus earlier mean), not the recent mean already present in pure ability.",
+    "class": "Previous/current transition and field-normalized finish combined only for comparable classes; historical best experience is audit only.",
+    "condition": "Use matched recent index residual relative to other recent indices, not another copy of distance/course/star level; require surface/venue/distance/turn evidence.",
+    "pace": "Interaction between provider pace, front-runner count and exact predicted corner4; no unconditional corner4 bonus copied from formal Top5.",
+    "training": "Bounded JRA-only auxiliary term; no invented NAR training.",
+    "jockey": "Only explicit course place rate with at least 20 starts; switch is factual audit, not automatic upgrade.",
+    "weight": "Record actual weight/change for future validation; no unvalidated lighter-is-better points."
+  }
+}

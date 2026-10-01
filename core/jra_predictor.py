@@ -15,4 +15,6 @@ def predict_jra(
     result = predict_jra_from_html(html_files, file_names or {})
     if normalize_prediction_logic_version(prediction_logic_version) == "market":
         attach_course_materials_to_result(result, html_files)
-    return apply_prediction_logic(result, prediction_logic_version)
+    result = apply_prediction_logic(result, prediction_logic_version)
+    from .newspaper_v2_engine import attach_newspaper_v2_shadow
+    return attach_newspaper_v2_shadow(result, html_files)

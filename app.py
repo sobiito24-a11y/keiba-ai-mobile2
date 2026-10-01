@@ -1751,6 +1751,8 @@ def render_colab_style_result(result: PredictionResult) -> Any:
         render_nar_top5_result_summary(result)
     render_prediction_detail_table(result)
     render_horse_summary_cards(result)
+    from core.newspaper_v2_ui import render_newspaper_v2_shadow
+    render_newspaper_v2_shadow(result)
     with st.expander("研究・監査情報", expanded=False):
         render_overall_table(result)
         audit = position_index_audit_records(result)
@@ -1801,6 +1803,8 @@ def render_market_compare_result(result: PredictionResult) -> None:
         render_market_full_table(table, result.race_mode)
     render_market_user_selection(result, table)
     render_market_audit_details(result, table)
+    from core.newspaper_v2_ui import render_newspaper_v2_shadow
+    render_newspaper_v2_shadow(result)
 
 
 def market_source_table(result: PredictionResult) -> pd.DataFrame:
