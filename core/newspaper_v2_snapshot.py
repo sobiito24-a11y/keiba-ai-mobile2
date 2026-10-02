@@ -3,13 +3,13 @@ from copy import deepcopy
 
 
 def newspaper_v2_snapshot(result):
-    keys = (result.race_mode + "_newspaper_v2_shadow", result.race_mode + "_newspaper_v2_class_split_shadow")
+    keys = (result.race_mode + "_newspaper_v2_shadow", result.race_mode + "_newspaper_v2_class_split_shadow", result.race_mode + "_newspaper_v2_input_enriched_shadow")
     return {key: deepcopy(result.debug_info[key]) for key in keys
             if isinstance((result.debug_info or {}).get(key), dict)}
 
 
 def restore_newspaper_v2_snapshot(result, snapshot):
-    keys = (result.race_mode + "_newspaper_v2_shadow", result.race_mode + "_newspaper_v2_class_split_shadow")
+    keys = (result.race_mode + "_newspaper_v2_shadow", result.race_mode + "_newspaper_v2_class_split_shadow", result.race_mode + "_newspaper_v2_input_enriched_shadow")
     for key in keys:
         saved = snapshot.get(key)
         if isinstance(saved, dict):

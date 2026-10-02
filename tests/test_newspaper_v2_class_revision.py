@@ -126,7 +126,9 @@ def test_outcome_odds_invariance_and_frozen_two_versions(mode):
     pd.testing.assert_frame_equal(result.overall_table,before.overall_table)
     pd.testing.assert_frame_equal(result.horse_evaluation,before.horse_evaluation)
     frozen=json.loads(json.dumps(newspaper_v2_snapshot(result),allow_nan=False))
-    assert len(frozen)==2
+    assert set(frozen)=={mode+'_newspaper_v2_shadow',mode+'_newspaper_v2_class_split_shadow',mode+'_newspaper_v2_input_enriched_shadow'}
+    assert frozen[mode+'_newspaper_v2_shadow']==result.debug_info[mode+'_newspaper_v2_shadow']
+    assert frozen[mode+'_newspaper_v2_class_split_shadow']==result.debug_info[mode+'_newspaper_v2_class_split_shadow']
     with patch('core.newspaper_v2_class_revision.evaluate_class_revision',side_effect=AssertionError('No recompute')):
         restored=restore_newspaper_v2_snapshot(before,frozen)
         assert newspaper_v2_snapshot(restored)==frozen

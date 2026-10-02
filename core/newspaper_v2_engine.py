@@ -191,4 +191,26 @@ def attach_newspaper_v2_shadow(result, html_files=None):
             revision = {"model_version": result.race_mode + "_newspaper_shadow_v2_class_split",
                         "status": "input_error", "error": str(exc), "horses": []}
         result.debug_info = {**result.debug_info, revision_key: revision}
+        # Separate input-quality candidate; never modifies either frozen parent.
+        from .newspaper_v2_enrichment import evaluate_enriched, newspaper_runs
+        from .newspaper_v2_past_headers import PastHeaderCache, collect_nar_header, NAR_BABA
+        import os
+        try:
+            headers = dict(html_files.get("past_race_headers") or {})
+            newspaper = html_files.get("newspaper") or html_files.get("newspaper_context") or ""
+            cache_path = os.environ.get("KEIBA_V2_PAST_HEADER_CACHE")
+            if cache_path:
+                cache = PastHeaderCache(cache_path, allow_http=os.environ.get("KEIBA_V2_FETCH_PAST_HEADERS") == "1")
+                for runs in newspaper_runs(newspaper).values():
+                    for run in runs:
+                        rid = run.get("race_id")
+                        if rid and rid not in headers:
+                            header = collect_nar_header(cache, run) if run.get("venue") in NAR_BABA else cache.get(rid)
+                            if header: headers[rid] = header
+            enriched = evaluate_enriched(rows, info, result.race_mode, html=newspaper,
+                base_v1=output, base_split=revision, headers=headers)
+        except (ValueError, TypeError, KeyError, OSError) as exc:
+            enriched = {"model_version": result.race_mode + "_newspaper_shadow_v3_input_enriched",
+                        "status": "input_error", "error": str(exc), "horses": []}
+        result.debug_info[result.race_mode + "_newspaper_v2_input_enriched_shadow"] = enriched
     return result

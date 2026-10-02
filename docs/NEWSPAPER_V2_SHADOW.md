@@ -110,3 +110,41 @@ Bでは過去会場から体系を識別し、年齢不明・不一致、競走�
 既存正式順位、v1、分離版、v1からclass項だけを除去した参考モデルを同一母集団で比較。
 HTML併用/保存のみの有効率、原因別頭数・レース数、馬別原文、A/B寄与、Top5入替、勝ち馬順位変動をCSVに保存します。
 確定結果はモデル計算の後にだけ結合。過去データは開発診断で、正式採用の根拠としません。
+
+## Input-enrichment research candidate (v3)
+
+`jra_newspaper_shadow_v3_input_enriched` / `nar_newspaper_shadow_v3_input_enriched`
+are saved under `<mode>_newspaper_v2_input_enriched_shadow`. Neither replaces
+v1, the class-split candidate, formal scores/ranks/marks, probabilities or buying
+logic. No coefficients are fitted. Only the split candidate's A/B evidence is
+changed; all other components remain fixed for an attributable comparison.
+
+`newspaper_v2_enrichment.py` retains three structured past runs, source text,
+field provenance, unknown acquisition timestamps, normalized class, identity
+conflicts and input hashes. Matching uses race ID with contradictory identity
+checks; the fallback requires full date, venue, race number, surface, distance
+and horse identity. Slot labels/month-day alone cannot merge records.
+A newspaper class badge is read separately from Data03 (weight condition).
+Saved expanded race names may supply explicit eligibility after a valid join.
+A shortened NAR C label or mixed C3/C4 cannot establish a numeric class change.
+
+`newspaper_v2_past_headers.py` offers a race-ID cache and validates explicit
+headers. NAR official date/venue/race number must agree. Only header eligibility
+and conditions enter the model; result-table rows, payoff, popularity and odds
+are never inputs. Historical data collected later are reference evidence, not
+claimed as a frozen prediction. Missing headers remain unknown.
+
+Fresh prediction callers may supply `html_files["past_race_headers"]` keyed by
+race ID. `KEIBA_V2_PAST_HEADER_CACHE` selects a local cache directory.
+`KEIBA_V2_FETCH_PAST_HEADERS=1` opts the fresh prediction path into HTTP on cache
+misses; by default no network request is added to normal prediction latency.
+This setting never affects Snapshot restoration. Acquisition timestamps are
+recorded only when known, not replaced by prediction timestamps. Archive source
+HTML alongside the cache for independent future audits.
+
+New snapshots retain the structured input and evaluated result. Restoration
+only copies saved versions; old snapshots are not recalculated. Research
+reports can be reproduced with `tools/evaluate_newspaper_v2_enrichment.py` using
+`--root`, `--output`, optional `--fetch-limit` (netkeiba headers) and
+`--nar-fetch-limit` (official NAR headers). Source snapshot SHA checks guard
+against overwriting frozen data. All reports label retrospective computation.
