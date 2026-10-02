@@ -179,4 +179,16 @@ def attach_newspaper_v2_shadow(result, html_files=None):
     except (ValueError, TypeError, KeyError) as exc:
         output = {"model_version": result.race_mode + "_newspaper_shadow_v1", "status": "input_error", "error": str(exc), "horses": []}
     result.debug_info = {**(result.debug_info or {}), key: output}
+    # Next research version is a separate sibling, never a replacement of v1.
+    if output.get("race_mode") == result.race_mode:
+        from .newspaper_v2_class_revision import evaluate_class_revision
+        revision_key = result.race_mode + "_newspaper_v2_class_split_shadow"
+        try:
+            revision = evaluate_class_revision(rows, info, result.race_mode,
+                html=html_files.get("newspaper") or html_files.get("newspaper_context") or "",
+                base_v1=output)
+        except (ValueError, TypeError, KeyError) as exc:
+            revision = {"model_version": result.race_mode + "_newspaper_shadow_v2_class_split",
+                        "status": "input_error", "error": str(exc), "horses": []}
+        result.debug_info = {**result.debug_info, revision_key: revision}
     return result

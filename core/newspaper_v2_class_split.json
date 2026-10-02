@@ -1,0 +1,8 @@
+{
+  "version": "newspaper_shadow_class_split_v2",
+  "status": "untuned_research_candidate",
+  "finish_fraction_of_v1_class_weight": 0.5,
+  "transition_fraction_of_v1_class_weight": 0.5,
+  "missing_policy": "independent zero contribution, no redistribution",
+  "rationale": "Preserve the v1 maximum class contribution; separate normalized previous finish from evidence-supported class transition. No outcome fitting."
+}
