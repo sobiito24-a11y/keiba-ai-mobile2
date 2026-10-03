@@ -21,6 +21,7 @@ from core.jra_purchase_navigator import build_jra_purchase_navigation
 from core.jra_win_probability import annotate_jra_win_probabilities, probability_text, JRA_WIN_PROB_LABEL
 from core.nar_win_probability import annotate_nar_win_probabilities, nar_probability_text, NAR_WINPROB_LABEL
 from core.models import PredictionResult
+from core.jra_rank_display import official_jra_result_rows
 from core.prediction_table_ui import prediction_table_records, horse_key
 from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION, PREDICTION_LOGIC_VERSION
@@ -1075,6 +1076,8 @@ def _prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]
     rows.sort(key=lambda h: (_to_float(h.get(rank_key)) or 999, _to_float(horse_key(h)) or 999))
     if result.race_mode == 'nar':
         rows = _apply_nar_warning_display_limit(rows)
+    if result.race_mode == 'jra':
+        rows = official_jra_result_rows(result, rows)
     marks = {horse_key(h): _display_mark(h, result.race_mode) for h in rows}
     overall = _records(result.overall_table)
     rescue = build_nar_condition_rescue(rows, index_rows=overall, ability_rows=source) if result.race_mode == 'nar' else []

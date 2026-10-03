@@ -3,6 +3,7 @@ from html import escape
 import math
 import re
 import unicodedata
+from .jra_rank_display import official_jra_values
 from .jra_display_mark import jra_display_mark_from_row
 from .jra_win_probability import annotate_jra_win_probabilities, probability_text, JRA_WIN_PROB_LABEL
 from .nar_win_probability import annotate_nar_win_probabilities, nar_probability_text, NAR_WINPROB_LABEL
@@ -206,7 +207,7 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
                 '脚質':style,'距離':index_cell_text(row,'distance_index'),'コース':index_cell_text(row,'course_index'),**stars}
         final=(marks or {}).get(key)
         if race_mode=='jra':
-            record={'JRA順位':fmt(pick(h,'jra_top5_rank','v1_final_rank')),'JRAスコア':fmt(h.get('jra_top5_score'),True),
+            record={'JRA順位':fmt(official_jra_values(h)[0]),'JRAスコア':fmt(official_jra_values(h)[1],True),
                     JRA_WIN_PROB_LABEL:probability_text(row),
                     '最終印':(final if final is not None else jra_display_mark_from_row(row)) or '—',**common,
                     'netkeiba想定':position_display_text(h,race_mode),
