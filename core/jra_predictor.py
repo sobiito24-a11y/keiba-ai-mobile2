@@ -17,4 +17,8 @@ def predict_jra(
         attach_course_materials_to_result(result, html_files)
     result = apply_prediction_logic(result, prediction_logic_version)
     from .newspaper_v2_engine import attach_newspaper_v2_shadow
-    return attach_newspaper_v2_shadow(result, html_files)
+    result = attach_newspaper_v2_shadow(result, html_files)
+    from .jra_formal_snapshot import freeze_fresh_formal
+    result = freeze_fresh_formal(result)
+    from .jra_repro_candidate import attach_repro_candidate
+    return attach_repro_candidate(result)

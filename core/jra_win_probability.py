@@ -51,6 +51,13 @@ def jra_win_probability_snapshot(result: Any) -> dict[str, Any] | None:
     """Reuse the formal full-field producer, never duplicate the Top5 formula."""
     if result.race_mode != "jra":
         return None
+    # Restored predictions are immutable; never recalibrate from today's logic.
+    from copy import deepcopy
+    saved = (getattr(result, "debug_info", {}) or {}).get("jra_win_probability_calibration")
+    if isinstance(saved, dict):
+        return deepcopy(saved)
+    if getattr(result, "_jra_snapshot_restored", False):
+        return None
     from .nar_race_diagnostics import build_full_field_comparison
 
     source = []
@@ -58,8 +65,11 @@ def jra_win_probability_snapshot(result: Any) -> dict[str, Any] | None:
         if table is not None and not table.empty:
             source = table.to_dict("records")
             break
-    comparison = build_full_field_comparison(source, race_mode="jra", sort_mode="current",
-                                            race_info=result.race_info or {})
+    from .jra_formal_snapshot import saved_formal_comparison
+    comparison = saved_formal_comparison(result)
+    if comparison is None:
+        comparison = build_full_field_comparison(source, race_mode="jra", sort_mode="current",
+                                                race_info=result.race_info or {})
     rows = annotate_jra_win_probabilities(comparison.get("rows", []))
     return {
         "calibration_version": JRA_WIN_PROB_CALIBRATION_VERSION,

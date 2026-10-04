@@ -1069,7 +1069,10 @@ def _nar_purchase_summary(result: PredictionResult) -> dict[str, Any]:
 
 def _prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]:
     source = _records(result.horse_evaluation) or _records(result.overall_table)
-    comparison = build_full_field_comparison(source, race_mode=result.race_mode, sort_mode="current", race_info=result.race_info or {})
+    from core.jra_formal_snapshot import saved_formal_comparison
+    comparison = saved_formal_comparison(result)
+    if comparison is None:
+        comparison = build_full_field_comparison(source, race_mode=result.race_mode, sort_mode="current", race_info=result.race_info or {})
     by_number = {horse_key(h): h for h in comparison.get('rows', [])}
     rows = [dict(h, **by_number.get(horse_key(h), {})) for h in source]
     rank_key = 'jra_top5_rank' if result.race_mode == 'jra' else 'nar_pure_ability_rank'
@@ -1087,10 +1090,13 @@ def _prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]
 def _jra_purchase_rows(result: PredictionResult) -> list[dict[str, Any]]:
     """Purchase-only full field, using the same source priority as the detail table."""
     source = _records(result.horse_evaluation) or _records(result.overall_table)
-    comparison = build_full_field_comparison(
-        source, race_mode="jra", sort_mode="current",
-        race_info=getattr(result, "race_info", {}) or {},
-    )
+    from core.jra_formal_snapshot import saved_formal_comparison
+    comparison = saved_formal_comparison(result)
+    if comparison is None:
+        comparison = build_full_field_comparison(
+            source, race_mode="jra", sort_mode="current",
+            race_info=getattr(result, "race_info", {}) or {},
+        )
     def number(row):
         value = _to_float(_pick(row, "馬番", "馬", "number", "horse_no", "horse_number"))
         return str(int(value)) if value is not None else ""
@@ -1104,12 +1110,15 @@ def _jra_comparison_rows(result: PredictionResult) -> list[dict[str, Any]]:
         source_rows = _records(result.horse_evaluation)
     if not source_rows:
         return []
-    comparison = build_full_field_comparison(
-        source_rows,
-        race_mode="jra",
-        sort_mode="current",
-        race_info=getattr(result, "race_info", {}) or {},
-    )
+    from core.jra_formal_snapshot import saved_formal_comparison
+    comparison = saved_formal_comparison(result)
+    if comparison is None:
+        comparison = build_full_field_comparison(
+            source_rows,
+            race_mode="jra",
+            sort_mode="current",
+            race_info=getattr(result, "race_info", {}) or {},
+        )
     rows = [row for row in comparison.get("rows", []) if isinstance(row, dict)]
     return sorted(rows, key=_jra_row_sort_key)
 

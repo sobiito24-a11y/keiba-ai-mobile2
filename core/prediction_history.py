@@ -115,6 +115,10 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
     from .newspaper_v2_snapshot import newspaper_v2_snapshot
     payload = _json_ready(payload)
     payload.update(newspaper_v2_snapshot(result))
+    from .jra_repro_candidate import candidate_snapshot
+    payload.update(candidate_snapshot(result))
+    from .jra_formal_snapshot import formal_snapshot_fields
+    payload.update(formal_snapshot_fields(result))
     return payload
 
 

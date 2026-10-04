@@ -1761,6 +1761,9 @@ def render_colab_style_result(result: PredictionResult) -> Any:
     from core.newspaper_v2_ui import render_newspaper_v2_shadow
     render_newspaper_v2_shadow(result)
     with st.expander("研究・監査情報", expanded=False):
+        if result_race_mode(result) == "jra":
+            from core.jra_repro_candidate import repro_candidate_html
+            st.markdown(repro_candidate_html(result), unsafe_allow_html=True)
         render_overall_table(result)
         audit = position_index_audit_records(result)
         if audit:
@@ -2458,6 +2461,10 @@ def ver3_conclusion_html(comparison: dict[str, Any]) -> str:
 
 
 def jra_comparison_from_result(result: PredictionResult, *, sort_mode: str = "current") -> dict[str, Any]:
+    from core.jra_formal_snapshot import saved_formal_comparison
+    saved = saved_formal_comparison(result)
+    if saved is not None:
+        return saved
     rows = result_rows(result)
     if not rows:
         return {"rows": [], "race_mode": "jra"}
@@ -5684,12 +5691,15 @@ def jra_enriched_display_rows(result: PredictionResult, rows: list[dict[str, Any
     source_rows = list(rows or result_rows(result))
     if not source_rows:
         return []
-    comparison = build_full_field_comparison(
-        source_rows,
-        race_mode="jra",
-        sort_mode="current",
-        race_info=getattr(result, "race_info", {}) or {},
-    )
+    from core.jra_formal_snapshot import saved_formal_comparison
+    comparison = saved_formal_comparison(result)
+    if comparison is None:
+        comparison = build_full_field_comparison(
+            source_rows,
+            race_mode="jra",
+            sort_mode="current",
+            race_info=getattr(result, "race_info", {}) or {},
+        )
     comparison_by_number = {
         normalize_horse_number_key(row.get("number")): row
         for row in comparison.get("rows", [])
