@@ -1,9 +1,10 @@
 """Canonical JRA table display mark, shared with purchase navigation.
 
-Preserves the Dashboard's existing display precedence, including blank legacy
-fields that intentionally stop fallback. Does not assign or modify any mark.
+Formal ranks 1–3 supply the displayed ◎/○/▲. Other roles retain existing
+precedence. This function never writes ranks, scores or stored mark fields.
 """
 from typing import Any, Mapping
+import math
 import re
 
 import pandas as pd
@@ -29,6 +30,16 @@ def _text(value: Any) -> str:
 
 
 def jra_display_mark_from_row(row: Mapping[str, Any]) -> str:
+    # The formal Top5 ranking is the source of truth for the first three
+    # roles.  Research/shadow marks must never replace these roles.
+    rank = row.get("_display_jra_top5_rank", row.get("jra_top5_rank"))
+    try:
+        numeric_rank = float(rank)
+        rank_value = int(numeric_rank) if not isinstance(rank, bool) and math.isfinite(numeric_rank) and numeric_rank.is_integer() else None
+    except (TypeError, ValueError):
+        rank_value = None
+    if rank_value in (1, 2, 3):
+        return {1: "◎", 2: "○", 3: "▲"}[rank_value]
     for key in ("v1_final_mark", "ver3_final_mark"):
         mark = _text(row.get(key))
         if mark:

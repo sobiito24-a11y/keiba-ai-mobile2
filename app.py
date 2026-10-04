@@ -5568,7 +5568,7 @@ def result_race_mode(result: PredictionResult) -> str:
 
 
 def jra_top5_row_sort_key(row: dict[str, Any]) -> tuple[int, float, float, int]:
-    rank = to_float(row.get("v1_final_rank"))
+    rank = to_float(row.get("_display_jra_top5_rank", row.get("jra_top5_rank")))
     score = to_float(row.get("jra_top5_score"))
     ability = to_float(row.get("jra_pure_ability_score"))
     number = to_float(row.get("number")) or to_float(pick(row, "馬番", "馬"))
@@ -5712,7 +5712,7 @@ def jra_enriched_display_rows(result: PredictionResult, rows: list[dict[str, Any
         if number_key in comparison_by_number:
             merged.update(comparison_by_number[number_key])
         merged_rows.append(merged)
-    return sorted(merged_rows, key=jra_top5_row_sort_key)
+    return official_jra_result_rows(result, sorted(merged_rows, key=jra_top5_row_sort_key))
 
 
 def nar_enriched_display_rows(result: PredictionResult, rows: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:

@@ -22,6 +22,7 @@ from core.jra_win_probability import annotate_jra_win_probabilities, probability
 from core.nar_win_probability import annotate_nar_win_probabilities, nar_probability_text, NAR_WINPROB_LABEL
 from core.models import PredictionResult
 from core.jra_rank_display import official_jra_result_rows
+from core.jra_display_mark import jra_display_mark_from_row
 from core.prediction_table_ui import prediction_table_records, horse_key
 from core.star_trace import log_star_trace, star_trace_row
 from core.version import APP_VERSION, PREDICTION_LOGIC_VERSION
@@ -1101,7 +1102,7 @@ def _jra_purchase_rows(result: PredictionResult) -> list[dict[str, Any]]:
         value = _to_float(_pick(row, "馬番", "馬", "number", "horse_no", "horse_number"))
         return str(int(value)) if value is not None else ""
     by_number = {number(row): row for row in comparison.get("rows", [])}
-    return [dict(row, **by_number.get(number(row), {})) for row in source]
+    return official_jra_result_rows(result, [dict(row, **by_number.get(number(row), {})) for row in source])
 
 
 def _jra_comparison_rows(result: PredictionResult) -> list[dict[str, Any]]:
@@ -1234,12 +1235,7 @@ def _nar_warning_reason_display(value: Any) -> str:
 
 def _display_mark(row: dict[str, Any], race_mode: str = "") -> str:
     if _clean(race_mode).lower() == "jra":
-        mark = _clean(_pick(row, "v1_final_mark"))
-        if mark:
-            return mark
-        fallback = _clean(_pick(row, "ver3_final_mark"))
-        if fallback:
-            return fallback
+        return jra_display_mark_from_row(row)
     if _clean(race_mode).lower() == "nar":
         return _nar_display_mark(row)
     if "mark_v4" in row:

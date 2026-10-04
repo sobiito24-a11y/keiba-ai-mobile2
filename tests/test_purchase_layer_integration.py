@@ -28,7 +28,8 @@ def test_purchase_grade_thresholds_leave_prediction_unchanged(training,pace,repr
 def test_purchase_grade_d_missing_and_jump_are_safe():
     rows=_rows()
     for row in rows: row['v1_final_mark']=''
-    assert build_jra_purchase_navigation(rows,race_mode='jra',race_info={'surface':'芝'})['purchase_grade']=='D'
+    # Formal Top5 ranks supply ◎/○/▲ even when legacy mark fields are blank.
+    assert build_jra_purchase_navigation(rows,race_mode='jra',race_info={'surface':'芝'})['purchase_grade']=='A'
     for info,label in [({},'判定材料不足'),({'surface':'障害'},'対象外')]:
         nav=build_jra_purchase_navigation(_rows(),race_mode='jra',race_info=info)
         assert nav['purchase_grade']=='D' and nav['purchase_label']==label
