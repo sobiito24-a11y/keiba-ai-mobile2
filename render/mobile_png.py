@@ -1069,6 +1069,8 @@ def _nar_purchase_summary(result: PredictionResult) -> dict[str, Any]:
 
 
 def _prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]:
+    from core.material_reconsideration import ensure_current_material_reference
+    ensure_current_material_reference(result)
     source = _records(result.horse_evaluation) or _records(result.overall_table)
     from core.jra_formal_snapshot import saved_formal_comparison
     comparison = saved_formal_comparison(result)

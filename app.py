@@ -1751,6 +1751,8 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
 
 
 def render_colab_style_result(result: PredictionResult) -> Any:
+    from core.material_reconsideration import ensure_current_material_reference
+    ensure_current_material_reference(result)
     render_race_header(result)
     if result_race_mode(result) == "jra":
         render_jra_top5_result_summary(result)
@@ -6217,6 +6219,8 @@ def position_index_audit_records(result: PredictionResult) -> list[dict[str, Any
 
 
 def prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]:
+    from core.material_reconsideration import ensure_current_material_reference
+    ensure_current_material_reference(result)
     rows = sorted_display_rows(result)
     if result.race_mode == "nar":
         rows = apply_nar_warning_display_limit(rows)

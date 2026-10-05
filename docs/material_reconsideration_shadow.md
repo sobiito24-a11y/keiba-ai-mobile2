@@ -4,6 +4,11 @@
 新規予想の全処理終了後に計算し、debug_infoの
 `jra_material_reconsideration_shadow` / `nar_material_reconsideration_shadow`へ保存する。
 過去Snapshotは保存値を表示し、未保存の場合は「未計算」とする。
+ただし日本時間で当日開催のレースは、未保存・空のmaterial判定だけを保存済み入力から参考補完する。
+元の予想作成時刻が発走前であることは引き続き必要。現在の着順・オッズ・外部取得情報は使わない。
+補完時刻、元予想作成時刻、入力ハッシュとsame_day_saved_inputs_referenceを記録し、
+当時保存されていた判定と区別する。正式予想・既存Shadowは再計算しない。
+一度保存された非空のmaterial判定は上書きしない。翌日以降の自動補完も行わない。
 
 ## 判定と最大1組の比較
 
