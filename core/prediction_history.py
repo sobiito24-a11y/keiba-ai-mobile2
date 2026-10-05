@@ -119,6 +119,8 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
     payload.update(candidate_snapshot(result))
     from .jra_practical_shadow import practical_snapshot
     payload.update(practical_snapshot(result))
+    from .material_reconsideration import material_snapshot
+    payload.update(material_snapshot(result))
     from .jra_formal_snapshot import formal_snapshot_fields
     payload.update(formal_snapshot_fields(result))
     return payload

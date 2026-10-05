@@ -23,4 +23,6 @@ def predict_jra(
     from .jra_repro_candidate import attach_repro_candidate
     result = attach_repro_candidate(result)
     from .jra_practical_shadow import attach_practical_shadow
-    return attach_practical_shadow(result)
+    result = attach_practical_shadow(result)
+    from .material_reconsideration import attach_material_reconsideration
+    return attach_material_reconsideration(result)

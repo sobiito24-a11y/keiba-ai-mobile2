@@ -1756,6 +1756,8 @@ def render_colab_style_result(result: PredictionResult) -> Any:
         render_jra_top5_result_summary(result)
     else:
         render_nar_top5_result_summary(result)
+    from core.material_reconsideration import render_reconsideration
+    render_reconsideration(result)
     render_prediction_detail_table(result)
     render_horse_summary_cards(result)
     from core.jra_practical_shadow_ui import render_practical_shadow
@@ -6221,7 +6223,8 @@ def prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]:
     overall = result.overall_table.to_dict("records") if result.overall_table is not None else []
     rescue = build_nar_condition_rescue(rows, index_rows=overall, ability_rows=result_rows(result)) if result.race_mode == "nar" else []
     marks = {horse_key(h): display_mark_from_row(h, result.race_mode) for h in rows}
-    return prediction_table_records(rows, overall, getattr(result, "race_info", {}) or {}, result.race_mode, marks=marks, rescue=rescue)
+    from core.material_reconsideration import saved_materials
+    return prediction_table_records(rows, overall, getattr(result, "race_info", {}) or {}, result.race_mode, marks=marks, rescue=rescue, materials=saved_materials(result))
 
 
 def render_prediction_detail_table(result: PredictionResult) -> None:

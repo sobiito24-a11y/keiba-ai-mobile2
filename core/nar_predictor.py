@@ -38,4 +38,6 @@ def predict_nar(
             result.debug_info = debug
     result = apply_prediction_logic(result, prediction_logic_version)
     from .newspaper_v2_engine import attach_newspaper_v2_shadow
-    return attach_newspaper_v2_shadow(result, html_files)
+    result = attach_newspaper_v2_shadow(result, html_files)
+    from .material_reconsideration import attach_material_reconsideration
+    return attach_material_reconsideration(result)

@@ -10,10 +10,11 @@ from .nar_win_probability import annotate_nar_win_probabilities, nar_probability
 from .nar_ability_rank import canonical_nar_ability_rank
 from .position_signals import corner4_rank, nar_position_reference
 from .condition_support import matching_recent_runs, annotate_condition_support, condition_support_text, condition_support_html
+from .material_reconsideration import material_cell
 
-NAR_COLUMNS = ['純能力順位', '最終印', '✔︎注目度', '純能力', NAR_WINPROB_LABEL, '馬番 / 馬名', '年齢',
+NAR_COLUMNS = ['純能力順位', '最終印', '好材料', '不安材料', '✔︎注目度', '純能力', NAR_WINPROB_LABEL, '馬番 / 馬名', '年齢',
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '距離', 'コース', '★', '☆', 'コメント']
-JRA_COLUMNS = ['JRA順位', 'JRAスコア', JRA_WIN_PROB_LABEL, '最終印', '馬番 / 馬名', '年齢',
+JRA_COLUMNS = ['JRA順位', 'JRAスコア', JRA_WIN_PROB_LABEL, '最終印', '好材料', '不安材料', '馬番 / 馬名', '年齢',
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '展開', '調教', '距離', 'コース', '★', '☆', '厩舎コメント']
 
 def text(value):
@@ -184,7 +185,7 @@ def jockey_text(row):
         name=name[:tag.start()]
     return f'{name}（{status}）' if name else '—'
 
-def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=None, rescue=()):
+def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=None, rescue=(), materials=None):
     """rows are already enriched by the existing display pipeline; marks are supplied unchanged."""
     index={horse_key(h):h for h in index_rows}
     rescued={str(h['number']):h for h in rescue}
@@ -202,7 +203,9 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
         label=' '.join(x for x in [key,text(pick(h,'name','馬名'))] if x)
         style=text(pick(h,'脚質表示','running_style_display','脚質','running_style','style','running_style_market'))
         style={'逃げ':'逃','先行':'先','差し':'差','追込':'追'}.get(style,style) or '—'
-        common={'馬番 / 馬名':label,'年齢':age_text(h),'騎手（継続 / 乗り替わり）':jockey_text(h),
+        evidence=(materials or {}).get(key)
+        common={'好材料':material_cell(evidence), '不安材料':material_cell(evidence,False),
+                '馬番 / 馬名':label,'年齢':age_text(h),'騎手（継続 / 乗り替わり）':jockey_text(h),
                 '騎手成績':jockey_place_text(h),'斤量':load_weight_text(h),
                 '脚質':style,'距離':index_cell_text(row,'distance_index'),'コース':index_cell_text(row,'course_index'),**stars}
         final=(marks or {}).get(key)
@@ -242,6 +245,10 @@ def prediction_table_html(records, race_mode):
             if len(value)>32:
                 shown='<details><summary style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escape(value[:28])+'…</summary><div style="white-space:normal;">'+escape(value)+'</div></details>'
             else:shown='<span style="white-space:nowrap;">'+escape(value)+'</span>'
+            if key in ('好材料','不安材料'):
+                width=170
+                shown=('<details><summary style="display:block;width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                       +escape(value)+'</summary><div style="width:170px;white-space:normal;">'+escape(value)+'</div></details>')
             if key in ('距離','コース'):
                 rank=re.search(r'/ (\d+)位',value)
                 level=int(rank[1]) if rank else None

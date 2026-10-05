@@ -1085,7 +1085,8 @@ def _prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]
     marks = {horse_key(h): _display_mark(h, result.race_mode) for h in rows}
     overall = _records(result.overall_table)
     rescue = build_nar_condition_rescue(rows, index_rows=overall, ability_rows=source) if result.race_mode == 'nar' else []
-    return prediction_table_records(rows, overall, result.race_info or {}, result.race_mode, marks=marks, rescue=rescue)
+    from core.material_reconsideration import saved_materials
+    return prediction_table_records(rows, overall, result.race_info or {}, result.race_mode, marks=marks, rescue=rescue, materials=saved_materials(result))
 
 
 def _jra_purchase_rows(result: PredictionResult) -> list[dict[str, Any]]:
