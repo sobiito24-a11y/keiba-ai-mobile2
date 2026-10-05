@@ -75,7 +75,8 @@ def test_web_cards_png_and_nar_separation(monkeypatch):
     cards=app.conclusion_horse_cards(result,selected,official)
     assert cards.count(JRA_WIN_PROB_LABEL)==2
     records=app.prediction_detail_records(result)
-    assert JRA_COLUMNS[1:4]==['JRAスコア',JRA_WIN_PROB_LABEL,'最終印']
+    assert JRA_COLUMNS[:4]==['JRA順位','JRAスコア','最終印','馬番 / 馬名']
+    assert JRA_COLUMNS[-5:]==[JRA_WIN_PROB_LABEL,'✔︎注目度','今回プラス','今回注意','厩舎コメント']
     assert records==_prediction_detail_records(result)
     calls=[]
     canvas=object.__new__(_Canvas)

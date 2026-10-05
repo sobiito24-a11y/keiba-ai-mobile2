@@ -10,6 +10,7 @@ import pytest
 
 from core.models import PredictionResult
 from core.nar_material_evidence import evaluate_nar_materials
+from core.condition_material_v2 import key_for as condition_key
 from core.jra_material_evidence import evaluate_jra_materials
 from core.material_reconsideration import (
     attach_material_reconsideration, key_for, material_cell,
@@ -142,7 +143,7 @@ def test_adapter_ignores_odds_popularity_current_results_and_preserves_tables(mo
     assert len(saved_materials(r)) == 8
     pd.testing.assert_frame_equal(r.horse_evaluation, before.horse_evaluation)
     pd.testing.assert_frame_equal(r.overall_table, before.overall_table)
-    assert set(r.debug_info) - set(before.debug_info) == {key_for(mode)}
+    assert set(r.debug_info) - set(before.debug_info) == {key_for(mode), condition_key(mode)}
     saved = copy.deepcopy(r.debug_info)
     attach_material_reconsideration(r)
     assert r.debug_info == saved
@@ -164,6 +165,7 @@ def test_snapshot_roundtrip_old_uncomputed_no_replay(mode, monkeypatch):
         restored = restore_prediction_result(race)
         assert material_snapshot(restored) == saved
         restored.debug_info.pop(key_for(mode))
+        restored.debug_info.pop(condition_key(mode))
         attach_material_reconsideration(restored)
         assert saved_materials(restored) == {}
         assert reconsideration_html(restored) == ""
@@ -187,8 +189,8 @@ def test_ui_pair_conditional_escaped_and_table_png_parity():
     assert "正式Top5の変更・購入推奨ではありません" in html
     records = app.prediction_detail_records(r)
     assert records == _prediction_detail_records(r)
-    assert "好材料" in records[0] and "不安材料" in records[0]
-    assert any(row["好材料"].startswith("◎") for row in records)
+    assert "今回プラス" in records[0] and "今回注意" in records[0]
+    assert any(row["今回プラス"].startswith("◎") for row in records)
 
 
 def test_jra_official_probability_navigation_are_invariant():

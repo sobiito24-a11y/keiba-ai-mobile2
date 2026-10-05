@@ -4,12 +4,12 @@ import math
 from .material_evidence_inputs import num
 VERSION = "nar_material_reconsideration_research_v1"
 
-def evaluate_nar_materials(data):
+def evaluate_nar_materials(data, *, include_base=True):
  out=copy.deepcopy(data);N=len(out['horses'])
  for h in out['horses']:
   positive={};negative={};missing=[]
   rank=h['ability_rank']
-  if rank is not None and rank<=3:positive['ability']=f'保存純能力{rank}位'
+  if include_base and rank is not None and rank<=3:positive['ability']=f'保存純能力{rank}位'
   if rank is None:missing.append('純能力順位')
   cond=[k for k in ('distance','course','star','away') if h[k+'_rank'] is not None and h[k+'_rank']<=3]
   labels={'distance':'距離','course':'コース','star':'★','away':'☆'}

@@ -9,14 +9,14 @@ from .jra_practical_shadow import number
 VERSION = 'jra_material_reconsideration_shadow_v1'
 
 
-def evaluate_jra_materials(data):
+def evaluate_jra_materials(data, *, include_base=True):
     out = deepcopy(data)
     if data.get('time_status') != 'pre_race' or data.get('is_jump'):
         return {'model_version': VERSION, 'status': 'excluded_or_time_unverified', 'horses': []}
     for h in out['horses']:
         good, bad, missing = {}, {}, []
         rank = number(h.get('formal_rank'))
-        if rank is not None and rank <= 3:
+        if include_base and rank is not None and rank <= 3:
             good['formal'] = f'正式JRA {rank:g}位'
         c4, pace = number(h.get('corner4_rank')), data.get('pace')
         if c4 is not None and pace in ('S', 'M', 'H'):

@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 import hashlib
 import json
 from html import escape
+from .condition_material_v2 import key_for as condition_key, evaluate_condition_materials, unique_reasons
 
 
 def key_for(mode):
@@ -15,6 +16,7 @@ def attach_material_reconsideration(result):
     if mode not in ('jra','nar') or key in (result.debug_info or {}) or getattr(result,'_jra_snapshot_restored',False) or getattr(result,'_material_snapshot_restored',False):
         return result
     result.debug_info={**(result.debug_info or {}),key:_evaluate_materials(result)}
+    ensure_condition_materials(result)
     return result
 
 
@@ -61,6 +63,7 @@ def ensure_current_material_reference(result, *, today=None):
     key=key_for(mode)
     saved=(result.debug_info or {}).get(key)
     if isinstance(saved,dict) and (saved.get('horses') or saved.get('calculation_context')=='same_day_saved_inputs_reference'):
+        ensure_condition_materials(result)
         return result
     payload=_evaluate_materials(result)
     payload.update(calculation_context='same_day_saved_inputs_reference',
@@ -69,16 +72,43 @@ def ensure_current_material_reference(result, *, today=None):
     if saved is not None:
         payload['previous_uncomputed']=deepcopy(saved)
     result.debug_info={**(result.debug_info or {}),key:payload}
+    ensure_condition_materials(result)
     return result
 
 
+def ensure_condition_materials(result):
+    """Version B from frozen A inputs; never overwrite A or read new race features."""
+    mode=result.race_mode
+    key=condition_key(mode)
+    debug=result.debug_info or {}
+    if mode not in ('jra','nar') or key in debug:
+        return result
+    saved=debug.get(key_for(mode))
+    if not isinstance(saved,dict) or not saved.get('horses'):
+        return result
+    payload=evaluate_condition_materials(saved,mode)
+    payload.update(evaluated_at=datetime.now(timezone.utc).isoformat(),
+                   calculation_context='conditions_only_from_saved_material_inputs',
+                   source_model_version=saved.get('model_version'),
+                   source_evaluated_at=saved.get('evaluated_at'),
+                   purpose='shadow_only_no_formal_feedback')
+    result.debug_info={**debug,key:payload}
+    return result
+
+
+def display_material_payload(result):
+    ensure_condition_materials(result)
+    return (result.debug_info or {}).get(condition_key(result.race_mode)) or {}
+
+
 def material_snapshot(result):
-    key=key_for(result.race_mode);saved=(result.debug_info or {}).get(key)
-    return {key:deepcopy(saved)} if isinstance(saved,dict) else {}
+    return {key:deepcopy(result.debug_info[key])
+            for key in (key_for(result.race_mode),condition_key(result.race_mode))
+            if isinstance((result.debug_info or {}).get(key),dict)}
 
 
 def saved_materials(result):
-    payload=(result.debug_info or {}).get(key_for(result.race_mode)) or {}
+    payload=display_material_payload(result)
     return {str(h['horse_no']):h for h in payload.get('horses',[])}
 
 
@@ -86,12 +116,12 @@ def material_cell(horse,positive=True):
     if not horse:
         return '未計算'
     label=horse['good' if positive else 'concern']
-    reasons=horse['good_reasons' if positive else 'concern_reasons']
+    reasons=unique_reasons(horse['good_reasons' if positive else 'concern_reasons'])
     return label+' '+(' / '.join(reasons.values()) if reasons else '取得材料に該当なし')
 
 
 def reconsideration_html(result):
-    payload=(result.debug_info or {}).get(key_for(result.race_mode)) or {}
+    payload=display_material_payload(result)
     swap=payload.get('reconsideration')
     if not swap:
         return ''
@@ -100,8 +130,8 @@ def reconsideration_html(result):
     def esc(v):return escape(str(v))
     return ('<section class="top5-reconsideration" style="border:1px solid #94a3b855;border-radius:6px;padding:10px;font-size:13px;overflow-wrap:anywhere">'
             '<b>🔄 Top5再検討候補（研究・参考）</b><p>'+esc(added['horse_no']+' '+str(added['horse_name']))+
-            '<br>好材料 '+esc(material_cell(added))+'</p><p>比較対象：'+esc(removed['horse_no']+' '+str(removed['horse_name']))+
-            '<br>不安材料 '+esc(material_cell(removed,False))+'</p><p>'+esc(added['horse_no'])+
+            '<br>今回プラス '+esc(material_cell(added))+'</p><p>比較対象：'+esc(removed['horse_no']+' '+str(removed['horse_name']))+
+            '<br>今回注意 '+esc(material_cell(removed,False))+'</p><p>'+esc(added['horse_no'])+
             '番との比較材料です。正式Top5の変更・購入推奨ではありません。</p>'
             '<details><summary>Shadow Top5を見る</summary>'+esc(' / '.join(payload['shadow_top5']))+'</details></section>')
 

@@ -1,0 +1,105 @@
+{
+  "head": "07cee7a32d62fd8414908fa4c17877bcd006a850",
+  "counts": {
+    "◎": 346,
+    "—": 133,
+    "○": 289
+  },
+  "domains": {
+    "formal": 162,
+    "state": 508,
+    "condition": 268,
+    "position": 216
+  },
+  "adapters_unchanged": {
+    "core/jra_practical_inputs.py": true,
+    "core/material_evidence_inputs.py": true
+  },
+  "research_races": 54,
+  "research_horses": 768,
+  "races": [
+    {
+      "race_id": "202608040201",
+      "mode": "jra",
+      "horses": 8,
+      "originally_saved": false,
+      "prior_research_payload_match": true,
+      "old_current_A_equal": true,
+      "old_table_A_equal": true,
+      "counts": {
+        "◎": 6,
+        "○": 2
+      }
+    },
+    {
+      "race_id": "202608040202",
+      "mode": "jra",
+      "horses": 9,
+      "originally_saved": false,
+      "prior_research_payload_match": true,
+      "old_current_A_equal": true,
+      "old_table_A_equal": true,
+      "counts": {
+        "◎": 4,
+        "○": 4,
+        "—": 1
+      }
+    },
+    {
+      "race_id": "202608040206",
+      "mode": "jra",
+      "horses": 16,
+      "originally_saved": false,
+      "prior_research_payload_match": true,
+      "old_current_A_equal": true,
+      "old_table_A_equal": true,
+      "counts": {
+        "◎": 7,
+        "○": 5,
+        "—": 4
+      }
+    },
+    {
+      "race_id": "202644100501",
+      "mode": "nar",
+      "horses": 12,
+      "originally_saved": false,
+      "prior_research_payload_match": null,
+      "old_current_A_equal": true,
+      "old_table_A_equal": true,
+      "counts": {
+        "○": 3,
+        "—": 7,
+        "◎": 2
+      }
+    },
+    {
+      "race_id": "202644100502",
+      "mode": "nar",
+      "horses": 12,
+      "originally_saved": false,
+      "prior_research_payload_match": null,
+      "old_current_A_equal": true,
+      "old_table_A_equal": true,
+      "counts": {
+        "—": 8,
+        "○": 1,
+        "◎": 3
+      }
+    },
+    {
+      "race_id": "202644100504",
+      "mode": "nar",
+      "horses": 9,
+      "originally_saved": false,
+      "prior_research_payload_match": null,
+      "old_current_A_equal": true,
+      "old_table_A_equal": true,
+      "counts": {
+        "—": 3,
+        "◎": 5,
+        "○": 1
+      }
+    }
+  ]
+}

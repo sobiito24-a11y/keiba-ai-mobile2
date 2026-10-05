@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from tests.test_material_reconsideration import result
+from core.condition_material_v2 import key_for as condition_key
 from core.material_reconsideration import (
     ensure_current_material_reference, attach_material_reconsideration, key_for, saved_materials,
 )
@@ -28,7 +29,7 @@ def test_today_reference_on_restored_result_only_new_key(mode, monkeypatch):
     ensure_current_material_reference(r)
     assert len(saved_materials(r)) == 8
     assert r.debug_info["existing_shadow"] == before.debug_info["existing_shadow"]
-    assert set(r.debug_info) - set(before.debug_info) == {key_for(mode)}
+    assert set(r.debug_info) - set(before.debug_info) == {key_for(mode), condition_key(mode)}
     pd.testing.assert_frame_equal(r.horse_evaluation, before.horse_evaluation)
     pd.testing.assert_frame_equal(r.overall_table, before.overall_table)
     p = r.debug_info[key_for(mode)]
@@ -85,7 +86,7 @@ def test_web_png_export_and_frozen_official_outputs(mode, monkeypatch):
                     race_mode="jra", race_info=r.race_info, saved_rows=r.overall_table.to_dict("records")))
     before = copy.deepcopy(formal(r))
     records = app.prediction_detail_records(r)
-    assert all(x["好材料"] != "未計算" and x["不安材料"] != "未計算" for x in records)
+    assert all(x["今回プラス"] != "未計算" and x["今回注意"] != "未計算" for x in records)
     assert records == _prediction_detail_records(r)
     assert formal(r) == before
     native = json.loads(zipfile.ZipFile(io.BytesIO(prediction_zip_bytes(r))).read("prediction.json"))
@@ -112,6 +113,8 @@ def test_dashboard_event_overlay_and_roundtrip_changes_only_material(monkeypatch
     stripped = copy.deepcopy(updated)
     stripped["races"][0]["prediction_result"]["debug_info"].pop(key)
     stripped["races"][0]["mobile_snapshot"].pop(key)
+    stripped["races"][0]["prediction_result"]["debug_info"].pop(condition_key("nar"))
+    stripped["races"][0]["mobile_snapshot"].pop(condition_key("nar"))
     assert stripped == before
     frozen = copy.deepcopy(restored.debug_info[key])
     recovered = restore_prediction_result(load_keiba(keiba_bytes(updated))["races"][0])
