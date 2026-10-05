@@ -1758,6 +1758,8 @@ def render_colab_style_result(result: PredictionResult) -> Any:
         render_nar_top5_result_summary(result)
     render_prediction_detail_table(result)
     render_horse_summary_cards(result)
+    from core.jra_practical_shadow_ui import render_practical_shadow
+    render_practical_shadow(result)
     from core.newspaper_v2_ui import render_newspaper_v2_shadow
     render_newspaper_v2_shadow(result)
     with st.expander("研究・監査情報", expanded=False):

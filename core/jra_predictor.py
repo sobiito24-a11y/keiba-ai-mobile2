@@ -21,4 +21,6 @@ def predict_jra(
     from .jra_formal_snapshot import freeze_fresh_formal
     result = freeze_fresh_formal(result)
     from .jra_repro_candidate import attach_repro_candidate
-    return attach_repro_candidate(result)
+    result = attach_repro_candidate(result)
+    from .jra_practical_shadow import attach_practical_shadow
+    return attach_practical_shadow(result)
