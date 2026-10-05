@@ -2487,7 +2487,8 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
     enriched = {horse_key(h): h for h in display_index_rows(rows, list(sources.values()), getattr(result, "race_info", {}) or {}, result.race_mode)}
     if result.race_mode == 'jra':
         enriched = {horse_key(h): h for h in official_jra_result_rows(result, list(enriched.values()))}
-        selected = sorted(selected, key=lambda h: official_jra_sort_key(enriched.get(horse_key(h), {})))
+        from core.jra_final_mark import final_mark_sort_key
+        selected = sorted(selected, key=lambda h: final_mark_sort_key(enriched.get(horse_key(h), {})))
     cards, seen = [], set()
     for item in selected:
         key = horse_key(item)
@@ -2518,6 +2519,7 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
             lines.insert(1, JRA_WIN_PROB_LABEL + " " + probability_text(row))
             lines.insert(0, official_jra_text(row))
             lines.append(f"位置bonus {float(row.get('jra_position_bonus') or 0):+.1f}")
+            lines.extend(row.get('_display_jra_mark_reasons', []))
         cards.append(dict(number=key, name=pick(row, 'name', '馬名') or item.get('name', ''), mark=mark, role=role, lines=lines,
                           badges_html=index_badges_html(row), conditions='条件材料：' + conditions, support_html=condition_support_html(row, result.race_mode)))
     return recommended_cards_html(cards)
@@ -2553,7 +2555,7 @@ def nar_comparison_from_result(result: PredictionResult, *, sort_mode: str = "cu
         race_info=getattr(result, "race_info", {}) or {},
     )
 
-    comparison["condition_rescue"] = build_nar_condition_rescue(comparison.get("rows", []), index_rows=result.overall_table.to_dict("records") if result.overall_table is not None else [], ability_rows=rows)
+    comparison["condition_rescue"] = []
     return comparison
 
 
@@ -2564,7 +2566,7 @@ def render_nar_top5_result_summary(result: PredictionResult) -> None:
         for grade in ("A", "B", "C", "D"):
             markup = markup.replace(grade + " ", grade + "｜", 1)
         rescue_numbers = {h['number'] for h in comparison.get('condition_rescue', [])}
-        warnings = [h for h in nar_warning_rows(comparison['rows'])[:3] if str(h.get('number')) not in rescue_numbers]
+        warnings = []
         warning_text = ' / '.join(horse_label_for_summary(h) for h in warnings) or 'なし'
         markup = markup.replace('<details>', '<p><b>✔︎注目</b>：' + plain_text_to_html(warning_text) + '</p><details>', 1)
         selected = [dict(h, card_role=clean_text(h.get('nar_top5_role')) or '相手候補') for h in comparison['rows'] if (to_float(h.get('nar_pure_ability_rank')) or 999) <= 5]
@@ -5406,6 +5408,7 @@ def horse_summary_card_html(
         f"状態：{state}",
     ]
     if training_label:
+        quick_items.extend(row.get('_display_jra_mark_reasons', []))
         quick_items.append(training_label)
     if stable_comment:
         quick_items.append(stable_comment)
@@ -5745,7 +5748,7 @@ def nar_enriched_display_rows(result: PredictionResult, rows: list[dict[str, Any
         merged_rows.append(merged)
     for merged in merged_rows:
         merged.update(nar_position_reference(merged))
-    return sorted(merged_rows, key=nar_top5_row_sort_key)
+    return sorted(merged_rows, key=lambda h: canonical_nar_ability_rank(h) or 999)
 
 
 def sorted_display_rows(result: PredictionResult) -> list[dict[str, Any]]:
@@ -6225,7 +6228,7 @@ def prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]:
     if result.race_mode == "nar":
         rows = apply_nar_warning_display_limit(rows)
     overall = result.overall_table.to_dict("records") if result.overall_table is not None else []
-    rescue = build_nar_condition_rescue(rows, index_rows=overall, ability_rows=result_rows(result)) if result.race_mode == "nar" else []
+    rescue = []
     marks = {horse_key(h): display_mark_from_row(h, result.race_mode) for h in rows}
     from core.material_reconsideration import saved_materials
     return prediction_table_records(rows, overall, getattr(result, "race_info", {}) or {}, result.race_mode, marks=marks, rescue=rescue, materials=saved_materials(result))

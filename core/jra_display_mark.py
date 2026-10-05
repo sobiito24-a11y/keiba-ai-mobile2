@@ -1,7 +1,7 @@
 """Canonical JRA table display mark, shared with purchase navigation.
 
-Formal ranks 1–3 supply the displayed ◎/○/▲. Other roles retain existing
-precedence. This function never writes ranks, scores or stored mark fields.
+Final-role annotations take precedence; frozen ranks supply the base roles.
+This function never writes ranks, scores or stored mark fields.
 """
 from typing import Any, Mapping
 import math
@@ -30,6 +30,12 @@ def _text(value: Any) -> str:
 
 
 def jra_display_mark_from_row(row: Mapping[str, Any]) -> str:
+    if '_display_jra_final_mark' in row:
+        return _text(row.get('_display_jra_final_mark'))
+    return jra_base_display_mark_from_row(row)
+
+
+def jra_base_display_mark_from_row(row: Mapping[str, Any]) -> str:
     # The formal Top5 ranking is the source of truth for the first three
     # roles.  Research/shadow marks must never replace these roles.
     rank = row.get("_display_jra_top5_rank", row.get("jra_top5_rank"))
@@ -40,6 +46,8 @@ def jra_display_mark_from_row(row: Mapping[str, Any]) -> str:
         rank_value = None
     if rank_value in (1, 2, 3):
         return {1: "◎", 2: "○", 3: "▲"}[rank_value]
+    if '_display_jra_source_mark' in row:
+        return _text(row.get('_display_jra_source_mark'))
     for key in ("v1_final_mark", "ver3_final_mark"):
         mark = _text(row.get(key))
         if mark:

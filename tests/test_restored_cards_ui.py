@@ -43,7 +43,8 @@ def test_real_recommended_and_all_horses(monkeypatch,mode,fixture):
         expected={h['number'] for group in nav['buy_groups'].values() for h in group}|{h['number'] for h in nav['hole_attention']}
     else:
         c=app.nar_comparison_from_result(p);rescue=c['condition_rescue'];rescued={h['number'] for h in rescue}
-        expected={h['number'] for h in c['rows'] if h['nar_pure_ability_rank'] and h['nar_pure_ability_rank']<=5}|rescued|{h['number'] for h in app.nar_warning_rows(c['rows'])[:3]}
+        expected={h['number'] for h in c['rows'] if h['nar_pure_ability_rank'] and h['nar_pure_ability_rank']<=5}
+        assert rescue == []
     import re
     assert {re.search(r'\d+',t)[0] for t in titles}==expected
     html.clear();app.render_horse_summary_cards(p)

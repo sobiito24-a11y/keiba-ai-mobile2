@@ -33,7 +33,7 @@ def test_urawa_saved_real_prediction_rescue_web_png_and_invariance(race_id,expec
     before=copy.deepcopy(f)
     comparison=app.nar_comparison_from_result(result)
     rescue=comparison['condition_rescue']
-    assert {h['number'] for h in rescue}==expected
+    assert rescue == []
     assert rescue==_nar_condition_rescue(result)
     saved={h['horse_no']:h for h in f['horses']}
     for horse in comparison['rows']:

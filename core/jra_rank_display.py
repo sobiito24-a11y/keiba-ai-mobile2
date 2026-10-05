@@ -1,4 +1,4 @@
-"""JRA presentation only: read official saved values, never infer a rank.
+"""JRA presentation: read frozen scores/ranks and apply the final-role policy.
 
 Private display fields keep legacy comparison/navigator calculations untouched.
 They are attached to copies for rendering, never to PredictionResult or snapshots.
@@ -79,4 +79,12 @@ def official_jra_result_rows(result, rows):
             for field in ('jra_top5_rank', 'jra_top5_score'):
                 if _number(index.get(field)) is None:
                     index[field] = horse.get(field)
-    return official_jra_display_rows(rows, source, list(indexes.values()))
+    view = official_jra_display_rows(rows, source, list(indexes.values()))
+    by_number = {_key(h): h for h in source}
+    from .jra_display_mark import jra_base_display_mark_from_row
+    for h in view:
+        original = by_number.get(_key(h), {})
+        if any(field in original for field in ('v1_final_mark', 'ver3_final_mark')):
+            h['_display_jra_source_mark'] = jra_base_display_mark_from_row(original)
+    from .jra_final_mark import apply_final_marks
+    return apply_final_marks(result, view)

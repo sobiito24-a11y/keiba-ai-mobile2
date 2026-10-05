@@ -78,6 +78,9 @@ def test_columns_after_formal_and_ui_does_not_repeat_short_reason():
     from core.prediction_table_ui import JRA_COLUMNS,NAR_COLUMNS,prediction_table_html
     import app
     for mode,cols in [('jra',JRA_COLUMNS),('nar',NAR_COLUMNS)]:
+        if mode == 'nar':
+            assert '今回プラス' not in cols and '今回注意' not in cols
+            continue
         for main in ('最終印','JRAスコア' if mode=='jra' else '純能力'):
             assert cols.index('今回プラス')>cols.index(main)
         assert cols.index('今回プラス')>next(i for i,c in enumerate(cols) if 'AI推定勝率' in c)

@@ -120,6 +120,20 @@ def material_cell(horse,positive=True):
     return label+' '+(' / '.join(reasons.values()) if reasons else '取得材料に該当なし')
 
 
+def display_material_cell(horse, positive=True):
+    """UI only: index ranks already have dedicated table columns."""
+    if not horse:
+        return '—'
+    reasons = unique_reasons(horse.get('good_reasons' if positive else 'concern_reasons', {}))
+    if positive:
+        reasons = {k: v for k, v in reasons.items() if k not in ('formal', 'ability', 'condition')}
+    reasons = {k: v for k, v in reasons.items() if '裏付けなし' not in v and '裏付け不足' not in v}
+    if not reasons:
+        return '—'
+    label = ('◎' if len(reasons) >= 2 else '○') if positive else ('⚠' if len(reasons) >= 2 else '△')
+    return label + ' ' + ' / '.join(reasons.values())
+
+
 def reconsideration_html(result):
     payload=display_material_payload(result)
     swap=payload.get('reconsideration')
@@ -137,6 +151,8 @@ def reconsideration_html(result):
 
 
 def render_reconsideration(result):
+    if result.race_mode == 'nar':
+        return
     html=reconsideration_html(result)
     if html:
         import streamlit as st

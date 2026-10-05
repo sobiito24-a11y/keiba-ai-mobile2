@@ -189,8 +189,7 @@ def test_ui_pair_conditional_escaped_and_table_png_parity():
     assert "正式Top5の変更・購入推奨ではありません" in html
     records = app.prediction_detail_records(r)
     assert records == _prediction_detail_records(r)
-    assert "今回プラス" in records[0] and "今回注意" in records[0]
-    assert any(row["今回プラス"].startswith("◎") for row in records)
+    assert all('今回プラス' not in row and '今回注意' not in row for row in records)
 
 
 def test_jra_official_probability_navigation_are_invariant():

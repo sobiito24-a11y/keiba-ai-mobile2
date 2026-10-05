@@ -86,7 +86,10 @@ def test_web_png_export_and_frozen_official_outputs(mode, monkeypatch):
                     race_mode="jra", race_info=r.race_info, saved_rows=r.overall_table.to_dict("records")))
     before = copy.deepcopy(formal(r))
     records = app.prediction_detail_records(r)
-    assert all(x["今回プラス"] != "未計算" and x["今回注意"] != "未計算" for x in records)
+    if mode == 'jra':
+        assert all(x["今回プラス"] != "未計算" and x["今回注意"] != "未計算" for x in records)
+    else:
+        assert all('今回プラス' not in x and '今回注意' not in x for x in records)
     assert records == _prediction_detail_records(r)
     assert formal(r) == before
     native = json.loads(zipfile.ZipFile(io.BytesIO(prediction_zip_bytes(r))).read("prediction.json"))

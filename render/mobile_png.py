@@ -1079,14 +1079,17 @@ def _prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]
     by_number = {horse_key(h): h for h in comparison.get('rows', [])}
     rows = [dict(h, **by_number.get(horse_key(h), {})) for h in source]
     rank_key = 'jra_top5_rank' if result.race_mode == 'jra' else 'nar_pure_ability_rank'
-    rows.sort(key=lambda h: (_to_float(h.get(rank_key)) or 999, _to_float(horse_key(h)) or 999))
+    if result.race_mode == 'jra':
+        rows.sort(key=lambda h: (_to_float(h.get(rank_key)) or 999, _to_float(horse_key(h)) or 999))
     if result.race_mode == 'nar':
+        from core.nar_ability_rank import canonical_nar_ability_rank
+        rows.sort(key=lambda h: canonical_nar_ability_rank(h) or 999)
         rows = _apply_nar_warning_display_limit(rows)
     if result.race_mode == 'jra':
         rows = official_jra_result_rows(result, rows)
     marks = {horse_key(h): _display_mark(h, result.race_mode) for h in rows}
     overall = _records(result.overall_table)
-    rescue = build_nar_condition_rescue(rows, index_rows=overall, ability_rows=source) if result.race_mode == 'nar' else []
+    rescue = []
     from core.material_reconsideration import saved_materials
     return prediction_table_records(rows, overall, result.race_info or {}, result.race_mode, marks=marks, rescue=rescue, materials=saved_materials(result))
 
@@ -1634,9 +1637,7 @@ def _line_height(font: ImageFont.FreeTypeFont) -> int:
 
 
 def _nar_condition_rescue(result: PredictionResult) -> list[dict[str, Any]]:
-    source = _records(result.horse_evaluation) or _records(result.overall_table)
-    comparison = build_full_field_comparison(source, race_mode="nar", race_info=getattr(result, "race_info", {}) or {})
-    return build_nar_condition_rescue(comparison.get("rows", []), index_rows=_records(result.overall_table), ability_rows=source)
+    return []
 
 
 def _purchase_difficulty(result: PredictionResult) -> str:

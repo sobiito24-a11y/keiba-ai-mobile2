@@ -10,11 +10,11 @@ from .nar_win_probability import annotate_nar_win_probabilities, nar_probability
 from .nar_ability_rank import canonical_nar_ability_rank
 from .position_signals import corner4_rank, nar_position_reference
 from .condition_support import matching_recent_runs, annotate_condition_support, condition_support_text, condition_support_html
-from .material_reconsideration import material_cell
+from .material_reconsideration import display_material_cell
 
 NAR_COLUMNS = ['純能力順位', '最終印', '純能力', NAR_WINPROB_LABEL, '馬番 / 馬名', '年齢',
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '距離', 'コース', '★', '☆',
-               '✔︎注目度', '今回プラス', '今回注意', 'コメント']
+               '✔︎注目度', 'コメント']
 JRA_COLUMNS = ['JRA順位', 'JRAスコア', '最終印', '馬番 / 馬名', '年齢',
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '展開', '調教', '距離', 'コース', '★', '☆',
                JRA_WIN_PROB_LABEL, '✔︎注目度', '今回プラス', '今回注意', '厩舎コメント']
@@ -206,12 +206,15 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
         style=text(pick(h,'脚質表示','running_style_display','脚質','running_style','style','running_style_market'))
         style={'逃げ':'逃','先行':'先','差し':'差','追込':'追'}.get(style,style) or '—'
         evidence=(materials or {}).get(key)
-        common={'今回プラス':material_cell(evidence), '今回注意':material_cell(evidence,False),
+        common={'今回プラス':display_material_cell(evidence), '今回注意':display_material_cell(evidence,False),
                 '馬番 / 馬名':label,'年齢':age_text(h),'騎手（継続 / 乗り替わり）':jockey_text(h),
                 '騎手成績':jockey_place_text(h),'斤量':load_weight_text(h),
                 '脚質':style,'距離':index_cell_text(row,'distance_index'),'コース':index_cell_text(row,'course_index'),**stars}
         final=(marks or {}).get(key)
         if race_mode=='jra':
+            warnings = row.get('_display_jra_mark_reasons', [])
+            if warnings:
+                common['今回注意'] = ' / '.join(warnings)
             record={'JRA順位':fmt(official_jra_values(h)[0]),'JRAスコア':fmt(official_jra_values(h)[1],True),
                     JRA_WIN_PROB_LABEL:probability_text(row),
                     '最終印':(final if final is not None else jra_display_mark_from_row(row)) or '—',**common,
@@ -223,9 +226,8 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
             columns=JRA_COLUMNS
         else:
             warning=text(h.get('nar_warning_candidate')).lower() not in ('','false','0','—')
-            attention='✔︎ 条件' if key in rescued else '✔︎' if warning or text(final).replace('\ufe0e','') in ('✓','✔') else '—'
+            attention='✔︎' if warning or text(final).replace('\ufe0e','') in ('✓','✔') else '—'
             comment=text(pick(h,'表示コメント','display_comment','一言コメント','コメント','評価／検討材料','評価/検討材料')) or '—'
-            if key in rescued:comment=rescued[key]['nar_condition_rescue_reason'] + (' / '+comment if comment!='—' else '')
             record={NAR_WINPROB_LABEL:nar_probability_text(row), '純能力順位':fmt(canonical_nar_ability_rank(row)), '最終印':final or '—','✔︎注目度':attention,
                     '純能力':fmt(pick(h,'nar_pure_ability_score','market_ability_score','ability_value','saved_ability_value'),True),**common,
                     'netkeiba想定':position_display_text(h,race_mode), 'コメント':comment}
