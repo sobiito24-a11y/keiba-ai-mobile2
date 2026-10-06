@@ -264,15 +264,13 @@ class _Canvas:
             display = lambda xs: ' / '.join(str(h.get('number'))+' '+str(h.get('name')) for h in xs) or 'なし'
             axes = [h for h in rows if h.get('nar_final_rank') == 1]
             mains = [h for h in rows if h.get('nar_final_rank') in (2,3)]
-            warnings = [h for h in rows if _truthy_display(h.get('nar_warning_candidate')) and (_to_float(h.get('nar_top5_rank')) or 999)>5][:3]
-            warnings = [h for h in warnings if str(h.get('number')) not in rescued]
-            warnings = []
+            warnings = [h for h in rows if h.get('nar_check_selected') and not h.get('pure_ability_top5_group')]
             aims = [h for h in rows if h.get('nar_final_mark') == '✔︎']
             reserves = [h for h in rows if h.get('nar_final_mark') == '△']
-            lines = ['中心：'+display(axes), '本線：'+display(mains), '狙い：'+display(aims), '押さえ：'+display(reserves), '純能力Top5圏を保護し、圏内を能力＋4角で再順位。']
+            lines = ['中心：'+display(axes), '本線：'+display(mains), '狙い：'+display(aims), '押さえ：'+display(reserves), '✓ 追加ヒモ候補（正式Top5圏外）：'+display(warnings), '純能力Top5圏を保護し、圏内を能力＋4角で再順位。']
             probabilities = {horse_key(h): h for h in annotate_nar_win_probabilities(rows, _records(result.overall_table))}
             seen = set()
-            for horse in axes + mains + aims + reserves:
+            for horse in axes + mains + aims + reserves + warnings:
                 key = horse_key(horse)
                 if key not in seen:
                     lines.append(key + ' ' + str(horse.get('name') or '') + '：' + NAR_WINPROB_LABEL + ' ' + nar_probability_text(probabilities.get(key, {})))

@@ -2511,7 +2511,7 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
                  '騎手：' + jockey_text(row), jockey_place_text(row), clean_text(row.get('jockey_positive_reason')),
                  '脚質：' + short_running_style(row), 'netkeiba想定：' + netkeiba_position_text(row)]
         if result.race_mode == 'nar':
-            lines.insert(0, 'NAR最終順位 ' + rank_display(row.get('nar_final_rank')))
+            lines.insert(0, 'NAR最終順位 ' + (rank_display(row.get('nar_final_rank')) if row.get('pure_ability_top5_group') else '—（正式Top5圏外）'))
             lines.insert(0, NAR_WINPROB_LABEL + ' ' + nar_probability_text(row))
             rate = nar_position_reference(row)['nar_corner4_reference_win_rate']
             if rate is not None:
@@ -2566,13 +2566,12 @@ def render_nar_top5_result_summary(result: PredictionResult) -> None:
         markup = nar_purchase_judgement_html(comparison).replace("NAR 最終購入判断", "今回の結論")
         for grade in ("A", "B", "C", "D"):
             markup = markup.replace(grade + " ", grade + "｜", 1)
-        rescue_numbers = {h['number'] for h in comparison.get('condition_rescue', [])}
-        warnings = []
+        warnings = [h for h in comparison['rows'] if h.get('nar_check_selected') and not h.get('pure_ability_top5_group')]
         warning_text = ' / '.join(horse_label_for_summary(h) for h in warnings) or 'なし'
-        markup = markup.replace('<details>', '<p><b>✔︎注目</b>：' + plain_text_to_html(warning_text) + '</p><details>', 1)
+        markup = markup.replace('<details>', '<p><b>✓ 追加ヒモ候補（正式Top5圏外）</b>：' + plain_text_to_html(warning_text) + '</p><details>', 1)
         selected = [dict(h, card_role=clean_text(h.get('nar_top5_role')) or '相手候補') for h in comparison['rows'] if h.get('pure_ability_top5_group')]
         selected.extend(dict(h, card_role='条件適性救済') for h in comparison.get('condition_rescue', []))
-        selected.extend(dict(h, card_role='注目馬') for h in warnings)
+        selected.extend(dict(h, card_role='追加ヒモ候補（正式Top5圏外）') for h in warnings)
         cards = conclusion_horse_cards(result, selected, nar_enriched_display_rows(result))
         markup = markup.replace('</b></div>', '</b></div>' + cards, 1)
         st.markdown(markup, unsafe_allow_html=True)

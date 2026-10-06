@@ -78,3 +78,30 @@ def test_snapshot_roundtrip_and_display_match():
     assert app.prediction_detail_records(restored)==table
     conclusion=app.nar_comparison_from_result(result)
     assert len(conclusion['nar_top5_recommendations'])==5
+
+
+def test_selected_checks_in_conclusion_table_and_cards(monkeypatch):
+    import app
+    from render.mobile_png import _prediction_detail_records
+    rows=field(10)
+    result=PredictionResult(race_mode='nar',horse_evaluation=pd.DataFrame(rows),overall_table=pd.DataFrame(rows))
+    attach(result);before=copy.deepcopy(result.debug_info)
+    cards=[];html=[]
+    original=app.recommended_cards_html
+    def capture(values):
+        cards.extend(values)
+        return original(values)
+    class Sink:
+        def markdown(self,value,**kwargs):html.append(value)
+    monkeypatch.setattr(app,'recommended_cards_html',capture)
+    monkeypatch.setattr(app,'st',Sink())
+    app.render_nar_top5_result_summary(result)
+    assert [str(c['number']) for c in cards if c['mark']=='✓']==['6','7']
+    assert all(c['mark']!='✓' for c in cards[:5])
+    assert all('圏外' in c['role'] for c in cards[5:])
+    assert all('NAR最終順位 —（正式Top5圏外）' in c['lines'] for c in cards[5:])
+    table=app.prediction_detail_records(result)
+    assert table==_prediction_detail_records(result)
+    assert sum(r['最終印']=='✓' for r in table)==2
+    assert result.debug_info==before
+    assert '追加ヒモ候補' in ''.join(html)
