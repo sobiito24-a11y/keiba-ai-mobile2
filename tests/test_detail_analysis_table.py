@@ -1704,7 +1704,7 @@ class DisplayGroupViewTest(unittest.TestCase):
         self.assertEqual(self.app.display_mark_from_row({"nar_top5_rank": 1}, "nar"), "◎")
         self.assertEqual(self.app.display_mark_from_row({"nar_top5_rank": 2}, "nar"), "○")
 
-    def test_nar_warning_display_mark_shows_all_existing_flags(self) -> None:
+    def test_nar_legacy_warning_flags_without_required_inputs_are_not_displayed(self) -> None:
         rows = [
             {"number": str(number), "nar_top5_rank": number, "nar_warning_candidate": True}
             for number in range(6, 11)
@@ -1712,10 +1712,10 @@ class DisplayGroupViewTest(unittest.TestCase):
 
         limited = self.app.apply_nar_warning_display_limit(rows)
 
-        self.assertEqual(sum(1 for row in limited if row["nar_warning_display"]), 5)
-        self.assertEqual([self.app.display_mark_from_row(row, "nar") for row in limited], ["✓", "✓", "✓", "✓", "✓"])
+        self.assertEqual(sum(1 for row in limited if row["nar_warning_display"]), 0)
+        self.assertEqual([self.app.display_mark_from_row(row, "nar") for row in limited], ["", "", "", "", ""])
         html = self.app.full_field_nar_top5_comparison_html({"race_mode": "nar", "rows": rows})
-        self.assertEqual(html.count("<td>✓</td>"), 10)
+        self.assertEqual(html.count("<td>✓</td>"), 0)
 
 
 if __name__ == "__main__":

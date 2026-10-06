@@ -104,6 +104,8 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
     if result.race_mode == "nar":
         from .nar_top5_order import snapshot as order_snapshot
         payload["nar_top5_corner_order"] = order_snapshot(result)
+        from .nar_check_selection import snapshot as check_snapshot
+        payload["nar_check_selection"] = check_snapshot(result)
     from .jockey_positive import snapshot as jockey_snapshot
     payload["jockey_positive_evidence"] = jockey_snapshot(result)
     nar_probability = nar_win_probability_snapshot(result)

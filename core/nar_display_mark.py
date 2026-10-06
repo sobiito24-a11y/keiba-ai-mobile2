@@ -10,12 +10,9 @@ def formal_mark(row):
 
 def submark(row):
     if row.get('pure_ability_top5_group'):return ''
-    # Only saved submarks or the unchanged legacy warning flag. No new vote.
-    for key in ('nar_submark','mark','baseline_ver3_final_mark','表示印','display_mark','印','最終印'):
-        value=str(row.get(key)).strip() if row.get(key) is not None else ''
-        if value in ('✓','☆','注目','注目馬','注意馬'):return value
-    flag=row.get('nar_warning_candidate')
-    if str(flag).strip().lower() in ('true','1','1.0'):return '✓'
+    if 'nar_check_selected' in row:
+        return '✓' if row['nar_check_selected'] else ''
+    # A single row cannot establish the race-wide selection/cap.
     return ''
 
 def display_mark(row):

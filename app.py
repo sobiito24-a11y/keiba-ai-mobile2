@@ -5641,7 +5641,10 @@ def nar_display_mark_from_row(row: dict[str, Any]) -> str:
 
 
 def apply_nar_warning_display_limit(rows: list[dict[str, Any]], limit: int = 3) -> list[dict[str, Any]]:
-    # Compatibility entry point: show all existing submarks, never truncate.
+    # Compatibility entry point: selection is race-wide, never per-row.
+    from core.nar_check_selection import select
+    if not all("nar_check_selected" in r for r in rows):
+        rows = select(rows)
     from core.nar_display_mark import submark
     return [dict(row, nar_warning_display=bool(submark(row))) for row in rows]
 
