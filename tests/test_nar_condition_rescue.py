@@ -46,7 +46,7 @@ def test_urawa_saved_real_prediction_rescue_web_png_and_invariance(race_id,expec
     assert comparison['rows']==plain['rows']
     assert comparison['race_purchase']==plain['race_purchase']
     html=app.nar_top5_conclusion_html(comparison)
-    assert '条件適性救済' in html and html.index('NAR 最終購入判断')<html.index('NAR Top5サマリー')
+    assert '純能力Top5圏' in html and html.index('NAR 最終購入判断')<html.index('NAR Top5サマリー')
     for h in rescue:
         assert h['nar_condition_rescue_reason'] in html
     assert f==before

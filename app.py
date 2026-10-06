@@ -2511,6 +2511,7 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
                  '騎手：' + jockey_text(row), jockey_place_text(row),
                  '脚質：' + short_running_style(row), 'netkeiba想定：' + netkeiba_position_text(row)]
         if result.race_mode == 'nar':
+            lines.insert(0, 'NAR最終順位 ' + rank_display(row.get('nar_final_rank')))
             lines.insert(0, NAR_WINPROB_LABEL + ' ' + nar_probability_text(row))
             rate = nar_position_reference(row)['nar_corner4_reference_win_rate']
             if rate is not None:
@@ -2569,7 +2570,7 @@ def render_nar_top5_result_summary(result: PredictionResult) -> None:
         warnings = []
         warning_text = ' / '.join(horse_label_for_summary(h) for h in warnings) or 'なし'
         markup = markup.replace('<details>', '<p><b>✔︎注目</b>：' + plain_text_to_html(warning_text) + '</p><details>', 1)
-        selected = [dict(h, card_role=clean_text(h.get('nar_top5_role')) or '相手候補') for h in comparison['rows'] if (to_float(h.get('nar_pure_ability_rank')) or 999) <= 5]
+        selected = [dict(h, card_role=clean_text(h.get('nar_top5_role')) or '相手候補') for h in comparison['rows'] if h.get('pure_ability_top5_group')]
         selected.extend(dict(h, card_role='条件適性救済') for h in comparison.get('condition_rescue', []))
         selected.extend(dict(h, card_role='注目馬') for h in warnings)
         cards = conclusion_horse_cards(result, selected, nar_enriched_display_rows(result))
@@ -2621,7 +2622,7 @@ def nar_top5_summary_lines(comparison: dict[str, Any]) -> list[str]:
     if not rows:
         return ["NAR Top5評価に必要な出走馬データを確認できません。"]
     top_rows = sorted(rows, key=nar_top5_row_sort_key)
-    top5 = [row for row in top_rows if to_float(row.get("nar_top5_rank")) is not None and to_float(row.get("nar_top5_rank")) <= 5]
+    top5 = [row for row in top_rows if row.get("pure_ability_top5_group")]
     ability_sorted = sorted(
         rows,
         key=lambda row: (
@@ -2642,7 +2643,7 @@ def nar_top5_summary_lines(comparison: dict[str, Any]) -> list[str]:
     warnings = nar_warning_rows(rows)
     gap_text = f"{gap:.1f}（{nar_ability_gap_label(gap)}）" if gap is not None else "—（判定保留）"
     return [
-        "NARは純能力順位1〜5位を正式Top5として表示します。総合注目度はTop5外の警戒確認に使います。",
+        "NARは純能力Top5圏（5位同着を含む）を保護し、圏内を能力＋4角で再順位します。",
         "純能力首位："
         + horse_label_for_summary(top_ability)
         + f"、◎○能力差{gap_text}",
@@ -2673,6 +2674,8 @@ def jra_warning_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def nar_warning_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for row in rows:
+        if row.get("nar_top5_order_version"):
+            continue
         rank = to_float(row.get("nar_top5_rank"))
         if rank is not None and rank <= 5:
             continue
@@ -2742,10 +2745,11 @@ def nar_purchase_judgement_html(comparison: dict[str, Any]) -> str:
         + ('<br>' + plain_text_to_html(nar_warning_reason_display(h['existing_warning_reason'])) if h['existing_warning_reason'] else '') + '</p>'
         for h in rescue
     ) or 'なし'
-    pure_top5 = sorted([h for h in rows if (to_float(h.get('nar_pure_ability_rank')) or 999) <= 5], key=nar_top5_row_sort_key)
+    pure_top5 = sorted([h for h in rows if h.get('pure_ability_top5_group')], key=nar_top5_row_sort_key)
     quick_top5 = ' / '.join(horse_label_for_summary(h) for h in pure_top5)
-    quick_axis = next((horse_label_for_summary(h) for h in pure_top5 if to_float(h.get('nar_pure_ability_rank')) == 1), '判定材料不足')
-    quick_main = ' / '.join(horse_label_for_summary(h) for h in pure_top5 if to_float(h.get('nar_pure_ability_rank')) != 1 and clean_text(h.get('partner_trust_level')) == 'HIGH') or 'なし'
+    quick_axis = next((horse_label_for_summary(h) for h in pure_top5 if to_float(h.get('nar_final_rank')) == 1), '判定材料不足')
+    quick_main = ' / '.join(horse_label_for_summary(h) for h in pure_top5 if to_float(h.get('nar_final_rank')) in (2, 3)) or 'なし'
+    quick_reserve = ' / '.join(horse_label_for_summary(h) for h in pure_top5 if h.get('nar_final_mark') == '△') or 'なし'
     action = '見送り' if judgement == 'D' else '慎重に比較' if judgement == 'C' else '購入候補を確認'
     detail_lines = [
         f"◎○能力差：{format_number(purchase.get('ability_gap_1_2')) or '—'}（{gap_label}）",
@@ -2759,10 +2763,9 @@ def nar_purchase_judgement_html(comparison: dict[str, Any]) -> str:
         '<div class="ka-dashboard-title">NAR 最終購入判断</div>'
         f'<div><b style="font-size:1.1rem;">{plain_text_to_html(join_nonempty([judgement, label], sep=" "))}</b></div>'
         f'<p><b>{plain_text_to_html(action)}</b>｜軸信頼 {plain_text_to_html(axis_level)}</p>'
-        f'<p><b>純能力Top5</b>：{plain_text_to_html(quick_top5)}</p>'
-        f'<p><b>軸候補</b>：{plain_text_to_html(quick_axis)}<br><b>本線</b>：{plain_text_to_html(quick_main)}</p>'
-        f'<div><b>条件適性救済</b>：{rescue_html}</div>'
-        '<p class="ka-note">Top5外の条件適性を示す警戒候補です。自動購入・印の昇格は行いません。</p>'
+        f'<p><b>純能力Top5圏（同着保護）</b>：{plain_text_to_html(quick_top5)}</p>'
+        f'<p><b>中心</b>：{plain_text_to_html(quick_axis)}<br><b>本線</b>：{plain_text_to_html(quick_main)}<br><b>押さえ</b>：{plain_text_to_html(quick_reserve)}</p>'
+        '<p class="ka-note">候補は純能力Top5圏。圏内のみ能力＋4角で再順位します。</p>'
         '<details><summary>詳細を見る</summary>'
         f'<div class="ka-note">{plain_text_to_html(" / ".join(detail_lines))}</div>'
         f'<div class="ka-note">相手信頼度：{" / ".join(partner_lines) if partner_lines else "—"}</div>'
@@ -2861,7 +2864,7 @@ def nar_top5_conclusion_html(comparison: dict[str, Any]) -> str:
     )
     cards: list[str] = []
     gap_1_2 = comparison.get("ability_gap_1_2")
-    for horse in sorted(recommendations, key=nar_top5_row_sort_key)[:5]:
+    for horse in sorted(recommendations, key=nar_top5_row_sort_key):
         title = " ".join(
             part
             for part in (
@@ -5568,7 +5571,11 @@ def horse_summary_card_html(
 def result_rows(result: PredictionResult) -> list[dict[str, Any]]:
     for table in (result.horse_evaluation, result.overall_table):
         if table is not None and not getattr(table, "empty", False):
-            return table.to_dict("records")
+            rows = table.to_dict("records")
+            if result.race_mode == "nar":
+                from core.nar_top5_order import overlay_saved
+                rows = overlay_saved(result, rows)
+            return rows
     return []
 
 
@@ -5610,10 +5617,14 @@ def nar_top5_mark_from_rank(rank: Any) -> str:
 
 
 def nar_top5_mark_from_row(row: dict[str, Any]) -> str:
+    if "nar_final_mark" in row:
+        return clean_text(row.get("nar_final_mark"))
     return nar_top5_mark_from_rank(pick(row, "nar_top5_rank"))
 
 
 def nar_display_mark_from_row(row: dict[str, Any]) -> str:
+    if "nar_final_mark" in row:
+        return clean_text(row.get("nar_final_mark"))
     mark = nar_top5_mark_from_row(row)
     if mark:
         return mark
@@ -5748,7 +5759,8 @@ def nar_enriched_display_rows(result: PredictionResult, rows: list[dict[str, Any
         merged_rows.append(merged)
     for merged in merged_rows:
         merged.update(nar_position_reference(merged))
-    return sorted(merged_rows, key=lambda h: canonical_nar_ability_rank(h) or 999)
+    from core.nar_top5_order import sort_key
+    return sorted(merged_rows, key=sort_key)
 
 
 def sorted_display_rows(result: PredictionResult) -> list[dict[str, Any]]:

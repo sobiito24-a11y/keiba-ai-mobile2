@@ -101,6 +101,9 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
             horse.update({k: v for k, v in extra.items() if k != "horse_no"})
     from .nar_win_probability import nar_win_probability_snapshot
     from .jra_rescue_shadow import jra_rescue_shadow_snapshot
+    if result.race_mode == "nar":
+        from .nar_top5_order import snapshot as order_snapshot
+        payload["nar_top5_corner_order"] = order_snapshot(result)
     nar_probability = nar_win_probability_snapshot(result)
     if nar_probability is not None:
         payload["nar_winprob_calibration"] = nar_probability

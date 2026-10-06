@@ -97,7 +97,7 @@ def test_nar_png_purchase_card_keeps_original_prediction(monkeypatch):
     monkeypatch.setattr(mobile_png._Canvas,'horse_card',capture)
     Image.open(BytesIO(mobile_png.render_mobile_png(result))).verify()
     assert '｜' in cards[0][0]
-    assert any(line.startswith('軸候補：') for line in cards[0][1])
+    assert any(line.startswith('中心：') for line in cards[0][1])
     assert any(line.startswith('本線：') for line in cards[0][1])
     assert not any('JRA 最終購入判断' in title for title,_ in cards)
     pd.testing.assert_frame_equal(result.overall_table,before)

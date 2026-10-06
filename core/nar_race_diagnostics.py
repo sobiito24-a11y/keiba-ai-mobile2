@@ -216,6 +216,8 @@ def build_full_field_comparison(
     race_purchase = {}
     if mode == "nar":
         race_purchase = annotate_nar_purchase_judgement(horses, race_info=info)
+        from .nar_top5_order import comparison_fields
+        comparison_fields(horses, records)
 
     horses = _sort_comparison_horses(horses, sort_mode, race_mode=mode)
     transfer_watch = bool(
@@ -260,7 +262,7 @@ def build_full_field_comparison(
         "nar_top5_recommendations": [
             horse
             for horse in sorted(
-                [horse for horse in horses if _int(horse.get("nar_top5_rank")) is not None and 1 <= _int(horse.get("nar_top5_rank")) <= 5],
+                [horse for horse in horses if horse.get("pure_ability_top5_group")],
                 key=lambda horse: (
                     _int(horse.get("nar_top5_rank")) or 999,
                     -(float(_float(horse.get("nar_top5_score")) or -999999.0)),

@@ -262,14 +262,16 @@ class _Canvas:
             rescue = _nar_condition_rescue(result)
             rescued = {h['number'] for h in rescue}
             display = lambda xs: ' / '.join(str(h.get('number'))+' '+str(h.get('name')) for h in xs) or 'なし'
-            axes = [h for h in rows if h.get('nar_pure_ability_rank') == 1]
-            mains = [h for h in rows if (_to_float(h.get('nar_pure_ability_rank')) or 999) in (2,3,4,5) and h.get('partner_trust_level') == 'HIGH']
+            axes = [h for h in rows if h.get('nar_final_rank') == 1]
+            mains = [h for h in rows if h.get('nar_final_rank') in (2,3)]
             warnings = [h for h in rows if _truthy_display(h.get('nar_warning_candidate')) and (_to_float(h.get('nar_top5_rank')) or 999)>5][:3]
             warnings = [h for h in warnings if str(h.get('number')) not in rescued]
-            lines = ['軸候補：'+display(axes), '本線：'+display(mains), '✔ 注目：'+display(warnings), '✔ 条件救済：'+display(rescue), '条件救済はTop5外の警戒情報です。自動購入はしません。']
+            warnings = []
+            reserves = [h for h in rows if h.get('nar_final_mark') == '△']
+            lines = ['中心：'+display(axes), '本線：'+display(mains), '押さえ：'+display(reserves), '純能力Top5圏を保護し、圏内を能力＋4角で再順位。']
             probabilities = {horse_key(h): h for h in annotate_nar_win_probabilities(rows, _records(result.overall_table))}
             seen = set()
-            for horse in axes + mains + warnings + rescue:
+            for horse in axes + mains + reserves:
                 key = horse_key(horse)
                 if key not in seen:
                     lines.append(key + ' ' + str(horse.get('name') or '') + '：' + NAR_WINPROB_LABEL + ' ' + nar_probability_text(probabilities.get(key, {})))
@@ -362,7 +364,7 @@ class _Canvas:
             for horse in rescue:
                 self.horse_card("条件救済 " + horse['number'] + " " + horse['name'], ["条件適性救済（Top5外の警戒候補）", horse['nar_condition_rescue_reason'], _nar_warning_reason_display(horse['existing_warning_reason'])], is_watch=True)
             rescue_numbers = {horse['number'] for horse in rescue}
-            top5 = [row for row in rows if (_to_float(_pick(row, "nar_top5_rank")) or 999) <= 5]
+            top5 = [row for row in rows if row.get("pure_ability_top5_group")]
             for row in top5:
                 mark = _display_mark(row, result.race_mode)
                 no = _pick(row, "number", "馬番", "馬")
@@ -383,7 +385,7 @@ class _Canvas:
                     _clean(_pick(row, "nar_top5_role")),
                 ]
                 self.horse_card(title, [line for line in lines if _clean(line)], is_watch=False)
-            warnings = [row for row in rows if str(row.get("number")) not in rescue_numbers and _truthy_display(_pick(row, "nar_warning_candidate")) and (_to_float(_pick(row, "nar_top5_rank")) or 999) > 5]
+            warnings = []
             if warnings:
                 self.section("✓注目馬")
                 for row in warnings[:3]:
@@ -1062,6 +1064,9 @@ def _nar_row_sort_key(row: dict[str, Any]) -> tuple[int, float, float, int]:
 def _nar_purchase_summary(result: PredictionResult) -> dict[str, Any]:
     """Use the detail table for purchase judgment without changing PNG predictions."""
     source = _records(result.horse_evaluation) or _records(result.overall_table)
+    if result.race_mode == "nar":
+        from core.nar_top5_order import overlay_saved
+        source = overlay_saved(result, source)
     return build_full_field_comparison(
         source, race_mode="nar", sort_mode="current",
         race_info=getattr(result, "race_info", {}) or {},
@@ -1083,7 +1088,8 @@ def _prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]
         rows.sort(key=lambda h: (_to_float(h.get(rank_key)) or 999, _to_float(horse_key(h)) or 999))
     if result.race_mode == 'nar':
         from core.nar_ability_rank import canonical_nar_ability_rank
-        rows.sort(key=lambda h: canonical_nar_ability_rank(h) or 999)
+        from core.nar_top5_order import sort_key
+        rows.sort(key=sort_key)
         rows = _apply_nar_warning_display_limit(rows)
     if result.race_mode == 'jra':
         rows = official_jra_result_rows(result, rows)
@@ -1136,6 +1142,8 @@ def _nar_comparison_rows(result: PredictionResult) -> list[dict[str, Any]]:
         source_rows = _records(result.horse_evaluation)
     if not source_rows:
         return []
+    from core.nar_top5_order import overlay_saved
+    source_rows = overlay_saved(result, source_rows)
     comparison = build_full_field_comparison(
         source_rows,
         race_mode="nar",
@@ -1179,6 +1187,8 @@ def _nar_top5_mark_from_rank(rank: Any) -> str:
 
 
 def _nar_display_mark(row: dict[str, Any]) -> str:
+    if "nar_final_mark" in row:
+        return _clean(row.get("nar_final_mark"))
     mark = _nar_top5_mark_from_rank(_pick(row, "nar_top5_rank"))
     if mark:
         return mark

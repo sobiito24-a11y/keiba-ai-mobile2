@@ -40,4 +40,5 @@ def predict_nar(
     from .newspaper_v2_engine import attach_newspaper_v2_shadow
     result = attach_newspaper_v2_shadow(result, html_files)
     from .material_reconsideration import attach_material_reconsideration
-    return attach_material_reconsideration(result)
+    from .nar_top5_order import attach
+    return attach(attach_material_reconsideration(result))
