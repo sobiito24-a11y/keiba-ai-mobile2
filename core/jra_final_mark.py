@@ -63,6 +63,8 @@ def apply_final_marks(result, rows):
     inputs = {str(h['horse_no']): h for h in data.get('horses', [])}
     indexes = {horse_key(h): h for h in (result.overall_table.to_dict('records')
                if result.overall_table is not None else [])}
+    from .jockey_positive import overlay as jockey_overlay
+    rows = jockey_overlay(result, rows)
     out = []
     for row in rows:
         h = dict(row)
@@ -89,6 +91,7 @@ def apply_final_marks(result, rows):
             h['_display_jra_final_mark'] = '△'
         h['_display_jra_mark_cap'] = bool(capped)
         h['_display_jra_mark_reasons'] = reasons
+        h['_display_jra_positive_evidence'] = ({'jockey': h['jockey_positive_reason']} if h.get('jockey_positive') else {})
         h['_display_jra_mark_policy'] = 'jra_final_mark_v1'
         out.append(h)
     # Preserve existing roles unless there is an actual capped main candidate.

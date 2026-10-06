@@ -208,7 +208,7 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
         evidence=(materials or {}).get(key)
         common={'今回プラス':display_material_cell(evidence), '今回注意':display_material_cell(evidence,False),
                 '馬番 / 馬名':label,'年齢':age_text(h),'騎手（継続 / 乗り替わり）':jockey_text(h),
-                '騎手成績':jockey_place_text(h),'斤量':load_weight_text(h),
+                '騎手成績':jockey_place_text(h)+(' / '+text(h.get('jockey_positive_reason')) if text(h.get('jockey_positive_reason')) else ''),'斤量':load_weight_text(h),
                 '脚質':style,'距離':index_cell_text(row,'distance_index'),'コース':index_cell_text(row,'course_index'),**stars}
         final=(marks or {}).get(key)
         if race_mode=='jra':

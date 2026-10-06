@@ -2508,7 +2508,7 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
                  f"単勝 {format_odds(pick(row, '単勝オッズ', 'オッズ', '単勝', 'actual_odds')) or '—'}",
                  '相手信頼度 ' + (clean_text(row.get('partner_trust_level')) or '—'),
                  sex_age_text(row) + '　' + load_weight_text(row),
-                 '騎手：' + jockey_text(row), jockey_place_text(row),
+                 '騎手：' + jockey_text(row), jockey_place_text(row), clean_text(row.get('jockey_positive_reason')),
                  '脚質：' + short_running_style(row), 'netkeiba想定：' + netkeiba_position_text(row)]
         if result.race_mode == 'nar':
             lines.insert(0, 'NAR最終順位 ' + rank_display(row.get('nar_final_rank')))
@@ -4317,6 +4317,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         f"{'純能力' if is_jra else '純能力'}：{format_index_value(detail_ability_value)}（能力順位 {ability_rank}位）",
         f"実オッズ：{odds}",
         f"騎手成績：{jockey_stats or '—'}",
+        clean_text(row.get("jockey_positive_reason")),
         (
             f"JRA Top5評価：{current_rank}位 {mark}｜{clean_text(pick(row, 'v1_final_reason'))}"
             if is_jra
@@ -5381,6 +5382,8 @@ def horse_summary_card_html(
     ability_display = clamp_ability_display_value(ability_raw)
     ability_bar = ability_bar_html(row, index_row, race_mode)
     material_badges = ability_material_badges(row, index_row, race_mode)
+    if clean_text(row.get("jockey_positive_reason")):
+        material_badges.append((clean_text(row["jockey_positive_reason"]), "positive"))
     material_badges_markup = material_badges_html(material_badges)
     material_labels = " ／ ".join(label for label, _tone in material_badges)
     first_blinker_source = initial_blinker_source(row, race_mode, index_row)
@@ -5460,6 +5463,7 @@ def horse_summary_card_html(
         weight,
         jockey,
         f"騎手成績：{jockey_stats or '—'}",
+        clean_text(row.get("jockey_positive_reason")),
         f"脚質：{style}",
         f"オッズ：{odds or '—'}",
         "",
@@ -5575,7 +5579,8 @@ def result_rows(result: PredictionResult) -> list[dict[str, Any]]:
             if result.race_mode == "nar":
                 from core.nar_top5_order import overlay_saved
                 rows = overlay_saved(result, rows)
-            return rows
+            from core.jockey_positive import overlay as jockey_overlay
+            return jockey_overlay(result, rows)
     return []
 
 

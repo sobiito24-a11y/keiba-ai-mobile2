@@ -24,5 +24,7 @@ def predict_jra(
     result = attach_repro_candidate(result)
     from .jra_practical_shadow import attach_practical_shadow
     result = attach_practical_shadow(result)
+    from .jockey_positive import attach as attach_jockey_evidence
+    result = attach_jockey_evidence(result)
     from .material_reconsideration import attach_material_reconsideration
     return attach_material_reconsideration(result)

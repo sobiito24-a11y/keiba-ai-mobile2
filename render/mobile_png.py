@@ -1097,6 +1097,8 @@ def _prediction_detail_records(result: PredictionResult) -> list[dict[str, Any]]
     overall = _records(result.overall_table)
     rescue = []
     from core.material_reconsideration import saved_materials
+    from core.jockey_positive import overlay as jockey_overlay
+    rows = jockey_overlay(result, rows)
     return prediction_table_records(rows, overall, result.race_info or {}, result.race_mode, marks=marks, rescue=rescue, materials=saved_materials(result))
 
 

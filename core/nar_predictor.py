@@ -39,6 +39,8 @@ def predict_nar(
     result = apply_prediction_logic(result, prediction_logic_version)
     from .newspaper_v2_engine import attach_newspaper_v2_shadow
     result = attach_newspaper_v2_shadow(result, html_files)
+    from .jockey_positive import attach as attach_jockey_evidence
+    result = attach_jockey_evidence(result)
     from .material_reconsideration import attach_material_reconsideration
     from .nar_top5_order import attach
     return attach(attach_material_reconsideration(result))
