@@ -48,5 +48,7 @@ def test_real_recommended_and_all_horses(monkeypatch,mode,fixture):
     import re
     assert {re.search(r'\d+',t)[0] for t in titles}==expected
     html.clear();app.render_horse_summary_cards(p)
-    assert len(html)==len(p.horse_evaluation)
+    from core.nar_display_mark import summary_rows
+    expected_count = len(p.horse_evaluation) if mode=='jra' else len(summary_rows(app.sorted_display_rows_with_value_support(p)))
+    assert len(html)==expected_count
     assert before.equals(p.horse_evaluation)

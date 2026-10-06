@@ -441,7 +441,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
         self.assertIn("◎ 1 無印能力一位", cards[0])
         self.assertIn("○ 2 本命", cards[1])
         self.assertIn("▲ 3 対抗二番手", cards[2])
-        self.assertIn("△ 4 対抗一番手", cards[3])
+        self.assertIn("✔︎ 4 対抗一番手", cards[3])
 
     def test_market_horse_card_order_uses_nar_pure_ability_rank_not_ver3_mark(self) -> None:
         table = pd.DataFrame(
@@ -465,7 +465,7 @@ class DetailAnalysisTableTest(unittest.TestCase):
             list(ordered["馬名"]),
             ["単穴", "押さえ能力一位", "対抗", "本命", "星", "押さえ能力二位", "チェック", "無印二番", "無印一番"],
         )
-        self.assertEqual(list(ordered["nar_top5_mark"])[:6], ["◎", "○", "▲", "△", "△", ""])
+        self.assertEqual(list(ordered["nar_top5_mark"])[:6], ["◎", "○", "▲", "✔︎", "△", ""])
 
     def test_market_compare_normal_flow_hides_band_price_and_ai_evaluation_tables(self) -> None:
         result = SimpleNamespace(
@@ -1665,7 +1665,7 @@ class DisplayGroupViewTest(unittest.TestCase):
         card_markup = "\n".join(self.streamlit.markdown_calls)
         self.assertIn("△ 5 穴候補", card_markup)
         self.assertNotIn("✓ 5 穴候補", card_markup)
-        self.assertIn("6 圏外", card_markup)
+        self.assertNotIn("6 圏外", card_markup)
         self.assertNotIn("【】", card_markup)
         self.assertNotIn("【C】", card_markup)
         self.assertNotIn("【Z】", card_markup)
@@ -1676,7 +1676,7 @@ class DisplayGroupViewTest(unittest.TestCase):
         self.app.render_overall_table(result)
         self.assertNotIn("グループ", self.streamlit.last_dataframe.columns)
         self.assertEqual(list(self.streamlit.last_dataframe["NAR Top5順位"]), ["1位", "2位", "3位", "4位", "5位", "6位"])
-        self.assertEqual(list(self.streamlit.last_dataframe["NAR最終印"]), ["◎", "○", "▲", "△", "△", "—"])
+        self.assertEqual(list(self.streamlit.last_dataframe["NAR最終印"]), ["◎", "○", "▲", "✔︎", "△", "—"])
         pd.testing.assert_frame_equal(horse_evaluation, evaluation_before)
         pd.testing.assert_frame_equal(overall_table, overall_before)
 
@@ -1704,7 +1704,7 @@ class DisplayGroupViewTest(unittest.TestCase):
         self.assertEqual(self.app.display_mark_from_row({"nar_top5_rank": 1}, "nar"), "◎")
         self.assertEqual(self.app.display_mark_from_row({"nar_top5_rank": 2}, "nar"), "○")
 
-    def test_nar_warning_display_mark_is_capped_at_three(self) -> None:
+    def test_nar_warning_display_mark_shows_all_existing_flags(self) -> None:
         rows = [
             {"number": str(number), "nar_top5_rank": number, "nar_warning_candidate": True}
             for number in range(6, 11)
@@ -1712,10 +1712,10 @@ class DisplayGroupViewTest(unittest.TestCase):
 
         limited = self.app.apply_nar_warning_display_limit(rows)
 
-        self.assertEqual(sum(1 for row in limited if row["nar_warning_display"]), 3)
-        self.assertEqual([self.app.display_mark_from_row(row, "nar") for row in limited], ["✓", "✓", "✓", "", ""])
+        self.assertEqual(sum(1 for row in limited if row["nar_warning_display"]), 5)
+        self.assertEqual([self.app.display_mark_from_row(row, "nar") for row in limited], ["✓", "✓", "✓", "✓", "✓"])
         html = self.app.full_field_nar_top5_comparison_html({"race_mode": "nar", "rows": rows})
-        self.assertEqual(html.count("<td>✓</td>"), 6)
+        self.assertEqual(html.count("<td>✓</td>"), 10)
 
 
 if __name__ == "__main__":

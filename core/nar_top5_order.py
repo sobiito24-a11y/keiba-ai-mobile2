@@ -59,7 +59,7 @@ def annotate(rows):
         rank=canonical_nar_ability_rank(r)
         r['nar_final_rank']=i if rank is not None else None
         r['nar_top5_order_rank_change']=rank-i if rank is not None else None
-        if r['pure_ability_top5_group']: r['nar_final_mark']={1:'◎',2:'○',3:'▲'}.get(i,'△')
+        if r['pure_ability_top5_group']: r['nar_final_mark']={1:'◎',2:'○',3:'▲',4:'✔︎'}.get(i,'△')
     return out
 
 def result_rows(result):
@@ -102,8 +102,11 @@ def comparison_fields(rows, source_rows):
         extra=by.get(horse_no(row),{})
         row.update({k:extra.get(k) for k in FIELDS})
         row['nar_top5_rank']=extra.get('nar_final_rank')
-        row['nar_top5_mark']=extra.get('nar_final_mark','')
-        row['nar_top5_role']={'◎':'中心','○':'本線','▲':'本線','△':'押さえ'}.get(row['nar_top5_mark'],'')
+        from .nar_display_mark import formal_mark, submark
+        row['nar_final_mark']=formal_mark(row)
+        row['nar_submark']=submark(extra) or submark(row)
+        row['nar_top5_mark']=row['nar_final_mark']
+        row['nar_top5_role']={'◎':'中心','○':'本線','▲':'本線','✔︎':'狙い','△':'押さえ'}.get(row['nar_top5_mark'],'')
         row['nar_top5_reason']='純能力Top5圏を保護し、圏内だけ能力＋4角で再順位'
     return rows
 

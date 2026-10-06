@@ -17,10 +17,10 @@ def test_group_never_promotes_outside_and_preserves_input():
     assert out[5]['nar_final_mark']==out[6]['nar_final_mark']==''
     assert all(h['ability_rank']==before[i]['ability_rank'] for i,h in enumerate(out))
 
-def test_boundary_tie_protects_six_and_three_triangles():
+def test_boundary_tie_protects_six_and_two_triangles():
     out=annotate(rows(True))
     assert sum(h['pure_ability_top5_group'] for h in out)==6
-    assert sum(h['nar_final_mark']=='△' for h in out)==3
+    assert sum(h['nar_final_mark']=='△' for h in out)==2
     assert out[6]['nar_final_mark']==''
 
 def test_missing_corner_and_core_protect_slots_without_imputation():
@@ -66,7 +66,7 @@ def test_web_png_table_and_six_member_conclusion():
     assert '✔︎注目度' not in table[0]
     comparison=app.nar_comparison_from_result(p)
     assert len(comparison['nar_top5_recommendations'])==6
-    assert sum(h['nar_final_mark']=='△' for h in comparison['rows'])==3
+    assert sum(h['nar_final_mark']=='△' for h in comparison['rows'])==2
 
 
 def test_export_roundtrip_preserves_frozen_order_and_original_tables():
@@ -85,4 +85,4 @@ def test_export_roundtrip_preserves_frozen_order_and_original_tables():
     assert {h['number']:h['nar_final_rank'] for h in frozen}==expected
     pd.testing.assert_frame_equal(p.horse_evaluation,before.horse_evaluation)
     pd.testing.assert_frame_equal(p.overall_table,before.overall_table)
-    assert sum(h['nar_final_mark']=='△' for h in frozen)==3
+    assert sum(h['nar_final_mark']=='△' for h in frozen)==2

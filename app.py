@@ -2749,6 +2749,7 @@ def nar_purchase_judgement_html(comparison: dict[str, Any]) -> str:
     quick_top5 = ' / '.join(horse_label_for_summary(h) for h in pure_top5)
     quick_axis = next((horse_label_for_summary(h) for h in pure_top5 if to_float(h.get('nar_final_rank')) == 1), '判定材料不足')
     quick_main = ' / '.join(horse_label_for_summary(h) for h in pure_top5 if to_float(h.get('nar_final_rank')) in (2, 3)) or 'なし'
+    quick_aim = ' / '.join(horse_label_for_summary(h) for h in pure_top5 if h.get('nar_final_mark') == '✔︎') or 'なし'
     quick_reserve = ' / '.join(horse_label_for_summary(h) for h in pure_top5 if h.get('nar_final_mark') == '△') or 'なし'
     action = '見送り' if judgement == 'D' else '慎重に比較' if judgement == 'C' else '購入候補を確認'
     detail_lines = [
@@ -2764,7 +2765,7 @@ def nar_purchase_judgement_html(comparison: dict[str, Any]) -> str:
         f'<div><b style="font-size:1.1rem;">{plain_text_to_html(join_nonempty([judgement, label], sep=" "))}</b></div>'
         f'<p><b>{plain_text_to_html(action)}</b>｜軸信頼 {plain_text_to_html(axis_level)}</p>'
         f'<p><b>純能力Top5圏（同着保護）</b>：{plain_text_to_html(quick_top5)}</p>'
-        f'<p><b>中心</b>：{plain_text_to_html(quick_axis)}<br><b>本線</b>：{plain_text_to_html(quick_main)}<br><b>押さえ</b>：{plain_text_to_html(quick_reserve)}</p>'
+        f'<p><b>中心</b>：{plain_text_to_html(quick_axis)}<br><b>本線</b>：{plain_text_to_html(quick_main)}<br><b>狙い</b>：{plain_text_to_html(quick_aim)}<br><b>押さえ</b>：{plain_text_to_html(quick_reserve)}</p>'
         '<p class="ka-note">候補は純能力Top5圏。圏内のみ能力＋4角で再順位します。</p>'
         '<details><summary>詳細を見る</summary>'
         f'<div class="ka-note">{plain_text_to_html(" / ".join(detail_lines))}</div>'
@@ -5079,7 +5080,8 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
         st.info("馬別サマリーは未取得です。")
         return
     if result_race_mode(result) == "nar":
-        rows = apply_nar_warning_display_limit(rows)
+        from core.nar_display_mark import summary_rows
+        rows = summary_rows(rows)
     overall_rows_by_horse = build_overall_rows_by_horse(result.overall_table)
     display_rows = {horse_key(h): h for h in display_index_rows(rows, list(overall_rows_by_horse.values()), getattr(result, "race_info", {}) or {}, result.race_mode)}
 
@@ -5435,7 +5437,7 @@ def horse_summary_card_html(
         if jra_reason:
             quick_items.append(f"JRA理由：{jra_reason}")
     elif is_nar:
-        nar_rank = card_pick(row, index_row, "nar_top5_rank")
+        nar_rank = canonical_nar_ability_rank(row)
         nar_ability = card_pick(row, index_row, "nar_pure_ability_score", "market_ability_score", "ability_value", "saved_ability_value")
         if not is_missing_value(nar_ability):
             quick_items.insert(0, f"純能力：{format_number(nar_ability)}（{rank_display(nar_rank)}）")
@@ -5523,7 +5525,7 @@ def horse_summary_card_html(
         detail_lines.extend(
             [
                 "",
-                f"NAR Top5順位：{rank_display(card_pick(row, index_row, 'nar_top5_rank'))}",
+                f"NAR正式順位：{rank_display(row.get('nar_final_rank')) if row.get('pure_ability_top5_group') else '圏外（注目参考）'}",
                 f"NAR最終印：{display_mark_from_row(row, race_mode) or '—'}",
                 f"NAR役割：{clean_text(card_pick(row, index_row, 'nar_top5_role')) or '—'}",
                 f"相手信頼度：{clean_text(card_pick(row, index_row, 'partner_trust_level')) or '—'}",
@@ -5618,7 +5620,7 @@ def nar_top5_mark_from_rank(rank: Any) -> str:
     value = to_float(rank)
     if value is None:
         return ""
-    return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(int(value), "")
+    return {1: "◎", 2: "○", 3: "▲", 4: "✔︎", 5: "△"}.get(int(value), "")
 
 
 def nar_top5_mark_from_row(row: dict[str, Any]) -> str:
@@ -5629,27 +5631,19 @@ def nar_top5_mark_from_row(row: dict[str, Any]) -> str:
 
 def nar_display_mark_from_row(row: dict[str, Any]) -> str:
     if "nar_final_mark" in row:
-        return clean_text(row.get("nar_final_mark"))
+        from core.nar_display_mark import display_mark
+        return display_mark(row)
     mark = nar_top5_mark_from_row(row)
     if mark:
         return mark
-    if "nar_warning_display" in row:
-        return "✓" if truthy_display(row.get("nar_warning_display")) else ""
-    if truthy_display(row.get("nar_warning_candidate")):
-        return "✓"
-    return ""
+    from core.nar_display_mark import submark
+    return submark(row)
 
 
 def apply_nar_warning_display_limit(rows: list[dict[str, Any]], limit: int = 3) -> list[dict[str, Any]]:
-    copied = [dict(row) for row in rows]
-    display_keys = {
-        normalize_horse_number_key(pick(row, "number", "馬番", "馬", "horse_no", "horse_number"))
-        for row in nar_warning_rows(copied)[:limit]
-    }
-    for row in copied:
-        number_key = normalize_horse_number_key(pick(row, "number", "馬番", "馬", "horse_no", "horse_number"))
-        row["nar_warning_display"] = bool(number_key and number_key in display_keys)
-    return copied
+    # Compatibility entry point: show all existing submarks, never truncate.
+    from core.nar_display_mark import submark
+    return [dict(row, nar_warning_display=bool(submark(row))) for row in rows]
 
 
 def nar_ability_gap_label(gap: Any) -> str:

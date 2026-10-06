@@ -210,7 +210,7 @@ def test_nar_comparison_uses_pure_rank_marks_and_keeps_jra_rank_unchanged():
     ]
     nar = build_full_field_comparison(nar_rows, race_mode="nar", sort_mode="current")
     assert [row["number"] for row in nar["rows"]] == ["1", "2", "3", "4", "5", "6"]
-    assert [row["nar_top5_mark"] for row in nar["rows"]] == ["◎", "○", "▲", "△", "△", ""]
+    assert [row["nar_top5_mark"] for row in nar["rows"]] == ["◎", "○", "▲", "✔︎", "△", ""]
     assert nar["rows"][5]["nar_ver3_top5"] is True
     assert nar["rows"][5]["nar_top5_swap_status"] == "VER3_ONLY"
 

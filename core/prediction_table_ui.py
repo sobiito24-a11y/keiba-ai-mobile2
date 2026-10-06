@@ -228,7 +228,7 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
             warning=text(h.get('nar_warning_candidate')).lower() not in ('','false','0','—')
             attention='✔︎' if warning or text(final).replace('\ufe0e','') in ('✓','✔') else '—'
             comment=text(pick(h,'表示コメント','display_comment','一言コメント','コメント','評価／検討材料','評価/検討材料')) or '—'
-            record={'NAR最終順位':fmt(h.get('nar_final_rank')), NAR_WINPROB_LABEL:nar_probability_text(row), '純能力順位':fmt(canonical_nar_ability_rank(row)), '最終印':final or '—','✔︎注目度':attention,
+            record={'NAR最終順位':fmt(h.get('nar_final_rank')) if h.get('pure_ability_top5_group') else '—', NAR_WINPROB_LABEL:nar_probability_text(row), '純能力順位':fmt(canonical_nar_ability_rank(row)), '最終印':final or '—','✔︎注目度':attention,
                     '純能力':fmt(pick(h,'nar_pure_ability_score','market_ability_score','ability_value','saved_ability_value'),True),**common,
                     'netkeiba想定':position_display_text(h,race_mode), 'コメント':comment}
             columns=NAR_COLUMNS

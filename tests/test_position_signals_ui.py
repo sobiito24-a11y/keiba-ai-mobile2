@@ -114,7 +114,9 @@ def test_real_card_fields_and_snapshot_read_only(monkeypatch,mode,fixture):
         if mode=='nar':assert 'shadow' not in card.text
         else:assert '正式加点なし' in card.text
     html.clear();app.render_horse_summary_cards(p)
-    assert len(html)==len(p.horse_evaluation)
+    from core.nar_display_mark import summary_rows
+    expected_count = len(p.horse_evaluation) if mode=='jra' else len(summary_rows(app.sorted_display_rows_with_value_support(p)))
+    assert len(html)==expected_count
     for markup in html:
         assert markup.index('ka-horse-title-line')<markup.index('horse-position-detail')
         assert 'netkeiba想定' in markup and 'index-badge' in markup

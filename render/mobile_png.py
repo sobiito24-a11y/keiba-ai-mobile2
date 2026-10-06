@@ -267,11 +267,12 @@ class _Canvas:
             warnings = [h for h in rows if _truthy_display(h.get('nar_warning_candidate')) and (_to_float(h.get('nar_top5_rank')) or 999)>5][:3]
             warnings = [h for h in warnings if str(h.get('number')) not in rescued]
             warnings = []
+            aims = [h for h in rows if h.get('nar_final_mark') == '✔︎']
             reserves = [h for h in rows if h.get('nar_final_mark') == '△']
-            lines = ['中心：'+display(axes), '本線：'+display(mains), '押さえ：'+display(reserves), '純能力Top5圏を保護し、圏内を能力＋4角で再順位。']
+            lines = ['中心：'+display(axes), '本線：'+display(mains), '狙い：'+display(aims), '押さえ：'+display(reserves), '純能力Top5圏を保護し、圏内を能力＋4角で再順位。']
             probabilities = {horse_key(h): h for h in annotate_nar_win_probabilities(rows, _records(result.overall_table))}
             seen = set()
-            for horse in axes + mains + reserves:
+            for horse in axes + mains + aims + reserves:
                 key = horse_key(horse)
                 if key not in seen:
                     lines.append(key + ' ' + str(horse.get('name') or '') + '：' + NAR_WINPROB_LABEL + ' ' + nar_probability_text(probabilities.get(key, {})))
@@ -1185,35 +1186,24 @@ def _nar_top5_mark_from_rank(rank: Any) -> str:
     value = _to_float(rank)
     if value is None:
         return ""
-    return {1: "◎", 2: "○", 3: "▲", 4: "△", 5: "△"}.get(int(value), "")
+    return {1: "◎", 2: "○", 3: "▲", 4: "✔︎", 5: "△"}.get(int(value), "")
 
 
 def _nar_display_mark(row: dict[str, Any]) -> str:
     if "nar_final_mark" in row:
-        return _clean(row.get("nar_final_mark"))
+        from core.nar_display_mark import display_mark
+        return display_mark(row)
     mark = _nar_top5_mark_from_rank(_pick(row, "nar_top5_rank"))
     if mark:
         return mark
-    if "nar_warning_display" in row:
-        return "✓" if _truthy_display(_pick(row, "nar_warning_display")) else ""
-    if _truthy_display(_pick(row, "nar_warning_candidate")):
-        return "✓"
-    return ""
+    from core.nar_display_mark import submark
+    return submark(row)
 
 
 def _apply_nar_warning_display_limit(rows: list[dict[str, Any]], limit: int = 3) -> list[dict[str, Any]]:
-    copied = [dict(row) for row in rows]
-    warnings = [
-        row
-        for row in copied
-        if _truthy_display(_pick(row, "nar_warning_candidate"))
-        and (_to_float(_pick(row, "nar_top5_rank")) or 999) > 5
-    ][:limit]
-    display_numbers = {_clean(_pick(row, "number", "馬番", "馬", "horse_no", "horse_number")) for row in warnings}
-    for row in copied:
-        number = _clean(_pick(row, "number", "馬番", "馬", "horse_no", "horse_number"))
-        row["nar_warning_display"] = bool(number and number in display_numbers)
-    return copied
+    # Compatibility entry point: show all existing submarks, never truncate.
+    from core.nar_display_mark import submark
+    return [dict(row, nar_warning_display=bool(submark(row))) for row in rows]
 
 
 def _rank_display(value: Any) -> str:
