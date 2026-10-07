@@ -282,6 +282,11 @@ def compose_commentary(data, rows, mode):
         commentary.append(' '.join(('・'.join(name(h) for h in horses) if len(horses)==1 else numbers(horses))+'は'+reason for reason,horses in changes.items()))
     data['development_summary'] = ['逃げ脚質'+str(len(data['running_style_groups']['逃']))+'頭・先行脚質'+str(len(data['running_style_groups']['先']))+'頭。',
                                   '予測ペース：'+pace+'。']
+    if mode == 'nar':
+        from .nar_development_shift import evaluate, commentary as nar_commentary
+        if not isinstance(data.get('development_shift_audit'), dict):
+            data['development_shift_audit'] = evaluate(data, rows)
+        commentary = nar_commentary(data, rows, main, eligible, impact, intro, key_sentence)
     data.update(commentary_version=VERSION, race_commentary=commentary,
                 development_plus_horses=plus, development_caution_horses=caution)
     data.pop('development_watch_horses', None)
@@ -290,7 +295,11 @@ def compose_commentary(data, rows, mode):
 
 def snapshot(result):
     saved = (result.debug_info or {}).get(KEY)
-    return deepcopy(saved) if isinstance(saved, dict) else build(result)
+    data = deepcopy(saved) if isinstance(saved, dict) else build(result)
+    if result.race_mode == 'nar':
+        from .nar_development_shift import saved as shift_saved
+        data['development_shift_audit'] = shift_saved(result, data, _rows(result))
+    return data
 
 
 def attach(result, html_files=None):
@@ -312,10 +321,19 @@ def attach(result, html_files=None):
         evidence = [own_id(files[k]) for k in ('speed','shutuba') if files.get(k)]
         verified_id = newspaper_id if evidence and all(i == newspaper_id for i in evidence) else None
         result.debug_info = {**(result.debug_info or {}), KEY: build(result, html, verified_id)}
+    if result.race_mode == 'nar':
+        from .nar_development_shift import KEY as shift_key
+        if shift_key not in (result.debug_info or {}):
+            result.debug_info = {**(result.debug_info or {}), shift_key: snapshot(result)['development_shift_audit']}
     return result
 
 
 def restore(result, payload):
+    if result.race_mode == 'nar':
+        from .nar_development_shift import KEY as shift_key
+        shift = payload.get(shift_key) or (payload.get('mobile_snapshot') or {}).get(shift_key)
+        if isinstance(shift, dict):
+            result.debug_info = {**(result.debug_info or {}), shift_key: deepcopy(shift)}
     saved = payload.get(KEY) or (payload.get('mobile_snapshot') or {}).get(KEY)
     if isinstance(saved, dict):
         result.debug_info = {**(result.debug_info or {}), KEY: deepcopy(saved)}

@@ -27,7 +27,7 @@ def test_read_only_and_formal_invariance(mode):
     assert formal()==before and app.prediction_detail_records(r)==table
     pd.testing.assert_frame_equal(r.overall_table,original.overall_table)
     pd.testing.assert_frame_equal(r.horse_evaluation,original.horse_evaluation)
-    assert {k:v for k,v in r.debug_info.items() if k!=KEY}==original.debug_info
+    assert {k:v for k,v in r.debug_info.items() if k not in (KEY,'nar_development_shift_shadow')}==original.debug_info
     d=snapshot(r)
     assert sum(map(len,d['running_style_groups'].values()))==4
     assert d['running_style_groups']['差']==['1'] and d['corner4_groups']['front']==['1','3']
@@ -54,6 +54,8 @@ def test_rank_only_missing_conflict_and_no_axis_or_results_input():
     r.overall_table['着順']=1;r.overall_table['単勝オッズ']=999
     r.debug_info['axis_confidence_v2']={'race_axis_state':'BUY','horses':[]}
     after=build(r);after.pop('generated_at')
+    for value in (before,after):
+        value.get('development_shift_audit',{}).pop('evaluated_at',None)
     assert before==after
     empty=PredictionResult(race_mode='nar')
     assert build(empty)['horse_count']==0 and build(empty)['pace_prediction']=='不明'

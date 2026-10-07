@@ -134,6 +134,9 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
     payload[KEY] = axis_snapshot(result)
     from .race_development import KEY as development_key, snapshot as development_snapshot
     payload[development_key] = development_snapshot(result)
+    if result.race_mode == 'nar':
+        from .nar_development_shift import KEY as shift_key
+        payload[shift_key] = payload[development_key]['development_shift_audit']
     return payload
 
 
