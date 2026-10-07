@@ -10,7 +10,7 @@ from .nar_race_diagnostics import normalize_position_group
 from .nar_ability_rank import canonical_nar_ability_rank
 
 KEY = 'race_development_display'
-VERSION = 'race_development_display_v2_formal_first'
+VERSION = 'race_development_display_v4_marked_support'
 STYLE_KEYS = ('netkeiba_old_style', 'netkeiba_running_style', '脚質表示',
               'running_style_display', '脚質', 'running_style', 'style', 'running_style_market')
 POSITION_KEYS = ('netkeiba_corner4_position', '_estimated_position_corner4_label',
@@ -169,51 +169,74 @@ def compose_commentary(data, rows, mode):
             mark = formal_mark(row)
             member = bool(row.get('pure_ability_top5_group')) and bool(mark)
             check = row.get('nar_check_selected') is True
-        h.update(formal_rank=rank, formal_mark=mark, formal_candidate=member, selected_check=check and not member)
+        support = not member and (check or mark in ('✔︎', '✔'))
+        h.update(formal_rank=rank, formal_mark=mark, formal_candidate=member, selected_check=check and not member,
+                 development_support_mark=(mark if mark in ('✔︎', '✔') else '✓') if support else '')
         if member:
             formal.append(h)
-        elif check:
+        elif support:
             checks.append(h)
     formal.sort(key=lambda h:(h['formal_rank'] or float('inf'), number(h['horse_no']) or float('inf')))
-    main = [h for h in formal if h['formal_mark'] in ('◎','○','▲')]
-    def name(h):
-        return h['formal_mark']+' '+h['horse_no']+'番 '+h['horse_name']
+    # Final marks are authoritative, even if the existing role layer differs
+    # from score rank. Do not invent ◎○▲ from a new ordering here.
+    main = sorted([h for h in data['horses'] if h['formal_mark'] in ('◎','○','▲')],
+                  key=lambda h:('◎','○','▲').index(h['formal_mark']))
+    def name(h, mark=False):
+        return (h['formal_mark'] if mark else '')+h['horse_no']+h['horse_name']
     pace = data['pace_prediction']
+    def position(h):
+        return (f"4角{h['corner4_rank']}番手" if h['corner4_rank'] is not None else '4角順位未取得') + ('・'+h['corner4_position'] if h['corner4_position'] else '')
     def impact(h):
-        group = h['corner4_group']
-        if pace == '不明' or group == 'unknown':
-            return '不明', '位置カテゴリまたはペース未取得のため、追い風・向かい風の判断は保留'
+        group, rank, style = h['corner4_group'], h['corner4_rank'], h['running_style']
+        if pace == '不明' or (rank is None and group == 'unknown'):
+            return '材料不足', 'ペースまたは今回位置が未取得のため展開評価は保留'
         if h['position_difference']:
-            return '注意', '普段の脚質と今回位置が逆方向のため、展開の好材料とは断定せず注意'
-        if pace == 'H' and group == 'front':
-            return '向かい風', 'H想定の先団では前の消耗が向かい風となる可能性'
-        if pace == 'H' and group in ('middle','back') and h['running_style'] in ('差','追'):
-            return '追い風', 'H想定と中団・後方からの差し脚が噛み合えば追い風となる可能性'
-        if pace == 'S' and group == 'front' and h['running_style'] in ('逃','先'):
-            return '追い風', 'S想定で前に位置できれば追い風となる可能性'
-        if pace == 'S' and group == 'back':
-            return '向かい風', 'S想定の後方位置は前を捕まえるうえで向かい風となる可能性'
-        return '中立', '保存された位置・ペースだけでは明確な追い風・向かい風を断定しない'
-    commentary = ['正式Top5・最終印の本線は'+ '、'.join(name(h) for h in main)+'。' if main else '正式Top5・最終印の本線情報が未取得のため、本線馬の説明は保留。']
-    for h in main:
-        position = h['corner4_position'] or '位置カテゴリ不明'
-        if h['corner4_rank'] is not None:
-            position += f"・4角{h['corner4_rank']}番手"
-        commentary.append(name(h)+'は'+position+'想定。'+impact(h)[1]+'。')
+            return '注意', '普段の脚質と今回位置が逆方向で、位置取りのズレに注意'
+        if pace == 'S':
+            if rank is not None and rank <= 6:
+                return 'プラス', 'S想定で前が残る形なら前残りの恩恵候補'
+            if rank is not None and rank > 6 or group in ('middle','back'):
+                return '注意', 'S想定では前を捕まえる必要があり、前方勢と同じ残り目評価にはしない'
+            return '中立', 'S想定の前方カテゴリだが、具体的な4角順位がなく前残り候補の判定は保留'
+        if pace == 'H':
+            if group == 'front':
+                return '注意', 'H想定で前の消耗を受けやすく、粘り込みには注意'
+            if group in ('middle','back') and style in ('差','追'):
+                return 'プラス', 'H想定で前が消耗すれば、中団・後方から差す形に浮上余地'
+            return '中立', 'H想定では追走と末脚の使い方が鍵。保存された脚質では差し浮上を積極評価しない'
+        return '中立', 'M想定では極端な前残り・差し有利を置かず、この位置からの運びを確認'
+    intro = '本線は'+ '、'.join(name(h,True) for h in main)+'。' if main else '本線は◎○▲の正式印が未取得のため特定できません。'
+    missing = [m for m in ('◎','○','▲') if not any(h['formal_mark']==m for h in main)]
+    if main and missing:
+        intro += '今回の正式表示に'+ '・'.join(missing)+'はありません。'
+    matchups = ' '.join(name(h,True)+f"（脚質：{h['running_style']}、{position(h)}）は展開"+impact(h)[0]+'。'+impact(h)[1]+'。' for h in main)
+    if not matchups:
+        matchups = '本線馬を特定できないため、本線とペース・4角の照合は保留。'
     plus = []
-    # Outside-Top5 selected checks only; raw conditions never create a new check.
-    for h in sorted(checks, key=lambda h:(h['corner4_rank'] or float('inf'), number(h['horse_no']) or float('inf'))):
-        if impact(h)[0] == '追い風' and len(plus) < 2:
-            plus.append(dict(horse_no=h['horse_no'], horse_name=h['horse_name'], reason='選抜済み✓・正式Top5圏外。'+impact(h)[1]+'。'))
+    # Outside marked support first. Escape horses already have a pacemaker
+    # explanation: prioritize other marked runners to avoid repeating that role.
+    eligible = sorted(checks,key=lambda h:(h['running_style']=='逃',h['corner4_rank'] or float('inf'),number(h['horse_no']) or float('inf'))) + formal
+    for h in eligible:
+        if impact(h)[0] == 'プラス' and len(plus) < 2:
+            plus.append(dict(horse_no=h['horse_no'], horse_name=h['horse_name'],
+                reason=('既存'+h['development_support_mark']+'・正式Top5圏外。' if h['development_support_mark'] else '正式Top5候補。')+
+                       f"脚質：{h['running_style']}、{position(h)}。"+impact(h)[1]+'。'))
+    check_lines = []
+    selected_plus = {h['horse_no'] for h in plus}
+    for h in eligible:
+        if not h['development_support_mark'] or h['horse_no'] not in selected_plus:
+            continue
+        check_lines.append('Top5外では'+h['development_support_mark']+name(h)+f"が{position(h)}想定（脚質：{h['running_style']}）。"+impact(h)[1]+'。')
+    leaders = [h for h in data['horses'] if h['running_style']=='逃']
+    leaders.sort(key=lambda h:number(h['horse_no']) or float('inf'))
+    pacemakers = ('ペースメーカーは'+ '、'.join(name(h) for h in leaders)+'。逃げ脚質だけを理由に評価を上げない。') if leaders else '逃げ脚質のペースメーカーは未確認。先行勢の位置取りを確認したい。'
     caution = []
-    for h in data['horses']:
+    for h in sorted(data['horses'],key=lambda h:number(h['horse_no']) or float('inf')):
         if h['position_difference']:
             caution.append(dict(horse_no=h['horse_no'], horse_name=h['horse_name'],
-                reason=f"普段：{h['running_style']}／今回：{h['corner4_position']}"+
-                (f"・4角{h['corner4_rank']}番手" if h['corner4_rank'] else '')+'。'+h['position_difference']+'。位置取りのズレに注意（推奨理由ではありません）。'))
-    pacemakers = [h for h in data['horses'] if h['running_style'] in ('逃','先')]
-    if pacemakers:
-        commentary.append('ペースメーカーは脚質上の逃げ・先行勢。展開を作る役割の説明であり、正式印が弱い馬・無印馬の推奨を意味しません。')
+                reason=f"普段：{h['running_style']}／今回：{position(h)}。"+h['position_difference']+'。位置取りのズレに注意（推奨理由ではありません）。'))
+    warning = '展開注意は'+ ' '.join(h['horse_no']+h['horse_name']+'：'+h['reason'] for h in caution) if caution else '取得済みの脚質と今回位置に、逆方向の大きなズレは確認されていません。'
+    commentary = [intro, matchups, ' '.join([*check_lines, pacemakers]), warning]
     data['development_summary'] = ['ペースメーカー（脚質）：逃'+str(len(data['running_style_groups']['逃']))+'頭・先'+str(len(data['running_style_groups']['先']))+'頭。',
         '既存予測ペース：'+pace+'。ペースメーカーであることと有力候補であることは別です。']
     data.update(commentary_version=VERSION, race_commentary=commentary,

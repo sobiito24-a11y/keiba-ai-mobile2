@@ -17,13 +17,14 @@ def test_formal_first_checks_only_and_conflict_caution(mode):
     data=dict(horses=horses,pace_prediction='H',running_style_groups={'逃':[],'先':['2'],'差':list(map(str,[1,3,4,5,6,7,8,9,10])),'追':[],'不明':[]})
     original=copy.deepcopy((data,rows))
     out=compose_commentary(data,rows,mode)
-    assert out['race_commentary'][0].startswith('正式Top5・最終印の本線は')
+    assert out['race_commentary'][0].startswith('本線は')
     assert all(f'H{i}' in out['race_commentary'][0] for i in (1,2,3))
-    assert '向かい風' in out['race_commentary'][2]
+    assert 'H想定で前の消耗' in out['race_commentary'][1]
     assert [h['horse_no'] for h in out['development_plus_horses']]==['6','8']
     assert [h['horse_no'] for h in out['development_caution_horses']]==['7']
     assert not any('H10' in line for line in out['race_commentary'])
-    assert 'ペースメーカー' in out['race_commentary'][-1]
+    assert 'ペースメーカー' in out['race_commentary'][2]
+    assert len(out['race_commentary'])==4
     assert (data,rows)==original
     for pace in ['M','不明']:
         assert not compose_commentary(dict(data,pace_prediction=pace),rows,mode)['development_plus_horses']
@@ -40,3 +41,52 @@ def test_old_saved_watch_is_not_a_recommendation_or_overwritten():
     assert '展開注目' not in html and 'old recommendation' not in html
     assert '展開注意' in html and '推奨理由ではありません' in html
     assert r.debug_info[KEY]==old
+
+
+@pytest.mark.parametrize('mode',['jra','nar'])
+def test_slow_pace_rank_six_boundary_and_check_priority(mode):
+    # Horse numbers/names deliberately unrelated to the supplied race.
+    ranks=[1,10,2,7,6,5,4,14]
+    styles=['先','差','先','差','先','先','逃','先']
+    groups=['front','middle','front','middle','front','front','front','back']
+    marks=['◎','○','▲','△','△','✓','','']
+    horses=[];rows=[]
+    for i in range(8):
+        n=str(21+i)
+        horses.append(dict(horse_no=n,horse_name='Test'+n,running_style=styles[i],
+            corner4_group=groups[i],corner4_position={'front':'先団','middle':'中団','back':'後方'}[groups[i]],
+            corner4_rank=ranks[i],position_difference='通常より後ろになる想定' if i==7 else ''))
+        rows.append(dict(horse_no=n,jra_top5_rank=i+1,nar_final_rank=i+1,pure_ability_top5_group=i<5,
+                         nar_check_selected=i==5,_display_jra_final_mark=marks[i]))
+    data=dict(horses=horses,pace_prediction='S',running_style_groups={'逃':['27'],'先':['21','23','25','26','28'],'差':['22','24'],'追':[],'不明':[]})
+    out=compose_commentary(data,rows,mode)
+    assert out['race_commentary'][0].startswith('本線は◎21Test21、○22Test22、▲23Test23。')
+    assert '前残りの恩恵候補' in out['race_commentary'][1]
+    assert '4角10番手' in out['race_commentary'][1] and '前方勢と同じ残り目評価にはしない' in out['race_commentary'][1]
+    assert out['development_plus_horses'][0]['horse_no']=='26'
+    assert all(h['horse_no']!='27' for h in out['development_plus_horses'])
+    assert '✓26Test26' in out['race_commentary'][2] and '27Test27' in out['race_commentary'][2]
+    assert '28Test28' in out['race_commentary'][3]
+
+
+def test_outside_aim_mark_kept_and_unfavorable_checks_omitted():
+    horses=[];rows=[]
+    for i,(mark,rank,style) in enumerate([('◎',1,'先'),('○',10,'差'),('▲',2,'先'),
+                                       ('△',11,'差'),('△',12,'差'),('✔︎',5,'先'),
+                                       ('✓',7,'差'),('✓',16,'差'),('✔︎',3,'逃'),('',4,'逃')],1):
+        horses.append(dict(horse_no=str(i),horse_name=f'Horse{i}',running_style=style,
+            corner4_rank=rank,corner4_group='front' if rank<=6 else 'back',
+            corner4_position='先団' if rank<=6 else '後方',position_difference=''))
+        rows.append(dict(horse_no=str(i),jra_top5_rank=i,_display_jra_final_mark=mark))
+    data=dict(horses=horses,pace_prediction='S',running_style_groups={'逃':['9','10'],'先':['1','3','6'],'差':['2','4','5','7','8'],'追':[],'不明':[]})
+    before=copy.deepcopy((data,rows))
+    out=compose_commentary(data,rows,'jra')
+    assert out['development_plus_horses'][0]['horse_no']=='6'
+    assert '既存✔︎' in out['development_plus_horses'][0]['reason']
+    assert '✔︎6Horse6' in out['race_commentary'][2]
+    assert '✓7Horse7' not in out['race_commentary'][2] and '✓8Horse8' not in out['race_commentary'][2]
+    assert out['race_commentary'][2].index('✔︎6Horse6')<out['race_commentary'][2].index('ペースメーカー')
+    assert all(h['horse_no']!='10' for h in out['development_plus_horses'])
+    assert not out['development_caution_horses']
+    assert out['horses'][5]['formal_mark']=='✔︎' and not out['horses'][5]['selected_check']
+    assert (data,rows)==before
