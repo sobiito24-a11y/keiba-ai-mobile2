@@ -2541,7 +2541,7 @@ def render_jra_top5_result_summary(result: PredictionResult) -> None:
     selected.extend(dict(h, card_role='穴注意') for h in navigation.get('hole_attention', []))
     from core.axis_confidence_v2 import summary_html as axis_html
     from core.race_development import render_html as development_html
-    cards = development_html(result, mobile=True) + axis_html(result) + conclusion_horse_cards(result, selected, jra_enriched_display_rows(result))
+    cards = development_html(result, mobile=True, display_rows=jra_enriched_display_rows(result)) + axis_html(result) + conclusion_horse_cards(result, selected, jra_enriched_display_rows(result))
     if markup:
         st.markdown(markup + cards, unsafe_allow_html=True)
 
@@ -2574,7 +2574,7 @@ def render_nar_top5_result_summary(result: PredictionResult) -> None:
         selected.extend(dict(h, card_role='条件適性救済') for h in comparison.get('condition_rescue', []))
         selected.extend(dict(h, card_role='追加ヒモ候補（正式Top5圏外）') for h in warnings)
         from core.race_development import render_html as development_html
-        cards = development_html(result, mobile=True) + conclusion_horse_cards(result, selected, nar_enriched_display_rows(result))
+        cards = development_html(result, mobile=True, display_rows=nar_enriched_display_rows(result)) + conclusion_horse_cards(result, selected, nar_enriched_display_rows(result))
         st.markdown(markup + cards, unsafe_allow_html=True)
 
 

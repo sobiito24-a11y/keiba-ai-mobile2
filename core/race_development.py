@@ -10,7 +10,7 @@ from .nar_race_diagnostics import normalize_position_group
 from .nar_ability_rank import canonical_nar_ability_rank
 
 KEY = 'race_development_display'
-VERSION = 'race_development_display_v1'
+VERSION = 'race_development_display_v2_formal_first'
 STYLE_KEYS = ('netkeiba_old_style', 'netkeiba_running_style', '脚質表示',
               'running_style_display', '脚質', 'running_style', 'style', 'running_style_market')
 POSITION_KEYS = ('netkeiba_corner4_position', '_estimated_position_corner4_label',
@@ -50,8 +50,14 @@ def _rows(result):
         key = horse_key(h)
         if key in rows:
             rows[key].update({k: h[k] for k in ('jra_top5_rank', 'jra_top5_score', 'nar_final_rank',
-                                                'jra_final_mark', 'nar_final_mark') if k in h})
-    return list(rows.values())
+                                                'jra_final_mark', 'nar_final_mark', 'pure_ability_top5_group',
+                                                'v1_final_mark', 'ver3_final_mark') if k in h})
+    values = list(rows.values())
+    if result.race_mode == 'nar' and values and all('pure_ability_top5_group' in r for r in values):
+        from .nar_check_selection import select
+        # Reuse current bounded selection on copies, never invent new checks.
+        return select(values)
+    return values
 
 
 def newspaper_inputs(html, race_id, mode):
@@ -137,37 +143,83 @@ def build(result, html='', source_race_id=None):
                      'M':'既存予測はM（標準）。4角の位置取りと能力評価を併せて確認したい。',
                      'S':'既存予測はS（遅め）。前で運ぶ馬の残り目に注意したい。'}.get(pace, '予測ペースは未取得または保存値が不一致のため不明。')
     points.append(pace_sentence)
-    commentary = []
-    ability = sorted([h for h in horses if h['pure_ability_rank'] is not None], key=lambda h:h['pure_ability_rank'])
-    commentary.append('保存純能力順位では' + names([h['horse_no'] for h in ability[:2]]) + 'が上位。' if ability else '保存純能力順位が未取得のため、能力上位馬の比較は保留。')
-    recent = sorted([h for h in horses if h['average_index'] is not None], key=lambda h:-h['average_index'])
-    if recent:
-        h = recent[0]
-        lead = names([h['horse_no']]) + f"は取得済み近3走平均の最高値（{h['average_index']:g}）。"
-        if h['corner4_position']:
-            lead += '今回は' + h['corner4_position'] + '想定。'
-        commentary.append(lead)
-    else:
-        commentary.append('近3走平均指数が未取得のため、近況の数値比較は保留。')
-    commentary.append(' '.join(points))
-    # Describe evidence, never turn a training grade into a readiness guarantee.
-    if result.race_mode == 'jra':
-        state = next((h for h in ability if h['training_grade'] in ('A','B','C','D') or h['rest_days'] is not None), None)
-        if state:
-            bits = ([f"前走から{state['rest_days']:g}日"] if state['rest_days'] is not None else [])
-            bits += ['保存調教評価'+state['training_grade']] if state['training_grade'] in ('A','B','C','D') else []
-            commentary.append(names([state['horse_no']])+'は'+'・'.join(bits)+'。状態を確認する参考材料。')
-    watch = []
-    # Explanatory discrepancies only: no ranking, mark or betting selection.
-    for h in sorted(horses, key=lambda h:(h['corner4_rank'] or float('inf'), number(h['horse_no']) or float('inf'))):
-        if h['position_difference'] and len(watch) < 2:
-            watch.append(dict(horse_no=h['horse_no'], horse_name=h['horse_name'],
-                reason=f"普段：{h['running_style']}／今回：{h['corner4_position']}" + (f"・4角{h['corner4_rank']}番手" if h['corner4_rank'] else '')+'。'+h['position_difference']+'。'))
-    return dict(model_version=VERSION, race_mode=result.race_mode, race_id=race_id,
+    data = dict(model_version=VERSION, race_mode=result.race_mode, race_id=race_id,
         generated_at=datetime.now(timezone.utc).isoformat(), source='existing_prediction_inputs_only',
         pace_prediction=pace, running_style_groups=styles, corner4_groups=groups,
-        development_summary=points, race_commentary=commentary[:5], development_watch_horses=watch,
+        development_summary=points,
         horses=horses, horse_count=len(horses))
+    return compose_commentary(data, rows, result.race_mode)
+
+
+def compose_commentary(data, rows, mode):
+    """Presentation-only projection. Eligibility comes from existing formal output."""
+    data = deepcopy(data)
+    source = {horse_key(r): r for r in rows}
+    formal, checks = [], []
+    for h in data['horses']:
+        row = source.get(h['horse_no'], {})
+        rank = number(pick(row, '_display_jra_top5_rank', 'jra_top5_rank')) if mode == 'jra' else number(row.get('nar_final_rank'))
+        if mode == 'jra':
+            from .jra_display_mark import jra_display_mark_from_row
+            mark = jra_display_mark_from_row(row)
+            member = rank is not None and 1 <= rank <= 5
+            check = mark == '✓'
+        else:
+            from .nar_display_mark import formal_mark
+            mark = formal_mark(row)
+            member = bool(row.get('pure_ability_top5_group')) and bool(mark)
+            check = row.get('nar_check_selected') is True
+        h.update(formal_rank=rank, formal_mark=mark, formal_candidate=member, selected_check=check and not member)
+        if member:
+            formal.append(h)
+        elif check:
+            checks.append(h)
+    formal.sort(key=lambda h:(h['formal_rank'] or float('inf'), number(h['horse_no']) or float('inf')))
+    main = [h for h in formal if h['formal_mark'] in ('◎','○','▲')]
+    def name(h):
+        return h['formal_mark']+' '+h['horse_no']+'番 '+h['horse_name']
+    pace = data['pace_prediction']
+    def impact(h):
+        group = h['corner4_group']
+        if pace == '不明' or group == 'unknown':
+            return '不明', '位置カテゴリまたはペース未取得のため、追い風・向かい風の判断は保留'
+        if h['position_difference']:
+            return '注意', '普段の脚質と今回位置が逆方向のため、展開の好材料とは断定せず注意'
+        if pace == 'H' and group == 'front':
+            return '向かい風', 'H想定の先団では前の消耗が向かい風となる可能性'
+        if pace == 'H' and group in ('middle','back') and h['running_style'] in ('差','追'):
+            return '追い風', 'H想定と中団・後方からの差し脚が噛み合えば追い風となる可能性'
+        if pace == 'S' and group == 'front' and h['running_style'] in ('逃','先'):
+            return '追い風', 'S想定で前に位置できれば追い風となる可能性'
+        if pace == 'S' and group == 'back':
+            return '向かい風', 'S想定の後方位置は前を捕まえるうえで向かい風となる可能性'
+        return '中立', '保存された位置・ペースだけでは明確な追い風・向かい風を断定しない'
+    commentary = ['正式Top5・最終印の本線は'+ '、'.join(name(h) for h in main)+'。' if main else '正式Top5・最終印の本線情報が未取得のため、本線馬の説明は保留。']
+    for h in main:
+        position = h['corner4_position'] or '位置カテゴリ不明'
+        if h['corner4_rank'] is not None:
+            position += f"・4角{h['corner4_rank']}番手"
+        commentary.append(name(h)+'は'+position+'想定。'+impact(h)[1]+'。')
+    plus = []
+    # Outside-Top5 selected checks only; raw conditions never create a new check.
+    for h in sorted(checks, key=lambda h:(h['corner4_rank'] or float('inf'), number(h['horse_no']) or float('inf'))):
+        if impact(h)[0] == '追い風' and len(plus) < 2:
+            plus.append(dict(horse_no=h['horse_no'], horse_name=h['horse_name'], reason='選抜済み✓・正式Top5圏外。'+impact(h)[1]+'。'))
+    caution = []
+    for h in data['horses']:
+        if h['position_difference']:
+            caution.append(dict(horse_no=h['horse_no'], horse_name=h['horse_name'],
+                reason=f"普段：{h['running_style']}／今回：{h['corner4_position']}"+
+                (f"・4角{h['corner4_rank']}番手" if h['corner4_rank'] else '')+'。'+h['position_difference']+'。位置取りのズレに注意（推奨理由ではありません）。'))
+    pacemakers = [h for h in data['horses'] if h['running_style'] in ('逃','先')]
+    if pacemakers:
+        commentary.append('ペースメーカーは脚質上の逃げ・先行勢。展開を作る役割の説明であり、正式印が弱い馬・無印馬の推奨を意味しません。')
+    data['development_summary'] = ['ペースメーカー（脚質）：逃'+str(len(data['running_style_groups']['逃']))+'頭・先'+str(len(data['running_style_groups']['先']))+'頭。',
+        '既存予測ペース：'+pace+'。ペースメーカーであることと有力候補であることは別です。']
+    data.update(commentary_version=VERSION, race_commentary=commentary,
+                development_plus_horses=plus, development_caution_horses=caution)
+    data.pop('development_watch_horses', None)
+    return data
 
 
 def snapshot(result):
@@ -203,8 +255,8 @@ def restore(result, payload):
         result.debug_info = {**(result.debug_info or {}), KEY: deepcopy(saved)}
 
 
-def render_html(result, mobile=False):
-    data = snapshot(result)
+def render_html(result, mobile=False, display_rows=None):
+    data = compose_commentary(snapshot(result), display_rows if display_rows is not None else _rows(result), result.race_mode)
     by = {h['horse_no']: h for h in data['horses']}
     def label(no):
         h = by[no]
@@ -215,7 +267,7 @@ def render_html(result, mobile=False):
     pace = escape(data['pace_prediction']) + {'H':'（速め）','M':'（標準）','S':'（遅め）'}.get(data['pace_prediction'],'')
     composition = ' / '.join(f'{s} {len(v)}' for s,v in data['running_style_groups'].items())
     overview = '<section class="development-card"><h4>展開予想</h4><p>予測ペース：'+pace+'</p><p>脚質構成（全'+str(data['horse_count'])+'頭）<br>'+composition+'</p>'
-    overview += '<p>逃げ候補（脚質）：'+candidates('逃')+'</p><p>先行候補（脚質）：'+candidates('先')+'</p>'
+    overview += '<p>ペースメーカー（逃げ脚質）：'+candidates('逃')+'</p><p>ペースメーカー（先行脚質）：'+candidates('先')+'</p>'
     overview += '<ul>'+''.join('<li>'+escape(s)+'</li>' for s in data['development_summary'])+'</ul><h4>4コーナー展開予想</h4>'
     for group,title in [('front','先団'),('middle','中団'),('back','後方'),('unknown','位置カテゴリ不明')]:
         chips = []
@@ -225,9 +277,11 @@ def render_html(result, mobile=False):
         overview += '<p><b>'+title+'</b></p><div class="development-line">'+(''.join(chips) or 'なし')+'</div>'
     overview += '</section>'
     commentary = '<section class="development-card"><h4>レース考察</h4>'+''.join('<p>'+escape(s)+'</p>' for s in data['race_commentary'])
-    if data['development_watch_horses']:
-        commentary += '<h4>展開注目（説明のみ・追加印ではありません）</h4>'
-        for h in data['development_watch_horses']:
+    for key, title in [('development_plus_horses', '展開プラス候補'), ('development_caution_horses', '展開注意')]:
+        commentary += '<h4>'+title+'（説明のみ・印は変更しません）</h4>'
+        if not data[key]:
+            commentary += '<p>該当なし／判定材料不足</p>'
+        for h in data[key]:
             commentary += '<p>'+label(h['horse_no'])+'<br>'+escape(h['reason'])+'</p>'
     commentary += '</section>'
     css = '<style>.development-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:10px 0}.development-card{min-width:0;border:1px solid #dbe1eb;border-radius:8px;padding:10px;font-size:13px;overflow-wrap:anywhere}.development-card h4{margin:5px 0}.development-card p{margin:7px 0}.development-line{display:flex;flex-wrap:wrap;gap:4px}.development-horse{background:#f2f5f9;border-radius:4px;padding:3px 5px;font-size:12px}@media(max-width:600px){.development-grid{grid-template-columns:1fr}}</style>'

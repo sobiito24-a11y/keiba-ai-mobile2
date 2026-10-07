@@ -33,7 +33,8 @@ def test_read_only_and_formal_invariance(mode):
     assert d['running_style_groups']['差']==['1'] and d['corner4_groups']['front']==['1','3']
     assert d['horses'][0]['position_difference']=='いつもより前で運べる想定'
     assert d['horses'][1]['position_difference']=='通常より後ろになる想定'
-    assert len(d['development_watch_horses'])<=2
+    assert len(d['development_plus_horses'])<=2
+    assert {h['horse_no'] for h in d['development_caution_horses']}=={'1','2'}
     html=render_html(r,True)
     assert '<details' in html and 'open=' not in html and '展開・レース考察を見る' in html
     assert html.index('展開予想')<html.index('4コーナー展開予想')<html.index('レース考察</h4>')
@@ -46,7 +47,7 @@ def test_rank_only_missing_conflict_and_no_axis_or_results_input():
     d=build(r)
     assert d['corner4_groups']['unknown']==['1','2','3','4']
     assert d['running_style_groups']['不明']==['1','2','3','4']
-    assert not d['development_watch_horses']
+    assert not d['development_caution_horses'] and not d['development_plus_horses']
     r.overall_table.loc[1,'netkeiba_pace']='S'
     assert build(r)['pace_prediction']=='不明'
     before=build(r);before.pop('generated_at')
