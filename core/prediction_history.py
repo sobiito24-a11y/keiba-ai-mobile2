@@ -130,6 +130,8 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
     payload.update(material_snapshot(result))
     from .jra_formal_snapshot import formal_snapshot_fields
     payload.update(formal_snapshot_fields(result))
+    from .axis_confidence_v2 import KEY, snapshot as axis_snapshot
+    payload[KEY] = axis_snapshot(result)
     return payload
 
 

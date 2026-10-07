@@ -27,4 +27,5 @@ def predict_jra(
     from .jockey_positive import attach as attach_jockey_evidence
     result = attach_jockey_evidence(result)
     from .material_reconsideration import attach_material_reconsideration
-    return attach_material_reconsideration(result)
+    from .axis_confidence_v2 import attach as attach_axis
+    return attach_axis(attach_material_reconsideration(result))

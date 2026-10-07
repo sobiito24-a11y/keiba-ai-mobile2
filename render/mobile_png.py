@@ -275,6 +275,8 @@ class _Canvas:
                 if key not in seen:
                     lines.append(key + ' ' + str(horse.get('name') or '') + '：' + NAR_WINPROB_LABEL + ' ' + nar_probability_text(probabilities.get(key, {})))
                     seen.add(key)
+        from core.axis_confidence_v2 import snapshot as axis_snapshot, summary_lines
+        lines.extend(summary_lines(axis_snapshot(result)))
         self.horse_card(str(grade)+'｜'+str(label), lines, is_watch=grade in ('C','D'))
 
     def draw_simple_overall(self, result: PredictionResult) -> None:

@@ -43,4 +43,5 @@ def predict_nar(
     result = attach_jockey_evidence(result)
     from .material_reconsideration import attach_material_reconsideration
     from .nar_top5_order import attach
-    return attach(attach_material_reconsideration(result))
+    from .axis_confidence_v2 import attach as attach_axis
+    return attach_axis(attach(attach_material_reconsideration(result)))
