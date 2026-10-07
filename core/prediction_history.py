@@ -132,6 +132,8 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
     payload.update(formal_snapshot_fields(result))
     from .axis_confidence_v2 import KEY, snapshot as axis_snapshot
     payload[KEY] = axis_snapshot(result)
+    from .race_development import KEY as development_key, snapshot as development_snapshot
+    payload[development_key] = development_snapshot(result)
     return payload
 
 

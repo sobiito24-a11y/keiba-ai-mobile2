@@ -1,0 +1,235 @@
+"""Read-only race explanation; no score, mark, probability or purchase producer."""
+from copy import deepcopy
+from datetime import datetime, timezone
+from html import escape
+import re
+
+from .prediction_table_ui import horse_key, number, pick, text
+from .position_signals import corner4_rank
+from .nar_race_diagnostics import normalize_position_group
+from .nar_ability_rank import canonical_nar_ability_rank
+
+KEY = 'race_development_display'
+VERSION = 'race_development_display_v1'
+STYLE_KEYS = ('netkeiba_old_style', 'netkeiba_running_style', '脚質表示',
+              'running_style_display', '脚質', 'running_style', 'style', 'running_style_market')
+POSITION_KEYS = ('netkeiba_corner4_position', '_estimated_position_corner4_label',
+                 'position_corner4_label_market', 'corner4_position_label')
+PACE_KEYS = ('netkeiba_pace', '_netkeiba_pace', 'predicted_pace', '予測ペース', 'pace')
+
+
+def style_label(value):
+    value = text(value)
+    aliases = {'逃げ':'逃', '先行':'先', '差し':'差', '追込':'追', '追い込み':'追'}
+    return aliases.get(value, value) if value in (*aliases, '逃', '先', '差', '追') else '不明'
+
+
+def _source(row, keys):
+    for key in keys:
+        if text(row.get(key)):
+            return row[key], key
+    return None, None
+
+
+def _rows(result):
+    # Whole field, joined by horse number; no positional/index join.
+    rows = {}
+    for table in (result.overall_table, result.horse_evaluation):
+        if table is None:
+            continue
+        for row in table.to_dict('records'):
+            key = horse_key(row)
+            if not key:
+                continue
+            target = rows.setdefault(key, {})
+            target.update({k: v for k, v in row.items() if text(v)})
+    # Read only frozen formal results, never run today's rank producer for old files.
+    debug = result.debug_info or {}
+    payload = debug.get('jra_formal_comparison_snapshot' if result.race_mode == 'jra' else 'nar_top5_corner_order') or {}
+    for h in payload.get('rows', payload.get('horses', [])):
+        key = horse_key(h)
+        if key in rows:
+            rows[key].update({k: h[k] for k in ('jra_top5_rank', 'jra_top5_score', 'nar_final_rank',
+                                                'jra_final_mark', 'nar_final_mark') if k in h})
+    return list(rows.values())
+
+
+def newspaper_inputs(html, race_id, mode):
+    """Only the newspaper's explicit historical style table / existing position parser."""
+    from bs4 import BeautifulSoup
+    from .course_materials import parse_netkeiba_course_materials
+    parsed = parse_netkeiba_course_materials(html, expected_mode=mode)
+    if not race_id or parsed.race_id != str(race_id) or (parsed.detected_mode and parsed.detected_mode != mode):
+        return {}
+    styles = {}
+    soup = BeautifulSoup(html, 'html.parser')
+    for row in soup.select('tr'):
+        heading = row.find('th')
+        label = style_label(heading.get_text(strip=True) if heading else '')
+        if label == '不明':
+            continue
+        for node in row.select('.Kyaku_Type_Num'):
+            no = node.get_text(strip=True)
+            if no.isdigit():
+                styles.setdefault(no, set()).add(label)
+    return dict(styles={k: next(iter(v)) if len(v) == 1 else '不明' for k, v in styles.items()},
+                pace=parsed.pace, positions=parsed.position_categories.get('corner4', {}),
+                ranks=parsed.position_ranks.get('corner4', {}))
+
+
+def build(result, html='', source_race_id=None):
+    rows = _rows(result)
+    info = result.race_info or {}
+    race_id = info.get('race_id') or source_race_id
+    extra = newspaper_inputs(html, race_id, result.race_mode) if html else {}
+    horses = []
+    pace_values = set()
+    for source in [info, *rows]:
+        raw, _ = _source(source, PACE_KEYS)
+        if text(raw).upper() in ('S', 'M', 'H'):
+            pace_values.add(text(raw).upper())
+    if extra.get('pace') in ('S', 'M', 'H'):
+        pace_values = {extra['pace']}
+    pace = next(iter(pace_values)) if len(pace_values) == 1 else '不明'
+    for row in rows:
+        no = horse_key(row)
+        raw_style, style_source = _source(row, STYLE_KEYS)
+        style = style_label(raw_style)
+        if no in extra.get('styles', {}):
+            style, style_source = extra['styles'][no], 'newspaper.Kyaku_Type_Num'
+        position, position_source = _source(row, POSITION_KEYS)
+        if not position:
+            path, path_source = _source(row, ('netkeiba_position_path', '_netkeiba_position_path', 'position_path_market', '_estimated_position_path'))
+            if '→' in text(path):
+                position, position_source = text(path).split('→')[-1].strip(), path_source
+        rank = corner4_rank(row)
+        numeric_no = int(no) if no.isdigit() else None
+        if not position and numeric_no in extra.get('positions', {}):
+            position, position_source = extra['positions'][numeric_no], 'newspaper.position_categories.corner4'
+        if rank is None:
+            rank = extra.get('ranks', {}).get(numeric_no)
+        group = normalize_position_group(position)
+        delta = ''
+        if style in ('差', '追') and group == 'front':
+            delta = 'いつもより前で運べる想定'
+        elif style in ('逃', '先') and group == 'back':
+            delta = '通常より後ろになる想定'
+        pure_rank = canonical_nar_ability_rank(row) if result.race_mode == 'nar' else number(pick(row, 'jra_pure_ability_rank', 'ability_rank', 'market_ability_rank'))
+        horses.append(dict(horse_no=no, horse_name=text(pick(row, '馬名', 'name', 'horse_name')),
+            running_style=style, running_style_source=style_source,
+            corner4_rank=rank, corner4_position=text(position) or None, corner4_group=group,
+            corner4_source=position_source, position_difference=delta, pure_ability_rank=pure_rank,
+            formal_rank=number(row.get('jra_top5_rank' if result.race_mode == 'jra' else 'nar_final_rank')),
+            average_index=number(pick(row, '平均指数', 'average_index', '3走平均')),
+            training_grade=text(pick(row, 'jra_training_grade', 'training_grade', '調教評価')) if result.race_mode == 'jra' else None,
+            rest_days=number(pick(row, 'rest_days', 'layoff_days', 'interval_days', '_interval_days'))))
+    styles = {s: sorted([h['horse_no'] for h in horses if h['running_style'] == s], key=lambda n:number(n) or float('inf')) for s in ('逃', '先', '差', '追', '不明')}
+    groups = {g: [h['horse_no'] for h in sorted(horses, key=lambda h:(h['corner4_rank'] or float('inf'), number(h['horse_no']) or float('inf')))
+                   if h['corner4_group'] == g] for g in ('front', 'middle', 'back', 'unknown')}
+    def names(numbers):
+        return '・'.join('⑳' if n == '20' else (chr(0x2460+int(n)-1) if n.isdigit() and 1 <= int(n) < 20 else n+'番') for n in numbers)
+    points = []
+    if styles['逃']:
+        points.append(names(styles['逃'][:3]) + ('が脚質上の主導権候補。' if len(styles['逃']) == 1 else 'など逃げ脚質の馬が複数。'))
+    if len(styles['先']) > 1:
+        points.append(f"先行脚質は{len(styles['先'])}頭。今回の4角想定と併せて確認。")
+    pace_sentence = {'H':'既存予測はH（速め）。前の馬の消耗次第では差し勢にも浮上余地がある。',
+                     'M':'既存予測はM（標準）。4角の位置取りと能力評価を併せて確認したい。',
+                     'S':'既存予測はS（遅め）。前で運ぶ馬の残り目に注意したい。'}.get(pace, '予測ペースは未取得または保存値が不一致のため不明。')
+    points.append(pace_sentence)
+    commentary = []
+    ability = sorted([h for h in horses if h['pure_ability_rank'] is not None], key=lambda h:h['pure_ability_rank'])
+    commentary.append('保存純能力順位では' + names([h['horse_no'] for h in ability[:2]]) + 'が上位。' if ability else '保存純能力順位が未取得のため、能力上位馬の比較は保留。')
+    recent = sorted([h for h in horses if h['average_index'] is not None], key=lambda h:-h['average_index'])
+    if recent:
+        h = recent[0]
+        lead = names([h['horse_no']]) + f"は取得済み近3走平均の最高値（{h['average_index']:g}）。"
+        if h['corner4_position']:
+            lead += '今回は' + h['corner4_position'] + '想定。'
+        commentary.append(lead)
+    else:
+        commentary.append('近3走平均指数が未取得のため、近況の数値比較は保留。')
+    commentary.append(' '.join(points))
+    # Describe evidence, never turn a training grade into a readiness guarantee.
+    if result.race_mode == 'jra':
+        state = next((h for h in ability if h['training_grade'] in ('A','B','C','D') or h['rest_days'] is not None), None)
+        if state:
+            bits = ([f"前走から{state['rest_days']:g}日"] if state['rest_days'] is not None else [])
+            bits += ['保存調教評価'+state['training_grade']] if state['training_grade'] in ('A','B','C','D') else []
+            commentary.append(names([state['horse_no']])+'は'+'・'.join(bits)+'。状態を確認する参考材料。')
+    watch = []
+    # Explanatory discrepancies only: no ranking, mark or betting selection.
+    for h in sorted(horses, key=lambda h:(h['corner4_rank'] or float('inf'), number(h['horse_no']) or float('inf'))):
+        if h['position_difference'] and len(watch) < 2:
+            watch.append(dict(horse_no=h['horse_no'], horse_name=h['horse_name'],
+                reason=f"普段：{h['running_style']}／今回：{h['corner4_position']}" + (f"・4角{h['corner4_rank']}番手" if h['corner4_rank'] else '')+'。'+h['position_difference']+'。'))
+    return dict(model_version=VERSION, race_mode=result.race_mode, race_id=race_id,
+        generated_at=datetime.now(timezone.utc).isoformat(), source='existing_prediction_inputs_only',
+        pace_prediction=pace, running_style_groups=styles, corner4_groups=groups,
+        development_summary=points, race_commentary=commentary[:5], development_watch_horses=watch,
+        horses=horses, horse_count=len(horses))
+
+
+def snapshot(result):
+    saved = (result.debug_info or {}).get(KEY)
+    return deepcopy(saved) if isinstance(saved, dict) else build(result)
+
+
+def attach(result, html_files=None):
+    if not isinstance((result.debug_info or {}).get(KEY), dict):
+        files = html_files or {}
+        html = files.get('newspaper') or files.get('newspaper_context') or ''
+        # Some existing producer paths omit race_id in race_info. Verify the
+        # newspaper against the input speed/entry page, without editing race_info.
+        from bs4 import BeautifulSoup
+        def own_id(source):
+            soup = BeautifulSoup(source, 'html.parser')
+            ids = set()
+            for tag in soup.select('link[rel="canonical"], meta[property="og:url"]'):
+                match = re.search(r'race_id=(\d{12})(?:\D|$)', tag.get('href', tag.get('content', '')))
+                if match:
+                    ids.add(match[1])
+            return next(iter(ids)) if len(ids) == 1 else None
+        newspaper_id = own_id(html) if html else None
+        evidence = [own_id(files[k]) for k in ('speed','shutuba') if files.get(k)]
+        verified_id = newspaper_id if evidence and all(i == newspaper_id for i in evidence) else None
+        result.debug_info = {**(result.debug_info or {}), KEY: build(result, html, verified_id)}
+    return result
+
+
+def restore(result, payload):
+    saved = payload.get(KEY) or (payload.get('mobile_snapshot') or {}).get(KEY)
+    if isinstance(saved, dict):
+        result.debug_info = {**(result.debug_info or {}), KEY: deepcopy(saved)}
+
+
+def render_html(result, mobile=False):
+    data = snapshot(result)
+    by = {h['horse_no']: h for h in data['horses']}
+    def label(no):
+        h = by[no]
+        return escape(no+' '+h['horse_name'])
+    def candidates(style):
+        values = data['running_style_groups'][style]
+        return ' / '.join(label(no) for no in values[:3]) + (f' ほか{len(values)-3}頭' if len(values)>3 else '') if values else 'なし'
+    pace = escape(data['pace_prediction']) + {'H':'（速め）','M':'（標準）','S':'（遅め）'}.get(data['pace_prediction'],'')
+    composition = ' / '.join(f'{s} {len(v)}' for s,v in data['running_style_groups'].items())
+    overview = '<section class="development-card"><h4>展開予想</h4><p>予測ペース：'+pace+'</p><p>脚質構成（全'+str(data['horse_count'])+'頭）<br>'+composition+'</p>'
+    overview += '<p>逃げ候補（脚質）：'+candidates('逃')+'</p><p>先行候補（脚質）：'+candidates('先')+'</p>'
+    overview += '<ul>'+''.join('<li>'+escape(s)+'</li>' for s in data['development_summary'])+'</ul><h4>4コーナー展開予想</h4>'
+    for group,title in [('front','先団'),('middle','中団'),('back','後方'),('unknown','位置カテゴリ不明')]:
+        chips = []
+        for no in data['corner4_groups'][group]:
+            h = by[no]; suffix = f"（4角{h['corner4_rank']}番手）" if h['corner4_rank'] else '（順位不明）'
+            chips.append('<span class="development-horse" title="'+label(no)+'">'+label(no)+escape(suffix)+'</span>')
+        overview += '<p><b>'+title+'</b></p><div class="development-line">'+(''.join(chips) or 'なし')+'</div>'
+    overview += '</section>'
+    commentary = '<section class="development-card"><h4>レース考察</h4>'+''.join('<p>'+escape(s)+'</p>' for s in data['race_commentary'])
+    if data['development_watch_horses']:
+        commentary += '<h4>展開注目（説明のみ・追加印ではありません）</h4>'
+        for h in data['development_watch_horses']:
+            commentary += '<p>'+label(h['horse_no'])+'<br>'+escape(h['reason'])+'</p>'
+    commentary += '</section>'
+    css = '<style>.development-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:10px 0}.development-card{min-width:0;border:1px solid #dbe1eb;border-radius:8px;padding:10px;font-size:13px;overflow-wrap:anywhere}.development-card h4{margin:5px 0}.development-card p{margin:7px 0}.development-line{display:flex;flex-wrap:wrap;gap:4px}.development-horse{background:#f2f5f9;border-radius:4px;padding:3px 5px;font-size:12px}@media(max-width:600px){.development-grid{grid-template-columns:1fr}}</style>'
+    content = '<div class="development-grid">'+overview+commentary+'</div>'
+    return css + ('<details class="development-panel"><summary>展開・レース考察を見る</summary>'+content+'</details>' if mobile else content)

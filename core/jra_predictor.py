@@ -28,4 +28,6 @@ def predict_jra(
     result = attach_jockey_evidence(result)
     from .material_reconsideration import attach_material_reconsideration
     from .axis_confidence_v2 import attach as attach_axis
-    return attach_axis(attach_material_reconsideration(result))
+    from .race_development import attach as attach_development
+    result = attach_axis(attach_material_reconsideration(result))
+    return attach_development(result, html_files)

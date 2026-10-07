@@ -44,4 +44,6 @@ def predict_nar(
     from .material_reconsideration import attach_material_reconsideration
     from .nar_top5_order import attach
     from .axis_confidence_v2 import attach as attach_axis
-    return attach_axis(attach(attach_material_reconsideration(result)))
+    from .race_development import attach as attach_development
+    result = attach_axis(attach(attach_material_reconsideration(result)))
+    return attach_development(result, html_files)
