@@ -2511,8 +2511,6 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
                  '騎手：' + jockey_text(row), jockey_place_text(row), clean_text(row.get('jockey_positive_reason')),
                  '脚質：' + short_running_style(row), 'netkeiba想定：' + netkeiba_position_text(row)]
         if result.race_mode == 'nar':
-            from core.axis_confidence_v2 import horse_label
-            lines.append(horse_label(result, key))
             lines.insert(0, 'NAR最終順位 ' + (rank_display(row.get('nar_final_rank')) if row.get('pure_ability_top5_group') else '—（正式Top5圏外）'))
             lines.insert(0, NAR_WINPROB_LABEL + ' ' + nar_probability_text(row))
             rate = nar_position_reference(row)['nar_corner4_reference_win_rate']
@@ -2575,8 +2573,7 @@ def render_nar_top5_result_summary(result: PredictionResult) -> None:
         selected = [dict(h, card_role=clean_text(h.get('nar_top5_role')) or '相手候補') for h in comparison['rows'] if h.get('pure_ability_top5_group')]
         selected.extend(dict(h, card_role='条件適性救済') for h in comparison.get('condition_rescue', []))
         selected.extend(dict(h, card_role='追加ヒモ候補（正式Top5圏外）') for h in warnings)
-        from core.axis_confidence_v2 import summary_html as axis_html
-        cards = axis_html(result) + conclusion_horse_cards(result, selected, nar_enriched_display_rows(result))
+        cards = conclusion_horse_cards(result, selected, nar_enriched_display_rows(result))
         markup = markup.replace('</b></div>', '</b></div>' + cards, 1)
         st.markdown(markup, unsafe_allow_html=True)
 
@@ -4676,8 +4673,7 @@ def render_race_summary(result: PredictionResult) -> None:
         return
     first = rows[0]
     if result.race_mode == "nar":
-        from core.axis_confidence_v2 import summary_html
-        st.markdown(summary_html(result), unsafe_allow_html=True)
+        # Axis A/B remains saved research data, not a normal UI recommendation.
         return
     if getattr(result, "logic_version", "v3") == "practical":
         practical = ((getattr(result, "debug_info", {}) or {}).get("practical") or {}).get("summary", {})
@@ -5095,9 +5091,6 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
         horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
         index_row = overall_rows_by_horse.get(horse_key, {})
         markup = horse_summary_card_html(row, result.race_mode, index_row, getattr(result, "race_info", {}) or {})
-        if result.race_mode == "nar":
-            from core.axis_confidence_v2 import horse_label
-            markup += '<div class="ka-note">' + plain_text_to_html(horse_label(result, horse_key)) + '</div>'
         source = merged_card_source(row, index_row)
         old_stats = jockey_course_stats_card_text(source)
         if old_stats:
