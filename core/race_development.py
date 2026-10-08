@@ -360,7 +360,10 @@ def render_html(result, mobile=False, display_rows=None):
             chips.append('<span class="development-horse" title="'+label(no)+'">'+label(no)+escape(suffix)+'</span>')
         overview += '<p><b>'+title+'</b></p><div class="development-line">'+(''.join(chips) or 'なし')+'</div>'
     overview += '</section>'
-    commentary = '<section class="development-card"><h4>レース考察</h4>'+''.join('<p>'+escape(s)+'</p>' for s in data['race_commentary'])
+    from .race_insight import generate
+    from .race_insight_common import section_html
+    insight = generate(result, display_rows if display_rows is not None else _rows(result), data)
+    commentary = '<section class="development-card"><h4>レース考察</h4>'+section_html(insight['sections'])
     commentary += '</section>'
     css = '<style>.development-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:10px 0}.development-card{min-width:0;border:1px solid #dbe1eb;border-radius:8px;padding:10px;font-size:13px;overflow-wrap:anywhere}.development-card h4{margin:5px 0}.development-card p{margin:7px 0}.development-line{display:flex;flex-wrap:wrap;gap:4px}.development-horse{background:#f2f5f9;border-radius:4px;padding:3px 5px;font-size:12px}@media(max-width:600px){.development-grid{grid-template-columns:1fr}}</style>'
     content = '<div class="development-grid">'+overview+commentary+'</div>'
