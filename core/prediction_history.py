@@ -137,6 +137,8 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
     if result.race_mode == 'nar':
         from .nar_development_shift import KEY as shift_key
         payload[shift_key] = payload[development_key]['development_shift_audit']
+    from .race_insight_snapshot import KEY as insight_key, freeze as freeze_insight
+    payload[insight_key] = freeze_insight(result)
     return payload
 
 

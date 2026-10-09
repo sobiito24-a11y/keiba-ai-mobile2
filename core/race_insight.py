@@ -1,6 +1,6 @@
 """Read-only explanation of saved marks. No ticket or purchase-navigation calls."""
 from .race_insight_common import (facts, describe, label, leading_features, position_sentence,
-                                  VERSION, GAP_CALIBRATION)
+                                  VERSION, GAP_CALIBRATION, narrative_horses)
 
 
 def overview(horses, pace):
@@ -8,7 +8,14 @@ def overview(horses, pace):
     forward = [label(h) for h in horses if h['group'] == 'front']
     line = pace + 'ペース想定。' if pace in ('S', 'M', 'H') else '予測ペースは未取得。'
     if leaders:
-        line += '逃げ候補は' + '、'.join(leaders[:3]) + ('など。' if len(leaders) > 3 else '。')
+        line += '過去脚質で逃げに分類されるのは' + '、'.join(leaders[:3]) + ('など。' if len(leaders) > 3 else '。')
+    else:
+        line += '過去脚質では逃げに分類された馬が確認できないが、今回逃げる馬がいないという意味ではない。'
+    leading = sum(h['style'] == '先' for h in horses)
+    unknown = sum(h['style'] not in ('逃', '先', '差', '追') for h in horses)
+    line += f'過去脚質の先行は{leading}頭、今回の前方想定は{len(forward)}頭。'
+    if unknown:
+        line += f'脚質未取得が{unknown}頭あり、確認できた範囲の構成。'
     if forward:
         line += '前方で運ぶ想定は' + '、'.join(forward[:4]) + ('など。' if len(forward) > 4 else '。')
     line += {'H': '前で競り合えば消耗が進む流れ。後ろの馬も、脚質と能力の裏付けがあってこそ差す余地が生まれる。',
@@ -28,9 +35,15 @@ def overall(centers, opponents, extra, mode):
         line += f"純能力{int(lead['pure_rank'])}位。"
     else:
         line += '保存された印を起点に見る。'
-    if lead['conditions']:
-        line += lead['conditions'][0] + 'が比較材料で、'
-    line += position_sentence(lead)
+    if lead['group'] == 'front':
+        line += '前方で運ぶ中心として、追走で脚を使うか、余力を残せるかを見たい。'
+        context = lead.get('narrative_context', {})
+        if lead['pure'] is not None and context.get('front_max') == lead['pure']:
+            line += '前方勢では純能力が最も高く、粘り込みを比較する際の基準になる。'
+    elif lead['group'] in ('middle', 'back'):
+        line += '前方勢を追う立場で、届く展開になるかだけでなく能力差も重要になる。'
+    else:
+        line += '今回位置が不明のため、展開を前提に信頼を上乗せできない。'
     if mode == 'jra':
         if lead['training'] in ('C', 'D'):
             line += '調教面の懸念もあり、展開だけで安心はできない。'
@@ -50,12 +63,16 @@ def overall(centers, opponents, extra, mode):
             delta = prominent['pure'] - lead['pure']
             if delta > 0:
                 text += '純能力では中心を' + f'{delta:.2f}' + '上回り、印の強さと能力面の強みは分けて見たい。'
-        text += position_sentence(prominent)
+        if prominent['group'] != lead['group'] and prominent['group'] in ('front', 'middle', 'back') and lead['group'] in ('front', 'middle', 'back'):
+            position = {'front':'前方','middle':'中団','back':'後方'}[prominent['group']]
+            text += position + 'から運ぶ比較対象で、'
+            text += {'H':'Hペースで前が脚を使うかが中心との比較の分かれ目。',
+                     'M':'Mペースでは中心に先に動かれた場合の対応も見たい。',
+                     'S':'Sペースでは中心との位置の差を能力や仕掛けで補えるかが鍵。'}.get(prominent['pace'],'ペース不明のため位置の違いだけで優劣は決めない。')
         if mode == 'jra' and prominent['training'] in ('C', 'D'):
             text += '調教面も慎重な確認が必要。'
         if prominent['weight_change'] is not None and prominent['weight_change'] > 0:
             text += f"斤量も前走比+{prominent['weight_change']:g}kg。"
-        text += 'これらの特徴から最終印の決定理由までは断定しない。'
         paragraphs.append(text)
     alternatives = [h for h in opponents if h['member'] and h is not prominent and h['pace_effect'] == 'plus']
     if alternatives:
@@ -64,6 +81,12 @@ def overall(centers, opponents, extra, mode):
         text += ('は前が残る形で持ち味を生かす相手。' if h['pace'] == 'S' else 'は前受け組が消耗する形で浮上する相手。')
         if h['pure'] is not None and lead['pure'] is not None and h['pure'] < lead['pure']:
             text += f"中心との純能力差は{lead['pure']-h['pure']:.2f}あり、展開の助けなしでも互角とは言い切れない。"
+        if h['conditions']:
+            text += h['conditions'][0] + 'の裏付けと、中心が余力を失うかを併せて見たい。'
+        elif h['pure'] is None:
+            text += '能力が未取得のため、展開だけで中心を逆転できるとは扱わない。'
+        else:
+            text += '条件指数上位の裏付けは確認できず、展開だけで優劣を決めない。'
         paragraphs.append(text)
     if extra:
         text = '追加の' + '・'.join(label(h) for h in extra) + 'は、本文に挙げた条件が揃う場合の注意対象。'
@@ -71,7 +94,7 @@ def overall(centers, opponents, extra, mode):
             text += '能力差の大きい馬も含むため、位置取り変化だけで上位と同等には扱わない。'
         paragraphs.append(text)
     if lead['pace'] == 'H':
-        paragraphs.append('先行勢がどこまで消耗するかが分岐点。前で粘る力と、後ろから差を詰める力を区別して考えたい。')
+        paragraphs.append('前の馬が競り合うか、力を温存できるかが分岐点。H想定だけで前を下げず、粘る能力と後方勢の能力・適性を比較したい。')
     elif lead['pace'] == 'S':
         paragraphs.append('前が脚を残す形を重く見るか、後方勢が能力で追い上げる形を重く見るかが比較の分かれ目になる。')
     elif lead['pace'] == 'M':
@@ -115,6 +138,10 @@ def generate(result, rows, development):
                     reasons = ['close_gap_condition_pace']
             audit[h['no']] = dict(role=role, route=reasons, positive=h['conditions'],
                                   risks=h['risks'], ability_gap=h['gap_to_group'])
+    # Enrich only temporary prose objects AFTER candidate selection and audit.
+    prose = narrative_horses(horses)
+    centers, opponents, extra = ([prose[h['no']] for h in group] for group in (centers, opponents, extra))
+    anchor = centers[0] if centers else None
     sections = [
         dict(title='展開予想', paragraphs=[overview(horses, development['pace_prediction'])]),
         dict(title='中心候補', paragraphs=[describe(h, mode, 'center', centers[1] if h is anchor and len(centers)>1 else anchor) for h in centers]

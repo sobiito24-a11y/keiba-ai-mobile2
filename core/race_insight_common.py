@@ -7,7 +7,7 @@ from .condition_support import annotate_condition_support
 from .nar_ability_rank import canonical_nar_ability_rank
 from .jra_rank_display import official_jra_values
 
-VERSION = "race_insight_explanation_v2_20261008"
+VERSION = "race_insight_explanation_v4_20261009"
 # Input-only calibration, 2026-09-26/27. Median adjacent gaps at ability ranks 3..6.
 # No finishes, payouts or probability fitting. Separate later-date evaluation required.
 CLOSE_GAPS = {"jra": 1.2, "nar": 2.15}
@@ -134,8 +134,19 @@ def ability_comparison(h, anchor):
             elif h['conditions']:
                 line += '能力では及ばない分、得意条件で記録した指数を比較したい。'
             elif h['pace_effect'] == 'risk':
-                line += '展開面にも負荷があり、能力差に加えて運び方の難しさもある。'
+                line += '厳しい流れになれば能力差に加えて運び方も課題になるが、競り合いの有無を確認したい。'
     return line
+
+
+def narrative_horses(horses):
+    """Prose-only copies. Never feed this context into selection or audit facts."""
+    forward = [h for h in horses if h['group'] == 'front']
+    values = [h['pure'] for h in forward if h['pure'] is not None]
+    complete = len(values) == len(forward) and len(values) >= 2
+    context = dict(escape_count=sum(h['style'] == '逃' for h in horses),
+                   unknown_styles=sum(h['style'] not in ('逃', '先', '差', '追') for h in horses),
+                   front_max=max(values) if complete else None)
+    return {h['no']: dict(h, narrative_context=context) for h in horses}
 
 
 def position_sentence(h):
@@ -144,11 +155,33 @@ def position_sentence(h):
         return '今回位置が不明のため、脚質だけで展開有利とは判断できない。'
     prefix = f"4角{h['corner']:g}番手" if h['corner'] is not None else position
     if h['pace_effect'] == 'plus':
-        return prefix + ('想定で、Sペースで前が残る形なら持ち味を生かしやすい。' if h['pace'] == 'S'
-                         else '想定。差し脚質と噛み合い、Hペースで前が消耗すれば浮上余地がある。')
+        if h['pace'] == 'S':
+            return prefix + '想定。前で落ち着いて運べれば位置を生かせるが、後続との能力差や仕掛け次第で、前残りとは決め切れない。'
+        evidence = ('能力・適性の裏付けは未確認で、' if h['pure'] is None else
+                    '能力差と条件指数を併せて見る必要があり、' if h['conditions'] else
+                    '条件指数上位の裏付けは確認できず、')
+        return prefix + '想定。前が競って消耗すれば差す余地はある。' + evidence + 'H想定だけで届くとは判断しない。'
     if h['pace_effect'] == 'risk':
-        return prefix + ('想定で、Hペースの先行争いによる消耗には注意。' if h['pace'] == 'H'
-                         else '想定で、Sペースでは前を捕まえるために早めの進出や末脚が必要。')
+        if h['pace'] != 'H':
+            return prefix + '想定。Sペースで前が脚を残す場合は追い上げが課題だが、能力差と仕掛け次第で届く余地もある。'
+        context = h.get('narrative_context', {})
+        escapes = context.get('escape_count')
+        line = prefix + 'の前方想定。'
+        if escapes is None or context.get('unknown_styles'):
+            line += '過去脚質に未確認の情報があり、先行争いの激しさは読み切れない。Hペース想定でも消耗は決め付けられない。'
+        elif escapes >= 2:
+            line += f'過去脚質で逃げに分類された馬が{escapes}頭おり、今回も前で競り合う形なら負担が増す。'
+        else:
+            line += 'Hペース想定でも、過去脚質の逃げ馬の少なさだけでは今回の競り合いや消耗は読み切れない。'
+        if h['pure'] is not None and context.get('front_max') == h['pure']:
+            line += '前方勢の中では純能力が最も高く、競らずに運べれば粘り込みも考えたい。'
+        if h['conditions']:
+            line += h['conditions'][0] + 'も支えになるが、道中の負担を補えるかは確認点。'
+        elif h['pure'] is None:
+            line += '能力・条件の裏付けが不足し、粘れるかの判断は保留。'
+        else:
+            line += '残れるかは前方勢との能力差と道中の負担次第。'
+        return line
     if h['shift'] and h['pace'] in ('H', 'M'):
         return prefix + '想定。普段より控えて脚を溜められるかが鍵になる。'
     if h['pace'] not in ('S', 'M', 'H'):
@@ -208,12 +241,12 @@ def secondary_note(h):
     parts = ['正式候補圏外の補助印。']
     if h['conditions']:
         parts.append(h['conditions'][0] + '。')
-    if h['corner'] is not None:
+    if h['pace_effect'] == 'risk':
+        parts.append(position_sentence(h))
+    elif h['corner'] is not None:
         parts.append(f"4角{h['corner']:g}番手想定。")
     else:
         parts.append('4角順位は未取得。')
-    if h['pace_effect'] == 'risk':
-        parts.append('前受けの消耗が懸念。' if h['pace'] == 'H' else '前が残る場合は届くかが課題。')
     return ''.join(parts)
 
 
