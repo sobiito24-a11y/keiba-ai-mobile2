@@ -164,7 +164,7 @@ def recommended_cards_html(horses):
         title=' '.join(text(horse.get(k)) for k in ('mark','number','name') if text(horse.get(k)))
         lines=[text(horse.get('role')),*horse.get('lines',[])]
         cards.append('<article class="recommended-horse" style="min-width:0;border:1px solid #dbe1eb;border-radius:8px;padding:8px;font-size:12px;line-height:1.5;overflow-wrap:anywhere;">'
-                     +'<b style="font-size:13px;">'+escape(title)+'</b><div>'+'<br>'.join(escape(text(s)) for s in lines if text(s))+'</div>'+horse.get('badges_html','')+'<div>'+escape(text(horse.get('conditions')) or '')+'</div>'+horse.get('support_html','')+'</article>')
+                     +'<b style="font-size:13px;">'+escape(title)+'</b>'+horse.get('evaluation_html','')+'<div>'+'<br>'.join(escape(text(s)) for s in lines if text(s))+'</div>'+horse.get('badges_html','')+'<div>'+escape(text(horse.get('conditions')) or '')+'</div>'+horse.get('support_html','')+'</article>')
     return '<div class="recommended-horses" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0;">'+''.join(cards)+'</div>'
 
 def age_text(row):
