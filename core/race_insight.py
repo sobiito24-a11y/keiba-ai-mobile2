@@ -153,7 +153,9 @@ def generate(result, rows, development):
         dict(title='総合考察', paragraphs=overall(centers, opponents, extra, mode)),
     ]
     sections[2]['groups'] = opponent_groups(opponents, sections[2]['paragraphs'])
-    return dict(version=VERSION, mode=mode, policy=mode+'_marked_explanation',
+    insight = dict(version=VERSION, mode=mode, policy=mode+'_marked_explanation',
                 gap_calibration=GAP_CALIBRATION, centers=[h['no'] for h in centers],
                 opponents=[h['no'] for h in opponents], additional=[h['no'] for h in extra],
                 horses=horses, selection_audit=audit, sections=sections)
+    from .material_display import explain_selected
+    return explain_selected(insight, result, rows)

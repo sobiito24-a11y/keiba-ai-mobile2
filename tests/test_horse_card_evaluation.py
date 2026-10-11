@@ -7,12 +7,12 @@ from core.horse_card_evaluation import card_evaluation_fields, card_evaluation_h
 
 @pytest.mark.parametrize('mode,row,expected', [
  ('jra', dict(jra_top5_score=60,jra_top5_rank=8,v1_pace_eval='○',market_ability_rank=1), ('60.0 / 8位','○')),
- ('jra', dict(jra_top5_score=999,jra_top5_rank=1,_display_jra_top5_score=60,_display_jra_top5_rank=6,v1_pace_eval='×'), ('60.0 / 6位','')),
- ('jra', dict(jra_top5_score=999,jra_top5_rank=1,_display_jra_top5_score=None,_display_jra_top5_rank=None,netkeiba_corner4_rank=1), ('— / —','')),
+ ('jra', dict(jra_top5_score=999,jra_top5_rank=1,_display_jra_top5_score=60,_display_jra_top5_rank=6,v1_pace_eval='×'), ('60.0 / 6位','×')),
+ ('jra', dict(jra_top5_score=999,jra_top5_rank=1,_display_jra_top5_score=None,_display_jra_top5_rank=None,netkeiba_corner4_rank=1), ('— / —','—')),
  ('nar', dict(nar_top5_order_score=-.254,nar_final_rank=2,market_ability_rank=1,netkeiba_corner4_rank=4), ('-0.3 / 2位','4番手')),
  ('nar', dict(nar_top5_order_score=None,nar_final_rank=7,pure_ability_top5_group=False,market_ability_score=88,market_ability_rank=6), ('— / 7位','—')),
  ('nar', dict(nar_top5_order_score=float('nan'),nar_final_rank=float('inf'),netkeiba_corner4_rank=True), ('— / —','—')),
- ('jra', {}, ('— / —','')),
+ ('jra', {}, ('— / —','—')),
  ('nar', {}, ('— / —','—')),
 ])
 def test_read_only_existing_fields(mode,row,expected):

@@ -3,6 +3,7 @@ import math
 from html import escape
 from .jra_rank_display import official_jra_values
 from .position_signals import corner4_rank
+from .material_display import material_html
 
 
 def _number(value):
@@ -20,7 +21,8 @@ def card_evaluation_fields(row, mode):
         rank, score = official_jra_values(row)
         label, side_label = 'JRAスコア', '展開'
         # Read the existing formal development assessment, not a new pace rule.
-        side = '○' if isinstance(row.get('v1_pace_eval'), str) and row['v1_pace_eval'] == '○' else ''
+        from .material_display import existing_development
+        side = existing_development(row)
     elif mode == 'nar':
         rank, score = row.get('nar_final_rank'), row.get('nar_top5_order_score')
         label, side_label = 'NAR最終スコア', '4角想定'
@@ -34,7 +36,7 @@ def card_evaluation_fields(row, mode):
     return ((label, f'{score_text} / {rank_text}'), (side_label, side))
 
 
-def card_evaluation_html(row, mode):
+def card_evaluation_html(row, mode, evidence=None):
     fields = card_evaluation_fields(row, mode)
     if fields is None:
         return ''
@@ -43,4 +45,4 @@ def card_evaluation_html(row, mode):
         + '<div style="font-size:10px;line-height:1.3;overflow-wrap:anywhere;">' + escape(label) + '</div>'
         + '<div style="font-size:12px;font-weight:600;line-height:1.5;overflow-wrap:anywhere;min-height:1.5em;">'
         + escape(value) + '</div></div>' for label, value in fields)
-    return '<div class="horse-evaluation-grid" style="display:grid;grid-template-columns:minmax(0,1fr) 56px;gap:6px;margin:6px 0;">' + cells + '</div>'
+    return '<div class="horse-evaluation-grid" style="display:grid;grid-template-columns:minmax(0,1fr) 56px;gap:6px;margin:6px 0;">' + cells + '</div>' + material_html(row, mode, evidence)

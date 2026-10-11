@@ -36,6 +36,7 @@ from core.jra_purchase_navigation_ui import jra_purchase_navigation_html
 from core.jra_win_probability import probability_text, JRA_WIN_PROB_LABEL
 from core.nar_win_probability import nar_probability_text, NAR_WINPROB_LABEL
 from core.horse_card_evaluation import card_evaluation_html
+from core.material_display import material_map
 from core.jra_rank_display import official_jra_result_rows, official_jra_display_rows, official_jra_sort_key, official_jra_text, official_jra_values
 from core.prediction_table_ui import prediction_table_records, prediction_table_html, horse_key, jockey_place_text, recent_condition_stars, recommended_cards_html, sex_age_text, load_weight_text, netkeiba_position_text, display_index_rows, index_badges_html, supplementary_card_html, jockey_text
 from core.jra_purchase_navigator import build_jra_purchase_navigation
@@ -1813,7 +1814,7 @@ def render_market_compare_result(result: PredictionResult) -> None:
             render_jra_race_diagnostics(table, result.race_mode)
     render_full_field_comparison(table, result.race_mode, race_info=getattr(result, "race_info", {}) or {})
     with st.expander("馬別コンパクトカードを見る", expanded=False):
-        render_market_horse_cards(table, result.race_mode, race_info=getattr(result, "race_info", {}) or {})
+        render_market_horse_cards(table, result.race_mode, race_info=getattr(result, "race_info", {}) or {}, materials=material_map(result))
     with st.expander("研究買いガイド（参考）", expanded=False):
         render_market_research_bet(table, result.race_mode, context="mobile")
     with st.expander("従来の全頭表を見る", expanded=False):
@@ -2484,6 +2485,7 @@ def jra_comparison_from_result(result: PredictionResult, *, sort_mode: str = "cu
 
 
 def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, Any]], rows: list[dict[str, Any]]) -> str:
+    materials = material_map(result)
     sources = {horse_key(h): h for h in (result.overall_table.to_dict('records') if result.overall_table is not None else [])}
     enriched = {horse_key(h): h for h in display_index_rows(rows, list(sources.values()), getattr(result, "race_info", {}) or {}, result.race_mode)}
     if result.race_mode == 'jra':
@@ -2521,9 +2523,8 @@ def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, An
             lines.insert(1, JRA_WIN_PROB_LABEL + " " + probability_text(row))
             lines.insert(0, official_jra_text(row))
             lines.append(f"位置bonus {float(row.get('jra_position_bonus') or 0):+.1f}")
-            lines.extend(row.get('_display_jra_mark_reasons', []))
         cards.append(dict(number=key, name=pick(row, 'name', '馬名') or item.get('name', ''), mark=mark, role=role, lines=lines,
-                          evaluation_html=card_evaluation_html(row, result.race_mode), badges_html=index_badges_html(row), conditions='条件材料：' + conditions, support_html=condition_support_html(row, result.race_mode)))
+                          evaluation_html=card_evaluation_html(row, result.race_mode, materials.get(key)), badges_html=index_badges_html(row), conditions='条件材料：' + conditions, support_html=condition_support_html(row, result.race_mode)))
     return recommended_cards_html(cards)
 
 
@@ -4107,6 +4108,7 @@ def render_market_horse_cards(
     race_mode: str,
     *,
     race_info: dict[str, Any] | None = None,
+    materials=None,
 ) -> None:
     st.subheader("馬別コンパクトカード")
     mode = clean_text(race_mode).lower()
@@ -4135,11 +4137,11 @@ def render_market_horse_cards(
             rows = official_jra_display_rows(rows, table.to_dict("records"))
         sort_key = official_jra_sort_key if mode == "jra" else nar_top5_row_sort_key
         for row in sorted(rows, key=sort_key):
-            st.markdown(market_horse_card_html(row, race_mode), unsafe_allow_html=True)
+            st.markdown(market_horse_card_html(row, race_mode, (materials or {}).get(horse_key(row))), unsafe_allow_html=True)
         return
     ordered = market_horse_cards_ordered(table, race_mode=race_mode, race_info=race_info or {})
     for row in ordered.to_dict("records"):
-        st.markdown(market_horse_card_html(row, race_mode), unsafe_allow_html=True)
+        st.markdown(market_horse_card_html(row, race_mode, (materials or {}).get(horse_key(row))), unsafe_allow_html=True)
 
 
 def market_horse_cards_ordered(
@@ -4245,7 +4247,7 @@ def final_mark_sort_value(value: Any) -> int:
     return {"◎": 0, "○": 1, "▲": 2, "△": 3, "☆": 4, "✔︎": 5, "✔": 5, "✓": 5}.get(mark, 6)
 
 
-def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
+def market_horse_card_html(row: dict[str, Any], race_mode: str, material=None) -> str:
     is_jra = clean_text(race_mode).lower() == "jra"
     is_nar = clean_text(race_mode).lower() == "nar"
     number = horse_no(pick(row, "馬番", "馬")) or "—"
@@ -4432,7 +4434,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str) -> str:
         '<div class="ka-horse-card"><details>'
         '<summary>'
         f'<div class="ka-market-card-title">{title_text}</div>'
-        f'{card_evaluation_html(row, race_mode)}'
+        f'{card_evaluation_html(row, race_mode, material)}'
         f'<div class="ka-market-card-line"><b>{plain_text_to_html("｜".join(part for part in main_parts if clean_text(part)))}</b></div>'
         f'<div class="ka-market-card-line">{plain_text_to_html(quick)}</div>'
         f'{material_lines}'
@@ -5079,6 +5081,7 @@ def render_race_flow(result: PredictionResult) -> None:
 
 
 def render_horse_summary_cards(result: PredictionResult) -> None:
+    materials = material_map(result)
     rows = sorted_display_rows_with_value_support(result)
     if not rows:
         st.info("馬別サマリーは未取得です。")
@@ -5092,7 +5095,7 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
     def card_html(row: dict[str, Any]) -> str:
         horse_key = normalize_horse_number_key(pick(row, "馬番", "馬"))
         index_row = overall_rows_by_horse.get(horse_key, {})
-        markup = horse_summary_card_html(row, result.race_mode, index_row, getattr(result, "race_info", {}) or {})
+        markup = horse_summary_card_html(row, result.race_mode, index_row, getattr(result, "race_info", {}) or {}, material=materials.get(horse_key))
         source = merged_card_source(row, index_row)
         old_stats = jockey_course_stats_card_text(source)
         if old_stats:
@@ -5348,6 +5351,7 @@ def horse_summary_card_html(
     race_mode: str,
     overall_row: dict[str, Any] | None = None,
     race_info: dict[str, Any] | None = None,
+    material: dict[str, Any] | None = None,
 ) -> str:
     is_jra = clean_text(race_mode).lower() == "jra"
     is_nar = clean_text(race_mode).lower() == "nar"
@@ -5420,7 +5424,6 @@ def horse_summary_card_html(
         f"状態：{state}",
     ]
     if training_label:
-        quick_items.extend(row.get('_display_jra_mark_reasons', []))
         quick_items.append(training_label)
     if stable_comment:
         quick_items.append(stable_comment)
@@ -5569,7 +5572,7 @@ def horse_summary_card_html(
         f'<div class="ka-horse-title-line">'
         + ("" if is_top5_mode else f'<span class="ka-chip {group.lower()}">{plain_text_to_html(group)}</span>')
         + f'<span>{plain_text_to_html(title)}</span></div>'
-        f'{card_evaluation_html(recent_source, race_mode)}'
+        f'{card_evaluation_html(recent_source, race_mode, material)}'
         f'<div class="ka-horse-quick">{quick}</div>'
         f'{ability_bar}'
         f'{material_badges_markup}'

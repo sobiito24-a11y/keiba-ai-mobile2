@@ -7,7 +7,7 @@ from .condition_support import annotate_condition_support
 from .nar_ability_rank import canonical_nar_ability_rank
 from .jra_rank_display import official_jra_values
 
-VERSION = "race_insight_explanation_v4_20261009"
+VERSION = "race_insight_explanation_v5_20261011"
 # Input-only calibration, 2026-09-26/27. Median adjacent gaps at ability ranks 3..6.
 # No finishes, payouts or probability fitting. Separate later-date evaluation required.
 CLOSE_GAPS = {"jra": 1.2, "nar": 2.15}

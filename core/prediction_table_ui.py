@@ -10,7 +10,7 @@ from .nar_win_probability import annotate_nar_win_probabilities, nar_probability
 from .nar_ability_rank import canonical_nar_ability_rank
 from .position_signals import corner4_rank, nar_position_reference
 from .condition_support import matching_recent_runs, annotate_condition_support, condition_support_text, condition_support_html
-from .material_reconsideration import display_material_cell
+from .material_display import material_cells
 
 NAR_COLUMNS = ['NAR最終順位', '最終印', '純能力順位', '純能力', NAR_WINPROB_LABEL, '馬番 / 馬名', '年齢',
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '距離', 'コース', '★', '☆',
@@ -206,15 +206,12 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
         style=text(pick(h,'脚質表示','running_style_display','脚質','running_style','style','running_style_market'))
         style={'逃げ':'逃','先行':'先','差し':'差','追込':'追'}.get(style,style) or '—'
         evidence=(materials or {}).get(key)
-        common={'今回プラス':display_material_cell(evidence), '今回注意':display_material_cell(evidence,False),
+        common={**material_cells(row, race_mode, evidence),
                 '馬番 / 馬名':label,'年齢':age_text(h),'騎手（継続 / 乗り替わり）':jockey_text(h),
                 '騎手成績':jockey_place_text(h)+(' / '+text(h.get('jockey_positive_reason')) if text(h.get('jockey_positive_reason')) else ''),'斤量':load_weight_text(h),
                 '脚質':style,'距離':index_cell_text(row,'distance_index'),'コース':index_cell_text(row,'course_index'),**stars}
         final=(marks or {}).get(key)
         if race_mode=='jra':
-            warnings = row.get('_display_jra_mark_reasons', [])
-            if warnings:
-                common['今回注意'] = ' / '.join(warnings)
             record={'JRA順位':fmt(official_jra_values(h)[0]),'JRAスコア':fmt(official_jra_values(h)[1],True),
                     JRA_WIN_PROB_LABEL:probability_text(row),
                     '最終印':(final if final is not None else jra_display_mark_from_row(row)) or '—',**common,
