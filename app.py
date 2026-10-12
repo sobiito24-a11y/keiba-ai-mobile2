@@ -36,6 +36,7 @@ from core.jra_purchase_navigation_ui import jra_purchase_navigation_html
 from core.jra_win_probability import probability_text, JRA_WIN_PROB_LABEL
 from core.nar_win_probability import nar_probability_text, NAR_WINPROB_LABEL
 from core.horse_card_evaluation import card_evaluation_html
+from core.supplementary_assessment import annotate as annotate_supplementary
 from core.material_display import material_map
 from core.jra_rank_display import official_jra_result_rows, official_jra_display_rows, official_jra_sort_key, official_jra_text, official_jra_values
 from core.prediction_table_ui import prediction_table_records, prediction_table_html, horse_key, jockey_place_text, recent_condition_stars, recommended_cards_html, sex_age_text, load_weight_text, netkeiba_position_text, display_index_rows, index_badges_html, supplementary_card_html, jockey_text
@@ -2492,6 +2493,7 @@ def jra_comparison_from_result(result: PredictionResult, *, sort_mode: str = "cu
 def conclusion_horse_cards(result: PredictionResult, selected: list[dict[str, Any]], rows: list[dict[str, Any]]) -> str:
     materials = material_map(result)
     sources = {horse_key(h): h for h in (result.overall_table.to_dict('records') if result.overall_table is not None else [])}
+    rows = annotate_supplementary(rows, list(sources.values()), result.race_mode, getattr(result, 'race_info', {}) or {})
     enriched = {horse_key(h): h for h in display_index_rows(rows, list(sources.values()), getattr(result, "race_info", {}) or {}, result.race_mode)}
     if result.race_mode == 'jra':
         enriched = {horse_key(h): h for h in official_jra_result_rows(result, list(enriched.values()))}
@@ -4141,6 +4143,7 @@ def render_market_horse_cards(
         if mode == "jra":
             rows = official_jra_display_rows(rows, table.to_dict("records"))
         sort_key = official_jra_sort_key if mode == "jra" else nar_top5_row_sort_key
+        rows = annotate_supplementary(rows, table.to_dict('records'), mode, race_info)
         for row in sorted(rows, key=sort_key):
             st.markdown(market_horse_card_html(row, race_mode, (materials or {}).get(horse_key(row))), unsafe_allow_html=True)
         return
@@ -5091,6 +5094,7 @@ def render_horse_summary_cards(result: PredictionResult) -> None:
     if not rows:
         st.info("馬別サマリーは未取得です。")
         return
+    rows = annotate_supplementary(rows, result.overall_table.to_dict('records') if result.overall_table is not None else [], result.race_mode, getattr(result, 'race_info', {}) or {})
     if result_race_mode(result) == "nar":
         from core.nar_display_mark import summary_rows
         rows = summary_rows(rows)

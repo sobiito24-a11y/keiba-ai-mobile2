@@ -22,7 +22,7 @@ def test_material_cell_uses_existing_verdict_and_never_limits_to_top5(mode):
     assert html.count('Hペース想定×4角7番手')==1
     assert '今回注意' not in html
     assert (row,e)==before
-    assert card_evaluation_fields(row,'jra')[1][1]=='△'  # Aggregate ◎ is not a pace-only grade.
+    assert card_evaluation_fields(row,'jra')[1][1]=='—'  # Neither legacy position nor aggregate material implies development advantage.
 
 
 def test_no_materials_and_warning_precedence():
