@@ -164,6 +164,8 @@ def resolve(result):
     value['input']=packet
     restored=any(getattr(result,k,False) for k in ('_material_snapshot_restored','_jra_snapshot_restored','_race_insight_restored'))
     value['origin']='current_reference' if restored else 'new_prediction'
+    from .independent_ai_commentary import build,context
+    value['commentary']=build(value,context(result))
     return value
 
 def attach(result):

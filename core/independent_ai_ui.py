@@ -34,7 +34,12 @@ def render(result):
             else:
                 if cache_key not in st.session_state:st.session_state[cache_key]=resolve(result)
                 value=st.session_state[cache_key]
+            from .independent_ai_commentary import build,context,decision_text
+            commentary=value.get('commentary') or build(value,context(result))
             st.markdown(markup(value),unsafe_allow_html=True)
+            st.markdown('**新AIのレース考察**')
+            if not value.get('commentary'):st.caption('旧独立予測の保存値に基づく参考考察。元の保存文は変更しません。')
+            for paragraph in commentary['paragraphs']:st.write(paragraph)
             if value.get('status')!='reference':return
             try:config=dict(st.secrets.get('independent_ai_odds',{}))
             except Exception:config={}
@@ -67,7 +72,10 @@ def render(result):
             history=st.session_state[history_key]
             quote=history[-1] if history else None
             decision=evaluate_history(value,history)
+            decision['commentary']=commentary
+            decision['commentary_decision']=decision_text(value,decision)
             st.info(decision['reason'])
+            for line in decision['commentary_decision'][1:]:st.write(line)
             for ticket in decision['candidates']:
                 st.write(f"仮想購入候補：{ticket['kind']} {'－'.join(map(str,ticket['horses']))} / 仮想100円 / 参考払戻倍率 {ticket['reference_gross_return']:.2f}")
             st.caption('実証済み推奨：なし。実購入は行いません。')
@@ -94,6 +102,8 @@ def render(result):
                 if state_key+'_archive_bytes' in st.session_state:
                     st.download_button('価格履歴付き.keibaを保存',st.session_state[state_key+'_archive_bytes'],file_name=f"{value['race_id']}_with_odds.keiba",key=state_key+'_archive_download')
                 st.caption('元ファイル・保存済み予想は変更せず、価格履歴だけを追加したコピーを作成します。')
+            from .independent_ai_review_ui import render as render_review
+            render_review(state_key)
             from .independent_ai_registry import freeze
             try:
                 frozen=freeze(value,decision)

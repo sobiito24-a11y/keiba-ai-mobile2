@@ -57,7 +57,9 @@ def settle(record,outcome):
         no=str(h['horse_no']);rank=outcome.get('finishes',{}).get(no)
         if isinstance(rank,int):probability_results.append(dict(horse_no=h['horse_no'],win_probability=h['win'],place_probability=h['place'],won=rank==1,
             paid_place=no in pay['place'] if pay.get('place') else None))
-    return dict(race_id=rid,record_hash=record['record_hash'],outcome=deepcopy(outcome),tickets=rows,
+    from .independent_ai_commentary import review
+    commentary_review=review(record['decision'].get('commentary') or pred.get('commentary'),outcome)
+    return dict(race_id=rid,record_hash=record['record_hash'],outcome=deepcopy(outcome),tickets=rows,commentary_review=commentary_review,
         stake=stake,payout=payout,profit=payout-stake,roi=payout/stake if stake else None,
         probability_results=probability_results,unused_for_next_model=False,actual_purchase=False)
 
