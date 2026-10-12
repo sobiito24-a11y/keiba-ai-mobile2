@@ -76,3 +76,16 @@ def test_history_uses_latest_per_ticket_and_does_not_refresh_old():
     assert not evaluate_history(p,[a,b],NOW)['price_evaluations']
     b['prices']=[];b['withdrawn']=[1]
     assert not evaluate_history(p,[a,b],NOW)['price_evaluations']
+
+
+def test_collection_cli_does_not_overwrite(tmp_path):
+    import subprocess,sys
+    from pathlib import Path
+    raw=tmp_path/'source.keiba';raw.write_bytes(archive(prediction()))
+    odds=tmp_path/'odds.json';odds.write_text(json.dumps(priced()),encoding='utf-8')
+    out=tmp_path/'copy.keiba';tool=Path(__file__).resolve().parents[1]/'tools/import_odds.py'
+    cmd=[sys.executable,str(tool),'--keiba',str(raw),'--odds',str(odds),'--race-id',prediction()['race_id'],'--output',str(out)]
+    assert subprocess.run(cmd,capture_output=True).returncode==0
+    original=out.read_bytes()
+    assert subprocess.run(cmd,capture_output=True).returncode!=0
+    assert out.read_bytes()==original

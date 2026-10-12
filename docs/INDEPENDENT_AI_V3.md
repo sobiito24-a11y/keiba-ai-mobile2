@@ -86,4 +86,13 @@ HTMLは利用者のセッション内で解析し、アプリ共有領域への�
 
 操作：保存レースを開く→AI独立判断を展開→HTML/JSON取込または手入力→価格評価と仮想候補/見送りを確認→履歴JSONまたは.keibaコピーを保存。未校正の参考候補・仮想候補と、実証済み推奨（現時点ではなし）を分離する。
 
-正規の自動取得は未接続。無許可の内部APIやログイン回避を実装していない。NARの実物発売オッズHTMLは未検証。JSON・明示列テーブル・手入力はJRA/NAR共通テストを行う。取得アプリkeiba ai data本体の所在地は未確定のため、別アプリ側の画面組込は保留。
+正規の自動取得は未接続。無許可の内部APIやログイン回避を実装していない。NARの実物発売オッズHTMLは未検証。JSON・明示列テーブル・手入力はJRA/NAR共通テストを行う。旧Keiba_AI_Data/README.txtは正式コードをMobile repoと指定している。収集済みデータへはtools/import_odds.pyで手動取込できる。別の取得画面アプリを指している場合、そのソースは未確認。
+
+
+Keiba AI Dataの手動関連付け（新しい出力名必須）:
+
+```
+python tools/import_odds.py --keiba saved.keiba --odds saved_odds.html --race-id 202605040411 --output with_odds.keiba
+```
+
+ブラウザではMobileの「保存.keibaからAI独立判断・オッズを開く」から同じ取込・コピー保存ができる。収集用netkeiba_html_collectorの自動巡回へは、許諾未確認のオッズアクセスを追加していない。
