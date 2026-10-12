@@ -86,7 +86,7 @@ def classify_netkeiba_page_url(value: str) -> str:
         return "oikiri"
     if path.endswith("/race/shutuba.html"):
         return "shutuba"
-    if "/odds/" in path:
+    if "/odds/" in path or path.endswith("/odds.html"):
         return "odds"
     return "unknown"
 
@@ -313,7 +313,7 @@ def _match_field(source_name: str, value: str, mode: RaceMode) -> list[tuple[str
             add("newspaper", "newspaper")
         if "oikiri" in lower:
             add("oikiri", "oikiri")
-        if "/odds/" in lower:
+        if "/odds/" in lower or "/odds.html" in lower:
             add("odds", "/odds/")
 
     if source_name in {"body id", "body class"}:

@@ -30,4 +30,5 @@ def predict_jra(
     from .axis_confidence_v2 import attach as attach_axis
     from .race_development import attach as attach_development
     result = attach_axis(attach_material_reconsideration(result))
-    return attach_development(result, html_files)
+    from .independent_ai import attach as attach_independent
+    return attach_independent(attach_development(result, html_files))

@@ -329,6 +329,8 @@ def attach(result, html_files=None):
 
 
 def restore(result, payload):
+    from .independent_ai import restore as restore_independent
+    restore_independent(result, payload)
     from .race_insight_snapshot import restore as restore_insight
     restore_insight(result, payload)
     if result.race_mode == 'nar':

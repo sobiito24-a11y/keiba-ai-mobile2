@@ -139,6 +139,8 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
         payload[shift_key] = payload[development_key]['development_shift_audit']
     from .race_insight_snapshot import KEY as insight_key, freeze as freeze_insight
     payload[insight_key] = freeze_insight(result)
+    from .independent_ai import saved_fields
+    payload.update(saved_fields(result))
     return payload
 
 
