@@ -19,7 +19,7 @@ def predict_jra(
     from .newspaper_v2_engine import attach_newspaper_v2_shadow
     result = attach_newspaper_v2_shadow(result, html_files)
     from .jra_formal_snapshot import freeze_fresh_formal
-    result = freeze_fresh_formal(result)
+    result = freeze_fresh_formal(result, position_scoring=False)
     from .jra_repro_candidate import attach_repro_candidate
     result = attach_repro_candidate(result)
     from .jra_practical_shadow import attach_practical_shadow

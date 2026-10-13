@@ -23,12 +23,13 @@ def build_v1_evaluations(
     rows: Sequence[Mapping[str, Any]],
     race_mode: str,
     race_info: Mapping[str, Any] | None = None,
+    *, jra_position_scoring: bool = True,
 ) -> dict[str, Any]:
     mode = text(race_mode).lower() or "jra"
     current = current_condition(rows, race_info or {})
     horses = [build_v1_horse(row, mode, current) for row in rows]
     fill_missing_ability_ranks(horses)
-    assign_v1_scores_and_marks(horses, race_mode=mode, race_info=race_info)
+    assign_v1_scores_and_marks(horses, race_mode=mode, race_info=race_info, jra_position_scoring=jra_position_scoring)
     recommendations = final_recommendations(horses)
     return {
         "race_mode": mode,
@@ -400,9 +401,9 @@ def primary_role(
     return "相手候補"
 
 
-def assign_v1_scores_and_marks(horses: list[dict[str, Any]], race_mode: str = "nar", race_info: Mapping[str, Any] | None = None) -> None:
+def assign_v1_scores_and_marks(horses: list[dict[str, Any]], race_mode: str = "nar", race_info: Mapping[str, Any] | None = None, *, jra_position_scoring: bool = True) -> None:
     if text(race_mode).lower() == "jra":
-        assign_jra_top5_scores_and_marks(horses, race_info=race_info)
+        assign_jra_top5_scores_and_marks(horses, race_info=race_info, position_scoring=jra_position_scoring)
         return
     assign_default_v1_scores_and_marks(horses)
 
@@ -486,7 +487,7 @@ def assign_default_v1_scores_and_marks(horses: list[dict[str, Any]]) -> None:
             horse["v1_order"] = index
 
 
-def assign_jra_top5_scores_and_marks(horses: list[dict[str, Any]], race_info: Mapping[str, Any] | None = None) -> None:
+def assign_jra_top5_scores_and_marks(horses: list[dict[str, Any]], race_info: Mapping[str, Any] | None = None, *, position_scoring: bool = True) -> None:
     if not horses:
         return
     pure_values = [to_float(horse.get("jra_pure_ability_score")) for horse in horses]
@@ -498,10 +499,12 @@ def assign_jra_top5_scores_and_marks(horses: list[dict[str, Any]], race_info: Ma
         pace = text(horse.get("v1_pace_eval")) or "—"
         training = training_grade(horse) or "—"
         repro_bonus = JRA_TOP5_REPRO_BONUS.get(repro, 0.0)
-        pace_bonus = JRA_TOP5_PACE_BONUS.get(pace, 0.0)
+        pace_bonus = JRA_TOP5_PACE_BONUS.get(pace, 0.0) if position_scoring else 0.0
         training_bonus = JRA_TOP5_TRAINING_BONUS.get(training, 0.0)
         state_bonus = 0.0
-        position_bonus = jra_position_bonus(horse, race_info)
+        position_bonus = jra_position_bonus(horse, race_info) if position_scoring else 0.0
+        if not position_scoring:
+            horse["jra_formal_score_version"] = "jra_nonposition_v1_20261014"
         horse["jra_position_bonus"] = position_bonus
         score = (pure or 0.0) + repro_bonus + pace_bonus + training_bonus + state_bonus + position_bonus
         horse["jra_pure_ability_score"] = pure
@@ -601,8 +604,12 @@ def jra_top5_reason(horse: Mapping[str, Any]) -> str:
         f"調教{training} {signed_bonus_text(horse.get('jra_training_bonus'))} / "
         f"状態{state}（参考表示・スコア加点なし）"
     )
+    if horse.get("jra_formal_score_version") == "jra_nonposition_v1_20261014":
+        reason = reason.replace(f"展開{pace} {signed_bonus_text(horse.get('jra_pace_bonus'))}", f"想定位置{pace}（参考・スコア補正なし）")
     if corner4_rank(horse) is not None:
         reason += f" / netkeiba4角{corner4_rank(horse)}番手 {signed_bonus_text(horse.get('jra_position_bonus'))}"
+    if horse.get("jra_formal_score_version") == "jra_nonposition_v1_20261014" and corner4_rank(horse) is not None:
+        reason = reason.rsplit(" ", 1)[0] + "（参考・スコア補正なし）"
     return f"{reason} → JRA Top5スコア {score:.2f}" if score is not None else reason
 
 

@@ -108,6 +108,7 @@ def build_full_field_comparison(
     race_mode: str = "jra",
     sort_mode: str = "horse_number",
     race_info: Mapping[str, Any] | None = None,
+    jra_position_scoring: bool = True,
 ) -> dict[str, Any]:
     """Build display-only comparison rows from saved prediction values."""
 
@@ -123,7 +124,7 @@ def build_full_field_comparison(
     _attach_ver3_current_ranks(horses)
     if mode == "nar":
         _attach_nar_top5_fields(horses)
-    v1 = build_v1_evaluations(records, mode, race_info=info)
+    v1 = build_v1_evaluations(records, mode, race_info=info, jra_position_scoring=jra_position_scoring)
     v1_by_number = {_text(_first(row, "horse_no", "馬番", "number", "horse_number")): row for row in v1.get("rows", [])}
     for horse in horses:
         v1_row = v1_by_number.get(_text(horse.get("number")))

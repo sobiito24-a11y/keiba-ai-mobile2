@@ -13,9 +13,13 @@ def saved_formal_comparison(result):
     return deepcopy(saved) if result.race_mode == 'jra' and isinstance(saved, dict) else None
 
 
-def freeze_fresh_formal(result):
+def freeze_fresh_formal(result, *, position_scoring=True):
     if result.race_mode != 'jra' or saved_formal_comparison(result) is not None:
         return result
+    from .position_signals import is_jump_race
+    # The validation cohort is flat racing; retain the legacy obstacle policy.
+    if is_jump_race(result.race_info or {}):
+        position_scoring = True
     from .nar_race_diagnostics import build_full_field_comparison
     from .jra_win_probability import jra_win_probability_snapshot
     source = []
@@ -23,7 +27,10 @@ def freeze_fresh_formal(result):
         if table is not None and not table.empty:
             source = table.to_dict('records')
             break
-    saved = build_full_field_comparison(source, race_mode='jra', sort_mode='current', race_info=result.race_info or {})
+    saved = build_full_field_comparison(source, race_mode='jra', sort_mode='current', race_info=result.race_info or {}, jra_position_scoring=position_scoring)
+    if not position_scoring:
+        saved["formal_score_version"] = "jra_nonposition_v1_20261014"
+        saved["position_scoring"] = False
     result.debug_info = {**(result.debug_info or {}), KEY: deepcopy(saved)}
     result.debug_info['jra_win_probability_calibration'] = jra_win_probability_snapshot(result)
     return result

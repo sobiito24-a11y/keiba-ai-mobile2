@@ -79,6 +79,20 @@ def official_jra_result_rows(result, rows):
             for field in ('jra_top5_rank', 'jra_top5_score'):
                 if _number(index.get(field)) is None:
                     index[field] = horse.get(field)
+    # New-policy snapshots carry the authoritative score/rank, including on restore.
+    # Keep historical precedence untouched for unversioned / legacy snapshots.
+    frozen = (result.debug_info or {}).get('jra_formal_comparison_snapshot') or {}
+    if frozen.get('formal_score_version') == 'jra_nonposition_v1_20261014':
+        formal = {_key(h): h for h in frozen.get('rows', [])}
+        source = [dict(h) for h in source]
+        for h in source:
+            saved = formal.get(_key(h), {})
+            for field in ('jra_top5_rank', 'jra_top5_score'):
+                if _number(saved.get(field)) is not None:
+                    h[field] = saved[field]
+        for no, saved in formal.items():
+            indexes.setdefault(no, {}).update({field: saved[field] for field in
+                ('jra_top5_rank', 'jra_top5_score') if _number(saved.get(field)) is not None})
     view = official_jra_display_rows(rows, source, list(indexes.values()))
     by_number = {_key(h): h for h in source}
     from .jra_display_mark import jra_base_display_mark_from_row
