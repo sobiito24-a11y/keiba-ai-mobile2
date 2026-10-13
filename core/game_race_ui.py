@@ -39,11 +39,15 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
     """A whitelisted projection of the existing UI records, in their exact order."""
     sources = {horse_key(h): h for h in source_rows}
     by = {horse_key(h): h for h in annotate(rows, source_rows, mode, race_info)}
+    from .prediction_table_ui import display_index_rows
+    indices = {horse_key(h):h for h in display_index_rows(rows, source_rows, race_info, mode)}
     out = []
     for rec in records:
         no, _, name = rec['馬番 / 馬名'].partition(' ')
         row = dict(sources.get(no, {})); row.update({k:v for k,v in by.get(no, {}).items() if text(v)})
         a = row.get(KEY) or {}
+        idx=indices.get(no,{})
+        source=sources.get(no,row)
         frame = frame_number(sources.get(no, {})) or frame_number(row)
         if frame is None and frames and no in frames:
             from .game_ui_frames import normalize_name
@@ -59,6 +63,10 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
                         score_label=score_label, score=rec.get(score_label, '—'), rank=rec.get(rank_label, '—'),
                         ability=rec.get('純能力', '—'), ability_rank=rec.get('純能力順位', '—'),
                         odds=f'{odds:.1f}' if odds is not None and odds > 0 else '—',
+                        formal_member=(row.get('pure_ability_top5_group') is True) if mode=='nar' else (number(rec.get('JRA順位')) is not None and 1<=number(rec.get('JRA順位'))<=5),
+                        star=dict(value=idx.get('star_index_value'),rank=idx.get('star_index_rank')),
+                        away=dict(value=idx.get('away_same_distance_index_value'),rank=idx.get('away_same_distance_index_rank')),
+                        average=dict(value=number(pick(source,'平均指数','近3走平均','3走平均','recent3_avg','recent3_mean')),rank=None),
                         distance=index_display(rec.get('距離')), course=index_display(rec.get('コース')),
                         corner=corner4_rank(row), style=rec.get('脚質', '—'), development=a.get('development') or '—',
                         training=training(row) if mode == 'jra' else '', rest=rest_text(row),
@@ -72,6 +80,10 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
                         member=row.get('pure_ability_top5_group') if mode == 'nar' else None,
                         reference=a.get('reference_reason') if a.get('reference') else '',
                         check_reason=a.get('check_reason', ''), past=''))
+    values=[h['average']['value'] for h in out if h['average']['value'] is not None]
+    for h in out:
+        v=h['average']['value']
+        h['average']['rank']=1+sum(x>v for x in values) if v is not None else None
     return out
 
 
@@ -125,7 +137,7 @@ def card_html(h):
     raw = f'<article class="horse-detail" data-card="{e(h["no"])}"><div class="card-heading">{frame_html(h["frame"])}<div><span class="eyebrow">{e(designation)}</span><h3>{mark_html(h["mark"])} {e(h["no"])} <span>{e(h["name"])}</span></h3></div><div class="price"><small>取得済み単勝</small><b>{e(h["odds"])}</b></div></div>'
     raw += f'<div class="identity">{e(h["age"])} <span>{e(h["weight"])}</span> <span>{e(h["jockey"])}</span></div><div class="stats">{blocks}</div>'
     raw += '<div class="facts">'+''.join(f'<span><small>{e(k)}</small> {training_html(v) if k=="調教" else e(v)}</span>' for k,v in tags)+'</div>'
-    raw += '<div class="stars">'+''.join(f'<span><b>{e(k)} 条件実績</b> {e(v)}</span>' for k,v in h['stars'].items())+'</div>'
+    raw += '<div class="stars">'+metric_html(h.get('star',{}),'★')+metric_html(h.get('away',{}),'☆')+'</div>'
     raw += '<div class="materials">'
     for key,label in [('plus','今回プラス'),('caution','今回注意')]:
         reasons = short_materials(h[key])
@@ -146,7 +158,7 @@ def document(view, race_key=''):
     mode = view[0]['mode'] if view else 'jra'
     cols = ['枠','馬番・馬名','最終印','単勝','JRAスコア' if mode=='jra' else 'NAR最終スコア','純能力','4角想定']
     if mode == 'jra': cols += ['展開有利','調教']
-    cols += ['休養','距離','コース','今回プラス','今回注意']
+    cols += ['休養','距離','コース','★','☆','今回プラス','今回注意']
     rows = []
     for i,h in enumerate(view):
         cells = [frame_html(h['frame']), f'<button class="horse-select" data-select="{i}" aria-pressed="false"><b>{escape(h["no"])}</b><span>{escape(h["name"])}</span></button>', mark_html(h['mark']), escape(h['odds']),
@@ -154,11 +166,11 @@ def document(view, race_key=''):
                  f'<b>{escape(h["ability"])}</b><small>{escape(h["ability_rank"])}位</small>' if h['ability_rank']!='—' else escape(h['ability']),
                  str(h['corner'])+'番手' if h['corner'] is not None else '—']
         if mode == 'jra': cells += [escape(h['development']), training_html(h['training'])]
-        cells += [escape(h['rest']) or '—', index_html(h['distance']), index_html(h['course']), evidence_html(h['plus'],True), evidence_html(h['caution'],False)]
+        cells += [escape(h['rest']) or '—', index_html(h['distance']), index_html(h['course']), metric_html(h['star'],'★'), metric_html(h['away'],'☆'), evidence_html(h['plus'],True), evidence_html(h['caution'],False)]
         rows.append(f'<tr data-row="{i}" data-horse="{escape(h["no"])}">'+''.join(f'<td>{c}</td>' for c in cells)+'</tr>')
-    data = json.dumps(dict(cards=[card_html(h) for h in view], names=[h['no']+' '+h['name'] for h in view], race_key=race_key),ensure_ascii=False).replace('<','\\u003c').replace('>','\\u003e').replace('&','\\u0026')
+    data = json.dumps(dict(tabs=comparison_data(view,mode),cards=[card_html(h) for h in view], names=[h['no']+' '+h['name'] for h in view], race_key=race_key),ensure_ascii=False).replace('<','\\u003c').replace('>','\\u003e').replace('&','\\u0026')
     return ('<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            +'<style>'+css+'</style><body><main><div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
+            +'<style>'+css+'</style><body><main>'+comparison_html(view,mode)+'<div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
             +'<p class="help">馬名をタップして詳細へ。表は横・縦にスクロールできます。</p>'
             +'<div class="table-scroll" tabindex="0" aria-label="全頭予想一覧・横スクロール"><table><thead><tr>'+''.join('<th scope="col">'+escape(c)+'</th>' for c in cols)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div>'
             +'<p class="legend">距離・コースの記号は指数順位：◎1位 · ○2〜3位 · △4〜5位 · —6位以下。枠番未取得は無色。</p>'
@@ -199,3 +211,30 @@ def render_component(view, race_key):
     import streamlit.components.v1 as components
     component = components.declare_component("game_race_lineup", path=str(ASSETS))
     return component(html=document(view, race_key), key='game_lineup_'+race_key, default=None)
+
+
+def metric_html(item,label):
+    if item.get('value') is None:return '<span class="muted">—</span>'
+    rank=str(item['rank'])+'位' if item.get('rank') is not None else '—'
+    return '<span class="metric-inline">'+escape(label)+' <b>'+escape(fmt(item['value']))+'</b> / '+rank+'</span>'
+
+
+def comparison_data(view,mode):
+    from .game_ui_comparison import comparisons
+    groups=comparisons(view,mode)
+    for group in groups:
+        html=[]
+        for c in group['cards']:
+            h=view[c['index']]
+            html.append('<button class="top-horse" data-top-select="'+str(c['index'])+'">'+
+                        '<span class="top-identity">'+frame_html(h['frame'])+mark_html(h['mark'])+'<b>'+escape(h['no'])+'</b></span>'+
+                        '<span class="top-name">'+escape(h['name'])+'</span><span class="top-odds">単勝 '+escape(h['odds'])+'</span>'+
+                        '<span class="top-value">'+escape(c['value'])+'</span><span class="top-rank">'+escape(c['rank'])+'</span></button>')
+        group['html']=''.join(html) or '<p class="no-data">該当データなし</p>'
+    return groups
+
+
+def comparison_html(view,mode):
+    from .game_ui_comparison import TABS
+    buttons=''.join('<button role="tab" aria-selected="'+('true' if k=='final' else 'false')+'" data-tab="'+k+'">'+escape(label)+'</button>' for k,label in TABS if mode=='jra' or k!='training')
+    return '<section class="metric-comparison"><div class="metric-tabs" role="tablist" aria-label="比較指標">'+buttons+'</div><div id="metric-count"></div><div id="top-horses" class="top-horses" role="tabpanel"></div><p id="metric-note"></p></section>'

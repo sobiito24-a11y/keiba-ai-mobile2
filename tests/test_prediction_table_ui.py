@@ -76,7 +76,8 @@ def test_main_flow_has_one_conclusion_then_table(monkeypatch):
     monkeypatch.setattr(app,'render_investment_decision',lambda *a:pytest.fail('obsolete block rendered'))
     for mode in ['jra','nar']:
         calls.clear();app.render_colab_style_result(PredictionResult(race_mode=mode))
-        assert calls[:4]==[f'render_{mode}_top5_result_summary','render_game_prediction','render_game_commentary','audit']
+        assert calls[:3]==['render_game_prediction','render_game_commentary','audit']
+        assert f'render_{mode}_top5_result_summary' not in calls
         if mode=='jra':assert 'render_backtest_reference' not in calls
 
 @pytest.mark.parametrize('mode,fixture',[('jra','purchase_hanshin_20260921_r8.json'),('nar','purchase_nar_snapshot.json')])

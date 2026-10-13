@@ -47,4 +47,5 @@ def predict_nar(
     from .race_development import attach as attach_development
     result = attach_axis(attach(attach_material_reconsideration(result)))
     from .independent_ai import attach as attach_independent
-    return attach_independent(attach_development(result, html_files))
+    from .game_ui_frames import attach_saved_frames
+    return attach_saved_frames(attach_independent(attach_development(result, html_files)), html_files)

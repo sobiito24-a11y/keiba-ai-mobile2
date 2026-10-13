@@ -141,6 +141,8 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
     payload[insight_key] = freeze_insight(result)
     from .independent_ai import saved_fields
     payload.update(saved_fields(result))
+    from .game_ui_frame_snapshot import copy_frame_metadata
+    copy_frame_metadata(result, payload)
     from .newspaper_stable_rating import snapshot_metadata
     snapshot_metadata(result, payload)
     return payload

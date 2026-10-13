@@ -21,6 +21,17 @@ buttons.forEach((btn,i)=>{
  btn.addEventListener('keydown',e=>{if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const n=Math.max(0,Math.min(buttons.length-1,i+(e.key==='ArrowDown'?1:-1)));buttons[n].focus();select(n);}});
 });
 document.querySelectorAll('[data-row]').forEach((row,i)=>row.addEventListener('click',e=>{if(!e.target.closest('button'))select(i);}));
+function showMetric(key){
+ const group=data.tabs.find(t=>t.key===key);if(!group)return;
+ document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===key)));
+ document.getElementById('metric-count').textContent=group.label+' · 該当'+group.eligible+'頭／全'+group.total+'頭';
+ document.getElementById('top-horses').innerHTML=group.html;
+ document.getElementById('metric-note').textContent=group.note;
+ document.querySelectorAll('[data-top-select]').forEach(b=>b.addEventListener('click',()=>{select(Number(b.dataset.topSelect),true);host.scrollIntoView({block:'nearest',behavior:'smooth'});}));
+ resize();
+}
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showMetric(b.dataset.tab)));
+showMetric('final');
 document.addEventListener('toggle',resize,true);
 let initial=0;try{initial=Number(sessionStorage.getItem('keiba-ui:'+data.race_key)||0);}catch(e){}
 select(Number.isInteger(initial)&&initial>=0&&initial<data.cards.length?initial:0);

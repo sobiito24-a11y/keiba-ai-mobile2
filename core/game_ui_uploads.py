@@ -9,7 +9,7 @@ def uploaded_frames(state, race_id, names):
         return {}, []
     result, audit = {}, []
     for key in list(state):
-        if not (str(key).startswith(('html_upload_', 'game_frames_')) or key == 'dashboard_batch_uploads'):
+        if not (str(key).startswith(('html_upload_', 'nar_json_upload_', 'game_frames_')) or key == 'dashboard_batch_uploads'):
             continue
         files = state[key]
         if not isinstance(files, (list, tuple)): files = [files]

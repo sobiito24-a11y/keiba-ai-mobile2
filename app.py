@@ -1773,7 +1773,7 @@ def render_game_prediction(result):
     rid = race_id(result)
     names = {r['馬番 / 馬名'].partition(' ')[0]: r['馬番 / 馬名'].partition(' ')[2] for r in records}
     frames, audit = uploaded_frames(st.session_state, rid, names)
-    if rows and any(frame_number(h) is None for h in rows):
+    if st.session_state.get("game_ui_debug", False) and rows and any(frame_number(h) is None for h in rows):
         with st.expander("枠番の新聞HTML照合", expanded=False):
             st.caption("保存データに枠番がない場合、同じレースの競馬新聞HTMLを照合します。予想と保存データは変更しません。")
             upload = st.file_uploader("競馬新聞HTML", type=['html','htm'], key='game_frames_'+rid)
@@ -1805,10 +1805,6 @@ def render_colab_style_result(result: PredictionResult) -> Any:
     from core.game_race_ui import theme_css, race_header
     st.markdown(theme_css(), unsafe_allow_html=True)
     st.markdown(race_header(result), unsafe_allow_html=True)
-    if result_race_mode(result) == "jra":
-        render_jra_top5_result_summary(result)
-    else:
-        render_nar_top5_result_summary(result)
     render_game_prediction(result)
     render_game_commentary(result)
     with st.expander("研究・監査情報", expanded=False):

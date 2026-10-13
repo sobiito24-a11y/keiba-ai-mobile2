@@ -32,4 +32,5 @@ def predict_jra(
     result = attach_axis(attach_material_reconsideration(result))
     from .independent_ai import attach as attach_independent
     from .newspaper_stable_rating import attach as attach_stable_rating
-    return attach_stable_rating(attach_independent(attach_development(result, html_files)), html_files)
+    from .game_ui_frames import attach_saved_frames
+    return attach_saved_frames(attach_stable_rating(attach_independent(attach_development(result, html_files)), html_files), html_files)

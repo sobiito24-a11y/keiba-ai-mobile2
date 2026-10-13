@@ -64,3 +64,28 @@ def newspaper_frames(html, expected_race_id, expected_horses):
         result[no] = {"frame": frames.pop(), "name": horse_name,
                       "race_id": str(expected_race_id), "source": "newspaper_html"}
     return result, audit
+
+
+def attach_saved_frames(result, html_files):
+    """Attach newspaper facts only AFTER every prediction engine has finished.
+
+    Existing dataframe serialization carries this optional factual column. No
+    scores, marks, candidate fields or existing frame values are overwritten.
+    """
+    from copy import copy
+    from .prediction_table_ui import horse_key, pick
+    from .newspaper_v2_inputs import race_id
+    html=html_files.get('newspaper') or html_files.get('newspaper_context')
+    table=getattr(result,'overall_table',None)
+    if not html or table is None or table.empty:return result
+    rows=table.to_dict('records')
+    names={horse_key(h):pick(h,'馬名','name') for h in rows}
+    frames,audit=newspaper_frames(html,race_id(result),names)
+    if audit:
+        import logging
+        logging.getLogger(__name__).info('Frame metadata audit for %s: %s', race_id(result), '; '.join(audit))
+    if not frames:return result
+    view=copy(result);view.overall_table=table.copy(deep=True)
+    from .game_race_ui import frame_number
+    view.overall_table['frame_number']=[frame_number(h) or frames.get(horse_key(h),{}).get('frame') for h in rows]
+    return view
