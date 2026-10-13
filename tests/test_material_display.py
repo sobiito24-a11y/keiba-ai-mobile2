@@ -28,9 +28,9 @@ def test_material_cell_uses_existing_verdict_and_never_limits_to_top5(mode):
 def test_no_materials_and_warning_precedence():
     assert material_html({},'jra')==''
     e=evidence();e['concern_reasons']={'rest':'休養183日＋調教C'}
-    assert material_cells({},'jra',e)['今回注意']=='△ 休養183日＋調教C'
+    assert material_cells({},'jra',e)['今回注意']=='△ 休養約6か月＋調教C'
     row={'_display_jra_mark_reasons':['強い状態注意']}
-    assert material_cells(row,'jra',e)['今回注意']=='強い状態注意'
+    assert material_cells(row,'jra',e)['今回注意']=='△ 休養約6か月＋調教C / 強い状態注意'
     assert material_cells(row,'nar',e)['今回注意']=='△ 休養183日＋調教C'
 
 
@@ -71,3 +71,28 @@ def test_old_card_without_debug_info_is_supported():
     result = SimpleNamespace(race_mode='nar')
     assert material_map(result) == {}
     assert not hasattr(result, 'debug_info')
+
+
+@pytest.mark.parametrize('grade',['A','B','C','D',''])
+def test_long_rest_is_display_only_and_not_cancelled_by_training(grade):
+    h={'_days_since_last':323,'jra_training_grade':grade,'_display_jra_mark_reasons':['斤量増注意']}
+    e=evidence();before=copy.deepcopy((h,e))
+    text=material_cells(h,'jra',e)['今回注意']
+    assert '長期休養明け' in text and '斤量増注意' in text
+    if grade:assert '（調教'+grade+'）' in text
+    assert '長期休養' not in material_cells(h,'nar',e)['今回注意']
+    assert '長期休養' not in material_cells(h,'jra',e,display_warnings=False)['今回注意']
+    assert (h,e)==before
+
+
+@pytest.mark.parametrize('days,warn',[(179,False),(180,True),(None,False),(-1,False)])
+def test_long_rest_boundary_and_missing(days,warn):
+    assert ('長期休養明け' in material_cells({'_days_since_last':days},'jra')['今回注意'])==warn
+
+
+def test_warning_deduplication_and_preserved_multiple_sources():
+    e=evidence();e['concern_reasons']={'rest':'休養183日＋調教C','weight':'斤量増'}
+    h={'_days_since_last':183,'_display_jra_mark_reasons':['休養183日＋調教C','別の注意']}
+    result=material_cells(h,'jra',e)['今回注意']
+    for text in ('休養約6か月＋調教C','斤量増','別の注意','長期休養明け'):
+        assert result.count(text)==1

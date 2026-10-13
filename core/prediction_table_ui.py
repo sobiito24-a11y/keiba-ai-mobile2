@@ -16,7 +16,7 @@ NAR_COLUMNS = ['NAR最終順位', 'NAR最終スコア', '最終印', '純能力�
                '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '距離', 'コース', '★', '☆',
                '参考注目', '候補選出・対象外理由', 'コメント']
 JRA_COLUMNS = ['JRA順位', 'JRAスコア', '最終印', '馬番 / 馬名', '純能力順位', '純能力', '年齢',
-               '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '展開有利', '調教', '休養', '厩舎評価（試験）', '補助評価理由', '距離', 'コース', '★', '☆',
+               '騎手（継続 / 乗り替わり）', '騎手成績', '斤量', '脚質', 'netkeiba想定', '展開有利', '調教', '休養', '厩舎評価', '距離', 'コース', '★', '☆',
                JRA_WIN_PROB_LABEL, '✔︎注目度', '今回プラス', '今回注意', '厩舎コメント']
 
 def text(value):
@@ -222,9 +222,8 @@ def prediction_table_records(rows, index_rows, race_info, race_mode, *, marks=No
                     '✔︎注目度':'✔︎' if str(final or jra_display_mark_from_row(row)).replace('\ufe0e','') in ('✔','✓') else '—',
                     'netkeiba想定':position_display_text(h,race_mode),
                     '展開有利':row[KEY]['development'] or '—',
-                    '休養':row[KEY]['rest_text'],
-                    '厩舎評価（試験）':row[KEY]['stable']['grade'] or '—',
-                    '補助評価理由':row[KEY]['development_reason'] + ' / ' + ' / '.join([p['quote'] for p in row[KEY]['stable']['positive']] + row[KEY]['stable']['cautions'] + row[KEY]['stable']['conditions']),
+                    '休養':row[KEY]['rest_text'] or '—',
+                    '厩舎評価':row[KEY]['stable']['grade'] or '—',
                     '調教':text(pick(h,'jra_training_grade','training_grade','調教評価','training_market')) or '—',
                     '厩舎コメント':text(pick(h,'stable_comment_market','厩舎コメント','stable_comment')) or '—'}
             columns=JRA_COLUMNS
@@ -251,7 +250,7 @@ def prediction_table_html(records, race_mode):
     for row in records:
         parts.append('<tr>')
         for key in columns:
-            value=text(row[key]);width=230 if key in ('コメント','厩舎コメント','☆','補助評価理由','候補選出・対象外理由','参考注目') else 180 if key in ('馬番 / 馬名','★','騎手成績') else 100
+            value=text(row[key]);width=230 if key in ('コメント','厩舎コメント','☆','候補選出・対象外理由','参考注目') else 180 if key in ('馬番 / 馬名','★','騎手成績') else 100
             shown=value
             if len(value)>32:
                 shown='<details><summary style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escape(value[:28])+'…</summary><div style="white-space:normal;">'+escape(value)+'</div></details>'

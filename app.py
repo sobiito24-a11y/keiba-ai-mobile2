@@ -4393,8 +4393,9 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str, material=None) -
     if race_mode == "jra":
         if training_display_text:
             detail_lines.append(f"調教：{training_display_text}")
-        if stable_summary:
-            detail_lines.append(stable_summary)
+        stable_original = clean_text(pick(row, "stable_comment_market", "厩舎コメント", "新聞コメント", "stable_comment"))
+        if stable_original:
+            detail_lines.append("厩舎コメント：" + stable_original)
     if is_jra:
         detail_lines.insert(0, official_jra_text(row))
     detail = "<br>".join(plain_text_to_html(line) for line in detail_lines)
@@ -4411,7 +4412,7 @@ def market_horse_card_html(row: dict[str, Any], race_mode: str, material=None) -
         css = "ka-market-minus" if "調教:D" in training_display_text else "ka-market-plus"
         sign = "－ " if "調教:D" in training_display_text else "＋ "
         material_lines += f'<div class="ka-market-card-line {css}">{plain_text_to_html(sign + training_display_text)}</div>'
-    if stable_summary:
+    if stable_summary and not is_jra:
         material_lines += f'<div class="ka-market-card-line">{plain_text_to_html(stable_summary)}</div>'
     if ability_watch_label:
         css = "ka-market-minus" if ability_watch_warning else "ka-market-plus"
@@ -5434,8 +5435,7 @@ def horse_summary_card_html(
     ]
     if training_label:
         quick_items.append(training_label)
-    if stable_comment:
-        quick_items.append(stable_comment)
+    # Original stable comment remains in the expanded horse details.
     if course_material:
         quick_items.append(f"コース：{course_material}")
     if netkeiba_favorable:
@@ -5473,7 +5473,7 @@ def horse_summary_card_html(
         quick_items.append(f"直線：{straight}")
     quick = "<br>".join(plain_text_to_html(item) for item in quick_items if clean_text(item))
     central_lines = central_card_lines(row) if race_mode == "jra" else []
-    stable_comment_detail = stable_comment if stable_comment else "厩舎コメント：—"
+    stable_comment_detail = (clean_text(pick(recent_source, "stable_comment_market", "厩舎コメント", "新聞コメント", "stable_comment")) if is_jra else stable_comment) or "厩舎コメント：—"
     detail_lines = [
         "出走馬詳細",
         (f"{mark_part} {no} {name}".strip() if is_top5_mode else f"【{group}】{mark_part} {no} {name}".strip()),

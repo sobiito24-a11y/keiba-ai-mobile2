@@ -1,7 +1,7 @@
 import copy
 import json
 import pytest
-from core.supplementary_assessment import annotate, KEY, stable_assessment, rest_text, auxiliary_html
+from core.supplementary_assessment import annotate, KEY, rest_text, auxiliary_html
 from core.horse_card_evaluation import card_evaluation_fields
 
 
@@ -16,25 +16,24 @@ def test_position_alone_not_development_and_input_immutable():
         out=annotate(restored,mode='jra')
         assert not out[0][KEY]['development']
         assert card_evaluation_fields(out[0],'jra')[1]==('展開有利','—')
-        assert '323日（約10か月半）' in auxiliary_html(out[0],'jra')
+        assert '休養：約10か月' in auxiliary_html(out[0],'jra')
     assert rows==before
 
 
-@pytest.mark.parametrize('value,expected',[(323,'323日（約10か月半）'),(127,'127日（約4か月）'),(None,'データなし'),(-1,'データなし')])
+@pytest.mark.parametrize('value,expected',[(323,'約10か月'),(127,'約4か月'),(71,'約2か月'),(60,'約2か月'),(59,''),(None,''),(-1,''),(float('nan'),''),(True,'')])
 def test_rest(value,expected):
     assert rest_text({'_days_since_last':value})==expected
 
 
-@pytest.mark.parametrize('comment,grade',[
- ('Q 舞台変わり',''),('距離は合う。状態は良好。','◎'),
- ('距離は合うが状態はもうひとつ。','○'),('距離は合うとは言えない。',''),
- ('状態は良好。展開次第。','○'),('状態は良好。条件は合う。…','○'),
- ('状態は良くない。',''),('', ''),
-])
-def test_stable_concrete_clauses(comment,grade):
-    result=stable_assessment(comment)
-    assert result['grade']==grade
-    if 'もうひとつ' in comment:assert result['cautions']
+def test_comments_never_generate_rating_and_compact_card():
+    h=row(1,stable_comment_market='状態は良好。距離は合う。◎ 調教A',_days_since_last=323)
+    a=annotate([h],mode='jra')[0]
+    assert a[KEY]['stable']['grade']==''
+    assert '未保存' in a[KEY]['stable']['reason']
+    html=auxiliary_html(a,'jra')
+    assert '厩舎評価：—' in html and '休養：約10か月' in html
+    for unwanted in ('試験','状態','条件付き','323日','複合根拠不足','展開有利：'):
+        assert unwanted not in html
 
 
 def test_complex_development_and_missing_context():
@@ -74,9 +73,6 @@ def test_source_rest_recovered_only_on_view():
     assert out[0][KEY]['rest_days']==127
     assert '_days_since_last' not in rows[0]
 
-
-def test_no_worry_is_not_negative():
-    assert stable_assessment('不安はない。')['cautions']==[]
 
 def test_outcome_fields_do_not_affect_assessment():
     h=row(1,market_ability_rank=1)

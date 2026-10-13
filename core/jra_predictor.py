@@ -31,4 +31,5 @@ def predict_jra(
     from .race_development import attach as attach_development
     result = attach_axis(attach_material_reconsideration(result))
     from .independent_ai import attach as attach_independent
-    return attach_independent(attach_development(result, html_files))
+    from .newspaper_stable_rating import attach as attach_stable_rating
+    return attach_stable_rating(attach_independent(attach_development(result, html_files)), html_files)

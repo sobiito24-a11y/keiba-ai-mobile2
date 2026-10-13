@@ -12,13 +12,37 @@ def material_map(result):
     return saved_materials(view)
 
 
-def material_cells(row, mode, evidence=None):
+def material_cells(row, mode, evidence=None, *, display_warnings=True):
     from .material_reconsideration import display_material_cell
     plus = display_material_cell(evidence)
     caution = display_material_cell(evidence, False)
-    # Preserve the exact existing detailed-table warning precedence.
-    if mode == 'jra' and row.get('_display_jra_mark_reasons'):
-        caution = ' / '.join(row['_display_jra_mark_reasons'])
+    if mode == 'jra':
+        if not display_warnings:
+            # Preserve the established prose/evidence path, including frozen versions.
+            if row.get('_display_jra_mark_reasons'):
+                caution = ' / '.join(row['_display_jra_mark_reasons'])
+        else:
+            from .supplementary_assessment import rest, training, KEY
+            import re
+            parts = []
+            # Keep both sources. Deduplicate identical reasons, not distinct warnings.
+            values = [caution] + list(row.get('_display_jra_mark_reasons') or [])
+            for value in values:
+                if value in ('', '—', '未計算'): continue
+                for reason in str(value).split(' / '):
+                    # Days remain available to scoring/audits; the normal UI uses months.
+                    reason = re.sub(r'休養(?:期間)?[：:]?\s*(\d+)日',
+                                    lambda m: '休養約'+str(int(m[1]) // 30)+'か月', reason)
+                    identity = reason.lstrip('⚠△○◎ ')
+                    if identity not in [p.lstrip('⚠△○◎ ') for p in parts]:
+                        parts.append(reason)
+            days = rest(row)
+            if days is None: days = (row.get(KEY) or {}).get('rest_days')
+            if days is not None and days >= 180:
+                grade = training(row) or (row.get(KEY) or {}).get('training') or ''
+                if not any('長期休養明け' in p for p in parts):
+                    parts.append('長期休養明け'+('（調教'+grade+'）' if grade else ''))
+            caution = ' / '.join(parts) or '—'
     return {'今回プラス': plus, '今回注意': caution}
 
 
@@ -52,7 +76,7 @@ def explain_selected(insight, result, rows):
     by = {horse_key(h): h for h in rows}
     facts = {h['no']: h for h in insight['horses']}
     chosen = list(dict.fromkeys(insight['centers']+insight['opponents']+insight['additional']))
-    cells = {no: material_cells(by.get(no, {}), result.race_mode, materials.get(no)) for no in chosen}
+    cells = {no: material_cells(by.get(no, {}), result.race_mode, materials.get(no), display_warnings=False) for no in chosen}
     # Evidence stays inside the existing horse-facts container so the existing
     # snapshot input hash includes every material used in NEW explanations.
     for no in chosen:

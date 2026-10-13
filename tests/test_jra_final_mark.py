@@ -55,7 +55,7 @@ def test_more_than_five_marked_horses_sorted_and_navigation_consistent():
     selected=[dict(h,card_role=role) for role,items in nav['buy_groups'].items() for h in items]
     cards=BeautifulSoup(app.conclusion_horse_cards(p,selected,rows),'html.parser').select('.recommended-horse')
     assert '◎' in cards[0].get_text() and '馬2' in cards[0].get_text()
-    assert any('休養70日' in c.get_text() and '最大△' in c.get_text() for c in cards)
+    assert any('休養約2か月' in c.get_text() and '最大△' in c.get_text() for c in cards)
 
 
 def test_do_not_fill_main_roles_from_outside_top5_when_all_capped():

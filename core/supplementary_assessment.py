@@ -9,7 +9,7 @@ from html import escape
 from .position_signals import corner4_rank
 from .nar_ability_rank import canonical_nar_ability_rank
 
-VERSION = 'supplementary_display_v1_20261012'
+VERSION = 'supplementary_display_v2_20261013'
 KEY = '_supplementary_display'
 
 
@@ -56,53 +56,15 @@ def rest(row):
 
 def rest_text(row):
     days = rest(row)
-    if days is None: return 'データなし'
-    if days < 30: return f'{days}日'
-    # Calendar-independent approximation, explicitly labelled as approximate.
-    half_months = int(days / 30.4375 * 2)
-    months, half = divmod(half_months, 2)
-    return f'{days}日（約{months}か月'+('半' if half else '')+'）'
+    # Display-only approximation. Exact days remain in the original row.
+    if days is None or days < 60: return ''
+    return f'約{days // 30}か月'
 
-
-# Explicit clause patterns, not sentiment word counts. Each matched quote is
-# retained. A missing/truncated clause cannot establish a strong assessment.
-POSITIVE = {
-    '状態': r'仕上が(?:り(?:は|も|が)?(?:良好|万全|いい|良い)|りました|っている)|力を出せる(?:態勢|状態)|状態(?:は|も|が)?(?:良好|上向|いい|良い)|動き(?:は|も|が)?(?:良化|良い|いい)|調子(?:は|も|が)?(?:上向|いい|良い)',
-    '条件適性': r'(?:距離|コース|条件|外回り|千四|千二|千六)(?:は|も|が)?(?:合う|向く|得意|好材料)|(?:距離|コース)適性(?:は|も)?(?:高い|ある)',
-    '改善': r'(?:前走より|前回より|使って|叩いて).{0,12}(?:良化|良く|上向|良い)|(?:課題|敗因).{0,8}(?:解消|改善)',
-}
-NEGATIVE = r'もうひとつ|もう一つ|不安|物足り|良化途上|割引|重い|重かった|厳しい|まだ.{0,8}(?:不足|重)|(?:合わ|向か|良く|よく|仕上がって|上向いて)い?ない'
-CONDITIONAL = r'次第|なら|れば|たら|かもしれ|どうか|未知|条件付き|はまれば|ハマれば'
-NEGATION = r'(?:では|とは|も|と)?(?:言えない|いえない|思わない)|わけではない|ことはない|(?:良く|よく|合わ|向か|仕上がって|上向いて)い?ない|とは限らない'
-
-
-def stable_assessment(value):
-    raw = text(value)
-    clauses = [s.strip() for s in re.split(r'[。！？\n]', raw) if s.strip()]
-    positive, negative, conditional = [], [], []
-    for clause in clauses:
-        # Question headings must not become affirmative evidence.
-        clean = re.sub(r'^[ＱQ]\s*[^〈<]*[〈<][^〉>]*[〉>]\s*', '', clause)
-        # Do not turn explicit absence of worry into a negative signal.
-        risk_text = re.sub(r'不安(?:は|も)?(?:ない|ありません)', '', clean)
-        neg = bool(re.search(NEGATIVE, risk_text))
-        cond = bool(re.search(CONDITIONAL, clean))
-        if neg: negative.append(clean)
-        if cond: conditional.append(clean)
-        if re.search(NEGATION, clean): continue
-        for domain, pattern in POSITIVE.items():
-            for segment in re.split(r'が[、,]|が(?=状態|仕上|展開)|けれど|ただし|しかし|だが', clean):
-                if re.search(pattern, segment) and not re.search(NEGATIVE+'|'+NEGATION, segment):
-                    positive.append({'domain':domain,'quote':segment})
-                    break
-    domains = {p['domain'] for p in positive}
-    truncated = '…' in raw or raw.endswith('...')
-    grade = '◎' if len(domains)>=2 and not (negative or conditional or truncated) else '○' if positive else ''
-    return dict(grade=grade,positive=positive,cautions=list(dict.fromkeys(negative)),conditions=list(dict.fromkeys(conditional)),truncated=truncated,trial=True)
 
 
 def basic(row, mode):
-    st = stable_assessment(first(row,'stable_comment_market','厩舎コメント','stable_comment')) if mode=='jra' else None
+    from .newspaper_stable_rating import assessment
+    st = assessment(row) if mode=='jra' else None
     return dict(version=VERSION,development='',development_reason='位置だけでは展開有利を判定しない',
                 legacy_development=text(first(row,'v1_pace_eval','shadow_pace_eval','pace_mark_market')),
                 rest_days=rest(row),rest_text=rest_text(row),training=training(row),stable=st,
@@ -177,16 +139,8 @@ def auxiliary_html(row, mode):
     a=row.get(KEY) or basic(row,mode)
     lines=[]
     if mode=='jra':
-        lines.append('休養：'+a['rest_text'])
-        if a['rest_days'] is not None and a['rest_days']>=70:
-            lines.append(f"{a['rest_days']}日ぶり。"+('今回調教'+a['training']+'。' if a['training'] else '')+'間隔の長さによる実戦面の不確実性は残る')
-        st=a['stable']
-        if st and (st['grade'] or st['cautions']):
-            lines.append('厩舎評価（試験）：'+(st['grade'] or '—'))
-            lines += [p['domain']+'：'+p['quote'] for p in st['positive']]
-            lines += ['経過・留意：'+x for x in st['cautions']]
-            lines += ['条件付き：'+x for x in st['conditions']]
-        lines.append('展開有利：'+a['development_reason'])
+        if a['rest_text']:lines.append('休養：'+a['rest_text'])
+        lines.append('厩舎評価：'+(a['stable']['grade'] or '—'))
     else:
         if a['check_reason']:lines.append(a['check_reason'])
         if a['price_note']:lines.append(a['price_note'])
