@@ -122,5 +122,5 @@ def test_normal_view_does_not_render_independent_condition_candidates():
     import app,inspect
     source=inspect.getsource(app.render_colab_style_result)
     assert 'render_condition_attention(result)' not in source
-    assert 'render_horse_summary_cards(result)' in source
-    assert 'render_prediction_detail_table(result)' in source
+    assert 'render_game_commentary(result)' in source
+    assert 'render_game_prediction(result)' in source

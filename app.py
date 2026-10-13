@@ -612,12 +612,15 @@ class HtmlFetchError(RuntimeError):
 
 def main() -> None:
     st.markdown(MOBILE_CSS, unsafe_allow_html=True)
+    from core.game_race_ui import theme_css
+    st.markdown(theme_css(), unsafe_allow_html=True)
     _init_state()
 
     st.title("Keiba AI Mobile")
     if st.session_state.prediction_result is None:
-        from core.independent_ai_archive_ui import render_archive_panel
-        render_archive_panel()
+        from core.game_ui_archive import render_saved_game
+        if render_saved_game(render_colab_style_result):
+            return
     st.markdown(
         f'<div class="ka-muted">v{APP_VERSION} / iPhone向けPNG生成</div>',
         unsafe_allow_html=True,
@@ -1641,15 +1644,16 @@ def render_result_area(result: PredictionResult, png_bytes: bytes) -> None:
                 use_container_width=True,
             )
     else:
-        st.subheader("スマホ用PNG")
-        st.image(png_bytes, use_container_width=True)
-        st.download_button(
-            "PNGを保存",
-            data=png_bytes,
-            file_name=make_download_file_name(result),
-            mime="image/png",
-            use_container_width=True,
-        )
+        with st.expander("従来PNGの保存・プレビュー", expanded=False):
+            st.subheader("スマホ用PNG")
+            st.image(png_bytes, use_container_width=True)
+            st.download_button(
+                "PNGを保存",
+                data=png_bytes,
+                file_name=make_download_file_name(result),
+                mime="image/png",
+                use_container_width=True,
+            )
     st.download_button(
         "予想結果ファイル出力",
         data=prediction_zip_bytes(result, investment_decision),
@@ -1756,25 +1760,64 @@ def render_nar_star_result_trace(result: PredictionResult) -> None:
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
+def render_game_prediction(result):
+    """Read-only all-horse table and client-side selected horse card."""
+    from core.game_race_ui import build_view, render_component, frame_number
+    from core.game_ui_frames import newspaper_frames
+    from core.newspaper_v2_inputs import race_id
+    from core.material_reconsideration import saved_materials
+    from core.game_ui_uploads import uploaded_frames
+    rows = sorted_display_rows(result)
+    records = prediction_detail_records(result)
+    sources = result.overall_table.to_dict("records") if result.overall_table is not None else []
+    rid = race_id(result)
+    names = {r['馬番 / 馬名'].partition(' ')[0]: r['馬番 / 馬名'].partition(' ')[2] for r in records}
+    frames, audit = uploaded_frames(st.session_state, rid, names)
+    if rows and any(frame_number(h) is None for h in rows):
+        with st.expander("枠番の新聞HTML照合", expanded=False):
+            st.caption("保存データに枠番がない場合、同じレースの競馬新聞HTMLを照合します。予想と保存データは変更しません。")
+            upload = st.file_uploader("競馬新聞HTML", type=['html','htm'], key='game_frames_'+rid)
+            if upload is not None:
+                extra, messages = newspaper_frames(upload.getvalue(), rid, names)
+                frames.update(extra)
+                audit.extend(messages)
+            st.caption(f"新聞から照合済み：{len(frames)}頭")
+            for message in dict.fromkeys(audit): st.caption(message)
+    view = build_view(rows, records, sources, result.race_mode, result.race_info, saved_materials(result), frames)
+    by = {horse_key(h): h for h in sources}
+    display_by = {horse_key(h): h for h in rows}
+    for horse in view:
+        source = dict(by.get(horse['no'], {}))
+        source.update({k:v for k,v in display_by.get(horse['no'], {}).items() if clean_text(v)})
+        horse['past'] = rich_recent_races_detail_text(source) + '\n\n' + recent3_detail_text(source)
+    render_component(view, rid)
+
+
+def render_game_commentary(result):
+    from core.race_development import render_html
+    rows = jra_enriched_display_rows(result) if result_race_mode(result) == 'jra' else nar_enriched_display_rows(result)
+    st.markdown(render_html(result, mobile=True, display_rows=rows), unsafe_allow_html=True)
+
+
 def render_colab_style_result(result: PredictionResult) -> Any:
     from core.material_reconsideration import ensure_current_material_reference
     ensure_current_material_reference(result)
-    render_race_header(result)
+    from core.game_race_ui import theme_css, race_header
+    st.markdown(theme_css(), unsafe_allow_html=True)
+    st.markdown(race_header(result), unsafe_allow_html=True)
     if result_race_mode(result) == "jra":
         render_jra_top5_result_summary(result)
     else:
         render_nar_top5_result_summary(result)
-    from core.independent_ai_ui import render as render_independent_ai
-    render_independent_ai(result)
-    from core.material_reconsideration import render_reconsideration
-    render_reconsideration(result)
-    render_prediction_detail_table(result)
-    render_horse_summary_cards(result)
-    from core.jra_practical_shadow_ui import render_practical_shadow
-    render_practical_shadow(result)
-    from core.newspaper_v2_ui import render_newspaper_v2_shadow
-    render_newspaper_v2_shadow(result)
+    render_game_prediction(result)
+    render_game_commentary(result)
     with st.expander("研究・監査情報", expanded=False):
+        from core.material_reconsideration import render_reconsideration
+        render_reconsideration(result)
+        from core.jra_practical_shadow_ui import render_practical_shadow
+        render_practical_shadow(result)
+        from core.newspaper_v2_ui import render_newspaper_v2_shadow
+        render_newspaper_v2_shadow(result)
         if result_race_mode(result) == "jra":
             from core.jra_repro_candidate import repro_candidate_html
             st.markdown(repro_candidate_html(result), unsafe_allow_html=True)
@@ -2548,9 +2591,7 @@ def render_jra_top5_result_summary(result: PredictionResult) -> None:
     for role, horses in navigation.get('buy_groups', {}).items():
         selected.extend(dict(h, card_role=role) for h in horses)
     selected.extend(dict(h, card_role='穴注意') for h in navigation.get('hole_attention', []))
-    from core.axis_confidence_v2 import summary_html as axis_html
-    from core.race_development import render_html as development_html
-    cards = development_html(result, mobile=True, display_rows=jra_enriched_display_rows(result)) + axis_html(result) + conclusion_horse_cards(result, selected, jra_enriched_display_rows(result))
+    cards = ""  # Profiles are shown below the all-horse table.
     if markup:
         st.markdown(markup + cards, unsafe_allow_html=True)
 
@@ -2582,8 +2623,7 @@ def render_nar_top5_result_summary(result: PredictionResult) -> None:
         selected = [dict(h, card_role=clean_text(h.get('nar_top5_role')) or '相手候補') for h in comparison['rows'] if h.get('pure_ability_top5_group')]
         selected.extend(dict(h, card_role='条件適性救済') for h in comparison.get('condition_rescue', []))
         selected.extend(dict(h, card_role='追加ヒモ候補（正式Top5圏外）') for h in warnings)
-        from core.race_development import render_html as development_html
-        cards = development_html(result, mobile=True, display_rows=nar_enriched_display_rows(result)) + conclusion_horse_cards(result, selected, nar_enriched_display_rows(result))
+        cards = ""  # Profiles are shown below the all-horse table.
         st.markdown(markup + cards, unsafe_allow_html=True)
 
 

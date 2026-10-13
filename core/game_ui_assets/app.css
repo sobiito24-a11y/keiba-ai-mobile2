@@ -1,0 +1,27 @@
+/* Presentation theme only. No scoring or candidate logic. */
+:root{--game-bg:#080f1d;--game-panel:#101e34;--game-line:#2c4160;--game-text:#eef4fc;--game-muted:#adbed6;--game-gold:#efcb75}
+[data-testid="stAppViewContainer"],.stApp,[data-testid="stMain"]{background:var(--game-bg);color:var(--game-text)}
+[data-testid="stHeader"]{background:#080f1de8;color:var(--game-text)}
+.block-container{max-width:1500px!important;padding:1rem 1.25rem 3rem!important}
+h1,h2,h3,h4,h5,h6,[data-testid="stMarkdownContainer"]{color:var(--game-text)}
+[data-testid="stSidebar"]{background:#101e34;color:var(--game-text)}
+[data-testid="stExpander"]{border-color:var(--game-line);background:#101b2c;color:var(--game-text)}
+[data-testid="stExpander"] summary{color:#d4e4f7}
+.ka-dashboard-card,.ka-card,.ka-section,.ka-horse-card,.recommended-horse,.development-card{background:var(--game-panel)!important;color:var(--game-text)!important;border-color:var(--game-line)!important;box-shadow:none!important}
+.ka-dashboard-title,.ka-note,.ka-muted,.ka-file,.ka-dashboard-intro,.insight-origin{color:var(--game-muted)!important}
+.ka-dashboard-value,.ka-horse-title,.ka-market-card-title,.ka-horse-meta,.ka-market-card-line{color:var(--game-text)!important}
+.ka-chip,.development-horse{background:#1c304d!important;color:#dceaff!important;border-color:#334e70!important}
+.ka-dashboard-card strong{color:var(--game-gold)}
+.recommended-horse .index-badge{background:#182c47!important;border-color:#314865!important;color:#e5f1ff!important}
+.ka-market-plus{color:#81e1ad!important}.ka-market-minus{color:#ff9ba5!important}
+.development-panel{border:1px solid #2c4160;border-radius:12px;padding:14px;margin:14px 0;background:#101b2c;color:#eef4fc}
+.development-panel>summary{font-weight:700;color:#8cdbe5;cursor:pointer;font-size:16px}
+.development-card{font-size:14px!important;line-height:1.9!important;padding:18px!important}
+.development-card h4{padding:6px 0;color:#eacb82;border-bottom:1px solid #304663;margin-top:16px!important}
+.development-card h5{color:#9ed9ec}.development-card p{margin:10px 0!important}
+.game-race-header{border:1px solid #2b4568;border-left:4px solid #d2ad56;border-radius:12px;background:#112038;padding:20px 24px;margin:8px 0 18px;color:#edf4ff}
+.game-eyebrow{color:#6cd7df;font-size:11px;letter-spacing:.15em;font-weight:700}
+.game-race-header h2{font-size:27px!important;margin:4px 0 14px!important;color:#f2f7ff!important}
+.game-race-meta{display:flex;gap:8px 16px;flex-wrap:wrap;font-size:14px}.game-race-meta>span{border:1px solid #304c70;border-radius:5px;padding:4px 9px;background:#182b46}.game-race-meta small{color:#b2c6df;margin-right:4px}
+.game-conclusion-details{margin:10px 0;border:1px solid #2c4160;border-radius:10px;padding:12px;background:#101e34}.game-conclusion-details>summary{cursor:pointer;color:#9bdce9;font-weight:600}
+@media(max-width:700px){.block-container{padding:.8rem .65rem 2rem!important}.game-race-header{padding:14px}.game-race-header h2{font-size:22px!important}.game-race-meta{gap:6px;font-size:12px}.development-grid{grid-template-columns:1fr!important}.development-card{padding:12px!important}.recommended-horses{grid-template-columns:1fr!important}iframe{max-width:100%}}

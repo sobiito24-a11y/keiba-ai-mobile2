@@ -76,6 +76,7 @@ def test_app_collapsible_display_preserves_frozen_data(monkeypatch,mode):
     monkeypatch.setattr(app,'st',Sink())
     renderer=app.render_nar_top5_result_summary if mode=='nar' else app.render_jra_top5_result_summary
     renderer(r)
+    app.render_game_commentary(r)
     html=''.join(blocks);soup=BeautifulSoup(html,'html.parser')
     panel=soup.select_one('details.development-panel')
     assert panel is not None and not panel.has_attr('open')
@@ -84,7 +85,7 @@ def test_app_collapsible_display_preserves_frozen_data(monkeypatch,mode):
     assert html.index('今回の結論')<html.index('details class="development-panel"')
     assert not panel.select('script,iframe,form')
     assert r.debug_info==before
-    blocks.clear();renderer(r)
+    blocks.clear();renderer(r);app.render_game_commentary(r)
     assert ''.join(blocks)==html and r.debug_info==before
 
 

@@ -70,13 +70,13 @@ def test_main_flow_has_one_conclusion_then_table(monkeypatch):
         def __enter__(self): calls.append('audit')
         def __exit__(self,*args): pass
     monkeypatch.setattr(app.st,'expander',lambda *a,**k:Context())
-    for name in ['render_race_header','render_jra_top5_result_summary','render_nar_top5_result_summary','render_prediction_detail_table','render_overall_table','render_race_flow','render_horse_summary_cards','render_backtest_reference','render_raw_text_section']:
+    for name in ['render_race_header','render_jra_top5_result_summary','render_nar_top5_result_summary','render_game_prediction','render_game_commentary','render_overall_table','render_race_flow','render_horse_summary_cards','render_backtest_reference','render_raw_text_section']:
         monkeypatch.setattr(app,name,lambda *a,_name=name,**k:calls.append(_name))
     monkeypatch.setattr(app,'build_investment_decision',lambda *a,**k:None)
     monkeypatch.setattr(app,'render_investment_decision',lambda *a:pytest.fail('obsolete block rendered'))
     for mode in ['jra','nar']:
         calls.clear();app.render_colab_style_result(PredictionResult(race_mode=mode))
-        assert calls[:5]==['render_race_header',f'render_{mode}_top5_result_summary','render_prediction_detail_table','render_horse_summary_cards','audit']
+        assert calls[:4]==[f'render_{mode}_top5_result_summary','render_game_prediction','render_game_commentary','audit']
         if mode=='jra':assert 'render_backtest_reference' not in calls
 
 @pytest.mark.parametrize('mode,fixture',[('jra','purchase_hanshin_20260921_r8.json'),('nar','purchase_nar_snapshot.json')])

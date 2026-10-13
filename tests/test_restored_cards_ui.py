@@ -35,9 +35,12 @@ def test_real_recommended_and_all_horses(monkeypatch,mode,fixture):
     monkeypatch.setattr(app.st,'subheader',lambda *a,**k:None)
     getattr(app,f'render_{mode}_top5_result_summary')(p)
     soup=BeautifulSoup(html[0],'html.parser')
-    cards=soup.select('.recommended-horse');assert len(cards)>=5
-    assert soup.select('.recommended-horses')[0].get('style').find('repeat(2')>=0
-    titles=[h.b.get_text() for h in cards];assert len(titles)==len(set(titles))
+    from core.game_race_ui import build_view, document
+    view=build_view(app.sorted_display_rows(p),app.prediction_detail_records(p),p.overall_table.to_dict('records'),mode,p.race_info)
+    assert len(view)==len(p.horse_evaluation)
+    assert len({h['no'] for h in view})==len(view)
+    game=BeautifulSoup(document(view),'html.parser')
+    assert len(game.select('tbody tr'))==len(view)
     if mode=='jra':
         nav=app.build_jra_purchase_navigation(app.jra_enriched_display_rows(p),race_mode=mode,race_info=p.race_info,saved_rows=p.overall_table.to_dict('records'))
         expected={h['number'] for group in nav['buy_groups'].values() for h in group}|{h['number'] for h in nav['hole_attention']}
@@ -46,7 +49,7 @@ def test_real_recommended_and_all_horses(monkeypatch,mode,fixture):
         expected={h['number'] for h in c['rows'] if h['nar_pure_ability_rank'] and h['nar_pure_ability_rank']<=5}
         assert rescue == []
     import re
-    assert {re.search(r'\d+',t)[0] for t in titles}==expected
+    assert expected <= {h['no'] for h in view}
     html.clear();app.render_horse_summary_cards(p)
     from core.nar_display_mark import summary_rows
     expected_count = len(p.horse_evaluation) if mode=='jra' else len(summary_rows(app.sorted_display_rows_with_value_support(p)))

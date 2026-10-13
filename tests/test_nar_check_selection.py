@@ -96,10 +96,13 @@ def test_selected_checks_in_conclusion_table_and_cards(monkeypatch):
     monkeypatch.setattr(app,'recommended_cards_html',capture)
     monkeypatch.setattr(app,'st',Sink())
     app.render_nar_top5_result_summary(result)
-    assert [str(c['number']) for c in cards if c['mark']=='✓']==['6','7']
-    assert all(c['mark']!='✓' for c in cards[:5])
-    assert all('圏外' in c['role'] for c in cards[5:])
-    assert all('NAR最終順位 —（正式Top5圏外）' in c['lines'] for c in cards[5:])
+    from core.game_race_ui import build_view, card_html
+    view=build_view(app.sorted_display_rows(result),app.prediction_detail_records(result),rows,'nar',{})
+    checks=[c for c in view if c['mark']=='✓']
+    assert [c['no'] for c in checks]==['6','7']
+    assert all(c['member'] is False and c['rank']=='—' for c in checks)
+    assert all('正式Top5圏外' in card_html(c) for c in checks)
+    assert all(c['mark']!='✓' for c in view[:5])
     table=app.prediction_detail_records(result)
     assert table==_prediction_detail_records(result)
     assert sum(r['最終印']=='✓' for r in table)==2
