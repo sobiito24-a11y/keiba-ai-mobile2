@@ -8,6 +8,7 @@ from .prediction_table_ui import horse_key, text, pick, number, fmt, sex_age_tex
 from .supplementary_assessment import annotate, KEY, rest_text, training
 from .position_signals import corner4_rank
 from .material_display import material_cells
+from .game_ui_information import changes
 
 ASSETS = Path(__file__).with_name('game_ui_assets')
 FRAME_COLORS = {1: ('#f7f8fc', '#101522'), 2: ('#171a22', '#ffffff'),
@@ -56,6 +57,7 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
         odds = next((v for k in ('actual_odds', '単勝オッズ', 'オッズ', '単勝', 'odds', 'win_odds', 'market_odds')
                      if (v := number(text(row.get(k)).removesuffix('倍'))) is not None and v > 0), None)
         cells = material_cells(row, mode, (materials or {}).get(no))
+        caution = rec.get('今回注意', cells['今回注意'])
         mark = text(rec.get('最終印')) or '—'
         rank_label = 'JRA順位' if mode == 'jra' else 'NAR最終順位'
         score_label = 'JRAスコア' if mode == 'jra' else 'NAR最終スコア'
@@ -73,10 +75,11 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
                         stable=(a.get('stable') or {}).get('grade') or '—',
                         comment=text(pick(row, 'stable_comment_market', '厩舎コメント', '新聞コメント', 'stable_comment')) if mode == 'jra' else '',
                         overview=text(rec.get('コメント') or pick(row, '表示コメント', 'display_comment', '一言コメント')),
-                        plus=rec.get('今回プラス', cells['今回プラス']), caution=rec.get('今回注意', cells['今回注意']),
+                        plus=rec.get('今回プラス', cells['今回プラス']), caution=caution,
                         stars={k: rec.get(k, '—') for k in ('★', '☆')},
                         age=sex_age_text(row), weight=load_weight_text(row), jockey=jockey_text(row),
                         jockey_stats=jockey_place_text(row),
+                        **changes(row),
                         member=row.get('pure_ability_top5_group') if mode == 'nar' else None,
                         reference=a.get('reference_reason') if a.get('reference') else '',
                         check_reason=a.get('check_reason', ''), past=''))
@@ -224,6 +227,9 @@ def comparison_data(view,mode):
     groups=comparisons(view,mode)
     for group in groups:
         html=[]
+        if group.get('kind')=='information':
+            group['html']=information_html(view,group)
+            continue
         for c in group['cards']:
             h=view[c['index']]
             html.append('<button class="top-horse" data-top-select="'+str(c['index'])+'">'+
@@ -238,3 +244,24 @@ def comparison_html(view,mode):
     from .game_ui_comparison import TABS
     buttons=''.join('<button role="tab" aria-selected="'+('true' if k=='final' else 'false')+'" data-tab="'+k+'">'+escape(label)+'</button>' for k,label in TABS if mode=='jra' or k!='training')
     return '<section class="metric-comparison"><div class="metric-tabs" role="tablist" aria-label="比較指標">'+buttons+'</div><div id="metric-count"></div><div id="top-horses" class="top-horses" role="tabpanel"></div><p id="metric-note"></p></section>'
+
+
+def information_html(view, group):
+    from .game_ui_information import reasons
+    if not group['rows']:return '<p class="no-data">該当馬なし</p>'
+    headers=['枠','馬番・馬名','正式印']+(['今回＋','今回−'] if group['key']=='materials' else ['斤量増減','騎手'])
+    html=[]
+    for i in group['rows']:
+        h=view[i]
+        cells=[frame_html(h['frame']),'<button class="horse-select" data-top-select="'+str(i)+'"><b>'+escape(h['no'])+'</b><span>'+escape(h['name'])+'</span></button>',mark_html(h['mark'])]
+        if group['key']=='materials':
+            for k,c in [('plus','positive'),('caution','caution')]:
+                value=' / '.join(reasons(h.get(k)))
+                cells.append('<span class="info-reason '+c+'" title="'+escape(value)+'">'+escape(value or '—')+'</span>')
+        else:
+            delta=h.get('weight_delta')
+            value='—' if delta is None else '±0kg' if delta==0 else f'{delta:+.1f}kg'
+            color='positive' if delta is not None and delta<0 else 'caution' if delta is not None and delta>0 else 'muted'
+            cells.extend(['<span class="'+color+'">'+escape(value)+'</span>',escape(h.get('jockey_change_text','—'))])
+        html.append('<tr>'+''.join('<td>'+c+'</td>' for c in cells)+'</tr>')
+    return '<table class="information-table"><thead><tr>'+''.join('<th>'+escape(h)+'</th>' for h in headers)+'</tr></thead><tbody>'+''.join(html)+'</tbody></table>'

@@ -3,7 +3,7 @@ from .prediction_table_ui import number,fmt
 
 TABS=[('final','① 最終評価'),('corner','② 4角想定'),('ability','③ 純能力'),
       ('course','④ コース'),('distance','⑤ 距離'),('training','⑥ 調教'),
-      ('star','⑦ ★指数'),('away','⑧ ☆指数'),('average','⑨ 3走平均')]
+      ('star','⑦ ★指数'),('away','⑧ ☆指数'),('average','⑨ 3走平均'),('materials','⑩ 今回＋／−'),('changes','⑪ 斤量／騎手')]
 NOTICE='※該当する実績・有効な指数がある馬のみを対象に抽出しています。未取得馬は対象外です。'
 
 
@@ -13,6 +13,10 @@ def comparisons(view,mode):
     groups=[]
     for key,label in TABS:
         if mode=='nar' and key=='training':continue
+        if key in ('materials','changes'):
+            from .game_ui_information import information
+            groups.append(information(view,key,label))
+            continue
         if key=='final':
             pool=[h for h in view if h.get('formal_member') is True]
             pool.sort(key=tie)

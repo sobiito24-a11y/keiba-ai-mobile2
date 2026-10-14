@@ -25,6 +25,7 @@ function showMetric(key){
  const group=data.tabs.find(t=>t.key===key);if(!group)return;
  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===key)));
  document.getElementById('metric-count').textContent=group.label+' · 該当'+group.eligible+'頭／全'+group.total+'頭';
+ document.getElementById('top-horses').classList.toggle('information',group.kind==='information');
  document.getElementById('top-horses').innerHTML=group.html;
  document.getElementById('metric-note').textContent=group.note;
  document.querySelectorAll('[data-top-select]').forEach(b=>b.addEventListener('click',()=>{select(Number(b.dataset.topSelect),true);host.scrollIntoView({block:'nearest',behavior:'smooth'});}));

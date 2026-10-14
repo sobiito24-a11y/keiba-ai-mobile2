@@ -10,7 +10,7 @@ def field(mode):
  records=prediction_table_records(rows,rows,{'racecourse':'京都','distance':1400},mode)
  return rows,build_view(rows,records,rows,mode,{'racecourse':'京都','distance':1400})
 
-@pytest.mark.parametrize('mode,count',[('jra',9),('nar',8)])
+@pytest.mark.parametrize('mode,count',[('jra',11),('nar',10)])
 def test_tabs_keep_formal_marks_order_and_input(mode,count):
  rows,view=field(mode);before=copy.deepcopy(view)
  tabs=comparisons(view,mode)
