@@ -17,7 +17,10 @@ def test_tabs_keep_formal_marks_order_and_input(mode,count):
  assert len(tabs)==count and tabs[0]['key']=='final'
  assert view==before
  assert all(len(t['cards'])<=5 for t in tabs)
- final=tabs[0];assert [view[x['index']]['no'] for x in final['cards']]==['1','2','3','4','5']
+ final=tabs[0]
+ from core.game_ui_candidate_evidence import normalized_mark,MARK_ORDER
+ assert set(final['rows'])=={i for i,h in enumerate(view) if normalized_mark(h['mark']) in MARK_ORDER}
+ assert final['kind']=='candidates' and final['cards']==[]
  for key in ['corner','distance','course','star','away']:
   t=next(t for t in tabs if t['key']==key)
   assert [view[x['index']]['no'] for x in t['cards']]==['10','9','8','7','6']
@@ -42,9 +45,11 @@ def test_training_order_missing_excluded():
 
 
 def test_six_formal_candidates_not_reclassified():
- _,view=field('nar');view[5]['formal_member']=True;view[5]['rank']='6'
+ _,view=field('nar')
+ for h in view:h['mark']='△'
+ view[5]['formal_member']=False;view[5]['rank']='6';view[5]['mark']='✓'
  t=comparisons(view,'nar')[0]
- assert t['eligible']==6 and len(t['cards'])==5 and view[5]['formal_member'] is True
+ assert t['eligible']==10 and len(t['rows'])==10 and view[5]['formal_member'] is False
 
 
 def test_frame_attachment_only_adds_fact_and_roundtrips():

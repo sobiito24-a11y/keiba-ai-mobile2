@@ -43,9 +43,11 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
     from .prediction_table_ui import display_index_rows
     indices = {horse_key(h):h for h in display_index_rows(rows, source_rows, race_info, mode)}
     out = []
+    evidence_sources = {}
     for rec in records:
         no, _, name = rec['馬番 / 馬名'].partition(' ')
         row = dict(sources.get(no, {})); row.update({k:v for k,v in by.get(no, {}).items() if text(v)})
+        evidence_sources[no] = row
         a = row.get(KEY) or {}
         idx=indices.get(no,{})
         source=sources.get(no,row)
@@ -84,9 +86,11 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
                         reference=a.get('reference_reason') if a.get('reference') else '',
                         check_reason=a.get('check_reason', ''), past=''))
     values=[h['average']['value'] for h in out if h['average']['value'] is not None]
+    from .game_ui_candidate_evidence import evidence
     for h in out:
         v=h['average']['value']
         h['average']['rank']=1+sum(x>v for x in values) if v is not None else None
+        h['candidate_evidence'] = evidence(h, evidence_sources[h['no']], race_info)
     return out
 
 
@@ -146,6 +150,12 @@ def card_html(h):
         reasons = short_materials(h[key])
         if reasons: raw += f'<section class="{key}"><h4>{label}</h4><ul>{reasons}</ul></section>'
     raw += '</div>'
+    if h.get('candidate_evidence'):
+        ev=h['candidate_evidence']
+        raw += '<details><summary>最終印候補の好走根拠・不安材料</summary>'
+        for key,label in [('plus','＋好走根拠'),('minus','−不安材料'),('neutral','中立の参考情報')]:
+            raw += '<p><b>'+label+'</b>：'+e(' / '.join(ev[key]) or '—')+'</p>'
+        raw += '<details><summary>根拠の元数値・情報源</summary><div class="past">'+e(json.dumps(ev['audit'],ensure_ascii=False,indent=2))+'</div></details></details>'
     if h['overview']: raw += '<details><summary>総合コメント</summary><p>'+e(h['overview'])+'</p></details>'
     if h['mode'] == 'jra': raw += '<details><summary>厩舎コメント原文</summary><p>'+e(h['comment'] or '未取得')+'</p></details>'
     raw += '<details><summary>材料の全文・騎手実績・過去走</summary><p>騎手の過去実績：'+e(h['jockey_stats'])+'</p>'
@@ -227,6 +237,9 @@ def comparison_data(view,mode):
     groups=comparisons(view,mode)
     for group in groups:
         html=[]
+        if group.get('kind')=='candidates':
+            group['html']=candidate_html(view,group)
+            continue
         if group.get('kind')=='information':
             group['html']=information_html(view,group)
             continue
@@ -243,7 +256,7 @@ def comparison_data(view,mode):
 def comparison_html(view,mode):
     from .game_ui_comparison import TABS
     buttons=''.join('<button role="tab" aria-selected="'+('true' if k=='final' else 'false')+'" data-tab="'+k+'">'+escape(label)+'</button>' for k,label in TABS if mode=='jra' or k!='training')
-    return '<section class="metric-comparison"><div class="metric-tabs" role="tablist" aria-label="比較指標">'+buttons+'</div><div id="metric-count"></div><div id="top-horses" class="top-horses" role="tabpanel"></div><p id="metric-note"></p></section>'
+    return '<section class="metric-comparison"><div class="metric-tabs" role="tablist" aria-label="比較指標">'+buttons+'</div><div id="metric-count"></div><div id="top-horses" class="top-horses" role="tabpanel" tabindex="0" aria-label="選択指標の比較・横縦スクロール"></div><p id="metric-note"></p></section>'
 
 
 def information_html(view, group):
@@ -265,3 +278,28 @@ def information_html(view, group):
             cells.extend(['<span class="'+color+'">'+escape(value)+'</span>',escape(h.get('jockey_change_text','—'))])
         html.append('<tr>'+''.join('<td>'+c+'</td>' for c in cells)+'</tr>')
     return '<table class="information-table"><thead><tr>'+''.join('<th>'+escape(h)+'</th>' for h in headers)+'</tr></thead><tbody>'+''.join(html)+'</tbody></table>'
+
+
+def candidate_html(view, group):
+    if not group['rows']:return '<p class="no-data">最終印候補なし</p>'
+    headers=['枠','馬番・馬名','最終印','AIスコア順位','＋好走根拠','−不安材料']
+    rows=[]
+    for i in group['rows']:
+        h=view[i];ev=h.get('candidate_evidence') or {}
+        rank=escape(h['rank']+'位' if h['rank']!='—' else '—')
+        score=escape(h['score'])
+        desktop_rating=score+'／'+rank if number(h['score']) is not None else rank
+        empty=not ev.get('plus') and not ev.get('minus')
+        rating='<span class="candidate-desktop-rank">'+desktop_rating+'</span><span class="candidate-mobile-rating"><span>AIスコア <b>'+score+'</b>／'+rank+'</span><span>純能力'+escape(h['ability_rank']+'位' if h['ability_rank']!='—' else ' —')+'</span></span>'
+        if empty:rating+='<span class="candidate-empty-note">表示できる根拠・不安材料なし</span>'
+        cells=[frame_html(h['frame']),'<button class="horse-select" data-top-select="'+str(i)+'" title="'+escape(h['no']+' '+h['name'])+'"><b>'+escape(h['no'])+'</b><span>'+escape(h['name'])+'</span></button>',mark_html(h['mark']),rating]
+        for key,color in [('plus','positive'),('minus','caution')]:
+            value=' / '.join(ev.get(key,[]))
+            label='＋好走根拠' if key=='plus' else '−不安材料'
+            cell='<span class="candidate-mobile-label" aria-label="'+label+'">'+('＋' if key=='plus' else '−')+'</span><span class="info-reason '+(color if value else 'muted')+'" title="'+escape(value)+'">'+escape(value or '—')+'</span>'
+            if key=='plus' and ev.get('neutral'):
+                neutral=' / '.join(ev['neutral'])
+                cell+='<span class="info-reason neutral" title="'+escape(neutral)+'">'+escape(neutral)+'</span>'
+            cells.append(cell)
+        rows.append('<tr data-candidate-select="'+str(i)+'">'+''.join('<td'+(' class="candidate-empty-material"' if (j==4 and not ev.get('plus')) or (j==5 and not ev.get('minus')) else '')+'>'+c+'</td>' for j,c in enumerate(cells))+'</tr>')
+    return '<table class="candidate-table"><thead><tr>'+''.join('<th>'+escape(h)+'</th>' for h in headers)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table>'

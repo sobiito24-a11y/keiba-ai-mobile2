@@ -24,11 +24,13 @@ document.querySelectorAll('[data-row]').forEach((row,i)=>row.addEventListener('c
 function showMetric(key){
  const group=data.tabs.find(t=>t.key===key);if(!group)return;
  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===key)));
- document.getElementById('metric-count').textContent=group.label+' · 該当'+group.eligible+'頭／全'+group.total+'頭';
- document.getElementById('top-horses').classList.toggle('information',group.kind==='information');
+ document.getElementById('metric-count').textContent=(key==='final'?'最終印候補 '+group.eligible:group.label+' · 該当'+group.eligible)+'頭／全'+group.total+'頭';
+ document.getElementById('top-horses').classList.toggle('information',['information','candidates'].includes(group.kind));
+ document.getElementById('top-horses').classList.toggle('candidate-layout',group.kind==='candidates');
  document.getElementById('top-horses').innerHTML=group.html;
- document.getElementById('metric-note').textContent=group.note;
+ document.getElementById('metric-note').textContent=key==='final'?'＋／−は参考材料です。馬名または候補をタップすると、既存の詳細カードで根拠の全文を確認できます。':group.note;
  document.querySelectorAll('[data-top-select]').forEach(b=>b.addEventListener('click',()=>{select(Number(b.dataset.topSelect),true);host.scrollIntoView({block:'nearest',behavior:'smooth'});}));
+ document.querySelectorAll('[data-candidate-select]').forEach(row=>row.addEventListener('click',e=>{if(!e.target.closest('button')){select(Number(row.dataset.candidateSelect),true);host.scrollIntoView({block:'nearest',behavior:'smooth'});}}));
  resize();
 }
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showMetric(b.dataset.tab)));

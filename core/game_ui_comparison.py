@@ -1,7 +1,7 @@
 """Read-only metric comparisons; never written to formal predictions."""
 from .prediction_table_ui import number,fmt
 
-TABS=[('final','① 最終評価'),('corner','② 4角想定'),('ability','③ 純能力'),
+TABS=[('final','① 最終印候補'),('corner','② 4角想定'),('ability','③ 純能力'),
       ('course','④ コース'),('distance','⑤ 距離'),('training','⑥ 調教'),
       ('star','⑦ ★指数'),('away','⑧ ☆指数'),('average','⑨ 3走平均'),('materials','⑩ 今回＋／−'),('changes','⑪ 斤量／騎手')]
 NOTICE='※該当する実績・有効な指数がある馬のみを対象に抽出しています。未取得馬は対象外です。'
@@ -18,8 +18,9 @@ def comparisons(view,mode):
             groups.append(information(view,key,label))
             continue
         if key=='final':
-            pool=[h for h in view if h.get('formal_member') is True]
-            pool.sort(key=tie)
+            from .game_ui_candidate_evidence import candidates
+            groups.append(candidates(view,label))
+            continue
         elif key=='corner':
             pool=[h for h in view if number(h['corner']) is not None and number(h['corner'])>0]
             pool.sort(key=lambda h:(h['corner'],*tie(h)))
