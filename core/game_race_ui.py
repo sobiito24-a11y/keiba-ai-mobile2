@@ -172,7 +172,7 @@ def card_html(h):
     return raw
 
 
-def document(view, race_key=''):
+def document(view, race_key='', paper_decision=None):
     css = (ASSETS/'race.css').read_text(encoding='utf-8')
     script = (ASSETS/'race.js').read_text(encoding='utf-8')
     mode = view[0]['mode'] if view else 'jra'
@@ -190,7 +190,7 @@ def document(view, race_key=''):
         rows.append(f'<tr data-row="{i}" data-horse="{escape(h["no"])}">'+''.join(f'<td>{c}</td>' for c in cells)+'</tr>')
     data = json.dumps(dict(tabs=comparison_data(view,mode),cards=[card_html(h) for h in view], names=[h['no']+' '+h['name'] for h in view], race_key=race_key),ensure_ascii=False).replace('<','\\u003c').replace('>','\\u003e').replace('&','\\u0026')
     return ('<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            +'<style>'+css+'</style><body><main>'+comparison_html(view,mode)+'<div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
+            +'<style>'+css+'</style><body><main>'+comparison_html(view,mode)+paper_html(view,race_key,paper_decision)+'<div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
             +'<p class="help">馬名をタップして詳細へ。表は横・縦にスクロールできます。</p>'
             +'<div class="table-scroll" tabindex="0" aria-label="全頭予想一覧・横スクロール"><table><thead><tr>'+''.join('<th scope="col">'+escape(c)+'</th>' for c in cols)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div>'
             +'<p class="legend">距離・コースの記号は指数順位：◎1位 · ○2〜3位 · △4〜5位 · —6位以下。枠番未取得は無色。</p>'
@@ -226,11 +226,11 @@ def race_header(result):
     return '<section class="game-race-header"><span class="game-eyebrow">KEIBA AI / RACE BRIEFING</span><h2>'+escape(name)+'</h2><div class="game-race-meta">'+''.join('<span><small>'+escape(k)+'</small> '+escape(text(v) or '—')+'</span>' for k,v in values)+'</div></section>'
 
 
-def render_component(view, race_key):
+def render_component(view, race_key, paper_decision=None):
     # Declare from an importable module: Streamlit's __main__ can be transient.
     import streamlit.components.v1 as components
     component = components.declare_component("game_race_lineup", path=str(ASSETS))
-    return component(html=document(view, race_key), key='game_lineup_'+race_key, default=None)
+    return component(html=document(view, race_key,paper_decision), key='game_lineup_'+race_key, default=None)
 
 
 def metric_html(item,label):
@@ -311,3 +311,8 @@ def candidate_html(view, group):
             cells.append(cell)
         rows.append('<tr data-candidate-select="'+str(i)+'">'+''.join('<td'+(' class="candidate-empty-material"' if (j==4 and not ev.get('plus')) or (j==5 and not ev.get('minus')) else '')+'>'+c+'</td>' for j,c in enumerate(cells))+'</tr>')
     return '<table class="candidate-table"><thead><tr>'+''.join('<th>'+escape(h)+'</th>' for h in headers)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table>'
+
+
+def paper_html(view,race_key,paper_decision=None):
+    from .paper_betting import build,html
+    return html(paper_decision or build(view,view[0]['mode'] if view else 'jra',dict(race_id=race_key)))

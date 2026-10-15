@@ -1792,7 +1792,10 @@ def render_game_prediction(result):
         horse['past'] = rich_recent_races_detail_text(source) + '\n\n' + recent3_detail_text(source)
     from core.race_odds_ui import render as render_prices
     view = render_prices(result, view)
-    render_component(view, rid)
+    from core.paper_betting_ui import current_decision
+    render_component(view, rid, current_decision(result,view))
+    from core.paper_betting_ui import render as render_paper_betting
+    render_paper_betting(result, view)
 
 
 def render_game_commentary(result):
