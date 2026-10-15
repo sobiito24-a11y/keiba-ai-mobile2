@@ -11,3 +11,10 @@ JRA強軸は正式1位＝純能力1位を基準とします。NAR強軸は正式
 結果JSONはrace_id/source/ticketsを指定し、各券はkind(win/place/wide/quinella)、horses(馬番配列)、status(hit/miss/refund)、payout_per_100(100円公式払戻)を記録します。的中判定入力は公式結果との照合をユーザーが行います。現段階で着順だけから発売条件・同着・特払いを自動判定する機能はありません。重複結果行や未取得はunknownです。未取得を0円にせず、精算結果は判断JSONと別に保存します。
 
 2026-10-15門別3Rは既知結果動作試験であり独立性能検証対象ではありません。指定4券各100円は単勝170・複勝190・ワイド170・馬連0円、400円投資530円払戻です。公式：https://www.keiba.go.jp/KeibaWeb/TodayRaceInfo/RefundMoneyList?k_babaCode=36&k_raceDate=2026%2F10%2F15
+
+
+## 候補選出UI・ユーザー買い目（schema_version 2）
+
+通常の候補欄は強軸・妙味各最大2頭と材料を表示し、自動の組み合わせ・金額・配当感は表示しません。券種・組み合わせ・金額は記録欄でユーザーが自由に選択します。全出走馬を選べます。買い目未記録と購入なし・見送りは別区分で保存し、両方ともAI候補を購入した扱いにしません。
+
+ai_candidatesとuser_ticketsを別保存し、精算はuser_ticketsだけを対象にします。AI候補の成績は候補の着順として別途検証し、ユーザー馬券の回収率と混同しません。旧固定JSONはハッシュを変更せず、旧自動候補の精算区分legacy_ai_ticketsとして読み込みます。新規記録の精算区分はuser_ticketsです。

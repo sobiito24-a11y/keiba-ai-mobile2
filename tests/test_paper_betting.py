@@ -42,3 +42,47 @@ def test_known_monbetsu_result_and_immutable_record():
     assert record==before
     d['odds']={'updated':True}
     assert record==before and p.verify(record)==record
+
+
+def test_user_choices_never_assume_ai_purchase():
+ d=p.build(horses(),'nar',dict(race_id='123456789012'));before=deepcopy(d)
+ for choice in ['skip','unrecorded']:
+  r=p.freeze_user(d,choice=choice)
+  assert r['user_choice']==choice and r['user_tickets']==[]
+  assert all(not t['choices'] for t in r['tickets'])
+  assert p.settle(r,dict(race_id=r['race_id']))['cost']==0
+ r=p.freeze_user(d,[dict(kind='wide',horses=[1,6],stake=500)],'tickets')
+ assert r['ai_candidates']['strong']==d['strong'] and r['user_tickets'][0]['stake']==500
+ assert d==before and p.verify(r)
+ with pytest.raises(ValueError):p.freeze_user(d,[dict(kind='win',horses=[99],stake=100)],'tickets')
+ with pytest.raises(ValueError):p.freeze_user(d,[dict(kind='win',horses=[1],stake=150)],'tickets')
+ with pytest.raises(ValueError):p.freeze_user(d,[],'tickets')
+ text=p.html(d)
+ assert '紙上100円' not in text and '配当感' not in text and '旧比較条件' not in text
+ assert '<h4>ワイド' not in text and '<h4>馬連' not in text
+
+
+def test_user_ticket_form_and_skip_ui():
+ from streamlit.testing.v1 import AppTest
+ source='''
+import streamlit as st
+from unittest.mock import patch
+from core.paper_betting_ui import render
+from core import paper_betting as p
+from tests.test_paper_betting import horses
+class Result:pass
+d=p.build(horses(),'nar',dict(race_id='123456789012'))
+with patch('core.paper_betting_ui.current_decision',return_value=d):render(Result(),[])
+'''
+ at=AppTest.from_string(source).run(timeout=30)
+ assert not at.exception
+ at.radio[0].set_value('購入なし・見送り').run()
+ at.checkbox[0].check().run()
+ next(b for b in at.button if b.label=='現在の判断を固定する').click().run()
+ record=deepcopy(at.session_state['paper_record_123456789012'])
+ assert record['user_choice']=='skip' and record['user_tickets']==[]
+ at.radio[0].set_value('自分の買い目を記録').run()
+ at.multiselect[0].set_value([6]).run()
+ next(b for b in at.button if b.label=='買い目を追加').click().run()
+ assert not at.exception
+ assert at.session_state['paper_record_123456789012']==record

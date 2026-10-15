@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime,timezone
 from html import escape
 import hashlib,json,math
-VERSION='paper_betting_v1_20261016'
+VERSION='paper_candidates_v2_20261016'
 KINDS=('win','place','wide','quinella')
 LABELS=dict(win='単勝',place='複勝',wide='ワイド',quinella='馬連')
 def digest(v):return hashlib.sha256(json.dumps(v,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
@@ -62,7 +62,7 @@ def build(horses,mode,identity,observation=None):
    price=next((p for p in (observation or {}).get('prices',[]) if p['kind']==kind and sorted(p['horses'])==ns),None)
    choices.append(dict(horses=ns,stake=100,reason=reason,partner=partner,price=price,status='要確認',warnings=f['minus']+(['実オッズ未取得'] if not price else []),relative_payout_score=math.sqrt(float(h['odds'])*float(partner['odds'])) if partner and num(h.get('odds')) and num(partner.get('odds')) else None))
   tickets.append(dict(kind=kind,status='要確認' if choices else '見送り',choices=choices[:2],reason='未校正の紙上候補。価格鮮度・注意材料を確認' if choices else '券種に必要な本人・相手の根拠が不足'))
- return dict(version=VERSION,race_id=identity['race_id'],mode=mode,input_hash=digest(dict(horses=source,identity=identity)),strong=strong,value=value,classification='A' if strong else 'B' if value else 'C',tickets=tickets,odds=deepcopy(observation),unvalidated=True)
+ return dict(version=VERSION,race_id=identity['race_id'],mode=mode,input_hash=digest(dict(horses=source,identity=identity)),runner_numbers=[h['no'] for h in source],strong=strong,value=value,classification='A' if strong else 'B' if value else 'C',tickets=tickets,odds=deepcopy(observation),unvalidated=True)
 def freeze(decision,before_result=False):
  r=deepcopy(decision);r.update(fixed_at=datetime.now(timezone.utc).isoformat(),user_declared_before_result=bool(before_result),prospective_eligible=False,persistence='download_required')
  r['record_hash']=digest(r);return r
@@ -84,17 +84,33 @@ def settle(record,results):
    returned=c['stake'] if status=='refund' else 0 if status=='miss' else payout*c['stake']/100 if status=='hit' else None
    outcomes.append(dict(kind=t['kind'],horses=c['horses'],stake=c['stake'],status=status,returned=returned))
  known=[r for r in outcomes if r['returned'] is not None];cost=sum(r['stake'] for r in known);returns=sum(r['returned'] for r in known)
- return dict(record_hash=record['record_hash'],race_id=record['race_id'],settled_at=datetime.now(timezone.utc).isoformat(),outcomes=outcomes,unknown=len(outcomes)-len(known),cost=cost,returns=returns,roi=returns/cost*100 if cost else None,source=results.get('source'),note='未取得は0円扱いしない。元判断は変更しない')
+ return dict(evaluation_scope='user_tickets' if record.get('schema_version')==2 else 'legacy_ai_tickets',user_choice=record.get('user_choice'),record_hash=record['record_hash'],race_id=record['race_id'],settled_at=datetime.now(timezone.utc).isoformat(),outcomes=outcomes,unknown=len(outcomes)-len(known),cost=cost,returns=returns,roi=returns/cost*100 if cost else None,source=results.get('source'),note='未取得は0円扱いしない。元判断は変更しない')
 def html(decision):
  e=lambda v:escape(str(v));parts=['<details style="padding:12px;background:#102239;border:1px solid #355273;border-radius:10px;margin:12px 0"><summary>馬券判断（検証版）</summary><p>紙上検証・未校正。購入推奨や利益保証ではありません。全候補は要確認です。</p>']
  for key,label in [('strong','強軸候補'),('value','妙味候補')]:
   parts.append('<h3>'+label+'</h3>')
   if not decision[key]:parts.append('<p>該当なし・見送り</p>')
   for h in decision[key]:
-   f=h['assessment'];parts.append('<p><b>'+e(h['mark']+' '+h['no']+' '+h['name'])+'</b> 正式'+e(h['rank'])+'位／能力'+e(h['ability_rank'])+'位 · 単勝'+e(h['odds'])+'／複勝'+e(h.get('place_odds','—'))+'<br>選出：'+e(h['selection_reason'])+'<br>＋'+e('／'.join(f['plus']) or '根拠不足')+'<br>−'+e('／'.join(f['minus']) or '取得済み注意なし・欠損は要確認')+'<br>4角 '+e(h.get('corner'))+'／調教 '+e(h.get('training'))+'／休養 '+e(h.get('rest'))+'／斤量 '+e(h.get('weight'))+'</p>')
- for t in decision['tickets']:
-  parts.append('<h4>'+LABELS[t['kind']]+'：'+t['status']+'</h4><p>'+e(t['reason'])+'</p>')
-  for c in t['choices']:
-   parts.append('<p>'+e('－'.join(map(str,c['horses'])))+'（紙上100円） '+e(c['reason'])+'<br>'+e('／'.join(c['warnings']))+'</p>')
-   if c['relative_payout_score'] is not None:parts.append('<small>配当感の相対指標 '+e(round(c['relative_payout_score'],2))+'：実オッズ・期待値ではありません</small>')
+   f=h['assessment'];parts.append('<p><b>'+e(h['mark']+' '+h['no']+' '+h['name'])+'</b> 正式'+e(h['rank'])+'位／能力'+e(h['ability_rank'])+'位 · 単勝'+e(h['odds'])+'／複勝'+e(h.get('place_odds','—'))+'<br>選出：'+e('総合評価と純能力の両面で上位に評価されています。' if key=='strong' else '純能力が上位で、人気との評価差に注目した候補です。オッズだけで好走を保証するものではありません。')+'<br>＋'+e('／'.join(f['plus']) or '根拠不足')+'<br>−'+e('／'.join(f['minus']) or '取得済み注意なし・欠損は要確認')+'<br>4角 '+e(h.get('corner'))+'／調教 '+e(h.get('training'))+'／休養 '+e(h.get('rest'))+'／斤量 '+e(h.get('weight'))+'</p>')
  parts.append('<p>判断記録の固定・ダウンロード・結果照合は全頭表の下の「馬券判断の記録・結果照合」で行います。</p></details>');return ''.join(parts)
+
+
+def freeze_user(decision,tickets=None,choice='unrecorded',before_result=False):
+    if choice not in ('unrecorded','skip','tickets'):raise ValueError('記録区分が不正です')
+    selected=[];allowed={int(h['no']) for h in decision.get('strong',[])+decision.get('value',[])}
+    # All runners may be chosen, not just AI candidates.
+    allowed.update(int(n) for n in decision.get('runner_numbers',[]))
+    for t in tickets or []:
+        kind=t.get('kind');ns=t.get('horses',[]);stake=t.get('stake')
+        if kind not in KINDS or len(ns)!=(2 if kind in ('wide','quinella') else 1) or len(set(ns))!=len(ns) or not set(ns)<=allowed:
+            raise ValueError('券種・馬番・組み合わせを確認してください')
+        if isinstance(stake,bool) or not isinstance(stake,int) or stake<=0 or stake%100:raise ValueError('金額は100円単位で指定してください')
+        ns=sorted(ns)
+        if any(x['kind']==kind and x['horses']==ns for x in selected):raise ValueError('同じ買い目が重複しています')
+        selected.append(dict(kind=kind,horses=ns,stake=stake))
+    if choice=='tickets' and not selected:raise ValueError('買い目を追加してください')
+    if choice!='tickets' and selected:raise ValueError('見送り・未記録には買い目を含められません')
+    record=deepcopy(decision)
+    record.update(schema_version=2,ai_candidates=dict(strong=deepcopy(decision['strong']),value=deepcopy(decision['value'])),user_choice=choice,user_tickets=selected)
+    record['tickets']=[dict(kind=k,choices=[dict(horses=t['horses'],stake=t['stake']) for t in selected if t['kind']==k]) for k in KINDS]
+    return freeze(record,before_result)
