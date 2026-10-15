@@ -20,14 +20,15 @@ def read_grid(image, binary):
             groups[-1].append(int(value))
         return [round(sum(g)/len(g)) for g in groups]
 
+    fallback=[]
     ys=centers(np.flatnonzero(gray_lines.mean(1)>.85))
     with tempfile.TemporaryDirectory(prefix='keiba_cells_') as directory:
-        def read(box, language='jpn', psm=7, numeric=False, scale=1):
+        def read(box, language='jpn', psm=7, numeric=False, scale=1, preserve=False):
             if time.monotonic()-started>120:
                 raise ValueError('セルOCRが120秒に達しました。確認表で修正してください。')
             cell=image.crop(box)
             # Separate coloured text / white frame digits from the cell background.
-            if psm!=6:
+            if psm!=6 and not preserve:
                 a=np.asarray(cell).astype(int)
                 background=np.median(a.reshape(-1,3),axis=0)
                 ink=np.max(np.abs(a-background),axis=2)>60
@@ -52,7 +53,24 @@ def read_grid(image, binary):
                 text=read((left+2,top+3,right-2,bottom-2),psm=6,scale=3)
                 for label in ('馬番','馬名','単勝','複勝'):
                     if label in text: headers[label]=(left,right)
-            if len(headers)!=4: continue
+            if len(headers)!=4:
+                # Headerless PC tables: preserve ruled cell positions and OCR
+                # text, not guessed semantic columns. The caller validates
+                # horse/name alignment against the selected saved runners.
+                candidate=[]
+                for y1,y2 in zip(ys,ys[1:]):
+                    if y1<bottom: continue
+                    if not 15<=y2-y1<=max(40,bottom-top): break
+                    for left,right in zip(edges,edges[1:]):
+                        if right-left<15: continue
+                        box=(left+2,y1+2,right-2,y2-1)
+                        # Language choice is not a column assignment.
+                        text=read(box,language='jpn+eng' if right-left>90 else 'eng',
+                                  numeric=right-left<50,scale=5,preserve=True)
+                        candidate.append(dict(ruled_cell=True,text=text,x=(left+right)/2,
+                            y=(y1+y2)/2,height=y2-y1,confidence=0))
+                if len(candidate)>len(fallback): fallback=candidate
+                continue
             rows=[]; row_height=None
             for y1,y2 in zip(ys,ys[1:]):
                 if y1<bottom: continue
@@ -78,4 +96,4 @@ def read_grid(image, binary):
                                           'disagreement':len(set(readings))>1}
                 rows.append(row)
             return rows,round(time.monotonic()-started,3)
-    return [],round(time.monotonic()-started,3)
+    return ([{'_layout_words':fallback}] if fallback else []),round(time.monotonic()-started,3)

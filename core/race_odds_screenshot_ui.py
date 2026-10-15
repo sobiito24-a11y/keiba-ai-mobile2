@@ -4,8 +4,9 @@ def render(identity, state, key):
     import streamlit as st
     import pandas as pd
     from . import race_odds as odds
-    from .race_odds_screenshot import draft, confirmed_quote, FIELDS, image_data
+    from .race_odds_screenshot import draft, confirmed_quote, FIELDS, image_data, saved_name_candidate, adopt_saved_name, identity_binding
     from .race_odds_clipboard import render as paste_images
+    st.caption('PC・スマホの単勝／複勝表に対応。小さい画像はブラウザーで拡大して撮り直すか、馬番・馬名・単勝・複勝を含む表部分を切り取ってください。列が不明な場合も確認表で修正できます。')
     scope='st-key-'+key+'_screenshot_panel'
     st.markdown('<style>.'+scope+' details>summary,.'+scope+' button{background:#172b43!important;color:#eef5ff!important}.'+scope+' details>summary p,.'+scope+' button p{color:#eef5ff!important}</style>',unsafe_allow_html=True)
     with st.container(key=key+'_screenshot_panel'), st.expander('スクショから単複オッズを取込', expanded=False):
@@ -32,6 +33,9 @@ def render(identity, state, key):
         if len(files)>5: st.warning('貼り付けとファイル選択を合わせて最大5枚にしてください。')
         value=st.session_state.get(draft_key)
         if value is None:return
+        if value.get('identity_binding') and value['identity_binding']!=identity_binding(identity):
+            st.warning('対象レースが変わりました。画像を再読取してください。')
+            return
         for message in value['messages']:st.warning(message)
         st.caption(f"OCR処理時間：{value['seconds']:.2f}秒。全数値の原画像照合が必要です。画像内の時計は価格更新時刻に使いません。")
         with st.expander('画像と保存済み出走馬を確認'):
@@ -58,6 +62,25 @@ def render(identity, state, key):
                         if cell.get('disagreement') and cell.get('box'):
                             st.image(image_data(raw).crop(cell['box']),caption=label)
             revision=st.session_state.get(draft_key+'_revision',0)
+            candidate=saved_name_candidate(work[index],identity,value)
+            if candidate is not None:
+                st.write('OCR馬名：'+(str(work[index].get('馬名')) or '未読取'))
+                st.write('保存済み正式馬名の候補：'+candidate)
+                st.caption('対象レースID：'+str(identity['race_id'])+'。画像のレースIDを自動確認したものではありません。対象レースと原画像を照合してください。')
+                if raw is not None and not original.get('_crop'):
+                    st.image(raw,caption='馬番・馬名・単複価格を照合する元画像')
+                token=odds.digest(work[index])[:12]
+                accepted=st.checkbox('対象レース・馬番が一致し、元画像の馬名と単複価格を確認した',
+                    key=draft_key+f'_adopt_check_{revision}_{index}_{token}')
+                if st.button('確認して採用',key=draft_key+f'_adopt_{revision}_{index}_{token}',disabled=not accepted):
+                    changed_row,event=adopt_saved_name(work[index],identity,value,accepted)
+                    changed=[dict(r) for r in work];changed[index]=changed_row
+                    value.setdefault('name_adoptions',[]).append(event)
+                    st.session_state[draft_key+'_base']=changed
+                    st.session_state[draft_key+'_work']=changed
+                    st.session_state[draft_key+'_revision']=revision+1
+                    st.session_state[draft_key+'_confirmed']=False
+                    st.rerun()
             with st.form(draft_key+f'_row_form_{revision}_{index}'):
                 inputs={}
                 inputs['馬番']=st.text_input('馬番',str(work[index].get('馬番','')))
