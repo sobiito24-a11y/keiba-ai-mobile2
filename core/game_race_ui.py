@@ -129,6 +129,13 @@ def short_materials(value):
                    for reason in value.split(' / '))
 
 
+def odds_html(h, compact=False):
+    win = escape(h.get('odds', '—'))
+    place = escape(h.get('place_odds', '—'))
+    label = escape(h.get('odds_label', '保存時オッズ'))
+    return '<span class="race-price" title="'+label+'"><span>単勝 '+win+'</span><span>複勝 '+place+'</span></span>'
+
+
 def card_html(h):
     e = escape
     designation = ''
@@ -141,7 +148,7 @@ def card_html(h):
     tags = [('脚質', h['style']), ('4角想定', str(h['corner'])+'番手' if h['corner'] is not None else '—')]
     if h['mode'] == 'jra': tags += [('展開有利',h['development']),('調教',h['training'] or '—'),('厩舎評価',h['stable'])]
     if h['rest']: tags.append(('休養',h['rest']))
-    raw = f'<article class="horse-detail" data-card="{e(h["no"])}"><div class="card-heading">{frame_html(h["frame"])}<div><span class="eyebrow">{e(designation)}</span><h3>{mark_html(h["mark"])} {e(h["no"])} <span>{e(h["name"])}</span></h3></div><div class="price"><small>取得済み単勝</small><b>{e(h["odds"])}</b></div></div>'
+    raw = f'<article class="horse-detail" data-card="{e(h["no"])}"><div class="card-heading">{frame_html(h["frame"])}<div><span class="eyebrow">{e(designation)}</span><h3>{mark_html(h["mark"])} {e(h["no"])} <span>{e(h["name"])}</span></h3></div><div class="price"><small>{e(h.get("odds_label", "保存時オッズ"))}</small>{odds_html(h)}</div></div>'
     raw += f'<div class="identity">{e(h["age"])} <span>{e(h["weight"])}</span> <span>{e(h["jockey"])}</span></div><div class="stats">{blocks}</div>'
     raw += '<div class="facts">'+''.join(f'<span><small>{e(k)}</small> {training_html(v) if k=="調教" else e(v)}</span>' for k,v in tags)+'</div>'
     raw += '<div class="stars">'+metric_html(h.get('star',{}),'★')+metric_html(h.get('away',{}),'☆')+'</div>'
@@ -169,12 +176,12 @@ def document(view, race_key=''):
     css = (ASSETS/'race.css').read_text(encoding='utf-8')
     script = (ASSETS/'race.js').read_text(encoding='utf-8')
     mode = view[0]['mode'] if view else 'jra'
-    cols = ['枠','馬番・馬名','最終印','単勝','JRAスコア' if mode=='jra' else 'NAR最終スコア','純能力','4角想定']
+    cols = ['枠','馬番・馬名','最終印','単勝／複勝','JRAスコア' if mode=='jra' else 'NAR最終スコア','純能力','4角想定']
     if mode == 'jra': cols += ['展開有利','調教']
     cols += ['休養','距離','コース','★','☆','今回プラス','今回注意']
     rows = []
     for i,h in enumerate(view):
-        cells = [frame_html(h['frame']), f'<button class="horse-select" data-select="{i}" aria-pressed="false"><b>{escape(h["no"])}</b><span>{escape(h["name"])}</span></button>', mark_html(h['mark']), escape(h['odds']),
+        cells = [frame_html(h['frame']), f'<button class="horse-select" data-select="{i}" aria-pressed="false"><b>{escape(h["no"])}</b><span>{escape(h["name"])}</span></button>', mark_html(h['mark']), odds_html(h),
                  f'<span class="score">{escape(h["score"])}</span><small>{escape(h["rank"])}位</small>' if h['rank']!='—' else f'<span class="score">{escape(h["score"])}</span><small>順位 —</small>',
                  f'<b>{escape(h["ability"])}</b><small>{escape(h["ability_rank"])}位</small>' if h['ability_rank']!='—' else escape(h['ability']),
                  str(h['corner'])+'番手' if h['corner'] is not None else '—']
@@ -291,6 +298,7 @@ def candidate_html(view, group):
         desktop_rating=score+'／'+rank if number(h['score']) is not None else rank
         empty=not ev.get('plus') and not ev.get('minus')
         rating='<span class="candidate-desktop-rank">'+desktop_rating+'</span><span class="candidate-mobile-rating"><span>AIスコア <b>'+score+'</b>／'+rank+'</span><span>純能力'+escape(h['ability_rank']+'位' if h['ability_rank']!='—' else ' —')+'</span></span>'
+        rating += odds_html(h)
         if empty:rating+='<span class="candidate-empty-note">表示できる根拠・不安材料なし</span>'
         cells=[frame_html(h['frame']),'<button class="horse-select" data-top-select="'+str(i)+'" title="'+escape(h['no']+' '+h['name'])+'"><b>'+escape(h['no'])+'</b><span>'+escape(h['name'])+'</span></button>',mark_html(h['mark']),rating]
         for key,color in [('plus','positive'),('minus','caution')]:

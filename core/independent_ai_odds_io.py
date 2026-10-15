@@ -116,4 +116,5 @@ def restore_race(race):
     result._material_snapshot_restored=True
     if result.race_mode=='jra':result._jra_snapshot_restored=True
     result.debug_info[KEY]=copy.deepcopy(race.get(KEY,[]))
-    return result
+    from .race_odds import restore
+    return restore(result, race)

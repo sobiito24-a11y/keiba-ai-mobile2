@@ -150,6 +150,8 @@ KIND_ALIASES = {
 def main(argv: list[str] | None = None) -> int:
     print(COLLECTOR_VERSION)
     print(f"Collector file: {Path(__file__).resolve()}")
+    root = str(Path(__file__).resolve().parents[1])
+    if root not in sys.path: sys.path.insert(0, root)
     args = parse_args(argv)
     race_targets = load_race_targets_from_args(args)
     list_urls = list_urls_from_dates(args.mode, args.date) + list(args.list_url or [])
@@ -179,6 +181,8 @@ def main(argv: list[str] | None = None) -> int:
     print("Please keep delay settings modest so the collection behaves like normal browsing.")
     args.login_pause_used = False
 
+    import os
+    odds_config = args.odds_config or os.environ.get("KEIBA_ODDS_CONFIG")
     rows: list[dict[str, str]] = []
     with sync_playwright() as playwright:
         context = playwright.chromium.launch_persistent_context(
@@ -214,6 +218,9 @@ def main(argv: list[str] | None = None) -> int:
                     done += 1
                     row = collect_one_page(page, target, spec, args, timeout_error, done, total, output_dir)
                     rows.append(row)
+                from core.race_odds_collection import collect as collect_odds
+                collected = collect_odds(page, target.race_id, args.mode, output_dir, odds_config)
+                print(f"odds: {collected['status']}")
         finally:
             context.close()
 
@@ -240,6 +247,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--out", default="collected_html", help="Output directory. Default: collected_html")
     parser.add_argument("--profile-dir", default=".collector_profile", help="Persistent browser profile directory for login state.")
+    parser.add_argument("--odds-config", help="Authorized public odds page configuration; defaults to KEIBA_ODDS_CONFIG")
     parser.add_argument("--headless", action="store_true", help="Run browser headless. Do not use for first login.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing saved HTML files.")
     parser.add_argument("--delay-sec", type=float, default=2.5, help="Wait seconds after each saved page. Default: 2.5")

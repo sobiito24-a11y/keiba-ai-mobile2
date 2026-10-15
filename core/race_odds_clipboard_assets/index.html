@@ -1,0 +1,29 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#102036;color:#edf4ff;font:14px/1.5 system-ui,sans-serif}#paste{border:2px dashed #729bc7;border-radius:8px;padding:14px;cursor:text;overflow-wrap:anywhere}#paste:focus{outline:2px solid #e6c877;outline-offset:-2px}p{margin:6px 0;color:#bdd2eb}#images{display:flex;gap:8px;flex-wrap:wrap}figure{margin:4px 0;max-width:100px}img{width:80px;height:80px;object-fit:contain;background:#fff}button{color:#edf4ff;background:#294563;border:1px solid #7193b5;border-radius:4px;padding:4px 8px;cursor:pointer}#status{overflow-wrap:anywhere}#status.error{color:#ffb1b1}
+</style></head><body>
+<div id="paste" role="textbox" aria-label="画像貼り付け欄" tabindex="0">PC：ここを選択して Ctrl＋V で画像を貼り付け</div>
+<p>この欄への画像貼り付けだけを受け取ります。使えない場合は下のファイル選択をご利用ください。</p>
+<div id="status" role="status">貼り付け画像：0枚</div><div id="images"></div>
+<script>
+const zone=document.getElementById('paste'),status=document.getElementById('status'),preview=document.getElementById('images');
+let images=[],busy=false,initialized=false;
+function send(type,data={}){parent.postMessage({isStreamlitMessage:true,type,...data},'*');}
+function resize(){send('streamlit:setFrameHeight',{height:document.documentElement.scrollHeight});}
+function commit(){send('streamlit:setComponentValue',{value:{images},dataType:'json'});}
+function show(message='',error=false){status.textContent=message||`貼り付け画像：${images.length}枚`;status.className=error?'error':'';preview.replaceChildren();images.forEach((item,i)=>{const f=document.createElement('figure'),img=document.createElement('img'),b=document.createElement('button');img.src=`data:${item.mime};base64,${item.base64}`;img.alt=`貼り付け画像${i+1}`;img.onload=resize;b.textContent='削除';b.type='button';b.onclick=()=>{images.splice(i,1);commit();show();};f.append(img,b);preview.append(f);});resize();}
+function read(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onerror=()=>reject(Error('画像を読み込めません'));r.onload=()=>resolve(String(r.result).split(',')[1]);r.readAsDataURL(file);});}
+zone.addEventListener('paste',async event=>{
+ const files=Array.from(event.clipboardData?.items||[]).filter(i=>i.kind==='file'&&i.type.startsWith('image/')).map(i=>i.getAsFile()).filter(Boolean);
+ if(!files.length){show('画像以外の貼り付けは使用しません。',true);return;}
+ event.preventDefault();if(busy)return;busy=true;
+ try{if(images.length+files.length>5)throw Error('画像は最大5枚です');const pending=[];
+  for(const f of files){if(!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>15000000)throw Error('PNG・JPEG・WebP、1枚15MB以下にしてください');
+   const bitmap=await createImageBitmap(f);const pixels=bitmap.width*bitmap.height;bitmap.close();if(pixels>20000000)throw Error('画像の画素数が大きすぎます');
+   const item={mime:f.type,base64:await read(f)};if(![...images,...pending].some(x=>x.mime===item.mime&&x.base64===item.base64))pending.push(item);
+  }images.push(...pending);commit();show();
+ }catch(e){show(e.message||'画像を読み込めません',true);}finally{busy=false;}
+});
+window.addEventListener('message',event=>{if(event.source!==parent||event.data?.type!=='streamlit:render')return;if(!initialized){initialized=true;images=event.data.args.initial_images||[];show();}resize();});
+send('streamlit:componentReady',{apiVersion:1});show();
+</script></body></html>

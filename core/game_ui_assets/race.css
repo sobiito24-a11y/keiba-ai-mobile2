@@ -60,3 +60,12 @@ table{min-width:1940px}th,td{height:40px;padding:3px 7px;white-space:nowrap;font
  .candidate-table td.candidate-empty-material{display:none}
  .candidate-empty-note{display:block;color:var(--muted);font-size:12px;line-height:1.5;margin-top:4px}
 }
+
+/* Prices are a separate observation, not a score or recommendation. */
+.race-price{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:12px;line-height:1.5;color:var(--cyan);overflow-wrap:anywhere}
+.race-price>span{white-space:nowrap}
+.candidate-table .race-price{margin-top:3px;justify-content:flex-start}
+.table-scroll th:nth-child(4),.table-scroll td:nth-child(4){width:116px;min-width:116px}
+.table-scroll .race-price{display:block}
+.table-scroll .race-price>span{display:block}
+.card-heading .price .race-price{justify-content:flex-end}

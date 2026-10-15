@@ -1790,6 +1790,8 @@ def render_game_prediction(result):
         source = dict(by.get(horse['no'], {}))
         source.update({k:v for k,v in display_by.get(horse['no'], {}).items() if clean_text(v)})
         horse['past'] = rich_recent_races_detail_text(source) + '\n\n' + recent3_detail_text(source)
+    from core.race_odds_ui import render as render_prices
+    view = render_prices(result, view)
     render_component(view, rid)
 
 
