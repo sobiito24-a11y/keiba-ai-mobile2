@@ -172,6 +172,36 @@ def card_html(h):
     return raw
 
 
+def corner4_shadow_html(view, race_key=''):
+    """Present fixed read-only JRA shadow candidates; nothing enters predictions."""
+    if not view or view[0].get('mode') != 'jra':
+        return ''
+    from .jra_corner4_shadow import select
+    state = select(view, race_key)
+    intro = ('<section class="corner4-shadow" aria-label="JRA研究用の注目3頭">'
+             '<div class="corner4-shadow-heading"><h3>純能力 × 4角想定｜注目3頭</h3>'
+             '<span>研究用・購入推奨ではありません</span></div>')
+    if state['status'] != 'ready':
+        return intro + '<p class="corner4-shadow-note">未判定：' + escape(state['reason']) + '</p></section>'
+    entries = []
+    for h in state['shadow']:
+        formal = str(h['formal_rank']) + '位' if h['formal_rank'] is not None else '未取得'
+        entries.append('<div class="corner4-shadow-entry"><strong>'
+                       + escape(str(h['no']) + ' ' + h['name'] + ' ' + h['mark']) + '</strong>'
+                       + '<small>純能力' + escape(str(h['ability_rank'])) + '位'
+                       + '・4角想定' + escape(str(h['corner4_rank'])) + '番手'
+                       + '・正式' + escape(formal) + '</small>'
+                       + '<p>' + escape(h['selection_reason']) + '</p></div>')
+    baseline = ' ／ '.join(str(h['no'])+' '+h['name'] for h in state['baseline'])
+    selected = '・'.join(str(h['no']) for h in state['shadow'])
+    return (intro + '<div class="corner4-shadow-cards">' + ''.join(entries) + '</div>'
+            + '<p class="corner4-shadow-note">比較：純能力順3頭 ' + escape(baseline)
+            + ' ／ 4角重視3頭 ' + escape(selected) + '</p>'
+            + '<p class="corner4-shadow-note">選出入力ハッシュ：<code>'
+            + escape(state['input_sha256'][:16]) + '…</code>'
+            + '。発走前に下のJSONを保存してください。表示だけでは発走前固定の証明になりません。</p></section>')
+
+
 def document(view, race_key='', paper_decision=None):
     css = (ASSETS/'race.css').read_text(encoding='utf-8')
     script = (ASSETS/'race.js').read_text(encoding='utf-8')
@@ -190,7 +220,7 @@ def document(view, race_key='', paper_decision=None):
         rows.append(f'<tr data-row="{i}" data-horse="{escape(h["no"])}">'+''.join(f'<td>{c}</td>' for c in cells)+'</tr>')
     data = json.dumps(dict(tabs=comparison_data(view,mode),cards=[card_html(h) for h in view], names=[h['no']+' '+h['name'] for h in view], race_key=race_key),ensure_ascii=False).replace('<','\\u003c').replace('>','\\u003e').replace('&','\\u0026')
     return ('<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            +'<style>'+css+'</style><body><main>'+comparison_html(view,mode)+paper_html(view,race_key,paper_decision)+'<div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
+            +'<style>'+css+'</style><body><main>'+corner4_shadow_html(view,race_key)+comparison_html(view,mode)+paper_html(view,race_key,paper_decision)+'<div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
             +'<p class="help">馬名をタップして詳細へ。表は横・縦にスクロールできます。</p>'
             +'<div class="table-scroll" tabindex="0" aria-label="全頭予想一覧・横スクロール"><table><thead><tr>'+''.join('<th scope="col">'+escape(c)+'</th>' for c in cols)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div>'
             +'<p class="legend">距離・コースの記号は指数順位：◎1位 · ○2〜3位 · △4〜5位 · —6位以下。枠番未取得は無色。</p>'
@@ -230,7 +260,31 @@ def render_component(view, race_key, paper_decision=None):
     # Declare from an importable module: Streamlit's __main__ can be transient.
     import streamlit.components.v1 as components
     component = components.declare_component("game_race_lineup", path=str(ASSETS))
-    return component(html=document(view, race_key,paper_decision), key='game_lineup_'+race_key, default=None)
+    shown = component(html=document(view, race_key,paper_decision), key='game_lineup_'+race_key, default=None)
+    if view and view[0].get('mode') == 'jra':
+        # Separate research export; never writes to prediction snapshots or .keiba.
+        from datetime import datetime, timezone
+        from .jra_corner4_shadow import select, freeze
+        import streamlit as st
+        report = select(view, race_key)
+        if report['status'] == 'ready':
+            storage_key = 'jra_corner4_fixed_' + str(race_key)
+            st.caption('研究用。オッズ欠損は補完しません。固定時刻だけでは発走前の証明になりません。JSONは端末へ保存してください。')
+            if storage_key not in st.session_state and st.button('現在の研究候補を固定', key=storage_key+'_button'):
+                st.session_state[storage_key] = freeze(view, race_key, datetime.now(timezone.utc).isoformat())
+            exported = st.session_state.get(storage_key)
+            if exported is None:
+                return shown
+            if exported['input_sha256'] != report['input_sha256']:
+                st.warning('表示入力が固定時と異なります。ダウンロードは以前に固定した候補です。上書きしません。')
+            filename = re.sub(r'[^0-9a-zA-Z_-]', '_', str(race_key)) + '_jra_corner4_shadow.json'
+            st.download_button(
+                '研究用・注目3頭の固定JSONを保存（発走前に）',
+                json.dumps(exported, ensure_ascii=False, indent=2),
+                file_name=filename, mime='application/json',
+                key='jra_corner4_shadow_download_' + str(race_key),
+            )
+    return shown
 
 
 def metric_html(item,label):

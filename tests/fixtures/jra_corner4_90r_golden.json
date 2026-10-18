@@ -1,0 +1,12035 @@
+[
+ {
+  "race_id": "202605040201",
+  "horses": [
+   {
+    "no": "12",
+    "name": "イニシャルポイント",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 2
+   },
+   {
+    "no": "11",
+    "name": "エピックジャーニー",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "6",
+    "name": "ユイノヘラクレス",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 4,
+    "corner": 8
+   },
+   {
+    "no": "10",
+    "name": "ミスティビーコン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "1",
+    "name": "オシゴリ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 9
+   },
+   {
+    "no": "5",
+    "name": "バーチディダーマ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 7,
+    "corner": 11
+   },
+   {
+    "no": "3",
+    "name": "ダノンダックス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "4",
+    "name": "コンフィアル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 3
+   },
+   {
+    "no": "2",
+    "name": "セールデュクール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 6
+   },
+   {
+    "no": "8",
+    "name": "ブラックナザレ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 10
+   },
+   {
+    "no": "9",
+    "name": "コスモグリュー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 9,
+    "corner": 7
+   },
+   {
+    "no": "7",
+    "name": "ゴクラクチョウカ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 12
+   }
+  ],
+  "expected": [
+   11,
+   12,
+   3
+  ]
+ },
+ {
+  "race_id": "202605040202",
+  "horses": [
+   {
+    "no": "9",
+    "name": "ピクシーブラスト",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 5
+   },
+   {
+    "no": "8",
+    "name": "クールボビー",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 8
+   },
+   {
+    "no": "6",
+    "name": "ワイズジュエル",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 11
+   },
+   {
+    "no": "5",
+    "name": "セイウンイーリス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 3
+   },
+   {
+    "no": "11",
+    "name": "ビップラージャ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 8,
+    "corner": 13
+   },
+   {
+    "no": "4",
+    "name": "ウィルレーヴィア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 14
+   },
+   {
+    "no": "1",
+    "name": "ヨドノプレミアム",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 4
+   },
+   {
+    "no": "16",
+    "name": "ディスペアーホープ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 9,
+    "corner": 6
+   },
+   {
+    "no": "10",
+    "name": "エーアイクワイ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 2
+   },
+   {
+    "no": "7",
+    "name": "コックニー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 1
+   },
+   {
+    "no": "2",
+    "name": "クリガーレ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 10
+   },
+   {
+    "no": "3",
+    "name": "ニシノアナベル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 13,
+    "corner": 12
+   },
+   {
+    "no": "15",
+    "name": "アイビークロノス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 12,
+    "corner": 7
+   },
+   {
+    "no": "14",
+    "name": "クラウンロムパイア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 16
+   },
+   {
+    "no": "13",
+    "name": "タワーウマザンマイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 9
+   },
+   {
+    "no": "12",
+    "name": "アテナプロマコス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 15
+   }
+  ],
+  "expected": [
+   1,
+   9,
+   8
+  ]
+ },
+ {
+  "race_id": "202605040207",
+  "horses": [
+   {
+    "no": "13",
+    "name": "ペロ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 15
+   },
+   {
+    "no": "5",
+    "name": "セブンメデュラス",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "アバレリュウ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 4,
+    "corner": 14
+   },
+   {
+    "no": "10",
+    "name": "ヘルヴェティオス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 10
+   },
+   {
+    "no": "11",
+    "name": "レピュニット",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 3,
+    "corner": 3
+   },
+   {
+    "no": "2",
+    "name": "フクシマブリルハム",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 9,
+    "corner": 16
+   },
+   {
+    "no": "3",
+    "name": "パータリプトラ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 11
+   },
+   {
+    "no": "15",
+    "name": "ブリックンクリック",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "ソードマスター",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 9
+   },
+   {
+    "no": "6",
+    "name": "タイセイモノリス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 12
+   },
+   {
+    "no": "16",
+    "name": "ヴァルボナ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 13,
+    "corner": 7
+   },
+   {
+    "no": "14",
+    "name": "リドルトリガー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 8,
+    "corner": 2
+   },
+   {
+    "no": "7",
+    "name": "イサチルシーキング",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 12,
+    "corner": 5
+   },
+   {
+    "no": "9",
+    "name": "サルファー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 15,
+    "corner": 6
+   },
+   {
+    "no": "4",
+    "name": "シンガソング",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 14,
+    "corner": 4
+   },
+   {
+    "no": "1",
+    "name": "シュガーハイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 13
+   }
+  ],
+  "expected": [
+   5,
+   11,
+   13
+  ]
+ },
+ {
+  "race_id": "202605040208",
+  "horses": [
+   {
+    "no": "7",
+    "name": "ディバインウインド",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "11",
+    "name": "ヤエギリ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 3
+   },
+   {
+    "no": "15",
+    "name": "ショウナンダイン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 5,
+    "rank": 7,
+    "corner": 11
+   },
+   {
+    "no": "12",
+    "name": "ソラネルマン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "1",
+    "name": "ルージュリリック",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "テンレディーゴー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 5
+   },
+   {
+    "no": "6",
+    "name": "デリュージョン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 12
+   },
+   {
+    "no": "3",
+    "name": "ティラーノ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 14
+   },
+   {
+    "no": "14",
+    "name": "ガールネクストドア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 17
+   },
+   {
+    "no": "2",
+    "name": "ディヒターリーベ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 9
+   },
+   {
+    "no": "8",
+    "name": "フリーヤ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 9,
+    "corner": 8
+   },
+   {
+    "no": "9",
+    "name": "モントゥリエ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 6
+   },
+   {
+    "no": "4",
+    "name": "フレンドモナコ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 15,
+    "corner": 16
+   },
+   {
+    "no": "10",
+    "name": "ウインファヴォリ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 13
+   },
+   {
+    "no": "13",
+    "name": "ハルノアメ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 15
+   },
+   {
+    "no": "16",
+    "name": "オメガディコン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 13,
+    "corner": 7
+   },
+   {
+    "no": "17",
+    "name": "エナジーショット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 17,
+    "rank": 17,
+    "corner": 10
+   }
+  ],
+  "expected": [
+   7,
+   11,
+   1
+  ]
+ },
+ {
+  "race_id": "202605040209",
+  "horses": [
+   {
+    "no": "3",
+    "name": "イヌボウノウタゴエ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 3,
+    "rank": 11,
+    "corner": 11
+   },
+   {
+    "no": "7",
+    "name": "セルズパワー",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 4,
+    "rank": 12,
+    "corner": 15
+   },
+   {
+    "no": "15",
+    "name": "ラパンチュール",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 6,
+    "rank": 8,
+    "corner": 13
+   },
+   {
+    "no": "11",
+    "name": "ウフドゥウフ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": 10,
+    "corner": 12
+   },
+   {
+    "no": "10",
+    "name": "スペルーチェ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 5
+   },
+   {
+    "no": "5",
+    "name": "サーナーティオン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 4,
+    "rank": 2,
+    "corner": 6
+   },
+   {
+    "no": "8",
+    "name": "メイケイバートン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 2,
+    "rank": 6,
+    "corner": 10
+   },
+   {
+    "no": "6",
+    "name": "エイヨーアメジスト",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "13",
+    "name": "ハクサンイーグル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 3,
+    "corner": 2
+   },
+   {
+    "no": "9",
+    "name": "フェルミアーク",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "2",
+    "name": "レイユール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 13,
+    "corner": 9
+   },
+   {
+    "no": "12",
+    "name": "ハルオーブ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 14,
+    "corner": 14
+   },
+   {
+    "no": "14",
+    "name": "カガラプンツェル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 9,
+    "corner": 3
+   },
+   {
+    "no": "1",
+    "name": "ララバニュルス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 5,
+    "corner": 4
+   },
+   {
+    "no": "4",
+    "name": "ルージュブリッツ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 8
+   }
+  ],
+  "expected": [
+   10,
+   3,
+   7
+  ]
+ },
+ {
+  "race_id": "202605040210",
+  "horses": [
+   {
+    "no": "10",
+    "name": "トクシーカイザー",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "6",
+    "name": "クールブロン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 5,
+    "corner": 12
+   },
+   {
+    "no": "8",
+    "name": "ルグランヴァン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 7
+   },
+   {
+    "no": "12",
+    "name": "ジョディーズマロン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 16
+   },
+   {
+    "no": "5",
+    "name": "オンザムービー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "2",
+    "name": "リネアグローリア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 15
+   },
+   {
+    "no": "16",
+    "name": "トウカイポワール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 12,
+    "corner": 11
+   },
+   {
+    "no": "15",
+    "name": "サトミノエンジェル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 9,
+    "rank": 11,
+    "corner": 8
+   },
+   {
+    "no": "13",
+    "name": "スニーカースキル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 5
+   },
+   {
+    "no": "11",
+    "name": "チギリ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 10,
+    "corner": 10
+   },
+   {
+    "no": "4",
+    "name": "アラレタバシル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 13,
+    "corner": 14
+   },
+   {
+    "no": "3",
+    "name": "ブレトワルダ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 9,
+    "corner": 3
+   },
+   {
+    "no": "7",
+    "name": "チュウワチーフ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 8,
+    "corner": 2
+   },
+   {
+    "no": "9",
+    "name": "ブロッケンボウ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 15,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "ターコイズフリンジ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 16,
+    "corner": 13
+   },
+   {
+    "no": "14",
+    "name": "エイブラムス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 14,
+    "corner": 6
+   }
+  ],
+  "expected": [
+   10,
+   5,
+   6
+  ]
+ },
+ {
+  "race_id": "202605040211",
+  "horses": [
+   {
+    "no": "4",
+    "name": "サトノシャイニング",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 3
+   },
+   {
+    "no": "2",
+    "name": "リアライズシリウス",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "16",
+    "name": "アドマイヤクワッズ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 7,
+    "rank": 4,
+    "corner": 6
+   },
+   {
+    "no": "3",
+    "name": "レディネス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 7
+   },
+   {
+    "no": "1",
+    "name": "セイウンハーデス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "クルゼイロドスル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 13,
+    "corner": 14
+   },
+   {
+    "no": "9",
+    "name": "ドラゴンブースト",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 8,
+    "corner": 10
+   },
+   {
+    "no": "13",
+    "name": "ホウオウビスケッツ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 9,
+    "rank": 6,
+    "corner": 5
+   },
+   {
+    "no": "14",
+    "name": "レイニング",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 10,
+    "corner": 13
+   },
+   {
+    "no": "15",
+    "name": "シャンパンカラー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 14,
+    "corner": 16
+   },
+   {
+    "no": "6",
+    "name": "ライヒスアドラー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 9,
+    "corner": 9
+   },
+   {
+    "no": "10",
+    "name": "エルトンバローズ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 11,
+    "corner": 11
+   },
+   {
+    "no": "7",
+    "name": "ロングラン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 15,
+    "corner": 15
+   },
+   {
+    "no": "8",
+    "name": "ビーアストニッシド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 17,
+    "corner": 17
+   },
+   {
+    "no": "17",
+    "name": "ダノンエアズロック",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 7,
+    "corner": 4
+   },
+   {
+    "no": "12",
+    "name": "レガーロデルシエロ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 12,
+    "corner": 12
+   },
+   {
+    "no": "11",
+    "name": "ランスオブカオス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 17,
+    "rank": 16,
+    "corner": 8
+   }
+  ],
+  "expected": [
+   4,
+   2,
+   1
+  ]
+ },
+ {
+  "race_id": "202605040212",
+  "horses": [
+   {
+    "no": "10",
+    "name": "パイシャオピン",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 4,
+    "corner": 12
+   },
+   {
+    "no": "16",
+    "name": "ファイアマン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 14
+   },
+   {
+    "no": "15",
+    "name": "ノアヴィヴァーチェ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 9
+   },
+   {
+    "no": "7",
+    "name": "ザーフィル",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "14",
+    "name": "ライフゲート",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 2,
+    "corner": 4
+   },
+   {
+    "no": "5",
+    "name": "カゼノタカトシ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "4",
+    "name": "レッドベルダンス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 3,
+    "corner": 3
+   },
+   {
+    "no": "2",
+    "name": "グレイスザクラウン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 16
+   },
+   {
+    "no": "11",
+    "name": "サンカルミア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 11
+   },
+   {
+    "no": "3",
+    "name": "ナイトスラッガー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 14,
+    "corner": 13
+   },
+   {
+    "no": "9",
+    "name": "ライジンマル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 8,
+    "corner": 5
+   },
+   {
+    "no": "6",
+    "name": "タマモカンパネラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 11,
+    "corner": 6
+   },
+   {
+    "no": "8",
+    "name": "ミクストベリーズ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 13,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "ジオパーククラウン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 15
+   },
+   {
+    "no": "13",
+    "name": "ロケットパンチ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 12,
+    "corner": 1
+   },
+   {
+    "no": "12",
+    "name": "カロローザ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 8
+   }
+  ],
+  "expected": [
+   7,
+   14,
+   10
+  ]
+ },
+ {
+  "race_id": "202605040301",
+  "horses": [
+   {
+    "no": "9",
+    "name": "ラフエルガ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "7",
+    "name": "サイモンオリエント",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 5
+   },
+   {
+    "no": "8",
+    "name": "セイカタカキヤチク",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "16",
+    "name": "ルスデルカミーノ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "5",
+    "name": "ゲンロクコイモヨウ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "14",
+    "name": "リアスブルー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 4,
+    "rank": 6,
+    "corner": 9
+   },
+   {
+    "no": "6",
+    "name": "ヴィンチェローズ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "ソットマツモト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "4",
+    "name": "ソラティオ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 11
+   },
+   {
+    "no": "10",
+    "name": "ノヴェルアレイア",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 12
+   },
+   {
+    "no": "12",
+    "name": "ポッドエステラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 4
+   },
+   {
+    "no": "15",
+    "name": "クラウンロムパイア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 16
+   },
+   {
+    "no": "2",
+    "name": "ディアファザー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 14
+   },
+   {
+    "no": "3",
+    "name": "リングスター",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 15
+   },
+   {
+    "no": "11",
+    "name": "ルスカーレット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 8
+   },
+   {
+    "no": "13",
+    "name": "ホシノサミダレ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 13
+   }
+  ],
+  "expected": [
+   9,
+   8,
+   16
+  ]
+ },
+ {
+  "race_id": "202605040302",
+  "horses": [
+   {
+    "no": "2",
+    "name": "マーズワース",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 4,
+    "corner": 6
+   },
+   {
+    "no": "6",
+    "name": "フェリスセンダ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "7",
+    "name": "ローズファミリー",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "4",
+    "name": "ラッパースヴィル",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "12",
+    "name": "ゴールデンハニビー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 3
+   },
+   {
+    "no": "9",
+    "name": "ルーチェルナーレ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 8,
+    "corner": 9
+   },
+   {
+    "no": "10",
+    "name": "ヴァルフォース",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "1",
+    "name": "セレネリオン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 6,
+    "corner": 2
+   },
+   {
+    "no": "11",
+    "name": "ホワイトホール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 10
+   },
+   {
+    "no": "8",
+    "name": "ソプラノクイーン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 8
+   },
+   {
+    "no": "13",
+    "name": "リアスハート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 11
+   },
+   {
+    "no": "3",
+    "name": "エバーラスティング",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 13
+   },
+   {
+    "no": "5",
+    "name": "マイサマーガール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 12
+   }
+  ],
+  "expected": [
+   6,
+   4,
+   12
+  ]
+ },
+ {
+  "race_id": "202605040303",
+  "horses": [
+   {
+    "no": "11",
+    "name": "ノシェリー",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "7",
+    "name": "サイモントレノ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 4
+   },
+   {
+    "no": "13",
+    "name": "フレイムオブキング",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 9
+   },
+   {
+    "no": "16",
+    "name": "サスケソルトバーン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 8,
+    "corner": 15
+   },
+   {
+    "no": "15",
+    "name": "ディスクリートサム",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "12",
+    "name": "プラチナリーフ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 3
+   },
+   {
+    "no": "10",
+    "name": "ゴルトシェーン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 6
+   },
+   {
+    "no": "8",
+    "name": "レッジェランツァ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 1
+   },
+   {
+    "no": "3",
+    "name": "エコロガレル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 10
+   },
+   {
+    "no": "9",
+    "name": "ナムラアラバイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 12,
+    "corner": 13
+   },
+   {
+    "no": "5",
+    "name": "フジサンインフレ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 8
+   },
+   {
+    "no": "2",
+    "name": "マーゴットパラディ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 11,
+    "corner": 7
+   },
+   {
+    "no": "4",
+    "name": "トパーズヘッド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 16
+   },
+   {
+    "no": "1",
+    "name": "アンドレイア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 11
+   },
+   {
+    "no": "14",
+    "name": "コックコート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 14
+   },
+   {
+    "no": "6",
+    "name": "タイセイリッター",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 12
+   }
+  ],
+  "expected": [
+   11,
+   7,
+   12
+  ]
+ },
+ {
+  "race_id": "202605040307",
+  "horses": [
+   {
+    "no": "5",
+    "name": "ケープウィッカム",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "4",
+    "name": "カルネヴァーレ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 11
+   },
+   {
+    "no": "13",
+    "name": "ミライヘノティアラ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 5,
+    "rank": 3,
+    "corner": 4
+   },
+   {
+    "no": "10",
+    "name": "ブルーサーマル",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 2,
+    "rank": 4,
+    "corner": 6
+   },
+   {
+    "no": "2",
+    "name": "ショコラプリン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "3",
+    "name": "アンディラメナ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 7,
+    "corner": 10
+   },
+   {
+    "no": "12",
+    "name": "ペイトー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "サーロー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 8,
+    "corner": 12
+   },
+   {
+    "no": "6",
+    "name": "クレマチス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 6,
+    "corner": 5
+   },
+   {
+    "no": "11",
+    "name": "デルマザオウ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 7
+   },
+   {
+    "no": "8",
+    "name": "グロリアス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 8
+   },
+   {
+    "no": "7",
+    "name": "ビスケットマリー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 13
+   },
+   {
+    "no": "9",
+    "name": "スーパーチャンド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 3
+   }
+  ],
+  "expected": [
+   5,
+   2,
+   13
+  ]
+ },
+ {
+  "race_id": "202605040308",
+  "horses": [
+   {
+    "no": "10",
+    "name": "ストレートブラック",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 7
+   },
+   {
+    "no": "9",
+    "name": "トルネードアイル",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 3
+   },
+   {
+    "no": "6",
+    "name": "ウップヘリーア",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 4
+   },
+   {
+    "no": "7",
+    "name": "サンクレゾン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "コスモアチーブ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 8
+   },
+   {
+    "no": "11",
+    "name": "オウケンヴィーナス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 9,
+    "corner": 11
+   },
+   {
+    "no": "4",
+    "name": "アローメタル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 1
+   },
+   {
+    "no": "3",
+    "name": "イスキオス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 7,
+    "corner": 2
+   },
+   {
+    "no": "2",
+    "name": "ランブルスコ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 8,
+    "corner": 5
+   },
+   {
+    "no": "8",
+    "name": "コスモアルペジオ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 10,
+    "corner": 10
+   },
+   {
+    "no": "5",
+    "name": "カーロアヴァンティ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 6
+   }
+  ],
+  "expected": [
+   6,
+   9,
+   10
+  ]
+ },
+ {
+  "race_id": "202605040309",
+  "horses": [
+   {
+    "no": "3",
+    "name": "ノラリクラリ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 5
+   },
+   {
+    "no": "2",
+    "name": "ノクターン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "8",
+    "name": "イクリール",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "7",
+    "name": "ジュンツバメガエシ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 3
+   },
+   {
+    "no": "6",
+    "name": "キングズトゥルー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 4
+   },
+   {
+    "no": "4",
+    "name": "ビップチェイス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 6
+   },
+   {
+    "no": "9",
+    "name": "ノーブルクライ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 8
+   },
+   {
+    "no": "5",
+    "name": "レイデラルース",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "リュクスパトロール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 7
+   }
+  ],
+  "expected": [
+   2,
+   8,
+   7
+  ]
+ },
+ {
+  "race_id": "202605040310",
+  "horses": [
+   {
+    "no": "7",
+    "name": "コズミックダンサー",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 2
+   },
+   {
+    "no": "16",
+    "name": "シャローファースト",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "4",
+    "name": "マッドゲイル",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "3",
+    "name": "インナーパッション",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 4,
+    "corner": 7
+   },
+   {
+    "no": "13",
+    "name": "エーデル",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 15
+   },
+   {
+    "no": "1",
+    "name": "マウントバーノン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 5,
+    "corner": 9
+   },
+   {
+    "no": "9",
+    "name": "レッドリベルタ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 7,
+    "corner": 12
+   },
+   {
+    "no": "14",
+    "name": "ボクマダネムイヨ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 14
+   },
+   {
+    "no": "12",
+    "name": "タイキインドラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 8
+   },
+   {
+    "no": "8",
+    "name": "ダブルメッセージ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 13,
+    "corner": 11
+   },
+   {
+    "no": "2",
+    "name": "ユウトザユウト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 8,
+    "corner": 3
+   },
+   {
+    "no": "10",
+    "name": "デールエルバハリ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 13
+   },
+   {
+    "no": "15",
+    "name": "メイショウジンライ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 11,
+    "corner": 4
+   },
+   {
+    "no": "5",
+    "name": "バタール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 5
+   },
+   {
+    "no": "11",
+    "name": "シテフローラル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 10
+   },
+   {
+    "no": "6",
+    "name": "サイモンルモンド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 16
+   }
+  ],
+  "expected": [
+   7,
+   16,
+   3
+  ]
+ },
+ {
+  "race_id": "202605040311",
+  "horses": [
+   {
+    "no": "5",
+    "name": "フィリオソラーレ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "4",
+    "name": "アゴルディーノ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 2
+   },
+   {
+    "no": "11",
+    "name": "ハンサム",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "2",
+    "name": "デミアン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 7
+   },
+   {
+    "no": "8",
+    "name": "グルーヴェンス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 5
+   },
+   {
+    "no": "10",
+    "name": "アイファーマーリン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 8,
+    "corner": 11
+   },
+   {
+    "no": "9",
+    "name": "ジップスパーク",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 8
+   },
+   {
+    "no": "6",
+    "name": "ベルウッドディープ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "1",
+    "name": "ギブリ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 10
+   },
+   {
+    "no": "7",
+    "name": "ニシノトラノスケ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 9
+   },
+   {
+    "no": "3",
+    "name": "サトノハクマイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 3
+   }
+  ],
+  "expected": [
+   5,
+   4,
+   11
+  ]
+ },
+ {
+  "race_id": "202605040312",
+  "horses": [
+   {
+    "no": "9",
+    "name": "マーガレットクレア",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 8
+   },
+   {
+    "no": "15",
+    "name": "ダイオジェナイト",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 5,
+    "corner": 7
+   },
+   {
+    "no": "3",
+    "name": "シュヴァルツシルト",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "11",
+    "name": "スーパーガール",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "16",
+    "name": "ラルフテソーロ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "6",
+    "name": "ブルーユンチェリー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 11
+   },
+   {
+    "no": "2",
+    "name": "エコロバロン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 9
+   },
+   {
+    "no": "10",
+    "name": "ゴーゴーパンチ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 9,
+    "corner": 14
+   },
+   {
+    "no": "8",
+    "name": "プレダトゥール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 8,
+    "corner": 10
+   },
+   {
+    "no": "5",
+    "name": "アイファーファイト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 12,
+    "corner": 15
+   },
+   {
+    "no": "4",
+    "name": "トップマジシャン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 12,
+    "rank": 13,
+    "corner": 13
+   },
+   {
+    "no": "13",
+    "name": "フリッシュ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 12
+   },
+   {
+    "no": "12",
+    "name": "リアライズタキオン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 11,
+    "corner": 4
+   },
+   {
+    "no": "14",
+    "name": "インヴェスター",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 16,
+    "corner": 16
+   },
+   {
+    "no": "1",
+    "name": "ウルトラハート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 5
+   },
+   {
+    "no": "7",
+    "name": "ロードフロイデ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 15,
+    "corner": 3
+   }
+  ],
+  "expected": [
+   3,
+   16,
+   9
+  ]
+ },
+ {
+  "race_id": "202605040401",
+  "horses": [
+   {
+    "no": "2",
+    "name": "ベルグラース",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 5
+   },
+   {
+    "no": "14",
+    "name": "テンユメノオーロラ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "6",
+    "name": "フィールザウィル",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "7",
+    "name": "ヴァルブロッサ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 9
+   },
+   {
+    "no": "9",
+    "name": "サンクサンス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 6,
+    "corner": 7
+   },
+   {
+    "no": "8",
+    "name": "アイビーナツユメ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 2
+   },
+   {
+    "no": "4",
+    "name": "アテナプロマコス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 14
+   },
+   {
+    "no": "13",
+    "name": "サンクレセント",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 4
+   },
+   {
+    "no": "11",
+    "name": "アイファーエリース",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 11,
+    "corner": 15
+   },
+   {
+    "no": "5",
+    "name": "カンタベリートップ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 12
+   },
+   {
+    "no": "1",
+    "name": "ステラガーネット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 9,
+    "corner": 6
+   },
+   {
+    "no": "15",
+    "name": "ラヴァブルロマン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 14,
+    "corner": 10
+   },
+   {
+    "no": "10",
+    "name": "キャミソール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 13,
+    "corner": 8
+   },
+   {
+    "no": "3",
+    "name": "ローブリッター",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 13
+   },
+   {
+    "no": "12",
+    "name": "スードランダム",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 11
+   }
+  ],
+  "expected": [
+   14,
+   6,
+   2
+  ]
+ },
+ {
+  "race_id": "202605040402",
+  "horses": [
+   {
+    "no": "4",
+    "name": "コスモシグナス",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 7
+   },
+   {
+    "no": "11",
+    "name": "ミラマルニ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 6
+   },
+   {
+    "no": "9",
+    "name": "ニースケンス",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": 4,
+    "corner": 9
+   },
+   {
+    "no": "2",
+    "name": "ニーナラルゴ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "6",
+    "name": "イントゥーザブルー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 2
+   },
+   {
+    "no": "10",
+    "name": "ドッグズノーズ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 8,
+    "corner": 5
+   },
+   {
+    "no": "8",
+    "name": "コスモデュアリズム",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 11
+   },
+   {
+    "no": "5",
+    "name": "セイウンウェルス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 7,
+    "corner": 4
+   },
+   {
+    "no": "3",
+    "name": "ウインドピット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 12
+   },
+   {
+    "no": "1",
+    "name": "ノーブルグランツ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 3
+   },
+   {
+    "no": "7",
+    "name": "ドナフェリーチェ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "イツマデモマツワ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 10
+   }
+  ],
+  "expected": [
+   2,
+   6,
+   11
+  ]
+ },
+ {
+  "race_id": "202605040403",
+  "horses": [
+   {
+    "no": "9",
+    "name": "ハナナ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 7
+   },
+   {
+    "no": "13",
+    "name": "ドナズエクリプス",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "5",
+    "name": "ディヴァンパーレ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "7",
+    "name": "モナークスヴァラー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "マイネルヘルリッヒ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 5
+   },
+   {
+    "no": "10",
+    "name": "ビップルーチェ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "タイセイソアリング",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 9,
+    "corner": 9
+   },
+   {
+    "no": "4",
+    "name": "ハイランドウインド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 8,
+    "corner": 10
+   },
+   {
+    "no": "2",
+    "name": "ヴェルバーニア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 6,
+    "corner": 2
+   },
+   {
+    "no": "3",
+    "name": "マイネルアルディ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 12
+   },
+   {
+    "no": "6",
+    "name": "パッションノーヴァ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 4
+   },
+   {
+    "no": "14",
+    "name": "マイネルシードル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 13
+   },
+   {
+    "no": "1",
+    "name": "カシノデスティニー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 11
+   },
+   {
+    "no": "11",
+    "name": "テイクユアタイム",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 14
+   }
+  ],
+  "expected": [
+   13,
+   7,
+   9
+  ]
+ },
+ {
+  "race_id": "202605040406",
+  "horses": [
+   {
+    "no": "16",
+    "name": "ノアスペシャル",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 11
+   },
+   {
+    "no": "9",
+    "name": "スタートレイン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 7
+   },
+   {
+    "no": "13",
+    "name": "テンハートビート",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "5",
+    "name": "ベルメサイア",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 6,
+    "corner": 8
+   },
+   {
+    "no": "8",
+    "name": "フュルスティン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 5
+   },
+   {
+    "no": "6",
+    "name": "ブルームコード",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 2
+   },
+   {
+    "no": "10",
+    "name": "ペンテリコン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 9
+   },
+   {
+    "no": "7",
+    "name": "プリプリプリン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 8,
+    "corner": 1
+   },
+   {
+    "no": "12",
+    "name": "ラエトゥス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 12
+   },
+   {
+    "no": "14",
+    "name": "エスシーレイジュ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 13,
+    "corner": 13
+   },
+   {
+    "no": "3",
+    "name": "パッションディーバ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 12,
+    "corner": 16
+   },
+   {
+    "no": "15",
+    "name": "カーボフリオ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 10
+   },
+   {
+    "no": "4",
+    "name": "ミュークチェルシー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 11,
+    "corner": 4
+   },
+   {
+    "no": "11",
+    "name": "ティピティーナ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 10,
+    "corner": 3
+   },
+   {
+    "no": "2",
+    "name": "グラスハーティー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 15
+   },
+   {
+    "no": "1",
+    "name": "ドルンレースツェン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 14
+   }
+  ],
+  "expected": [
+   16,
+   9,
+   5
+  ]
+ },
+ {
+  "race_id": "202605040407",
+  "horses": [
+   {
+    "no": "15",
+    "name": "アクアマーズ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "2",
+    "name": "サマーマッドネス",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "4",
+    "name": "アンシュウマト",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "5",
+    "name": "カーマンライン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 6,
+    "corner": 13
+   },
+   {
+    "no": "7",
+    "name": "ブレスドナイル",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": 5,
+    "corner": 11
+   },
+   {
+    "no": "12",
+    "name": "タケルムサシ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 7,
+    "corner": 8
+   },
+   {
+    "no": "3",
+    "name": "ヴァンデスペランス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 4
+   },
+   {
+    "no": "1",
+    "name": "サムワンライクユー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 11,
+    "corner": 14
+   },
+   {
+    "no": "9",
+    "name": "ブルーミーティア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 9,
+    "corner": 10
+   },
+   {
+    "no": "10",
+    "name": "タイキプレジール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 13,
+    "corner": 12
+   },
+   {
+    "no": "13",
+    "name": "ムーランオランジュ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 9
+   },
+   {
+    "no": "8",
+    "name": "ライカ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 7
+   },
+   {
+    "no": "14",
+    "name": "マリブオレンジ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 8,
+    "corner": 5
+   },
+   {
+    "no": "16",
+    "name": "オブシディアン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 15,
+    "corner": 16
+   },
+   {
+    "no": "6",
+    "name": "ワルトシュタイン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 12,
+    "corner": 2
+   },
+   {
+    "no": "11",
+    "name": "ロジリッキー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 15
+   }
+  ],
+  "expected": [
+   15,
+   2,
+   4
+  ]
+ },
+ {
+  "race_id": "202605040408",
+  "horses": [
+   {
+    "no": "3",
+    "name": "サンセットビュー",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 7
+   },
+   {
+    "no": "4",
+    "name": "マイネルアウルム",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 12
+   },
+   {
+    "no": "9",
+    "name": "ゴンファロニエーレ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 7,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "1",
+    "name": "イブキ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 2,
+    "rank": 5,
+    "corner": 13
+   },
+   {
+    "no": "14",
+    "name": "ウルフマン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 5
+   },
+   {
+    "no": "17",
+    "name": "トラストボス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 4,
+    "rank": 7,
+    "corner": 9
+   },
+   {
+    "no": "10",
+    "name": "ヴォートセレスト",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "13",
+    "name": "ボンボンベイビー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 10
+   },
+   {
+    "no": "11",
+    "name": "アンビアンス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 14
+   },
+   {
+    "no": "5",
+    "name": "ペネトレイトゴー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 12,
+    "corner": 17
+   },
+   {
+    "no": "12",
+    "name": "オメガストリーム",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 8,
+    "corner": 3
+   },
+   {
+    "no": "16",
+    "name": "パーヴォ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 15
+   },
+   {
+    "no": "2",
+    "name": "イフルジャンス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 11
+   },
+   {
+    "no": "6",
+    "name": "ピースヒロフェイス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 15,
+    "corner": 8
+   },
+   {
+    "no": "8",
+    "name": "ポッドクロス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 14,
+    "corner": 6
+   },
+   {
+    "no": "15",
+    "name": "シェンロン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 16
+   },
+   {
+    "no": "7",
+    "name": "オニノウタゲ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 17,
+    "rank": 17,
+    "corner": 4
+   }
+  ],
+  "expected": [
+   10,
+   3,
+   1
+  ]
+ },
+ {
+  "race_id": "202605040409",
+  "horses": [
+   {
+    "no": "4",
+    "name": "エーデルヴェーグ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "6",
+    "name": "ソニックライン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 4,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "エラルディーク",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 7,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "11",
+    "name": "フジガイフウ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 1,
+    "corner": 7
+   },
+   {
+    "no": "1",
+    "name": "ツルマウカタチ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 7,
+    "corner": 11
+   },
+   {
+    "no": "3",
+    "name": "ポペット",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 8,
+    "corner": 12
+   },
+   {
+    "no": "2",
+    "name": "ジッピーレーサー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 10
+   },
+   {
+    "no": "5",
+    "name": "クールデイトナ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 6,
+    "corner": 2
+   },
+   {
+    "no": "9",
+    "name": "クレパスキュラー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 5,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "10",
+    "name": "シャンパンマーク",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 12,
+    "corner": 9
+   },
+   {
+    "no": "8",
+    "name": "レッドレナート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 1
+   },
+   {
+    "no": "7",
+    "name": "フミサウンド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 10,
+    "corner": 4
+   }
+  ],
+  "expected": [
+   6,
+   4,
+   11
+  ]
+ },
+ {
+  "race_id": "202605040410",
+  "horses": [
+   {
+    "no": "3",
+    "name": "クインズデネブ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 3,
+    "corner": 16
+   },
+   {
+    "no": "5",
+    "name": "ガンウルフ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "15",
+    "name": "ヤマニンアストロン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 12
+   },
+   {
+    "no": "8",
+    "name": "セギレエルビエント",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "キョウエイカンセ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 9,
+    "corner": 15
+   },
+   {
+    "no": "2",
+    "name": "アスクアイルビゼア",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 5
+   },
+   {
+    "no": "7",
+    "name": "カルパ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 10,
+    "corner": 11
+   },
+   {
+    "no": "12",
+    "name": "レッドラパルマ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 8,
+    "corner": 10
+   },
+   {
+    "no": "6",
+    "name": "メイショウタムシバ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 12,
+    "corner": 7
+   },
+   {
+    "no": "16",
+    "name": "アジアミッション",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 16,
+    "corner": 14
+   },
+   {
+    "no": "10",
+    "name": "シャパリュ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 6,
+    "corner": 6
+   },
+   {
+    "no": "14",
+    "name": "サンドブラスト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 8
+   },
+   {
+    "no": "11",
+    "name": "フウセツ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 7,
+    "corner": 3
+   },
+   {
+    "no": "9",
+    "name": "ゴールデンオスカー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 13,
+    "corner": 13
+   },
+   {
+    "no": "4",
+    "name": "スペイドアン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 4
+   },
+   {
+    "no": "13",
+    "name": "エイプリルインパリ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 14,
+    "corner": 2
+   }
+  ],
+  "expected": [
+   5,
+   3,
+   8
+  ]
+ },
+ {
+  "race_id": "202605040411",
+  "horses": [
+   {
+    "no": "16",
+    "name": "カムニャック",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 5
+   },
+   {
+    "no": "11",
+    "name": "ラヴァンダ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 6
+   },
+   {
+    "no": "2",
+    "name": "チェルビアット",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 7
+   },
+   {
+    "no": "15",
+    "name": "ジョスラン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 12
+   },
+   {
+    "no": "3",
+    "name": "クイーンズウォーク",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 11
+   },
+   {
+    "no": "10",
+    "name": "セキトバイースト",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "5",
+    "name": "カネラフィーナ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 8,
+    "corner": 9
+   },
+   {
+    "no": "4",
+    "name": "クランフォード",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 9,
+    "corner": 3
+   },
+   {
+    "no": "8",
+    "name": "ルージュソリテール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 4
+   },
+   {
+    "no": "12",
+    "name": "ミアネーロ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 14
+   },
+   {
+    "no": "9",
+    "name": "ウイントワイライト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 12,
+    "corner": 15
+   },
+   {
+    "no": "13",
+    "name": "ワタシマツワ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 10,
+    "corner": 2
+   },
+   {
+    "no": "1",
+    "name": "ニシノティアモ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 8
+   },
+   {
+    "no": "7",
+    "name": "ミラビリスマジック",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 14,
+    "corner": 13
+   },
+   {
+    "no": "14",
+    "name": "ハワイアンティアレ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 10
+   },
+   {
+    "no": "6",
+    "name": "ムイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 16
+   }
+  ],
+  "expected": [
+   10,
+   16,
+   11
+  ]
+ },
+ {
+  "race_id": "202605040412",
+  "horses": [
+   {
+    "no": "16",
+    "name": "キョウエイカンフ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 4,
+    "corner": 15
+   },
+   {
+    "no": "8",
+    "name": "ジャックナダル",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 6
+   },
+   {
+    "no": "11",
+    "name": "イノキ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 6,
+    "corner": 12
+   },
+   {
+    "no": "5",
+    "name": "アルジェンタージョ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 11
+   },
+   {
+    "no": "13",
+    "name": "ドントゥザムーン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "6",
+    "name": "ジャスティンルマン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 3,
+    "corner": 4
+   },
+   {
+    "no": "12",
+    "name": "マサノユニコーン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 9
+   },
+   {
+    "no": "10",
+    "name": "オカメノコイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 16
+   },
+   {
+    "no": "7",
+    "name": "ラインジーク",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "ピコテンダー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 8,
+    "corner": 7
+   },
+   {
+    "no": "9",
+    "name": "メイショウドライブ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 1
+   },
+   {
+    "no": "14",
+    "name": "ベルビースタローン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 8
+   },
+   {
+    "no": "3",
+    "name": "キョウエイスレーヴ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 13,
+    "corner": 13
+   },
+   {
+    "no": "2",
+    "name": "ズバットマサムネ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 11,
+    "corner": 2
+   },
+   {
+    "no": "15",
+    "name": "レイアポポ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 5
+   },
+   {
+    "no": "4",
+    "name": "レディサン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 14
+   }
+  ],
+  "expected": [
+   13,
+   6,
+   8
+  ]
+ },
+ {
+  "race_id": "202606040801",
+  "horses": [
+   {
+    "no": "1",
+    "name": "アルビオンライズ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "12",
+    "name": "アーバーバイティ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "5",
+    "name": "コウソクレムリア",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "13",
+    "name": "ファイアリーボルト",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "4",
+    "name": "リコルディオーロ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "10",
+    "name": "ハイトラクション",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "2",
+    "name": "トパーズヘッド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 13
+   },
+   {
+    "no": "7",
+    "name": "ヴァンデエス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "3",
+    "name": "アンミツ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "9",
+    "name": "アイビーカイロス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "8",
+    "name": "スヴァラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "6",
+    "name": "クリアマインド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "11",
+    "name": "ハクタカ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 10
+   }
+  ],
+  "expected": [
+   1,
+   12,
+   4
+  ]
+ },
+ {
+  "race_id": "202606040802",
+  "horses": [
+   {
+    "no": "11",
+    "name": "ハンサム",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "4",
+    "name": "タッカーヴィーチェ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "10",
+    "name": "ヴェントリナ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "3",
+    "name": "ニーナラルゴ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "9",
+    "name": "エコロテラ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "8",
+    "name": "ウィルステート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "12",
+    "name": "リキマル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "5",
+    "name": "オシゴリ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "2",
+    "name": "マルスフィス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "ブラックナザレ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "7",
+    "name": "サムワンユーラヴド",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "6",
+    "name": "リオンパリス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 12
+   }
+  ],
+  "expected": [
+   11,
+   3,
+   4
+  ]
+ },
+ {
+  "race_id": "202606040806",
+  "horses": [
+   {
+    "no": "2",
+    "name": "ストーリーオブラブ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "4",
+    "name": "サラサチャチャチャ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "7",
+    "name": "リュミナーズ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "5",
+    "name": "キューティリップ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "3",
+    "name": "ノーブルクラウド",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "1",
+    "name": "ミアルーチェ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "6",
+    "name": "ベルフィーヌ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 7
+   }
+  ],
+  "expected": [
+   2,
+   4,
+   5
+  ]
+ },
+ {
+  "race_id": "202606040807",
+  "horses": [
+   {
+    "no": "7",
+    "name": "グランアルト",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "12",
+    "name": "ルンベーラ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "6",
+    "name": "ダノンファンスター",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "16",
+    "name": "ミッドセンチュリー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "13",
+    "name": "カテドラルクォーツ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "17",
+    "name": "ヴァルカンテソーロ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "2",
+    "name": "マイネルクオリア",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 14
+   },
+   {
+    "no": "1",
+    "name": "マイバラード",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 13
+   },
+   {
+    "no": "9",
+    "name": "リーゼノアール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "11",
+    "name": "ロスパレドネス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "3",
+    "name": "サクラアドリア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 17
+   },
+   {
+    "no": "10",
+    "name": "ペプチドドリーム",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "15",
+    "name": "ハードワーカー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "5",
+    "name": "ベルウッドバイオ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": null,
+    "corner": 15
+   },
+   {
+    "no": "8",
+    "name": "リアルショット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "18",
+    "name": "キングプロフィット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": null,
+    "corner": 18
+   },
+   {
+    "no": "14",
+    "name": "タイキアロハ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 17,
+    "rank": null,
+    "corner": 16
+   },
+   {
+    "no": "4",
+    "name": "ジンガー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 18,
+    "rank": null,
+    "corner": 10
+   }
+  ],
+  "expected": [
+   12,
+   7,
+   6
+  ]
+ },
+ {
+  "race_id": "202606040808",
+  "horses": [
+   {
+    "no": "1",
+    "name": "コウジハラ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "7",
+    "name": "トモジャシーマ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "4",
+    "name": "ラルフテソーロ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "2",
+    "name": "ビアフォーナウ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 14
+   },
+   {
+    "no": "9",
+    "name": "マイネルブリオン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "12",
+    "name": "ソニックブレイカー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "3",
+    "name": "ステラノヴァ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "11",
+    "name": "リゾートライン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "15",
+    "name": "ガールネクストドア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 15
+   },
+   {
+    "no": "10",
+    "name": "ノアスペシャル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "8",
+    "name": "ヒナノムサシ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "16",
+    "name": "カツノテンス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "14",
+    "name": "スマートブル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "6",
+    "name": "アイファーファイト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": null,
+    "corner": 16
+   },
+   {
+    "no": "13",
+    "name": "ミラビリオン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "5",
+    "name": "ヘイルメリーラン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": null,
+    "corner": 13
+   }
+  ],
+  "expected": [
+   1,
+   4,
+   7
+  ]
+ },
+ {
+  "race_id": "202606040809",
+  "horses": [
+   {
+    "no": "6",
+    "name": "レオンティウス",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "4",
+    "name": "コスモプルー",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "3",
+    "name": "エイシンウルトラン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "2",
+    "name": "ジョドレルバンク",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "8",
+    "name": "スタースポット",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "7",
+    "name": "モーモーゼロ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "1",
+    "name": "ニシノリリックス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "5",
+    "name": "タイヴァス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 2
+   }
+  ],
+  "expected": [
+   6,
+   4,
+   8
+  ]
+ },
+ {
+  "race_id": "202606040810",
+  "horses": [
+   {
+    "no": "7",
+    "name": "ドリーミングアップ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 15
+   },
+   {
+    "no": "6",
+    "name": "トラスコンガーデン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 16
+   },
+   {
+    "no": "5",
+    "name": "ヴィヴァクラウン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 13
+   },
+   {
+    "no": "12",
+    "name": "アイムインディ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "2",
+    "name": "イゾラフェリーチェ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "8",
+    "name": "レオアジャイル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "13",
+    "name": "レザンノワール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "11",
+    "name": "ビービーエフォート",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "10",
+    "name": "セレッソデアモール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "3",
+    "name": "ウィングブルー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "デンプシー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "15",
+    "name": "メローネ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "4",
+    "name": "ジョヴィアン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 14
+   },
+   {
+    "no": "16",
+    "name": "ピコアーガイル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "14",
+    "name": "スミッコディスコ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "9",
+    "name": "ビッグフラワー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": null,
+    "corner": 10
+   }
+  ],
+  "expected": [
+   2,
+   7,
+   6
+  ]
+ },
+ {
+  "race_id": "202606040811",
+  "horses": [
+   {
+    "no": "13",
+    "name": "セブンマジシャン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "10",
+    "name": "ウォータークラーク",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "8",
+    "name": "インパクトシー",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "3",
+    "name": "ソルトブリーズ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "2",
+    "name": "サウンドムーブ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "マテンロウブラボー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "エフォートレス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "5",
+    "name": "グラニット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "11",
+    "name": "マイネルフルムーン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "14",
+    "name": "テンミラクルスター",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "6",
+    "name": "アルトゥーム",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 13
+   },
+   {
+    "no": "7",
+    "name": "エスコバル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 14
+   },
+   {
+    "no": "4",
+    "name": "フォルラニーニ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "9",
+    "name": "ナヴォーナ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": null,
+    "corner": 12
+   }
+  ],
+  "expected": [
+   13,
+   8,
+   3
+  ]
+ },
+ {
+  "race_id": "202606040812",
+  "horses": [
+   {
+    "no": "8",
+    "name": "マサノピンクレディ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "9",
+    "name": "サマースイートピー",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "11",
+    "name": "ルーフオブヘヴン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "6",
+    "name": "モーゲンセン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "12",
+    "name": "ホウオウプレミア",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "14",
+    "name": "ショウナンタハティ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "10",
+    "name": "エリカマユーリ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "5",
+    "name": "ロッカバイベイビー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "7",
+    "name": "トヨサカエ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "13",
+    "name": "クインズポラリス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "15",
+    "name": "バシレイア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "ライヴレッドアイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "3",
+    "name": "キボウノホシ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 14
+   },
+   {
+    "no": "16",
+    "name": "ホウオウフロイト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 15
+   },
+   {
+    "no": "4",
+    "name": "グラスブランシュ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": null,
+    "corner": 16
+   },
+   {
+    "no": "2",
+    "name": "ホーリーブライト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": null,
+    "corner": 13
+   }
+  ],
+  "expected": [
+   9,
+   6,
+   8
+  ]
+ },
+ {
+  "race_id": "202606040902",
+  "horses": [
+   {
+    "no": "7",
+    "name": "コウサイリクリ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "6",
+    "name": "トーセンマスラオ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 4
+   },
+   {
+    "no": "4",
+    "name": "ニューロファイター",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 5
+   },
+   {
+    "no": "11",
+    "name": "ギガントシュラーク",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 8
+   },
+   {
+    "no": "2",
+    "name": "プリンキパトゥス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 3
+   },
+   {
+    "no": "12",
+    "name": "レジームチェンジ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 1
+   },
+   {
+    "no": "3",
+    "name": "エーアイラピド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "8",
+    "name": "ロワデュモンド",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 6
+   },
+   {
+    "no": "1",
+    "name": "ゴーゼンチュー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 12
+   },
+   {
+    "no": "9",
+    "name": "フォクセン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 9
+   },
+   {
+    "no": "10",
+    "name": "マイネルウルカヌス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 10
+   },
+   {
+    "no": "5",
+    "name": "カシノデスティニー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 11
+   }
+  ],
+  "expected": [
+   7,
+   6,
+   2
+  ]
+ },
+ {
+  "race_id": "202606040903",
+  "horses": [
+   {
+    "no": "9",
+    "name": "イキフン",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 3,
+    "rank": 1,
+    "corner": 3
+   },
+   {
+    "no": "4",
+    "name": "ファブリック",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 6
+   },
+   {
+    "no": "7",
+    "name": "メイプルカモーン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 5
+   },
+   {
+    "no": "2",
+    "name": "ニシノマキロイ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 4
+   },
+   {
+    "no": "3",
+    "name": "フレンドミラノ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 9
+   },
+   {
+    "no": "5",
+    "name": "グラスクラージュ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "ファウナード",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 8
+   },
+   {
+    "no": "1",
+    "name": "レッドマウロア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 2
+   },
+   {
+    "no": "6",
+    "name": "ナムラアラバイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 7
+   }
+  ],
+  "expected": [
+   9,
+   2,
+   4
+  ]
+ },
+ {
+  "race_id": "202606040906",
+  "horses": [
+   {
+    "no": "11",
+    "name": "ミスターキャンベラ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "1",
+    "name": "アルデラックス",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 10
+   },
+   {
+    "no": "7",
+    "name": "ダンツティアラ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 6
+   },
+   {
+    "no": "5",
+    "name": "グランドスウェル",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 5
+   },
+   {
+    "no": "12",
+    "name": "ロードインフェルノ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 6,
+    "corner": 15
+   },
+   {
+    "no": "16",
+    "name": "ワンダーブリッツ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "14",
+    "name": "シーギリヤロック",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 8,
+    "corner": 9
+   },
+   {
+    "no": "3",
+    "name": "タルタロス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 16
+   },
+   {
+    "no": "2",
+    "name": "ソロモン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 5,
+    "corner": 3
+   },
+   {
+    "no": "10",
+    "name": "ディースプレマシー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 12
+   },
+   {
+    "no": "13",
+    "name": "ガンハンマー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 12,
+    "corner": 14
+   },
+   {
+    "no": "4",
+    "name": "ベンメリア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 11
+   },
+   {
+    "no": "9",
+    "name": "ユーウェイン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 14,
+    "corner": 13
+   },
+   {
+    "no": "6",
+    "name": "スターツトゥデイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 15,
+    "corner": 8
+   },
+   {
+    "no": "15",
+    "name": "アトラステソーロ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 11,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "ホウオウライセンス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 4
+   }
+  ],
+  "expected": [
+   11,
+   7,
+   1
+  ]
+ },
+ {
+  "race_id": "202606040907",
+  "horses": [
+   {
+    "no": "6",
+    "name": "デイジー",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "15",
+    "name": "ジーティーシンドウ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 5
+   },
+   {
+    "no": "13",
+    "name": "ナハトナナレオン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "9",
+    "name": "ポッドロルフ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 7,
+    "corner": 12
+   },
+   {
+    "no": "8",
+    "name": "ジャグアール",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 11
+   },
+   {
+    "no": "16",
+    "name": "サンヴィクトワール",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 4,
+    "rank": 2,
+    "corner": 2
+   },
+   {
+    "no": "10",
+    "name": "デスサイズ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 8
+   },
+   {
+    "no": "14",
+    "name": "カイトグート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 14
+   },
+   {
+    "no": "7",
+    "name": "スワローシチー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 10,
+    "corner": 15
+   },
+   {
+    "no": "5",
+    "name": "ショウナンマリーナ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 4,
+    "corner": 3
+   },
+   {
+    "no": "12",
+    "name": "ニシノコマチムスメ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 16
+   },
+   {
+    "no": "3",
+    "name": "コスモキャバリエ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 7
+   },
+   {
+    "no": "1",
+    "name": "ウインロゼライト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 9
+   },
+   {
+    "no": "4",
+    "name": "アテンスマイル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 16,
+    "corner": 13
+   },
+   {
+    "no": "11",
+    "name": "シックスパック",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 14,
+    "corner": 4
+   },
+   {
+    "no": "2",
+    "name": "サクラパステル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 15,
+    "corner": 10
+   }
+  ],
+  "expected": [
+   6,
+   16,
+   15
+  ]
+ },
+ {
+  "race_id": "202606040909",
+  "horses": [
+   {
+    "no": "1",
+    "name": "リリカルフレア",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 6
+   },
+   {
+    "no": "2",
+    "name": "シルクドマルス",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 4
+   },
+   {
+    "no": "4",
+    "name": "シュヴァルツペルレ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "7",
+    "name": "リサナウト",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "3",
+    "name": "シルバーウィル",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "セプタードアイル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "6",
+    "name": "ユーダブルワン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 3
+   }
+  ],
+  "expected": [
+   2,
+   7,
+   3
+  ]
+ },
+ {
+  "race_id": "202606040910",
+  "horses": [
+   {
+    "no": "10",
+    "name": "サンライズバブル",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 10
+   },
+   {
+    "no": "7",
+    "name": "ドナルンバ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 3
+   },
+   {
+    "no": "4",
+    "name": "コスモイシュタル",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 5
+   },
+   {
+    "no": "11",
+    "name": "アイキャンドウイッ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 8,
+    "corner": 13
+   },
+   {
+    "no": "13",
+    "name": "ジェットブレード",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "14",
+    "name": "レイヤードレッド",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 9,
+    "corner": 8
+   },
+   {
+    "no": "18",
+    "name": "ジャンビ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 5,
+    "rank": 12,
+    "corner": 18
+   },
+   {
+    "no": "9",
+    "name": "ルージュボヤージュ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "1",
+    "name": "スイートオレンジ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 9
+   },
+   {
+    "no": "2",
+    "name": "プリズマジコ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 10,
+    "corner": 14
+   },
+   {
+    "no": "12",
+    "name": "ダノンカゼルタ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 6,
+    "corner": 4
+   },
+   {
+    "no": "3",
+    "name": "フナデ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 17,
+    "corner": 15
+   },
+   {
+    "no": "8",
+    "name": "ベネスピラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 5,
+    "corner": 2
+   },
+   {
+    "no": "16",
+    "name": "トレミニョン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 15,
+    "corner": 17
+   },
+   {
+    "no": "6",
+    "name": "ミツカネベネラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 17,
+    "rank": 14,
+    "corner": 12
+   },
+   {
+    "no": "15",
+    "name": "マイネルバーテクス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 18,
+    "corner": 16
+   },
+   {
+    "no": "17",
+    "name": "マテンロウギフト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 13,
+    "corner": 11
+   },
+   {
+    "no": "5",
+    "name": "ハニードレス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 18,
+    "rank": 16,
+    "corner": 6
+   }
+  ],
+  "expected": [
+   7,
+   10,
+   4
+  ]
+ },
+ {
+  "race_id": "202606040911",
+  "horses": [
+   {
+    "no": "16",
+    "name": "ピューロマジック",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "3",
+    "name": "ママコチャ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 5,
+    "rank": 9,
+    "corner": 12
+   },
+   {
+    "no": "14",
+    "name": "ウインカーネリアン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "13",
+    "name": "パンジャタワー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 2,
+    "rank": 4,
+    "corner": 9
+   },
+   {
+    "no": "15",
+    "name": "フリッカージャブ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "サウンドモリアーナ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 12,
+    "rank": 6,
+    "corner": 3
+   },
+   {
+    "no": "7",
+    "name": "ペアポルックス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 11,
+    "rank": 14,
+    "corner": 15
+   },
+   {
+    "no": "11",
+    "name": "ルガル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 7,
+    "corner": 5
+   },
+   {
+    "no": "8",
+    "name": "エーティーマクフィ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 10,
+    "corner": 13
+   },
+   {
+    "no": "6",
+    "name": "ワールズエンド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 4
+   },
+   {
+    "no": "10",
+    "name": "レイピア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 13,
+    "corner": 14
+   },
+   {
+    "no": "2",
+    "name": "アイサンサン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 8,
+    "corner": 11
+   },
+   {
+    "no": "4",
+    "name": "ジューンブレア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 11,
+    "corner": 7
+   },
+   {
+    "no": "9",
+    "name": "スターアニス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 12,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "レッドモンレーヴ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 15,
+    "corner": 16
+   },
+   {
+    "no": "12",
+    "name": "ブラックチャリス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 8
+   }
+  ],
+  "expected": [
+   14,
+   15,
+   13
+  ]
+ },
+ {
+  "race_id": "202606040912",
+  "horses": [
+   {
+    "no": "9",
+    "name": "ワンダラー",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 3,
+    "corner": 12
+   },
+   {
+    "no": "6",
+    "name": "キタノソワレ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 4,
+    "corner": 9
+   },
+   {
+    "no": "5",
+    "name": "コパノヴィンセント",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 13
+   },
+   {
+    "no": "2",
+    "name": "ローズカリス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "3",
+    "name": "ソウルオンファイア",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "スプランドゥール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 10,
+    "corner": 16
+   },
+   {
+    "no": "16",
+    "name": "ポッドソル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "10",
+    "name": "カネショウレジェン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 9,
+    "corner": 11
+   },
+   {
+    "no": "13",
+    "name": "ライトニングゼウス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 9,
+    "rank": 6,
+    "corner": 5
+   },
+   {
+    "no": "1",
+    "name": "アイアムユウシュン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 8,
+    "corner": 6
+   },
+   {
+    "no": "4",
+    "name": "イノセントキャット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 12,
+    "corner": 10
+   },
+   {
+    "no": "7",
+    "name": "マーゴットゲイン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 13,
+    "corner": 14
+   },
+   {
+    "no": "14",
+    "name": "クリノオリーブ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 11,
+    "corner": 2
+   },
+   {
+    "no": "12",
+    "name": "ボディブロー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 15,
+    "corner": 8
+   },
+   {
+    "no": "11",
+    "name": "ホワイトガーベラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 16,
+    "corner": 15
+   },
+   {
+    "no": "15",
+    "name": "ランウインディ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 14,
+    "corner": 3
+   }
+  ],
+  "expected": [
+   2,
+   3,
+   9
+  ]
+ },
+ {
+  "race_id": "202608040201",
+  "horses": [
+   {
+    "no": "1",
+    "name": "マーズエクレール",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "3",
+    "name": "プリメラエストレラ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 4
+   },
+   {
+    "no": "4",
+    "name": "マーノマエストロ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "6",
+    "name": "タガノフリアン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "ジュンヴァグネル",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "5",
+    "name": "ロードフェルム",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 5
+   },
+   {
+    "no": "2",
+    "name": "ベンゲル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 8
+   },
+   {
+    "no": "7",
+    "name": "ボードゥロレーヌ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 7
+   }
+  ],
+  "expected": [
+   1,
+   3,
+   4
+  ]
+ },
+ {
+  "race_id": "202608040202",
+  "horses": [
+   {
+    "no": "8",
+    "name": "レイクイーン",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 2
+   },
+   {
+    "no": "3",
+    "name": "ブロッサムスピア",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 3
+   },
+   {
+    "no": "1",
+    "name": "レインボースター",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "4",
+    "name": "キシゲヒーロー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 5
+   },
+   {
+    "no": "5",
+    "name": "テムスピード",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 7
+   },
+   {
+    "no": "6",
+    "name": "ジョン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 4
+   },
+   {
+    "no": "2",
+    "name": "アイルエクラ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 8
+   },
+   {
+    "no": "7",
+    "name": "ジャンゴッド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 1
+   },
+   {
+    "no": "9",
+    "name": "ラッキーハナコ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 9
+   }
+  ],
+  "expected": [
+   3,
+   8,
+   1
+  ]
+ },
+ {
+  "race_id": "202608040206",
+  "horses": [
+   {
+    "no": "5",
+    "name": "エチゴドラゴン",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 3
+   },
+   {
+    "no": "1",
+    "name": "タイセイリアル",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 5
+   },
+   {
+    "no": "16",
+    "name": "シャインベック",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 7,
+    "corner": 16
+   },
+   {
+    "no": "4",
+    "name": "ブームバップビート",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "12",
+    "name": "マーゴットバディ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 4
+   },
+   {
+    "no": "8",
+    "name": "テスタヴェローチェ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 15
+   },
+   {
+    "no": "2",
+    "name": "エアアルチーナ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 7
+   },
+   {
+    "no": "9",
+    "name": "インディゴ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 14
+   },
+   {
+    "no": "6",
+    "name": "ビナハイバン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 14,
+    "corner": 13
+   },
+   {
+    "no": "3",
+    "name": "メイショウソウテン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 6
+   },
+   {
+    "no": "10",
+    "name": "テイエムスターラン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 10
+   },
+   {
+    "no": "14",
+    "name": "ゴンタ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 9
+   },
+   {
+    "no": "13",
+    "name": "ホウオウストライク",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 9,
+    "corner": 2
+   },
+   {
+    "no": "15",
+    "name": "サントルドパリ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 8
+   },
+   {
+    "no": "7",
+    "name": "メイショウカスガイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 11
+   },
+   {
+    "no": "11",
+    "name": "ビゾー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 12
+   }
+  ],
+  "expected": [
+   5,
+   4,
+   1
+  ]
+ },
+ {
+  "race_id": "202608040207",
+  "horses": [
+   {
+    "no": "16",
+    "name": "ブルーレース",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 9
+   },
+   {
+    "no": "9",
+    "name": "ベルサ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 2
+   },
+   {
+    "no": "14",
+    "name": "ムーンリットアイル",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 5
+   },
+   {
+    "no": "4",
+    "name": "マウンテンバローズ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": 10,
+    "corner": 14
+   },
+   {
+    "no": "18",
+    "name": "グリフォン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 12,
+    "rank": 9,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "アーリントンロウ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 4
+   },
+   {
+    "no": "1",
+    "name": "ニシノトリビュート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 8,
+    "corner": 10
+   },
+   {
+    "no": "10",
+    "name": "ラインピクシー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 3,
+    "rank": 7,
+    "corner": 12
+   },
+   {
+    "no": "11",
+    "name": "ホーリーステップ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 11,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "15",
+    "name": "アルサック",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 3
+   },
+   {
+    "no": "8",
+    "name": "ペルフェツィオーネ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 12,
+    "corner": 17
+   },
+   {
+    "no": "3",
+    "name": "ミトノリン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 11,
+    "corner": 15
+   },
+   {
+    "no": "13",
+    "name": "ラブアイミー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 13,
+    "corner": 18
+   },
+   {
+    "no": "2",
+    "name": "グロリアスマーチ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 11
+   },
+   {
+    "no": "6",
+    "name": "ブルズアイプリンス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 16
+   },
+   {
+    "no": "7",
+    "name": "リアルアルバ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 7
+   },
+   {
+    "no": "5",
+    "name": "ダイイズキャスト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 17,
+    "rank": 17,
+    "corner": 13
+   },
+   {
+    "no": "17",
+    "name": "ソリスディエス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 18,
+    "rank": 18,
+    "corner": 6
+   }
+  ],
+  "expected": [
+   9,
+   12,
+   16
+  ]
+ },
+ {
+  "race_id": "202608040208",
+  "horses": [
+   {
+    "no": "1",
+    "name": "ライトオブヌカタ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "9",
+    "name": "キタノライブリー",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 6,
+    "corner": 14
+   },
+   {
+    "no": "4",
+    "name": "サヨノジャンボリー",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": 8,
+    "corner": 13
+   },
+   {
+    "no": "6",
+    "name": "ジューンアゲイン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 5
+   },
+   {
+    "no": "3",
+    "name": "ポッドドンナー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 9,
+    "corner": 10
+   },
+   {
+    "no": "10",
+    "name": "ザックザク",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 7
+   },
+   {
+    "no": "8",
+    "name": "メモリーグラス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 12,
+    "corner": 16
+   },
+   {
+    "no": "13",
+    "name": "フェスティヴドレス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 9,
+    "rank": 11,
+    "corner": 12
+   },
+   {
+    "no": "2",
+    "name": "アメリカンポリス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "16",
+    "name": "マキシマムビスタ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 8
+   },
+   {
+    "no": "14",
+    "name": "ランスオブセヘル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 5,
+    "corner": 1
+   },
+   {
+    "no": "11",
+    "name": "デアプリームス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 7,
+    "corner": 3
+   },
+   {
+    "no": "15",
+    "name": "バックトゥザライト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 9
+   },
+   {
+    "no": "12",
+    "name": "モンシェリ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 15
+   },
+   {
+    "no": "5",
+    "name": "オセアエクスプレス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 11
+   },
+   {
+    "no": "7",
+    "name": "エコロボルト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 4
+   }
+  ],
+  "expected": [
+   9,
+   4,
+   6
+  ]
+ },
+ {
+  "race_id": "202608040209",
+  "horses": [
+   {
+    "no": "18",
+    "name": "ロードフィレール",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "ヴィスマール",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 10
+   },
+   {
+    "no": "15",
+    "name": "ミスタージーティー",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 7
+   },
+   {
+    "no": "14",
+    "name": "ミュージシャン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 2
+   },
+   {
+    "no": "12",
+    "name": "ファームツエンティ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": 10,
+    "corner": 15
+   },
+   {
+    "no": "5",
+    "name": "キュクヌス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 4,
+    "rank": 6,
+    "corner": 11
+   },
+   {
+    "no": "4",
+    "name": "チェルノボーグ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "9",
+    "name": "ホウオウスーペリア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 9,
+    "corner": 8
+   },
+   {
+    "no": "17",
+    "name": "シンゼンカガ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 14,
+    "corner": 18
+   },
+   {
+    "no": "11",
+    "name": "ローベルクランツ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 13,
+    "corner": 16
+   },
+   {
+    "no": "1",
+    "name": "ホウオウアートマン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 11,
+    "corner": 9
+   },
+   {
+    "no": "10",
+    "name": "スズカダブル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 7,
+    "corner": 4
+   },
+   {
+    "no": "13",
+    "name": "リーティアコナル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 8,
+    "corner": 5
+   },
+   {
+    "no": "6",
+    "name": "キントリヒ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 17,
+    "rank": 17,
+    "corner": 14
+   },
+   {
+    "no": "2",
+    "name": "ナムラフッカー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 16,
+    "corner": 17
+   },
+   {
+    "no": "3",
+    "name": "レディーミコノス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 12
+   },
+   {
+    "no": "7",
+    "name": "カリーニョ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 12,
+    "corner": 3
+   },
+   {
+    "no": "16",
+    "name": "オールセインツ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 18,
+    "rank": 18,
+    "corner": 13
+   }
+  ],
+  "expected": [
+   18,
+   8,
+   15
+  ]
+ },
+ {
+  "race_id": "202608040210",
+  "horses": [
+   {
+    "no": "5",
+    "name": "ロードフロンティア",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 4,
+    "corner": 9
+   },
+   {
+    "no": "6",
+    "name": "ペプチドヤマト",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 6,
+    "corner": 14
+   },
+   {
+    "no": "7",
+    "name": "メイショウホウレン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 2
+   },
+   {
+    "no": "8",
+    "name": "コンクイスタ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 4
+   },
+   {
+    "no": "13",
+    "name": "ドンレパルス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "14",
+    "name": "ゼットエール",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "10",
+    "name": "スマートフォルス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 10
+   },
+   {
+    "no": "16",
+    "name": "エコロエイト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 11,
+    "corner": 8
+   },
+   {
+    "no": "9",
+    "name": "エンヤラヴフェイス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 10,
+    "corner": 15
+   },
+   {
+    "no": "4",
+    "name": "ロードアウォード",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 8,
+    "corner": 6
+   },
+   {
+    "no": "1",
+    "name": "ロードラディウス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 9,
+    "corner": 3
+   },
+   {
+    "no": "2",
+    "name": "グッジョブ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 15,
+    "corner": 16
+   },
+   {
+    "no": "15",
+    "name": "ルージュラナキラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 7
+   },
+   {
+    "no": "3",
+    "name": "アガシ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 12,
+    "corner": 11
+   },
+   {
+    "no": "12",
+    "name": "サトノカルナバル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 14,
+    "corner": 12
+   },
+   {
+    "no": "11",
+    "name": "ケイアイアニラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 13
+   }
+  ],
+  "expected": [
+   8,
+   7,
+   14
+  ]
+ },
+ {
+  "race_id": "202608040211",
+  "horses": [
+   {
+    "no": "6",
+    "name": "アクアヴァーナル",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 3,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "16",
+    "name": "ショウナンラプンタ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 11
+   },
+   {
+    "no": "3",
+    "name": "ディープモンスター",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 1,
+    "rank": 4,
+    "corner": 15
+   },
+   {
+    "no": "2",
+    "name": "ヴェルテンベルク",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 6,
+    "corner": 17
+   },
+   {
+    "no": "4",
+    "name": "ヘデントール",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 3,
+    "corner": 10
+   },
+   {
+    "no": "5",
+    "name": "ヴェルミセル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 11,
+    "corner": 16
+   },
+   {
+    "no": "1",
+    "name": "ウエストナウ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 8,
+    "corner": 8
+   },
+   {
+    "no": "15",
+    "name": "メイショウブレゲ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 13,
+    "corner": 18
+   },
+   {
+    "no": "10",
+    "name": "マイネルエンペラー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 5,
+    "corner": 2
+   },
+   {
+    "no": "17",
+    "name": "キングスコール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 7,
+    "corner": 3
+   },
+   {
+    "no": "18",
+    "name": "ダノンシーマ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 7
+   },
+   {
+    "no": "14",
+    "name": "サヴォーナ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 12,
+    "corner": 14
+   },
+   {
+    "no": "13",
+    "name": "サフィラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 15,
+    "corner": 13
+   },
+   {
+    "no": "8",
+    "name": "ミクニインスパイア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 17,
+    "corner": 12
+   },
+   {
+    "no": "11",
+    "name": "ファミリータイム",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 14,
+    "corner": 9
+   },
+   {
+    "no": "9",
+    "name": "ミステリーウェイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 10,
+    "corner": 4
+   },
+   {
+    "no": "12",
+    "name": "エコロディノス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 17,
+    "rank": 16,
+    "corner": 5
+   },
+   {
+    "no": "7",
+    "name": "リビアングラス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 18,
+    "rank": 18,
+    "corner": 6
+   }
+  ],
+  "expected": [
+   6,
+   3,
+   16
+  ]
+ },
+ {
+  "race_id": "202608040212",
+  "horses": [
+   {
+    "no": "9",
+    "name": "トップアタック",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "5",
+    "name": "モンサンゴールデン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 3,
+    "corner": 13
+   },
+   {
+    "no": "11",
+    "name": "アイニードユー",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "4",
+    "name": "ガラベイヤ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 11
+   },
+   {
+    "no": "12",
+    "name": "サクセスカラー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 10,
+    "corner": 17
+   },
+   {
+    "no": "14",
+    "name": "マーゴットミスト",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 8
+   },
+   {
+    "no": "6",
+    "name": "サンライズプルート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 7,
+    "corner": 6
+   },
+   {
+    "no": "16",
+    "name": "スネーフリンガ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 7
+   },
+   {
+    "no": "15",
+    "name": "マイネルラッシュ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 11,
+    "corner": 18
+   },
+   {
+    "no": "2",
+    "name": "スイミーユニバンス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 13,
+    "corner": 16
+   },
+   {
+    "no": "7",
+    "name": "ロードトレゾール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 6,
+    "corner": 1
+   },
+   {
+    "no": "1",
+    "name": "ファイツオン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 8,
+    "corner": 2
+   },
+   {
+    "no": "18",
+    "name": "ルージュサウダージ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 17,
+    "corner": 15
+   },
+   {
+    "no": "8",
+    "name": "バシレウスシチー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 14
+   },
+   {
+    "no": "10",
+    "name": "メイショウゴールド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 12
+   },
+   {
+    "no": "13",
+    "name": "グッドピース",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 10
+   },
+   {
+    "no": "3",
+    "name": "ジュルナール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 17,
+    "rank": 16,
+    "corner": 9
+   },
+   {
+    "no": "17",
+    "name": "タマカヅラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 18,
+    "rank": 18,
+    "corner": 5
+   }
+  ],
+  "expected": [
+   9,
+   11,
+   5
+  ]
+ },
+ {
+  "race_id": "202608040301",
+  "horses": [
+   {
+    "no": "3",
+    "name": "サンライズビッグ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 5,
+    "corner": 7
+   },
+   {
+    "no": "8",
+    "name": "フラッシングルビー",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "2",
+    "name": "リヴァイアサン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "14",
+    "name": "マコトブリッツ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 2
+   },
+   {
+    "no": "7",
+    "name": "ノヴァアクレイム",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 6
+   },
+   {
+    "no": "6",
+    "name": "ジョイザモーメント",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "9",
+    "name": "パクスフェリーチェ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 8,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "ダンスコマンド",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 11,
+    "corner": 13
+   },
+   {
+    "no": "11",
+    "name": "バヤールロック",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 9,
+    "corner": 14
+   },
+   {
+    "no": "4",
+    "name": "レイルジェット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 12,
+    "corner": 12
+   },
+   {
+    "no": "13",
+    "name": "コンヴィヴィアル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 10
+   },
+   {
+    "no": "10",
+    "name": "ジェルメーヌ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 7,
+    "corner": 5
+   },
+   {
+    "no": "5",
+    "name": "バトゥル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "エヴァサンライズ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 11
+   }
+  ],
+  "expected": [
+   2,
+   8,
+   14
+  ]
+ },
+ {
+  "race_id": "202608040302",
+  "horses": [
+   {
+    "no": "8",
+    "name": "バティック",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "9",
+    "name": "ルージュプリメーロ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 8
+   },
+   {
+    "no": "5",
+    "name": "ジョリーエピキュア",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "4",
+    "name": "アヴレディール",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 8,
+    "corner": 7
+   },
+   {
+    "no": "3",
+    "name": "イーサンマリーン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "1",
+    "name": "ダノンキューブ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 4
+   },
+   {
+    "no": "2",
+    "name": "コンセルノ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 5
+   },
+   {
+    "no": "7",
+    "name": "マリナーヴァレイ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 2
+   },
+   {
+    "no": "6",
+    "name": "リヴィエラヴィル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 9
+   }
+  ],
+  "expected": [
+   8,
+   5,
+   9
+  ]
+ },
+ {
+  "race_id": "202608040303",
+  "horses": [
+   {
+    "no": "2",
+    "name": "ジャンゴッド",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "プレシャスタイム",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 3
+   },
+   {
+    "no": "6",
+    "name": "ドーンレーサー",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 4
+   },
+   {
+    "no": "5",
+    "name": "シャーロットタウン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 2,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "4",
+    "name": "アイオリスパルス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 2
+   },
+   {
+    "no": "7",
+    "name": "ロックウイズミー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 8
+   },
+   {
+    "no": "3",
+    "name": "メイショウリベロ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 6
+   },
+   {
+    "no": "1",
+    "name": "ダイヴ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 7
+   }
+  ],
+  "expected": [
+   8,
+   2,
+   6
+  ]
+ },
+ {
+  "race_id": "202608040307",
+  "horses": [
+   {
+    "no": "14",
+    "name": "シュネルアンジュ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 3
+   },
+   {
+    "no": "13",
+    "name": "レディーゴール",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 16
+   },
+   {
+    "no": "3",
+    "name": "リアンクトワ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 6,
+    "rank": 12,
+    "corner": 15
+   },
+   {
+    "no": "4",
+    "name": "エイコーンドリーム",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 9
+   },
+   {
+    "no": "16",
+    "name": "ドリームキャリー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "9",
+    "name": "アンリーベイビー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 3,
+    "rank": 6,
+    "corner": 13
+   },
+   {
+    "no": "7",
+    "name": "ガールズデイアウト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 5
+   },
+   {
+    "no": "11",
+    "name": "リーチグローリー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 10
+   },
+   {
+    "no": "15",
+    "name": "ヒメモモアスク",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 6
+   },
+   {
+    "no": "1",
+    "name": "ブラックドレス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 8,
+    "corner": 11
+   },
+   {
+    "no": "12",
+    "name": "アーデルリーベ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 15,
+    "corner": 12
+   },
+   {
+    "no": "8",
+    "name": "オーケーリアン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 7
+   },
+   {
+    "no": "6",
+    "name": "オヤツノジカン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 9,
+    "corner": 8
+   },
+   {
+    "no": "5",
+    "name": "クイーンズホリデー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 11,
+    "corner": 2
+   },
+   {
+    "no": "10",
+    "name": "フェロニエール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 13,
+    "corner": 4
+   },
+   {
+    "no": "2",
+    "name": "シャフメラン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 14
+   }
+  ],
+  "expected": [
+   14,
+   13,
+   9
+  ]
+ },
+ {
+  "race_id": "202608040308",
+  "horses": [
+   {
+    "no": "4",
+    "name": "ゴーイントゥノヴァ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "ビップヴィーナス",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 4
+   },
+   {
+    "no": "1",
+    "name": "ニシノフランケン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "2",
+    "name": "ホウオウワールド",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 3
+   },
+   {
+    "no": "6",
+    "name": "ドラゴンバルド",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "3",
+    "name": "ポルトブルー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 6
+   }
+  ],
+  "expected": [
+   4,
+   5,
+   2
+  ]
+ },
+ {
+  "race_id": "202608040309",
+  "horses": [
+   {
+    "no": "4",
+    "name": "マテンロウミラクル",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 16
+   },
+   {
+    "no": "6",
+    "name": "テーオーパーセル",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "9",
+    "name": "オウケンブラッド",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 15
+   },
+   {
+    "no": "2",
+    "name": "アパレイユ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 2,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "エナジーガンツ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 7,
+    "corner": 13
+   },
+   {
+    "no": "16",
+    "name": "フィアーブル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 5
+   },
+   {
+    "no": "11",
+    "name": "ウォーターパラディ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 3
+   },
+   {
+    "no": "7",
+    "name": "グランデスフィーダ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 6
+   },
+   {
+    "no": "3",
+    "name": "チャチャピンク",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "デュアルロール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 14
+   },
+   {
+    "no": "12",
+    "name": "エシェックオロワ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 12,
+    "corner": 9
+   },
+   {
+    "no": "10",
+    "name": "サトノロザリー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 9,
+    "corner": 2
+   },
+   {
+    "no": "15",
+    "name": "リアルアルバ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 11
+   },
+   {
+    "no": "14",
+    "name": "モズイージス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 7
+   },
+   {
+    "no": "5",
+    "name": "ケイエイト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 12
+   },
+   {
+    "no": "13",
+    "name": "ナムラドロン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 8
+   }
+  ],
+  "expected": [
+   6,
+   2,
+   4
+  ]
+ },
+ {
+  "race_id": "202608040310",
+  "horses": [
+   {
+    "no": "2",
+    "name": "ノボリリア",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "13",
+    "name": "タナスーペルノーバ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 3,
+    "rank": 4,
+    "corner": 7
+   },
+   {
+    "no": "11",
+    "name": "マーゴットラヴミー",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 2,
+    "corner": 2
+   },
+   {
+    "no": "14",
+    "name": "キングケープ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "15",
+    "name": "ワンコールアウェイ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "タガノアンファン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 10
+   },
+   {
+    "no": "6",
+    "name": "エルハーベン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 8,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "テーオーシュタイン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 12
+   },
+   {
+    "no": "9",
+    "name": "ヒーローインチーフ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 14
+   },
+   {
+    "no": "7",
+    "name": "アイルドリアン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 7,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "ウチュウノセカイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 12,
+    "corner": 5
+   },
+   {
+    "no": "4",
+    "name": "プチプラージュ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 13,
+    "corner": 15
+   },
+   {
+    "no": "10",
+    "name": "ヤマニンレセディ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 11
+   },
+   {
+    "no": "3",
+    "name": "ブルーサンセット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 11,
+    "corner": 3
+   },
+   {
+    "no": "5",
+    "name": "アスゴッド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 13
+   }
+  ],
+  "expected": [
+   2,
+   11,
+   14
+  ]
+ },
+ {
+  "race_id": "202608040311",
+  "horses": [
+   {
+    "no": "12",
+    "name": "ゲキザル",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 3,
+    "corner": 12
+   },
+   {
+    "no": "4",
+    "name": "ショウサンジョージ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "11",
+    "name": "サイモンシュバリエ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "3",
+    "name": "ドラゴン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "6",
+    "name": "オリーブグリーン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 9
+   },
+   {
+    "no": "8",
+    "name": "メイショウコガシラ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 10,
+    "corner": 10
+   },
+   {
+    "no": "9",
+    "name": "ラオラシオン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 5,
+    "rank": 8,
+    "corner": 11
+   },
+   {
+    "no": "1",
+    "name": "ダンツシタン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 7
+   },
+   {
+    "no": "2",
+    "name": "ミカッテヨンデイイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 12,
+    "corner": 13
+   },
+   {
+    "no": "5",
+    "name": "リベッチオ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 4,
+    "corner": 2
+   },
+   {
+    "no": "7",
+    "name": "テーオールビー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 9,
+    "corner": 5
+   },
+   {
+    "no": "13",
+    "name": "サンライズケヴィン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 11,
+    "corner": 1
+   },
+   {
+    "no": "10",
+    "name": "ベルダイナフェロー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 13,
+    "corner": 8
+   }
+  ],
+  "expected": [
+   3,
+   11,
+   12
+  ]
+ },
+ {
+  "race_id": "202608040312",
+  "horses": [
+   {
+    "no": "9",
+    "name": "ララバッカナール",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "ペプチドレオン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 3
+   },
+   {
+    "no": "7",
+    "name": "ガビーズブラザー",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 6,
+    "rank": 10,
+    "corner": 13
+   },
+   {
+    "no": "15",
+    "name": "テイクイットオール",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 6
+   },
+   {
+    "no": "12",
+    "name": "ジャカルタバオ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 7,
+    "corner": 14
+   },
+   {
+    "no": "6",
+    "name": "レイム",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 11
+   },
+   {
+    "no": "3",
+    "name": "スレッドザニードル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 10
+   },
+   {
+    "no": "8",
+    "name": "テーオーカイザー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 12,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "16",
+    "name": "モズジェネラル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 6,
+    "corner": 4
+   },
+   {
+    "no": "10",
+    "name": "クリノセーラーマン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 14,
+    "corner": 12
+   },
+   {
+    "no": "4",
+    "name": "キアヌ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 13,
+    "corner": 16
+   },
+   {
+    "no": "11",
+    "name": "ダディーズアイル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 12,
+    "corner": 7
+   },
+   {
+    "no": "2",
+    "name": "ゼルダ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 8,
+    "corner": 5
+   },
+   {
+    "no": "1",
+    "name": "リテラシー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 11,
+    "corner": 8
+   },
+   {
+    "no": "14",
+    "name": "コンテナライン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 15
+   },
+   {
+    "no": "13",
+    "name": "シャープインサイト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 9
+   }
+  ],
+  "expected": [
+   5,
+   9,
+   15
+  ]
+ },
+ {
+  "race_id": "202608040401",
+  "horses": [
+   {
+    "no": "6",
+    "name": "グランモンターナ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 7
+   },
+   {
+    "no": "3",
+    "name": "コパノキャンペーン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 5
+   },
+   {
+    "no": "12",
+    "name": "ヤマトデュノール",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 4,
+    "corner": 14
+   },
+   {
+    "no": "14",
+    "name": "シガレス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "サウンドエフォート",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 15
+   },
+   {
+    "no": "13",
+    "name": "テリオスベラ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "9",
+    "name": "アイルエクラ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 10,
+    "corner": 11
+   },
+   {
+    "no": "4",
+    "name": "スティルラブハー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 8,
+    "corner": 1
+   },
+   {
+    "no": "10",
+    "name": "トリオハピネス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 9,
+    "corner": 4
+   },
+   {
+    "no": "7",
+    "name": "タガノレクシア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "スイートモンブラン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 8
+   },
+   {
+    "no": "2",
+    "name": "チョウサクラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 13,
+    "corner": 12
+   },
+   {
+    "no": "8",
+    "name": "ナムラモモタロー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 12,
+    "corner": 3
+   },
+   {
+    "no": "15",
+    "name": "ユイパルティ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 15,
+    "corner": 13
+   },
+   {
+    "no": "11",
+    "name": "ジーティーキャメル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 14,
+    "corner": 9
+   }
+  ],
+  "expected": [
+   6,
+   3,
+   12
+  ]
+ },
+ {
+  "race_id": "202608040402",
+  "horses": [
+   {
+    "no": "2",
+    "name": "ロードフローリス",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "9",
+    "name": "ソウカイファンキー",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 6
+   },
+   {
+    "no": "10",
+    "name": "パーセンタイル",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 4,
+    "corner": 10
+   },
+   {
+    "no": "8",
+    "name": "ウィナーズチェック",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 9
+   },
+   {
+    "no": "6",
+    "name": "ハヤブサカツオー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 5
+   },
+   {
+    "no": "3",
+    "name": "オンユアマークス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 3
+   },
+   {
+    "no": "4",
+    "name": "ルパドゥクール",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "ジーティールーナ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 4
+   },
+   {
+    "no": "1",
+    "name": "プラトーローザ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 8
+   },
+   {
+    "no": "7",
+    "name": "ツーエムブレード",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 7
+   }
+  ],
+  "expected": [
+   2,
+   3,
+   9
+  ]
+ },
+ {
+  "race_id": "202608040406",
+  "horses": [
+   {
+    "no": "3",
+    "name": "キタノシャカール",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 6
+   },
+   {
+    "no": "2",
+    "name": "ココロヅヨサ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "6",
+    "name": "ルファーダ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 11
+   },
+   {
+    "no": "10",
+    "name": "ジャスティンダラス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 2,
+    "corner": 2
+   },
+   {
+    "no": "1",
+    "name": "ブラックレジェンド",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 7
+   },
+   {
+    "no": "13",
+    "name": "ダイメイクマモト",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 4,
+    "corner": 3
+   },
+   {
+    "no": "14",
+    "name": "レザーアンドレース",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 10,
+    "corner": 16
+   },
+   {
+    "no": "4",
+    "name": "ミヤジオズ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 10,
+    "rank": 8,
+    "corner": 4
+   },
+   {
+    "no": "11",
+    "name": "ゴールデンスラム",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 7,
+    "corner": 10
+   },
+   {
+    "no": "12",
+    "name": "メイショウオグマ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 12
+   },
+   {
+    "no": "8",
+    "name": "コルヴァス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 9
+   },
+   {
+    "no": "9",
+    "name": "クリュギスト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 13,
+    "corner": 8
+   },
+   {
+    "no": "5",
+    "name": "ブルーストレイル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 15,
+    "corner": 15
+   },
+   {
+    "no": "15",
+    "name": "ブレイジングスター",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 14,
+    "corner": 14
+   },
+   {
+    "no": "7",
+    "name": "アルビオン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 16,
+    "corner": 13
+   },
+   {
+    "no": "16",
+    "name": "ハイロード",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 12,
+    "corner": 1
+   }
+  ],
+  "expected": [
+   10,
+   3,
+   6
+  ]
+ },
+ {
+  "race_id": "202608040407",
+  "horses": [
+   {
+    "no": "10",
+    "name": "マイリトルヒーロー",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 4
+   },
+   {
+    "no": "2",
+    "name": "ダイチノナポリ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 3,
+    "corner": 7
+   },
+   {
+    "no": "6",
+    "name": "ラヴェニュー",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "11",
+    "name": "カーメルタザイト",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 7,
+    "corner": 11
+   },
+   {
+    "no": "3",
+    "name": "オーシンエス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": 8,
+    "corner": 9
+   },
+   {
+    "no": "8",
+    "name": "ブルーミングローズ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "9",
+    "name": "サラコスティ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "5",
+    "name": "ラパンドール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 6,
+    "corner": 3
+   },
+   {
+    "no": "7",
+    "name": "メイショウハンター",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 5
+   },
+   {
+    "no": "4",
+    "name": "カフジキアッキエレ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "グリュイエール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 8
+   }
+  ],
+  "expected": [
+   10,
+   6,
+   2
+  ]
+ },
+ {
+  "race_id": "202608040408",
+  "horses": [
+   {
+    "no": "2",
+    "name": "ヴンダーバール",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 5
+   },
+   {
+    "no": "13",
+    "name": "ロイスター",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 14
+   },
+   {
+    "no": "8",
+    "name": "オデット",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 6
+   },
+   {
+    "no": "7",
+    "name": "ハギノコラソン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 7,
+    "corner": 9
+   },
+   {
+    "no": "16",
+    "name": "カスバートテソーロ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": 12,
+    "corner": 15
+   },
+   {
+    "no": "3",
+    "name": "ヴァンアグレアブル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 8,
+    "corner": 11
+   },
+   {
+    "no": "4",
+    "name": "エターナルプロミス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 9,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "エアニゲラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 4,
+    "corner": 1
+   },
+   {
+    "no": "6",
+    "name": "プウスカンドゥール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 16
+   },
+   {
+    "no": "9",
+    "name": "マクノス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 7
+   },
+   {
+    "no": "1",
+    "name": "コスモマルーン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 13,
+    "corner": 10
+   },
+   {
+    "no": "10",
+    "name": "オーケアニス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 6,
+    "corner": 2
+   },
+   {
+    "no": "15",
+    "name": "カルミアクラウン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 5,
+    "corner": 4
+   },
+   {
+    "no": "11",
+    "name": "ステアハート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 10,
+    "corner": 3
+   },
+   {
+    "no": "14",
+    "name": "ゼットレジーナ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 13
+   },
+   {
+    "no": "5",
+    "name": "ラヴァブル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 12
+   }
+  ],
+  "expected": [
+   2,
+   13,
+   8
+  ]
+ },
+ {
+  "race_id": "202608040409",
+  "horses": [
+   {
+    "no": "7",
+    "name": "タカスタカスタカス",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "8",
+    "name": "タイセイディアマン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 7
+   },
+   {
+    "no": "16",
+    "name": "セールヴォラン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 5
+   },
+   {
+    "no": "15",
+    "name": "パールフロント",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 12
+   },
+   {
+    "no": "14",
+    "name": "カワキタマナレア",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 11
+   },
+   {
+    "no": "3",
+    "name": "ストラテージュ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 11,
+    "corner": 10
+   },
+   {
+    "no": "12",
+    "name": "アオイレーギーナ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 8
+   },
+   {
+    "no": "9",
+    "name": "フェアリーライズ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": 13,
+    "corner": 14
+   },
+   {
+    "no": "6",
+    "name": "セルヴァンス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 6,
+    "corner": 3
+   },
+   {
+    "no": "13",
+    "name": "バッハアルプゼー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 6
+   },
+   {
+    "no": "10",
+    "name": "ダノンプリマ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 7,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "クインズシフォン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 15,
+    "corner": 15
+   },
+   {
+    "no": "4",
+    "name": "ルクスレイモンド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 8,
+    "corner": 4
+   },
+   {
+    "no": "1",
+    "name": "メイショウバルク",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 12,
+    "corner": 9
+   },
+   {
+    "no": "2",
+    "name": "レッドレベンディス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 14,
+    "corner": 13
+   },
+   {
+    "no": "11",
+    "name": "フレンズプラス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 16
+   }
+  ],
+  "expected": [
+   7,
+   8,
+   16
+  ]
+ },
+ {
+  "race_id": "202608040410",
+  "horses": [
+   {
+    "no": "11",
+    "name": "フェアリーライク",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 17
+   },
+   {
+    "no": "4",
+    "name": "トミーバローズ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 10
+   },
+   {
+    "no": "16",
+    "name": "エポックヴィーナス",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 7,
+    "corner": 15
+   },
+   {
+    "no": "17",
+    "name": "マトラコーニッシュ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 11
+   },
+   {
+    "no": "5",
+    "name": "ハギノアルデバラン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": 10,
+    "corner": 16
+   },
+   {
+    "no": "15",
+    "name": "ウォータークラーク",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 8
+   },
+   {
+    "no": "9",
+    "name": "サクセスアイ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 12,
+    "corner": 7
+   },
+   {
+    "no": "12",
+    "name": "キングメーカー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 3,
+    "rank": 6,
+    "corner": 13
+   },
+   {
+    "no": "10",
+    "name": "モアリジット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 13,
+    "corner": 6
+   },
+   {
+    "no": "13",
+    "name": "クスクス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 3,
+    "corner": 3
+   },
+   {
+    "no": "14",
+    "name": "ノクナレア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 9
+   },
+   {
+    "no": "3",
+    "name": "リゾートアイランド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 5
+   },
+   {
+    "no": "2",
+    "name": "スーサンアッシャー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 8,
+    "corner": 12
+   },
+   {
+    "no": "8",
+    "name": "ミッキージュエリー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 9,
+    "corner": 1
+   },
+   {
+    "no": "1",
+    "name": "アルトゥーム",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 16,
+    "corner": 14
+   },
+   {
+    "no": "7",
+    "name": "アヴィオン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 15,
+    "corner": 2
+   },
+   {
+    "no": "6",
+    "name": "モズカトレア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 17,
+    "rank": 17,
+    "corner": 4
+   }
+  ],
+  "expected": [
+   11,
+   4,
+   12
+  ]
+ },
+ {
+  "race_id": "202608040411",
+  "horses": [
+   {
+    "no": "3",
+    "name": "バスタードサフラン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "2",
+    "name": "パシアンジャン",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 5
+   },
+   {
+    "no": "13",
+    "name": "メルカントゥール",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 6,
+    "rank": 3,
+    "corner": 4
+   },
+   {
+    "no": "5",
+    "name": "タガノバビロン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 4,
+    "corner": 9
+   },
+   {
+    "no": "4",
+    "name": "ハナウマビーチ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": 9,
+    "corner": 11
+   },
+   {
+    "no": "1",
+    "name": "モックモック",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 10
+   },
+   {
+    "no": "9",
+    "name": "ベルウェザー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 4,
+    "rank": 8,
+    "corner": 14
+   },
+   {
+    "no": "11",
+    "name": "マリオロード",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 13,
+    "corner": 13
+   },
+   {
+    "no": "8",
+    "name": "シュラザック",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 7,
+    "corner": 6
+   },
+   {
+    "no": "10",
+    "name": "レアンダー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 6,
+    "corner": 3
+   },
+   {
+    "no": "12",
+    "name": "ペイシャモノノフ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 7
+   },
+   {
+    "no": "7",
+    "name": "ヴィンセンシオ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 12,
+    "corner": 8
+   },
+   {
+    "no": "14",
+    "name": "ミッキークレスト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 14,
+    "corner": 12
+   },
+   {
+    "no": "6",
+    "name": "ブルーサン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 10,
+    "corner": 2
+   }
+  ],
+  "expected": [
+   3,
+   2,
+   5
+  ]
+ },
+ {
+  "race_id": "202608040412",
+  "horses": [
+   {
+    "no": "15",
+    "name": "ニシノイツキムスメ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 5
+   },
+   {
+    "no": "4",
+    "name": "ペイシャシス",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 4,
+    "corner": 14
+   },
+   {
+    "no": "16",
+    "name": "ウインラウダ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 10
+   },
+   {
+    "no": "3",
+    "name": "ダークマルス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "12",
+    "name": "レインボーステート",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 7,
+    "corner": 12
+   },
+   {
+    "no": "6",
+    "name": "ルートサーティーン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "13",
+    "name": "ドーギッド",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 11,
+    "corner": 8
+   },
+   {
+    "no": "14",
+    "name": "エスティヴァリス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 13,
+    "corner": 13
+   },
+   {
+    "no": "11",
+    "name": "マゲバスピード",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 4
+   },
+   {
+    "no": "8",
+    "name": "エグジスタンス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 8,
+    "corner": 2
+   },
+   {
+    "no": "10",
+    "name": "ルディシャ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 15
+   },
+   {
+    "no": "2",
+    "name": "タイムレスキス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 9,
+    "corner": 6
+   },
+   {
+    "no": "1",
+    "name": "メイショウトウコウ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 11
+   },
+   {
+    "no": "7",
+    "name": "ウォーターデライト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 9
+   },
+   {
+    "no": "9",
+    "name": "ミッキーコンドル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 16,
+    "corner": 16
+   },
+   {
+    "no": "5",
+    "name": "サトノセプター",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 15,
+    "corner": 7
+   }
+  ],
+  "expected": [
+   3,
+   15,
+   4
+  ]
+ },
+ {
+  "race_id": "202609040801",
+  "horses": [
+   {
+    "no": "10",
+    "name": "スカイメテオ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "ウルスチャージ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "11",
+    "name": "ユイリノベーション",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "2",
+    "name": "リアルメッセージ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "6",
+    "name": "ヤマトクオーレ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "8",
+    "name": "テーオーダーウィン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "4",
+    "name": "サウンドエフォート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "ガヤーズランボー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "3",
+    "name": "ルーストカール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "9",
+    "name": "ウィザードシチー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "7",
+    "name": "シュライアハフト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 3
+   }
+  ],
+  "expected": [
+   10,
+   5,
+   11
+  ]
+ },
+ {
+  "race_id": "202609040802",
+  "horses": [
+   {
+    "no": "6",
+    "name": "パルパル",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "1",
+    "name": "アレストラウム",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "2",
+    "name": "アイゼンフォルク",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "3",
+    "name": "クリスティーナ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "5",
+    "name": "ヘスティア",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "7",
+    "name": "シャイニーヒーロー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "4",
+    "name": "ホットハニーラグ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 5
+   }
+  ],
+  "expected": [
+   6,
+   1,
+   2
+  ]
+ },
+ {
+  "race_id": "202609040803",
+  "horses": [
+   {
+    "no": "3",
+    "name": "ニクスルーナ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "2",
+    "name": "スマートエール",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "11",
+    "name": "ヤマニンアルセド",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "1",
+    "name": "プリンキピッサ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "7",
+    "name": "ベルメグスタ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "5",
+    "name": "マーゴットマシェリ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "6",
+    "name": "スクールディーヴァ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "10",
+    "name": "フォルトゥナロッサ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "9",
+    "name": "リボンロゼッタ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "14",
+    "name": "ヴィヴィアンリーチ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "15",
+    "name": "シガレス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "8",
+    "name": "リンピッド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 14
+   },
+   {
+    "no": "4",
+    "name": "ビエントゾンダ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "12",
+    "name": "ラガーレッドムーン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": null,
+    "corner": 13
+   },
+   {
+    "no": "13",
+    "name": "モンドドゥアムール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": null,
+    "corner": 15
+   }
+  ],
+  "expected": [
+   2,
+   3,
+   11
+  ]
+ },
+ {
+  "race_id": "202609040806",
+  "horses": [
+   {
+    "no": "10",
+    "name": "メイショウペイト",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 13
+   },
+   {
+    "no": "8",
+    "name": "ウルフ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "11",
+    "name": "ブリオメンテ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "3",
+    "name": "ビズロード",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "15",
+    "name": "ララオウ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "9",
+    "name": "モズプリヴェール",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "2",
+    "name": "ケイアイアマゾン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "13",
+    "name": "ミランド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "4",
+    "name": "エイシンマールス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "5",
+    "name": "シーリュウシー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 15
+   },
+   {
+    "no": "16",
+    "name": "シオンダンサー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "7",
+    "name": "ブルーストレイル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 16
+   },
+   {
+    "no": "6",
+    "name": "サンマルミッション",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "ワルトシュタイン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "1",
+    "name": "ランドブレイブ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": null,
+    "corner": 14
+   },
+   {
+    "no": "14",
+    "name": "ダノンアンドレ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": null,
+    "corner": 6
+   }
+  ],
+  "expected": [
+   8,
+   11,
+   10
+  ]
+ },
+ {
+  "race_id": "202609040807",
+  "horses": [
+   {
+    "no": "5",
+    "name": "エレガンスアスク",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "11",
+    "name": "ムーンライトラガー",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "8",
+    "name": "コレオシークエンス",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "12",
+    "name": "サトノアグード",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "4",
+    "name": "レインボーステート",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "13",
+    "name": "プチプランス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "6",
+    "name": "ウインラウダ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "7",
+    "name": "シャーリーゴールド",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "10",
+    "name": "ベネサルート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "3",
+    "name": "エクリュ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "2",
+    "name": "エンジェルボイス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "1",
+    "name": "ランスオブヒーロー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "9",
+    "name": "ウォーターエルピス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 13
+   }
+  ],
+  "expected": [
+   5,
+   12,
+   8
+  ]
+ },
+ {
+  "race_id": "202609040808",
+  "horses": [
+   {
+    "no": "10",
+    "name": "ボンボンベイビー",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "2",
+    "name": "ニホンピロゴルディ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "4",
+    "name": "エースフライト",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "6",
+    "name": "シュプリームレルム",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "9",
+    "name": "メイショウピリカ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "11",
+    "name": "マサハヤヴォス",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "8",
+    "name": "ビヨンドザドリーム",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "3",
+    "name": "コジオスコ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "7",
+    "name": "コレデヨカロウ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "1",
+    "name": "サトノブリジャール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "5",
+    "name": "トモジャシック",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 8
+   }
+  ],
+  "expected": [
+   10,
+   4,
+   8
+  ]
+ },
+ {
+  "race_id": "202609040809",
+  "horses": [
+   {
+    "no": "8",
+    "name": "ユイノエスポワール",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "4",
+    "name": "ベルヴェール",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "1",
+    "name": "ナイトパイロット",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "5",
+    "name": "ヌーンベルク",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "3",
+    "name": "エランヴィータ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "7",
+    "name": "スマートポーション",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "6",
+    "name": "ウンディーネ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "2",
+    "name": "リーチツモドライチ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 3
+   }
+  ],
+  "expected": [
+   1,
+   3,
+   5
+  ]
+ },
+ {
+  "race_id": "202609040810",
+  "horses": [
+   {
+    "no": "2",
+    "name": "ストップザタイム",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "14",
+    "name": "アイガーリー",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "ヴォーカライズ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "8",
+    "name": "ショウナンバルドル",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "11",
+    "name": "ジーティーマン",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "9",
+    "name": "ストームサンダー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 14
+   },
+   {
+    "no": "3",
+    "name": "テーオーシュタイン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "13",
+    "name": "ツーネサーン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "4",
+    "name": "アジュマン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "12",
+    "name": "スナークピカソ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "5",
+    "name": "シーミハットク",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "6",
+    "name": "オーシャントライブ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 13
+   },
+   {
+    "no": "7",
+    "name": "ウィルサヴァイブ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "10",
+    "name": "フェイトライン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": null,
+    "corner": 2
+   }
+  ],
+  "expected": [
+   2,
+   1,
+   14
+  ]
+ },
+ {
+  "race_id": "202609040811",
+  "horses": [
+   {
+    "no": "13",
+    "name": "ラムジェット",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "8",
+    "name": "ダブルジョーク",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "1",
+    "name": "ジューンアヲニヨシ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "14",
+    "name": "リアレスト",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "12",
+    "name": "マイノワール",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 15
+   },
+   {
+    "no": "15",
+    "name": "カズタンジャー",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "6",
+    "name": "ギュルヴィ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "2",
+    "name": "ゼットリアン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 14
+   },
+   {
+    "no": "16",
+    "name": "オニャンコポン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 16
+   },
+   {
+    "no": "5",
+    "name": "ハピ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "4",
+    "name": "ダイシンピスケス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 13
+   },
+   {
+    "no": "11",
+    "name": "ヴァルツァーシャル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "10",
+    "name": "サイモンザナドゥ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "3",
+    "name": "メイショウズイウン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "9",
+    "name": "ルシュヴァルドール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "7",
+    "name": "ミッキークレスト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": null,
+    "corner": 8
+   }
+  ],
+  "expected": [
+   1,
+   6,
+   13
+  ]
+ },
+ {
+  "race_id": "202609040812",
+  "horses": [
+   {
+    "no": "7",
+    "name": "タイセイディアマン",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": null,
+    "corner": 6
+   },
+   {
+    "no": "6",
+    "name": "ゴールデンバランス",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": null,
+    "corner": 4
+   },
+   {
+    "no": "8",
+    "name": "インディゴアスール",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": null,
+    "corner": 2
+   },
+   {
+    "no": "1",
+    "name": "スターウェーブ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": null,
+    "corner": 7
+   },
+   {
+    "no": "4",
+    "name": "ザウリ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": null,
+    "corner": 11
+   },
+   {
+    "no": "11",
+    "name": "キャッチアシーフ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 9,
+    "rank": null,
+    "corner": 12
+   },
+   {
+    "no": "10",
+    "name": "ニホンピロカラット",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": null,
+    "corner": 5
+   },
+   {
+    "no": "5",
+    "name": "ブルーノート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": null,
+    "corner": 14
+   },
+   {
+    "no": "2",
+    "name": "レッドレベンディス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": null,
+    "corner": 10
+   },
+   {
+    "no": "14",
+    "name": "ヒットミー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": null,
+    "corner": 3
+   },
+   {
+    "no": "16",
+    "name": "ダズリングダンス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": null,
+    "corner": 1
+   },
+   {
+    "no": "9",
+    "name": "シュバルツガイスト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": null,
+    "corner": 8
+   },
+   {
+    "no": "12",
+    "name": "アスゴッド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": null,
+    "corner": 13
+   },
+   {
+    "no": "13",
+    "name": "ランドスター",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": null,
+    "corner": 9
+   },
+   {
+    "no": "3",
+    "name": "タイセイピューマ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": null,
+    "corner": 16
+   },
+   {
+    "no": "15",
+    "name": "ストロングボンド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": null,
+    "corner": 15
+   }
+  ],
+  "expected": [
+   6,
+   8,
+   7
+  ]
+ },
+ {
+  "race_id": "202609040902",
+  "horses": [
+   {
+    "no": "2",
+    "name": "シュプレヒコール",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 4
+   },
+   {
+    "no": "3",
+    "name": "ナイトインチュニス",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "4",
+    "name": "グルード",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 8
+   },
+   {
+    "no": "7",
+    "name": "カローナ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "1",
+    "name": "プレシャスタイム",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 3
+   },
+   {
+    "no": "8",
+    "name": "デュアルサイン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 5
+   },
+   {
+    "no": "5",
+    "name": "セーニョレガーレ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "6",
+    "name": "ティエルニート",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 6
+   }
+  ],
+  "expected": [
+   2,
+   3,
+   7
+  ]
+ },
+ {
+  "race_id": "202609040903",
+  "horses": [
+   {
+    "no": "9",
+    "name": "セブンサークル",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 7
+   },
+   {
+    "no": "2",
+    "name": "ブックオブケルズ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "6",
+    "name": "ミンコフスキー",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "ボーオーブ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 4
+   },
+   {
+    "no": "1",
+    "name": "ロードメガロポリス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "7",
+    "name": "ナオミガサイキョウ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 6,
+    "corner": 3
+   },
+   {
+    "no": "8",
+    "name": "ダンスコマンド",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 7,
+    "corner": 9
+   },
+   {
+    "no": "4",
+    "name": "カクシンゴールド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 8
+   },
+   {
+    "no": "3",
+    "name": "メイクアマーク",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 6
+   }
+  ],
+  "expected": [
+   2,
+   6,
+   5
+  ]
+ },
+ {
+  "race_id": "202609040904",
+  "horses": [
+   {
+    "no": "7",
+    "name": "クラリスバローズ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 6
+   },
+   {
+    "no": "4",
+    "name": "ガリアルダ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 3
+   },
+   {
+    "no": "1",
+    "name": "ロクメイカン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 5
+   },
+   {
+    "no": "3",
+    "name": "エトワールハマー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 2
+   },
+   {
+    "no": "2",
+    "name": "ダイナマイク",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "6",
+    "name": "パーセンタイル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 7,
+    "corner": 7
+   },
+   {
+    "no": "5",
+    "name": "ヤマニンイハナ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 4
+   }
+  ],
+  "expected": [
+   4,
+   2,
+   3
+  ]
+ },
+ {
+  "race_id": "202609040907",
+  "horses": [
+   {
+    "no": "6",
+    "name": "ハグレジョー",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 4
+   },
+   {
+    "no": "9",
+    "name": "オウケンブラッド",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 11
+   },
+   {
+    "no": "2",
+    "name": "グランデスフィーダ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 4,
+    "corner": 7
+   },
+   {
+    "no": "13",
+    "name": "プレダトゥール",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 12
+   },
+   {
+    "no": "12",
+    "name": "フレットローソ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 3,
+    "corner": 1
+   },
+   {
+    "no": "7",
+    "name": "メティエダール",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 6,
+    "corner": 6
+   },
+   {
+    "no": "3",
+    "name": "ムーランオランジュ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 9
+   },
+   {
+    "no": "1",
+    "name": "ゼンカイナダル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 7,
+    "corner": 10
+   },
+   {
+    "no": "14",
+    "name": "ミッションルース",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 8,
+    "corner": 5
+   },
+   {
+    "no": "16",
+    "name": "シークザドリーム",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 13
+   },
+   {
+    "no": "15",
+    "name": "アメリカンランナー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 12,
+    "corner": 15
+   },
+   {
+    "no": "8",
+    "name": "エルフェニックス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 13,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "ゴメンネジロー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 14,
+    "corner": 14
+   },
+   {
+    "no": "4",
+    "name": "バロニアル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 11,
+    "corner": 3
+   },
+   {
+    "no": "11",
+    "name": "ジーヴル",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 15,
+    "corner": 16
+   },
+   {
+    "no": "10",
+    "name": "グリュイエール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 8
+   }
+  ],
+  "expected": [
+   6,
+   12,
+   9
+  ]
+ },
+ {
+  "race_id": "202609040908",
+  "horses": [
+   {
+    "no": "9",
+    "name": "エンベッカ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 9
+   },
+   {
+    "no": "8",
+    "name": "ワンダーイロネ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 3,
+    "corner": 7
+   },
+   {
+    "no": "12",
+    "name": "バースデイフライト",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "7",
+    "name": "ドーギッド",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "2",
+    "name": "コウギョク",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 3
+   },
+   {
+    "no": "3",
+    "name": "ダーリンダーリン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 11,
+    "corner": 10
+   },
+   {
+    "no": "5",
+    "name": "ヴィーナスバブル",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 5
+   },
+   {
+    "no": "4",
+    "name": "テレプシコーラ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 8,
+    "corner": 11
+   },
+   {
+    "no": "11",
+    "name": "ベネディクション",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 8
+   },
+   {
+    "no": "1",
+    "name": "サウンドサンライズ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 7,
+    "corner": 4
+   },
+   {
+    "no": "10",
+    "name": "コニーアイランド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 6,
+    "corner": 1
+   },
+   {
+    "no": "6",
+    "name": "テンタイムトップ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 12
+   }
+  ],
+  "expected": [
+   12,
+   2,
+   9
+  ]
+ },
+ {
+  "race_id": "202609040909",
+  "horses": [
+   {
+    "no": "2",
+    "name": "ブラックオリンピア",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "11",
+    "name": "セイキュート",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 4
+   },
+   {
+    "no": "7",
+    "name": "メディテラニアン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 3
+   },
+   {
+    "no": "8",
+    "name": "アットアブラスト",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 6,
+    "corner": 10
+   },
+   {
+    "no": "4",
+    "name": "ニュークレド",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 8
+   },
+   {
+    "no": "1",
+    "name": "ビップヴォルフ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 9
+   },
+   {
+    "no": "3",
+    "name": "シャドウマスター",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 2
+   },
+   {
+    "no": "10",
+    "name": "ドゥラエテルノ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 6
+   },
+   {
+    "no": "5",
+    "name": "バンフィエルド",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 9,
+    "corner": 11
+   },
+   {
+    "no": "9",
+    "name": "メイショウナルカミ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 11,
+    "corner": 5
+   },
+   {
+    "no": "6",
+    "name": "マテンロウシルビア",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 10,
+    "corner": 7
+   }
+  ],
+  "expected": [
+   2,
+   11,
+   7
+  ]
+ },
+ {
+  "race_id": "202609040910",
+  "horses": [
+   {
+    "no": "6",
+    "name": "マテンロウブレイブ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 1,
+    "rank": 2,
+    "corner": 12
+   },
+   {
+    "no": "2",
+    "name": "ゴッドエスパーダ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 2
+   },
+   {
+    "no": "1",
+    "name": "ダンツシタン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 4,
+    "rank": 4,
+    "corner": 4
+   },
+   {
+    "no": "5",
+    "name": "ジャイアンバローズ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 7,
+    "rank": 7,
+    "corner": 8
+   },
+   {
+    "no": "10",
+    "name": "ショウナンバンライ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 6,
+    "corner": 7
+   },
+   {
+    "no": "12",
+    "name": "タマモキャリコ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 3,
+    "rank": 3,
+    "corner": 3
+   },
+   {
+    "no": "3",
+    "name": "リアライズグリント",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 5,
+    "corner": 1
+   },
+   {
+    "no": "7",
+    "name": "バッケンレコード",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 8,
+    "corner": 10
+   },
+   {
+    "no": "9",
+    "name": "マンオブザマッチ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 10,
+    "corner": 5
+   },
+   {
+    "no": "8",
+    "name": "メイショウコガシラ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 9,
+    "corner": 6
+   },
+   {
+    "no": "4",
+    "name": "ラフエイジアン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 11
+   },
+   {
+    "no": "11",
+    "name": "ポルポラジール",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 9
+   }
+  ],
+  "expected": [
+   2,
+   12,
+   1
+  ]
+ },
+ {
+  "race_id": "202609040911",
+  "horses": [
+   {
+    "no": "15",
+    "name": "ビップデイジー",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 2,
+    "rank": 1,
+    "corner": 6
+   },
+   {
+    "no": "13",
+    "name": "インヴォーグ",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 3,
+    "rank": 2,
+    "corner": 4
+   },
+   {
+    "no": "6",
+    "name": "アサヒ",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 1,
+    "rank": 3,
+    "corner": 12
+   },
+   {
+    "no": "5",
+    "name": "ラケマーダ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 8,
+    "corner": 8
+   },
+   {
+    "no": "10",
+    "name": "サブマリーナ",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 5,
+    "rank": 4,
+    "corner": 7
+   },
+   {
+    "no": "12",
+    "name": "ファインライン",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 7,
+    "corner": 5
+   },
+   {
+    "no": "14",
+    "name": "ショウナンガルフ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 13,
+    "rank": 14,
+    "corner": 11
+   },
+   {
+    "no": "11",
+    "name": "メイショウシンタケ",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 7,
+    "rank": 12,
+    "corner": 15
+   },
+   {
+    "no": "16",
+    "name": "レディントン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 9,
+    "rank": 5,
+    "corner": 2
+   },
+   {
+    "no": "8",
+    "name": "レッドシュヴェルト",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 13,
+    "corner": 16
+   },
+   {
+    "no": "4",
+    "name": "ヤマニンサンパ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 10,
+    "corner": 9
+   },
+   {
+    "no": "9",
+    "name": "ラインベック",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 6,
+    "corner": 3
+   },
+   {
+    "no": "7",
+    "name": "アクートゥス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 11,
+    "corner": 10
+   },
+   {
+    "no": "2",
+    "name": "エイシンディード",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 14,
+    "rank": 9,
+    "corner": 1
+   },
+   {
+    "no": "3",
+    "name": "スカイロケット",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 16,
+    "rank": 16,
+    "corner": 14
+   },
+   {
+    "no": "1",
+    "name": "ダノンセンチュリー",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 15,
+    "rank": 15,
+    "corner": 13
+   }
+  ],
+  "expected": [
+   13,
+   6,
+   15
+  ]
+ },
+ {
+  "race_id": "202609040912",
+  "horses": [
+   {
+    "no": "4",
+    "name": "ソウルアンドジャズ",
+    "mode": "jra",
+    "mark": "◎",
+    "ability_rank": 1,
+    "rank": 1,
+    "corner": 1
+   },
+   {
+    "no": "1",
+    "name": "ビルンバウム",
+    "mode": "jra",
+    "mark": "○",
+    "ability_rank": 2,
+    "rank": 2,
+    "corner": 3
+   },
+   {
+    "no": "7",
+    "name": "タガノアニマシオン",
+    "mode": "jra",
+    "mark": "▲",
+    "ability_rank": 5,
+    "rank": 7,
+    "corner": 10
+   },
+   {
+    "no": "8",
+    "name": "サンライズオスカー",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 4,
+    "rank": 6,
+    "corner": 8
+   },
+   {
+    "no": "2",
+    "name": "タガノヘラクレス",
+    "mode": "jra",
+    "mark": "△",
+    "ability_rank": 3,
+    "rank": 5,
+    "corner": 6
+   },
+   {
+    "no": "10",
+    "name": "セイントホース",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 9,
+    "rank": 8,
+    "corner": 11
+   },
+   {
+    "no": "9",
+    "name": "ポッドフォルク",
+    "mode": "jra",
+    "mark": "✓",
+    "ability_rank": 6,
+    "rank": 3,
+    "corner": 2
+   },
+   {
+    "no": "5",
+    "name": "レッドボブ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 7,
+    "rank": 4,
+    "corner": 4
+   },
+   {
+    "no": "11",
+    "name": "テンエースワン",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 8,
+    "rank": 9,
+    "corner": 9
+   },
+   {
+    "no": "3",
+    "name": "アルベリック",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 10,
+    "rank": 10,
+    "corner": 12
+   },
+   {
+    "no": "12",
+    "name": "エンマ",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 11,
+    "rank": 11,
+    "corner": 5
+   },
+   {
+    "no": "6",
+    "name": "マクノス",
+    "mode": "jra",
+    "mark": "",
+    "ability_rank": 12,
+    "rank": 12,
+    "corner": 7
+   }
+  ],
+  "expected": [
+   4,
+   1,
+   2
+  ]
+ }
+]

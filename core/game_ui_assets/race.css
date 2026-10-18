@@ -69,3 +69,16 @@ table{min-width:1940px}th,td{height:40px;padding:3px 7px;white-space:nowrap;font
 .table-scroll .race-price{display:block}
 .table-scroll .race-price>span{display:block}
 .card-heading .price .race-price{justify-content:flex-end}
+
+/* Read-only JRA research shortlist; never modifies the actual predictions. */
+.corner4-shadow{border:1px solid var(--line,#33435c);border-radius:12px;background:var(--panel,#122038);padding:12px 14px;margin:8px 0 20px}
+.corner4-shadow-heading{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;justify-content:space-between}
+.corner4-shadow-heading h3{font-size:17px;margin:0;color:var(--text,#edf3ff)}
+.corner4-shadow-heading span{font-size:11px;color:var(--muted,#a6b6cc)}
+.corner4-shadow-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.corner4-shadow-entry{min-width:0;border:1px solid var(--line,#33435c);border-radius:9px;padding:10px;background:rgba(255,255,255,.035)}
+.corner4-shadow-entry strong{display:block;font-size:15px;overflow-wrap:anywhere}
+.corner4-shadow-entry small{display:block;margin:5px 0;color:var(--gold,#eac76a);font-size:12px}
+.corner4-shadow-entry p,.corner4-shadow-note{font-size:12px;line-height:1.6;margin:5px 0;color:var(--muted,#a6b6cc)}
+.corner4-shadow-note code{overflow-wrap:anywhere}
+@media(max-width:700px){.corner4-shadow-cards{grid-template-columns:1fr}.corner4-shadow-entry{padding:8px 10px}}
