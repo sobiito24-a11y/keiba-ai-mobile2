@@ -82,3 +82,25 @@ table{min-width:1940px}th,td{height:40px;padding:3px 7px;white-space:nowrap;font
 .corner4-shadow-entry p,.corner4-shadow-note{font-size:12px;line-height:1.6;margin:5px 0;color:var(--muted,#a6b6cc)}
 .corner4-shadow-note code{overflow-wrap:anywhere}
 @media(max-width:700px){.corner4-shadow-cards{grid-template-columns:1fr}.corner4-shadow-entry{padding:8px 10px}}
+
+/* Five-horse research panel only. Existing lineup and NAR styles stay unchanged. */
+.corner4-shadow h4{margin:14px 0 6px;color:#eac76a;font-size:15px}
+.corner4-shadow .additional{grid-template-columns:repeat(2,minmax(0,1fr))}
+.corner4-shadow .additional .corner4-shadow-entry{border-color:#607a9e}
+.corner4-shadow .shadow-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:10px 0;font-size:13px}
+.corner4-shadow .shadow-facts>div{min-width:0;overflow-wrap:anywhere}
+.corner4-shadow dt{color:#a6b6cc;font-size:11px}
+.corner4-shadow dd{margin:2px 0;color:#edf3ff}
+.corner4-shadow .shadow-positive{color:#75dfb1;overflow-wrap:anywhere}
+.corner4-shadow .shadow-negative{color:#ffa1ad;overflow-wrap:anywhere}
+.corner4-shadow summary{font-size:13px;cursor:pointer;color:#a6b6cc}
+@media(max-width:700px){.corner4-shadow .additional{grid-template-columns:1fr}}
+.corner4-shadow .corner4-shadow-cards{align-items:start}
+.corner4-shadow .shadow-horse-heading{display:flex;align-items:center;gap:8px;list-style:none;color:#edf3ff;min-height:36px}
+.corner4-shadow .shadow-horse-heading::-webkit-details-marker{display:none}
+.corner4-shadow .shadow-horse-heading strong{flex:1;min-width:0;font-size:15px}
+.corner4-shadow .shadow-horse-heading .frame,.corner4-shadow .shadow-horse-heading .mark{flex-shrink:0}
+.corner4-shadow .shadow-toggle{color:#a6b6cc;transition:transform .15s}
+.corner4-shadow .shadow-horse-details[open]>.shadow-horse-heading .shadow-toggle{transform:rotate(180deg)}
+.corner4-shadow .shadow-horse-body{padding-top:8px}
+.corner4-shadow .shadow-horse-heading:focus-visible{outline:2px solid #eac76a;outline-offset:3px}

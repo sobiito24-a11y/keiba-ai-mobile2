@@ -173,33 +173,8 @@ def card_html(h):
 
 
 def corner4_shadow_html(view, race_key=''):
-    """Present fixed read-only JRA shadow candidates; nothing enters predictions."""
-    if not view or view[0].get('mode') != 'jra':
-        return ''
-    from .jra_corner4_shadow import select
-    state = select(view, race_key)
-    intro = ('<section class="corner4-shadow" aria-label="JRA研究用の注目3頭">'
-             '<div class="corner4-shadow-heading"><h3>純能力 × 4角想定｜注目3頭</h3>'
-             '<span>研究用・購入推奨ではありません</span></div>')
-    if state['status'] != 'ready':
-        return intro + '<p class="corner4-shadow-note">未判定：' + escape(state['reason']) + '</p></section>'
-    entries = []
-    for h in state['shadow']:
-        formal = str(h['formal_rank']) + '位' if h['formal_rank'] is not None else '未取得'
-        entries.append('<div class="corner4-shadow-entry"><strong>'
-                       + escape(str(h['no']) + ' ' + h['name'] + ' ' + h['mark']) + '</strong>'
-                       + '<small>純能力' + escape(str(h['ability_rank'])) + '位'
-                       + '・4角想定' + escape(str(h['corner4_rank'])) + '番手'
-                       + '・正式' + escape(formal) + '</small>'
-                       + '<p>' + escape(h['selection_reason']) + '</p></div>')
-    baseline = ' ／ '.join(str(h['no'])+' '+h['name'] for h in state['baseline'])
-    selected = '・'.join(str(h['no']) for h in state['shadow'])
-    return (intro + '<div class="corner4-shadow-cards">' + ''.join(entries) + '</div>'
-            + '<p class="corner4-shadow-note">比較：純能力順3頭 ' + escape(baseline)
-            + ' ／ 4角重視3頭 ' + escape(selected) + '</p>'
-            + '<p class="corner4-shadow-note">選出入力ハッシュ：<code>'
-            + escape(state['input_sha256'][:16]) + '…</code>'
-            + '。発走前に下のJSONを保存してください。表示だけでは発走前固定の証明になりません。</p></section>')
+    from .jra_shadow_panel import html
+    return html(view, race_key)
 
 
 def document(view, race_key='', paper_decision=None):
