@@ -91,6 +91,8 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
         v=h['average']['value']
         h['average']['rank']=1+sum(x>v for x in values) if v is not None else None
         h['candidate_evidence'] = evidence(h, evidence_sources[h['no']], race_info)
+        source=evidence_sources[h['no']]
+        h['research_inputs']={'jockey_n':number(source.get('_jockey_course_starts')), 'jockey_rate':number(source.get('_jockey_course_place_rate'))}
     return out
 
 
@@ -177,7 +179,7 @@ def corner4_shadow_html(view, race_key=''):
     return html(view, race_key)
 
 
-def document(view, race_key='', paper_decision=None):
+def document(view, race_key='', paper_decision=None, portable=None):
     css = (ASSETS/'race.css').read_text(encoding='utf-8')
     script = (ASSETS/'race.js').read_text(encoding='utf-8')
     mode = view[0]['mode'] if view else 'jra'
@@ -193,9 +195,9 @@ def document(view, race_key='', paper_decision=None):
         if mode == 'jra': cells += [escape(h['development']), training_html(h['training'])]
         cells += [escape(h['rest']) or '—', index_html(h['distance']), index_html(h['course']), metric_html(h['star'],'★'), metric_html(h['away'],'☆'), evidence_html(h['plus'],True), evidence_html(h['caution'],False)]
         rows.append(f'<tr data-row="{i}" data-horse="{escape(h["no"])}">'+''.join(f'<td>{c}</td>' for c in cells)+'</tr>')
-    data = json.dumps(dict(tabs=comparison_data(view,mode),cards=[card_html(h) for h in view], names=[h['no']+' '+h['name'] for h in view], race_key=race_key),ensure_ascii=False).replace('<','\\u003c').replace('>','\\u003e').replace('&','\\u0026')
+    data = json.dumps(dict(tabs=comparison_data(view,mode,race_key,portable),cards=[card_html(h) for h in view], names=[h['no']+' '+h['name'] for h in view], race_key=race_key),ensure_ascii=False).replace('<','\\u003c').replace('>','\\u003e').replace('&','\\u0026')
     return ('<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            +'<style>'+css+'</style><body><main>'+corner4_shadow_html(view,race_key)+comparison_html(view,mode)+paper_html(view,race_key,paper_decision)+'<div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
+            +'<style>'+css+'</style><body><main>'+corner4_shadow_html(view,race_key)+comparison_html(view,mode)+nar_watch_html(view,portable)+paper_html(view,race_key,paper_decision)+'<div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
             +'<p class="help">馬名をタップして詳細へ。表は横・縦にスクロールできます。</p>'
             +'<div class="table-scroll" tabindex="0" aria-label="全頭予想一覧・横スクロール"><table><thead><tr>'+''.join('<th scope="col">'+escape(c)+'</th>' for c in cols)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div>'
             +'<p class="legend">距離・コースの記号は指数順位：◎1位 · ○2〜3位 · △4〜5位 · —6位以下。枠番未取得は無色。</p>'
@@ -235,7 +237,13 @@ def render_component(view, race_key, paper_decision=None):
     # Declare from an importable module: Streamlit's __main__ can be transient.
     import streamlit.components.v1 as components
     component = components.declare_component("game_race_lineup", path=str(ASSETS))
-    shown = component(html=document(view, race_key,paper_decision), key='game_lineup_'+race_key, default=None)
+    portable=None
+    try:
+        from .research_portable import upload
+        portable=upload(race_key)
+    except ImportError:
+        pass
+    shown = component(html=document(view, race_key,paper_decision,portable), key='game_lineup_'+race_key, default=None)
     if view and view[0].get('mode') == 'jra':
         # Separate research export; never writes to prediction snapshots or .keiba.
         from datetime import datetime, timezone
@@ -268,11 +276,18 @@ def metric_html(item,label):
     return '<span class="metric-inline">'+escape(label)+' <b>'+escape(fmt(item['value']))+'</b> / '+rank+'</span>'
 
 
-def comparison_data(view,mode):
+def comparison_data(view,mode,race_key="",portable=None):
     from .game_ui_comparison import comparisons
     groups=comparisons(view,mode)
     for group in groups:
         html=[]
+        if group.get('kind')=='research':
+            try:
+                from .new_ai_research_ui import panel
+                group['html']=panel(view,race_key,portable)+nar_watch_html(view,portable)
+            except Exception:
+                group['html']='<p>研究表示を利用できません。研究DBの状態を確認してください。正式予想は正常に表示しています。</p>'
+            continue
         if group.get('kind')=='candidates':
             group['html']=candidate_html(view,group)
             continue
@@ -345,3 +360,11 @@ def candidate_html(view, group):
 def paper_html(view,race_key,paper_decision=None):
     from .paper_betting import build,html
     return html(paper_decision or build(view,view[0]['mode'] if view else 'jra',dict(race_id=race_key)))
+
+
+def nar_watch_html(view,portable=None):
+    try:
+        from .nar_research_watch import html
+        return html(view,portable)
+    except Exception:
+        return '<p>NAR研究注目馬：データを確認できません。</p>'

@@ -3,7 +3,7 @@ from .prediction_table_ui import number,fmt
 
 TABS=[('final','① 最終印候補'),('corner','② 4角想定'),('ability','③ 純能力'),
       ('course','④ コース'),('distance','⑤ 距離'),('training','⑥ 調教'),
-      ('star','⑦ ★指数'),('away','⑧ ☆指数'),('average','⑨ 3走平均'),('materials','⑩ 今回＋／−'),('changes','⑪ 斤量／騎手')]
+      ('star','⑦ ★指数'),('away','⑧ ☆指数'),('average','⑨ 3走平均'),('materials','⑩ 今回＋／−'),('changes','⑪ 斤量／騎手'),('research','⑫ 新AI総合（研究）')]
 NOTICE='※該当する実績・有効な指数がある馬のみを対象に抽出しています。未取得馬は対象外です。'
 
 
@@ -12,6 +12,9 @@ def comparisons(view,mode):
     def tie(h):return (rank(h),number(h['no']) or float('inf'))
     groups=[]
     for key,label in TABS:
+        if key=='research':
+            groups.append(dict(key=key,label=label,kind='research',cards=[],eligible=len(view),total=len(view),note='正式評価には反映しない研究表示'))
+            continue
         if mode=='nar' and key=='training':continue
         if key in ('materials','changes'):
             from .game_ui_information import information
