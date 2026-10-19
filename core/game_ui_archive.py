@@ -3,10 +3,13 @@ def render_saved_game(render_result):
     import streamlit as st
     from .independent_ai_odds_io import read_archive, restore_race
     with st.expander('保存した予想を開く', expanded=False):
-        uploaded=st.file_uploader('保存レース（.keiba）',type=['keiba'],key='game_archive_upload')
-        if uploaded is None:return False
+        uploaded=st.file_uploader('予想データ（.keiba／研究データ付きZIP）',key='game_archive_upload')
+        if uploaded is None:
+            st.session_state.pop('research_loaded',None)
+            return False
         try:
-            _,event=read_archive(uploaded.getvalue())
+            from .research_bundle import attach_upload
+            _,event=attach_upload(uploaded.getvalue(),st.session_state,allow_local=False)
             races=event['races']
             if not races:
                 st.info('保存レースがありません。');return False

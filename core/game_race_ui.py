@@ -284,7 +284,7 @@ def comparison_data(view,mode,race_key="",portable=None):
         if group.get('kind')=='research':
             try:
                 from .new_ai_research_ui import panel
-                group['html']=panel(view,race_key,portable)+nar_watch_html(view,portable)
+                group['html']=panel(view,race_key,portable)
             except Exception:
                 group['html']='<p>研究表示を利用できません。研究DBの状態を確認してください。正式予想は正常に表示しています。</p>'
             continue

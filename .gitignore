@@ -20,3 +20,8 @@ collected_html*/
 netkeiba_html/
 .collector_profile/
 work/
+
+# Private research predictions and portable original archives.
+/research/predictions.sqlite*
+/research/portable/
+/research/bundles/

@@ -4,13 +4,15 @@ from core.new_ai_research import VERSION,CONFIG,digest
 from core.research_portable import validate
 from core.nar_research_watch import select,html
 
-def test_portable_hash_and_version():
- raw=b'original';p={'keiba_sha256':hashlib.sha256(raw).hexdigest(),'version':VERSION,'config':CONFIG,'config_sha256':digest(CONFIG)}
+def test_portable_hash_and_version(tmp_path):
+ from tests.test_research_bundle import fixture
+ raw,event,p=fixture(tmp_path)
  pack=lambda:json.dumps({'payload':p,'payload_sha256':digest(p)})
  assert validate(pack(),raw)==p
  with pytest.raises(ValueError):validate(pack(),b'changed')
  p['version']='other'
  with pytest.raises(ValueError):validate(pack(),raw)
+
 
 def test_no_ability_or_corner_ceiling_and_no_mutation():
  rows=[dict(no=1,formal_rank=9,ability_rank=9,corner=12,course_rank=1,distance_rank=2),dict(no=2,formal_rank=1,course_rank=1,distance_rank=1)]
