@@ -124,3 +124,17 @@ def test_wrapper_stops_after_collector_failure(tmp_path):
  collector.write_text('@echo off\nexit /b 0\n')
  result=subprocess.run(command,capture_output=True)
  assert result.returncode==0 and marker.exists(),result.stderr
+
+
+def test_wrapper_resolves_paths_before_collector_changes_directory(tmp_path):
+ import os,subprocess,shutil
+ from pathlib import Path
+ if os.name!='nt':pytest.skip('Windows BAT')
+ tools=Path(__file__).resolve().parents[1]/'tools'
+ shutil.copyfile(tools/'run_prediction_then_research.bat',tmp_path/'run.bat')
+ (tmp_path/'elsewhere').mkdir()
+ (tmp_path/'collector.bat').write_text('@echo off\ncd /d "'+str(tmp_path/'elsewhere')+'"\nexit /b 0\n')
+ original=tmp_path/'saved.keiba';original.write_bytes(b'existing')
+ (tmp_path/'new_ai_research.py').write_text('import sys\nfrom pathlib import Path\nassert Path(sys.argv[sys.argv.index("--keiba")+1]).resolve()==Path('+repr(str(original))+')\n')
+ result=subprocess.run([os.environ.get('COMSPEC','cmd.exe'),'/d','/c','run.bat','collector.bat','saved.keiba','stats.sqlite'],cwd=tmp_path,capture_output=True)
+ assert result.returncode==0,result.stderr
