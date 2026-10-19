@@ -40,9 +40,11 @@ def html(view,portable=None):
     import json
     if not view or view[0].get('mode')!='nar':return ''
     rows=from_view(view);e=lambda v:escape(str(v))
+    from .new_ai_research_ui import formal_rank_matches
     if portable and portable.get('authority')=='NAR':
         base={str(r['no']):r for r in portable.get('models',{}).get('A',{}).get('rows',[])}
-        matches=len(base)==len(view) and all(str(h['no']) in base and h['name']==base[str(h['no'])]['name'] and num(h['rank'])==base[str(h['no'])]['formal_rank'] for h in view)
+        matches=len(base)==len(view) and all(str(h['no']) in base and h['name']==base[str(h['no'])]['name'] and formal_rank_matches(h,base[str(h['no'])]) for h in view)
+        if matches:rows=from_view([{**h,'rank':base[str(h['no'])]['formal_rank']} for h in view])
         model=portable.get('models',{}).get('NAR_P_F1',{})
         if matches and model.get('complete'):
             ranks={str(r['no']):r['research_rank'] for r in model['rows']}

@@ -9,6 +9,12 @@ def displayed_score_matches(value,exact):
     n=num(value)
     return n is not None and exact is not None and abs(n-exact)<=0.051
 
+def formal_rank_matches(h,saved):
+    shown=num(h.get('rank'));rank=saved.get('formal_rank')
+    if shown==rank:return True
+    # Existing NAR UI deliberately hides ranks outside formal Top5.
+    return h.get('mode')=='nar' and shown is None and rank is not None and rank>5 and h.get('formal_member') is False
+
 def panel(view,race_key,portable=None):
  records=[]
  if portable is not None:
@@ -25,7 +31,7 @@ def panel(view,race_key,portable=None):
   f=json.loads(raw)
   if digest(f)!=hashvalue:continue
   aa=f['models']['A']['rows'];by={str(h['no']):h for h in aa}
-  if len(by)==len(view) and all(str(h['no']) in by and h['name']==by[str(h['no'])]['name'] and num(h['rank'])==by[str(h['no'])]['formal_rank'] and num(h.get('corner'))==by[str(h['no'])]['corner'] and (h['mode']=='nar' or displayed_score_matches(h['score'],by[str(h['no'])]['formal_score'])) for h in view):payload=f;break
+  if len(by)==len(view) and all(str(h['no']) in by and h['name']==by[str(h['no'])]['name'] and formal_rank_matches(h,by[str(h['no'])]) and num(h.get('corner'))==by[str(h['no'])]['corner'] and (h['mode']=='nar' or displayed_score_matches(h['score'],by[str(h['no'])]['formal_score'])) for h in view):payload=f;break
  if payload is None:return '<p>保存研究予想と現在の正式値が一致しません。研究後処理を再実行してください。以前の固定予想は上書きしません。</p>'
  e=lambda x:escape(str(x))
  html='<style>.top-horses:has(.research-panel){display:block;height:auto;max-height:650px;overflow:auto}.research-panel{width:100%;min-width:0}.research-panel details{display:block;margin:10px 0;padding:8px;border:1px solid #36465e}.research-panel pre{white-space:pre-wrap;overflow-wrap:anywhere}.research-panel summary{cursor:pointer}</style><div class="research-panel"><p>研究点は勝率ではありません。正式印・Top5へ反映しません。</p><p>'+e(payload['time_status'])+' / '+e(payload['version'])+'</p>'
