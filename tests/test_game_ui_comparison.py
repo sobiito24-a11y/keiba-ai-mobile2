@@ -10,7 +10,7 @@ def field(mode):
  records=prediction_table_records(rows,rows,{'racecourse':'京都','distance':1400},mode)
  return rows,build_view(rows,records,rows,mode,{'racecourse':'京都','distance':1400})
 
-@pytest.mark.parametrize('mode,count',[('jra',12),('nar',11)])
+@pytest.mark.parametrize('mode,count',[('jra',12),('nar',12)])
 def test_tabs_keep_formal_marks_order_and_input(mode,count):
  rows,view=field(mode);before=copy.deepcopy(view)
  tabs=comparisons(view,mode)
@@ -24,7 +24,7 @@ def test_tabs_keep_formal_marks_order_and_input(mode,count):
  for key in ['corner','distance','course','star','away']:
   t=next(t for t in tabs if t['key']==key)
   assert [view[x['index']]['no'] for x in t['cards']]==['10','9','8','7','6']
- assert '今回の結論' not in document(view)
+ assert '今回の結論' in document(view)
 
 
 def test_missing_indices_not_filled_and_zero_valid():

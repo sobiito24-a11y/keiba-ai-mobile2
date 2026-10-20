@@ -1,8 +1,8 @@
 """Read-only metric comparisons; never written to formal predictions."""
 from .prediction_table_ui import number,fmt
 
-TABS=[('final','① 最終印候補'),('corner','② 4角想定'),('ability','③ 純能力'),
-      ('course','④ コース'),('distance','⑤ 距離'),('training','⑥ 調教'),
+TABS=[('final','① 最終印候補'),('corner','② 展開・4角'),('ability','③ 純能力'),
+      ('course','④ コース'),('distance','⑤ 距離'),('training','⑥ 調教・状態'),
       ('star','⑦ ★指数'),('away','⑧ ☆指数'),('average','⑨ 3走平均'),('materials','⑩ 今回＋／−'),('changes','⑪ 斤量／騎手'),('research','⑫ 新AI総合（研究）')]
 NOTICE='※該当する実績・有効な指数がある馬のみを対象に抽出しています。未取得馬は対象外です。'
 
@@ -15,7 +15,10 @@ def comparisons(view,mode):
         if key=='research':
             groups.append(dict(key=key,label=label,kind='research',cards=[],eligible=len(view),total=len(view),note='正式評価には反映しない研究表示'))
             continue
-        if mode=='nar' and key=='training':continue
+        if mode=='nar' and key=='training':
+            cards=[dict(index=i,value=(h.get('profile') or {}).get('state','判定不可'),rank='指数推移・参考') for i,h in enumerate(view[:5])]
+            groups.append(dict(key=key,label=label,kind='metric',cards=cards,eligible=len(view),total=len(view),note='調教による加点はしません。指数推移の説明は各馬詳細へ。'))
+            continue
         if key in ('materials','changes'):
             from .game_ui_information import information
             groups.append(information(view,key,label))

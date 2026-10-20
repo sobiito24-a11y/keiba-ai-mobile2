@@ -104,3 +104,21 @@ table{min-width:1940px}th,td{height:40px;padding:3px 7px;white-space:nowrap;font
 .corner4-shadow .shadow-horse-details[open]>.shadow-horse-heading .shadow-toggle{transform:rotate(180deg)}
 .corner4-shadow .shadow-horse-body{padding-top:8px}
 .corner4-shadow .shadow-horse-heading:focus-visible{outline:2px solid #eac76a;outline-offset:3px}
+
+/* Medal-style, light read-only analysis. Scroll stays inside wide tables. */
+:root{color-scheme:light;--bg:#f5f6f8;--panel:#fff;--panel2:#edf1f6;--line:#d4dce7;--muted:#53647a;--ink:#17283d;--gold:#805900;--cyan:#126174;--good:#17633c;--warn:#9a313b}
+body{color:var(--ink)}th{background:#e7edf5;color:#233952}td,tbody tr:nth-child(even) td{background:#fff}tbody tr:hover td,tbody tr.selected td{background:#eff4fa}
+.honmei{color:#aa6a00}.taiko{color:#1663a8}.tanana{color:#b14b19}.target{color:#745c94}.osae{color:#596c80}.check{color:#197247}
+.positive{background:#edf8f0;color:#17633c}.caution{background:#fff0ee;color:#9a313b}.frame.missing{background:#e4e9ef;color:#53647a}
+.top-horse,.horse-detail{background:#fff;color:var(--ink)}.candidate-layout{display:block!important;max-height:none!important;overflow:visible!important}
+.conclusion{margin:12px 0 20px}.medal-cards{display:flex;gap:10px;overflow-x:auto;padding:10px 2px}.medal-card{flex:0 0 180px;border:1px solid var(--line);border-top:3px solid #bd9345;border-radius:12px;padding:12px;background:linear-gradient(145deg,#fff,#edf2f8);text-align:left;color:var(--ink)}
+.medal-card>strong,.medal-card>small{display:block;overflow-wrap:anywhere}.medal-card .frame{margin:0 8px}.medal-score{display:block;font-size:28px;font-weight:800;color:var(--gold)}
+.horse-number{font-variant-numeric:tabular-nums;font-size:24px}.candidate-item{border:1px solid var(--line);border-radius:10px;margin:8px 0;background:#fff;overflow:hidden;min-width:0}
+.candidate-summary{display:grid;grid-template-columns:30px 30px 36px minmax(120px,1fr) minmax(100px,1fr) 150px 20px;align-items:center;gap:10px;width:100%;min-height:66px;padding:12px;border:0;background:#fff;color:var(--ink);text-align:left}
+.candidate-summary[aria-expanded=true]{background:#edf3f9}.candidate-name{overflow-wrap:anywhere}.candidate-meta{color:var(--muted);font-size:13px}.candidate-score{font-size:24px;font-weight:750;color:var(--gold)}.candidate-score small{display:block;font-size:11px;color:var(--muted)}
+.toggle-icon{transition:transform .18s}.candidate-summary[aria-expanded=true] .toggle-icon{transform:rotate(180deg)}.candidate-panel{padding:8px;animation:reveal .18s ease-out}.candidate-panel[hidden]{display:none}.candidate-panel .horse-detail{border:0;padding:12px}
+.recent-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}.recent-run{border:1px solid var(--line);border-radius:9px;padding:10px;min-width:0;background:#f7f9fc}.recent-run strong{display:block;font-size:24px}.recent-run p,.recent-run small{font-size:12px;overflow-wrap:anywhere}.profile-facts{margin-top:16px}.reference-exploration{padding:10px;border:1px dashed var(--line);border-radius:8px}
+@keyframes reveal{from{opacity:.4;transform:translateY(-3px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.candidate-panel{animation:none}.toggle-icon{transition:none}}
+@media(max-width:650px){.candidate-summary{grid-template-columns:24px 27px 28px minmax(0,1fr) 65px 12px;gap:5px;padding:9px}.candidate-name{font-size:14px}.candidate-score{font-size:20px}.candidate-score small{font-size:10px}.candidate-meta{grid-column:4/6;grid-row:2}.toggle-icon{grid-column:6;grid-row:1}.candidate-score{grid-column:5;grid-row:1}.candidate-panel{padding:2px}.candidate-panel .horse-detail{padding:9px}.recent-three{gap:4px}.recent-run{padding:6px}.horse-number{font-size:21px}.card-heading h3{font-size:18px}.medal-card{flex-basis:155px}}
+.candidate-layout{height:auto!important;min-height:0!important}.stat{background:#f0f4f9;border-color:var(--line)}.stat span,.identity,.stars,.horse-detail summary,.facts span{color:var(--muted)}.stat strong{color:var(--ink)}.metric-tabs button{background:#fff;color:var(--ink)}.metric-tabs button[aria-selected=true]{background:#f6eedc;color:#704d00}.recent-run .missing-finish{font-size:13px;line-height:2}.horse-detail details{border-color:var(--line)}.stars{color:var(--muted)}

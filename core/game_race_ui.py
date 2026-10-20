@@ -14,7 +14,7 @@ ASSETS = Path(__file__).with_name('game_ui_assets')
 FRAME_COLORS = {1: ('#f7f8fc', '#101522'), 2: ('#171a22', '#ffffff'),
                 3: ('#db394f', '#ffffff'), 4: ('#2868d9', '#ffffff'),
                 5: ('#f4d348', '#171a22'), 6: ('#20834e', '#ffffff'),
-                7: ('#ee942d', '#171a22'), 8: ('#f295be', '#171a22')}
+                7: ('#b95100', '#ffffff'), 8: ('#f295be', '#171a22')}
 MARK_CLASSES = {'◎': 'honmei', '○': 'taiko', '▲': 'tanana', '✔': 'target',
                 '✓': 'check', '△': 'osae', '☆': 'star'}
 
@@ -71,6 +71,7 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
                         star=dict(value=idx.get('star_index_value'),rank=idx.get('star_index_rank')),
                         away=dict(value=idx.get('away_same_distance_index_value'),rank=idx.get('away_same_distance_index_rank')),
                         average=dict(value=number(pick(source,'平均指数','近3走平均','3走平均','recent3_avg','recent3_mean')),rank=None),
+                        maximum=number(pick(source,'最高指数','max_index','最高タイム指数')),
                         distance=index_display(rec.get('距離')), course=index_display(rec.get('コース')),
                         corner=corner4_rank(row), style=rec.get('脚質', '—'), development=a.get('development') or '—',
                         training=training(row) if mode == 'jra' else '', rest=rest_text(row),
@@ -90,9 +91,13 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
     for h in out:
         v=h['average']['value']
         h['average']['rank']=1+sum(x>v for x in values) if v is not None else None
+        for field in ('plus','caution','overview','comment','reference','check_reason'):
+            h[field] = without_market(h.get(field,''))
         h['candidate_evidence'] = evidence(h, evidence_sources[h['no']], race_info)
         source=evidence_sources[h['no']]
         h['research_inputs']={'jockey_n':number(source.get('_jockey_course_starts')), 'jockey_rate':number(source.get('_jockey_course_place_rate'))}
+    from .candidate_profile import enrich
+    enrich(out,evidence_sources,race_info or {})
     return out
 
 
@@ -147,10 +152,11 @@ def card_html(h):
              ('純能力', h['ability']+' / '+h['ability_rank']+'位' if h['ability_rank'] != '—' else h['ability']+' / —')]
     blocks = ''.join(f'<div class="stat"><span>{e(k)}</span><strong>{e(v)}</strong></div>' for k,v in stats)
     blocks += ''.join(f'<div class="stat index-stat"><span>{label}</span>{index_html(h[key])}</div>' for key,label in [('distance','距離指数'),('course','コース指数')])
-    tags = [('脚質', h['style']), ('4角想定', str(h['corner'])+'番手' if h['corner'] is not None else '—')]
+    blocks += '<div class="stat"><span>保存平均指数</span><strong>'+e(str((h.get('average') or {}).get('value') if (h.get('average') or {}).get('value') is not None else '未取得'))+'</strong></div><div class="stat"><span>保存最高指数</span><strong>'+e(str(h.get('maximum') if h.get('maximum') is not None else '未取得'))+'</strong></div>'
+    tags = [('脚質', style_label(h['style'])), ('4角想定', str(h['corner'])+'番手' if h['corner'] is not None else '—')]
     if h['mode'] == 'jra': tags += [('展開有利',h['development']),('調教',h['training'] or '—'),('厩舎評価',h['stable'])]
     if h['rest']: tags.append(('休養',h['rest']))
-    raw = f'<article class="horse-detail" data-card="{e(h["no"])}"><div class="card-heading">{frame_html(h["frame"])}<div><span class="eyebrow">{e(designation)}</span><h3>{mark_html(h["mark"])} {e(h["no"])} <span>{e(h["name"])}</span></h3></div><div class="price"><small>{e(h.get("odds_label", "保存時オッズ"))}</small>{odds_html(h)}</div></div>'
+    raw = f'<article class="horse-detail" data-card="{e(h["no"])}"><div class="card-heading">{frame_html(h["frame"])}<div><span class="eyebrow">{e(designation)}</span><h3>{mark_html(h["mark"])} {e(h["no"])} <span>{e(h["name"])}</span></h3></div></div>'
     raw += f'<div class="identity">{e(h["age"])} <span>{e(h["weight"])}</span> <span>{e(h["jockey"])}</span></div><div class="stats">{blocks}</div>'
     raw += '<div class="facts">'+''.join(f'<span><small>{e(k)}</small> {training_html(v) if k=="調教" else e(v)}</span>' for k,v in tags)+'</div>'
     raw += '<div class="stars">'+metric_html(h.get('star',{}),'★')+metric_html(h.get('away',{}),'☆')+'</div>'
@@ -165,12 +171,13 @@ def card_html(h):
         for key,label in [('plus','＋好走根拠'),('minus','−不安材料'),('neutral','中立の参考情報')]:
             raw += '<p><b>'+label+'</b>：'+e(' / '.join(ev[key]) or '—')+'</p>'
         raw += '<details><summary>根拠の元数値・情報源</summary><div class="past">'+e(json.dumps(ev['audit'],ensure_ascii=False,indent=2))+'</div></details></details>'
-    if h['overview']: raw += '<details><summary>総合コメント</summary><p>'+e(h['overview'])+'</p></details>'
+    from .candidate_profile import profile_html
+    raw += profile_html(h)
     if h['mode'] == 'jra': raw += '<details><summary>厩舎コメント原文</summary><p>'+e(h['comment'] or '未取得')+'</p></details>'
     raw += '<details><summary>材料の全文・騎手実績・過去走</summary><p>騎手の過去実績：'+e(h['jockey_stats'])+'</p>'
     for key,label in [('plus','今回プラス'),('caution','今回注意'),('reference','研究用参考注目'),('check_reason','追加✓の対象確認')]:
         if h[key] and h[key] != '—': raw += f'<p><b>{label}</b>：{e(h[key])}</p>'
-    raw += '<div class="past">'+e(h['past'] or '過去走情報 未取得')+'</div></details></article>'
+    raw += '</details></article>'
     return raw
 
 
@@ -183,12 +190,12 @@ def document(view, race_key='', paper_decision=None, portable=None):
     css = (ASSETS/'race.css').read_text(encoding='utf-8')
     script = (ASSETS/'race.js').read_text(encoding='utf-8')
     mode = view[0]['mode'] if view else 'jra'
-    cols = ['枠','馬番・馬名','最終印','単勝／複勝','JRAスコア' if mode=='jra' else 'NAR最終スコア','純能力','4角想定']
+    cols = ['枠','馬番・馬名','最終印','JRAスコア' if mode=='jra' else 'NAR最終スコア','純能力','4角想定']
     if mode == 'jra': cols += ['展開有利','調教']
     cols += ['休養','距離','コース','★','☆','今回プラス','今回注意']
     rows = []
     for i,h in enumerate(view):
-        cells = [frame_html(h['frame']), f'<button class="horse-select" data-select="{i}" aria-pressed="false"><b>{escape(h["no"])}</b><span>{escape(h["name"])}</span></button>', mark_html(h['mark']), odds_html(h),
+        cells = [frame_html(h['frame']), f'<button class="horse-select" data-select="{i}" aria-pressed="false"><b>{escape(h["no"])}</b><span>{escape(h["name"])}</span></button>', mark_html(h['mark']),
                  f'<span class="score">{escape(h["score"])}</span><small>{escape(h["rank"])}位</small>' if h['rank']!='—' else f'<span class="score">{escape(h["score"])}</span><small>順位 —</small>',
                  f'<b>{escape(h["ability"])}</b><small>{escape(h["ability_rank"])}位</small>' if h['ability_rank']!='—' else escape(h['ability']),
                  str(h['corner'])+'番手' if h['corner'] is not None else '—']
@@ -197,11 +204,11 @@ def document(view, race_key='', paper_decision=None, portable=None):
         rows.append(f'<tr data-row="{i}" data-horse="{escape(h["no"])}">'+''.join(f'<td>{c}</td>' for c in cells)+'</tr>')
     data = json.dumps(dict(tabs=comparison_data(view,mode,race_key,portable),cards=[card_html(h) for h in view], names=[h['no']+' '+h['name'] for h in view], race_key=race_key),ensure_ascii=False).replace('<','\\u003c').replace('>','\\u003e').replace('&','\\u0026')
     return ('<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            +'<style>'+css+'</style><body><main>'+corner4_shadow_html(view,race_key)+comparison_html(view,mode)+nar_watch_html(view,portable)+paper_html(view,race_key,paper_decision)+'<div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
+            +'<style>'+css+'</style><body><main>'+conclusion_html(view)+comparison_html(view,mode)+nar_watch_html(view,portable)+paper_html(view,race_key,paper_decision)+'<div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
             +'<p class="help">馬名をタップして詳細へ。表は横・縦にスクロールできます。</p>'
             +'<div class="table-scroll" tabindex="0" aria-label="全頭予想一覧・横スクロール"><table><thead><tr>'+''.join('<th scope="col">'+escape(c)+'</th>' for c in cols)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div>'
             +'<p class="legend">距離・コースの記号は指数順位：◎1位 · ○2〜3位 · △4〜5位 · —6位以下。枠番未取得は無色。</p>'
-            +'<div class="section-heading"><div><span class="eyebrow">HORSE PROFILE</span><h2>馬別サマリーカード</h2></div></div><p id="selection-status" class="sr-only" aria-live="polite"></p><div id="selected-card"></div>'
+            +'<section id="selected-section" hidden><div class="section-heading"><div><span class="eyebrow">HORSE PROFILE</span><h2>馬別サマリーカード</h2></div></div><p id="selection-status" class="sr-only" aria-live="polite"></p><div id="selected-card"></div></section>'
             +'<noscript>馬別カードを表示するにはJavaScriptを有効にしてください。</noscript></main><script type="application/json" id="race-data">'+data+'</script><script>'+script+'</script></body></html>')
 
 
@@ -298,7 +305,7 @@ def comparison_data(view,mode,race_key="",portable=None):
             h=view[c['index']]
             html.append('<button class="top-horse" data-top-select="'+str(c['index'])+'">'+
                         '<span class="top-identity">'+frame_html(h['frame'])+mark_html(h['mark'])+'<b>'+escape(h['no'])+'</b></span>'+
-                        '<span class="top-name">'+escape(h['name'])+'</span><span class="top-odds">単勝 '+escape(h['odds'])+'</span>'+
+                        '<span class="top-name">'+escape(h['name'])+'</span>'+
                         '<span class="top-value">'+escape(c['value'])+'</span><span class="top-rank">'+escape(c['rank'])+'</span></button>')
         group['html']=''.join(html) or '<p class="no-data">該当データなし</p>'
     return groups
@@ -306,7 +313,7 @@ def comparison_data(view,mode,race_key="",portable=None):
 
 def comparison_html(view,mode):
     from .game_ui_comparison import TABS
-    buttons=''.join('<button role="tab" aria-selected="'+('true' if k=='final' else 'false')+'" data-tab="'+k+'">'+escape(label)+'</button>' for k,label in TABS if mode=='jra' or k!='training')
+    buttons=''.join('<button role="tab" aria-selected="'+('true' if k=='final' else 'false')+'" data-tab="'+k+'">'+escape(label)+'</button>' for k,label in TABS if True)
     return '<section class="metric-comparison"><div class="metric-tabs" role="tablist" aria-label="比較指標">'+buttons+'</div><div id="metric-count"></div><div id="top-horses" class="top-horses" role="tabpanel" tabindex="0" aria-label="選択指標の比較・横縦スクロール"></div><p id="metric-note"></p></section>'
 
 
@@ -333,28 +340,25 @@ def information_html(view, group):
 
 def candidate_html(view, group):
     if not group['rows']:return '<p class="no-data">最終印候補なし</p>'
-    headers=['枠','馬番・馬名','最終印','AIスコア順位','＋好走根拠','−不安材料']
     rows=[]
     for i in group['rows']:
-        h=view[i];ev=h.get('candidate_evidence') or {}
-        rank=escape(h['rank']+'位' if h['rank']!='—' else '—')
-        score=escape(h['score'])
-        desktop_rating=score+'／'+rank if number(h['score']) is not None else rank
-        empty=not ev.get('plus') and not ev.get('minus')
-        rating='<span class="candidate-desktop-rank">'+desktop_rating+'</span><span class="candidate-mobile-rating"><span>AIスコア <b>'+score+'</b>／'+rank+'</span><span>純能力'+escape(h['ability_rank']+'位' if h['ability_rank']!='—' else ' —')+'</span></span>'
-        rating += odds_html(h)
-        if empty:rating+='<span class="candidate-empty-note">表示できる根拠・不安材料なし</span>'
-        cells=[frame_html(h['frame']),'<button class="horse-select" data-top-select="'+str(i)+'" title="'+escape(h['no']+' '+h['name'])+'"><b>'+escape(h['no'])+'</b><span>'+escape(h['name'])+'</span></button>',mark_html(h['mark']),rating]
-        for key,color in [('plus','positive'),('minus','caution')]:
-            value=' / '.join(ev.get(key,[]))
-            label='＋好走根拠' if key=='plus' else '−不安材料'
-            cell='<span class="candidate-mobile-label" aria-label="'+label+'">'+('＋' if key=='plus' else '−')+'</span><span class="info-reason '+(color if value else 'muted')+'" title="'+escape(value)+'">'+escape(value or '—')+'</span>'
-            if key=='plus' and ev.get('neutral'):
-                neutral=' / '.join(ev['neutral'])
-                cell+='<span class="info-reason neutral" title="'+escape(neutral)+'">'+escape(neutral)+'</span>'
-            cells.append(cell)
-        rows.append('<tr data-candidate-select="'+str(i)+'">'+''.join('<td'+(' class="candidate-empty-material"' if (j==4 and not ev.get('plus')) or (j==5 and not ev.get('minus')) else '')+'>'+c+'</td>' for j,c in enumerate(cells))+'</tr>')
-    return '<table class="candidate-table"><thead><tr>'+''.join('<th>'+escape(h)+'</th>' for h in headers)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table>'
+        h=view[i];profile=h.get('profile') or {}
+        rows.append('<div class="candidate-item"><button class="candidate-summary" data-accordion="'+str(i)+'" aria-expanded="false" aria-controls="candidate-panel-'+str(i)+'">'+mark_html(h['mark'])+frame_html(h['frame'])+
+            '<b class="horse-number">'+escape(h['no'])+'</b><strong class="candidate-name">'+escape(h['name'])+'</strong><span class="candidate-meta">'+escape(h.get('jockey','—'))+' · '+escape(style_label(h.get('style','不明')))+'</span><span class="candidate-score">'+escape(h['score'])+'<small>正式'+escape(h['rank'])+'位 / 純能力'+escape(h['ability_rank'])+'位</small></span><span class="toggle-icon">⌄</span></button><div id="candidate-panel-'+str(i)+'" class="candidate-panel" hidden></div></div>')
+    return '<div class="candidate-accordion">'+''.join(rows)+'</div>'
+
+
+def conclusion_html(view):
+    from .game_ui_candidate_evidence import candidates
+    pool=candidates(view,'')['rows'];cards=[]
+    for i in pool:
+        h=view[i];p=h.get('profile') or {}
+        cards.append('<button class="medal-card" data-conclusion="'+str(i)+'">'+mark_html(h['mark'])+frame_html(h['frame'])+'<b class="horse-number">'+escape(h['no'])+'</b><strong>'+escape(h['name'])+'</strong><span class="medal-score">'+escape(h['score'])+'</span><small>'+escape(h['score_label'])+'</small><small>'+escape(h['jockey'])+' · 純能力'+escape(h['ability_rank'])+'位</small><small>'+escape(style_label(h['style']))+' · 指数推移 '+escape(p.get('state','判定不可'))+'</small></button>')
+    refs=[h for h in view if h.get('additional_reference')]
+    reference=''
+    if refs:
+        reference='<details class="reference-exploration"><summary>JRA参考注意馬（探索用・正式印変更なし） '+str(len(refs))+'頭</summary>'+''.join('<p>'+escape(h['no']+' '+h['name'])+'：'+escape(' / '.join(h['reference_facts']))+'</p>' for h in refs)+'</details>'
+    return '<section class="conclusion"><h2>今回の結論</h2><div class="medal-cards">'+''.join(cards)+'</div>'+reference+'</section>'
 
 
 def paper_html(view,race_key,paper_decision=None):
@@ -368,3 +372,11 @@ def nar_watch_html(view,portable=None):
         return html(view,portable)
     except Exception:
         return '<p>NAR研究注目馬：データを確認できません。</p>'
+
+
+def style_label(value):
+    return {'逃':'逃げ','先':'先行','差':'差し','追':'追込','逃げ':'逃げ','先行':'先行','差し':'差し','追込':'追込','自在':'自在'}.get(value,'不明')
+
+
+def without_market(value):
+    return ' / '.join(part for part in str(value or '').split(' / ') if not any(word in part for word in ('市場','人気','オッズ','期待値','反映勝率')))

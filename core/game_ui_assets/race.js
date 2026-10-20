@@ -8,6 +8,7 @@ function resize(){parent.postMessage({isStreamlitMessage:true,type:'streamlit:se
 function select(index,focusCard=false){
  if(index<0||index>=data.cards.length)return;
  selected=index;
+ document.getElementById("selected-section").hidden=false;
  document.querySelectorAll('[data-row]').forEach((row,i)=>row.classList.toggle('selected',i===index));
  buttons.forEach((btn,i)=>btn.setAttribute('aria-pressed',String(i===index)));
  host.innerHTML=data.cards[index];
@@ -23,21 +24,36 @@ buttons.forEach((btn,i)=>{
 document.querySelectorAll('[data-row]').forEach((row,i)=>row.addEventListener('click',e=>{if(!e.target.closest('button'))select(i);}));
 function showMetric(key){
  const group=data.tabs.find(t=>t.key===key);if(!group)return;
+ document.getElementById('selected-section').hidden=true;
  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===key)));
  document.getElementById('metric-count').textContent=(key==='final'?'最終印候補 '+group.eligible:group.label+' · 該当'+group.eligible)+'頭／全'+group.total+'頭';
  document.getElementById('top-horses').classList.toggle('information',['information','candidates'].includes(group.kind));
  document.getElementById('top-horses').classList.toggle('candidate-layout',group.kind==='candidates');
  document.getElementById('top-horses').innerHTML=group.html;
- document.getElementById('metric-note').textContent=key==='final'?'＋／−は参考材料です。馬名または候補をタップすると、既存の詳細カードで根拠の全文を確認できます。':group.note;
+ document.getElementById('metric-note').textContent=key==='final'?'行をタップして詳細を開閉。参考材料は正式スコアへ加点しません。':group.note;
  document.querySelectorAll('[data-top-select]').forEach(b=>b.addEventListener('click',()=>{select(Number(b.dataset.topSelect),true);host.scrollIntoView({block:'nearest',behavior:'smooth'});}));
- document.querySelectorAll('[data-candidate-select]').forEach(row=>row.addEventListener('click',e=>{if(!e.target.closest('button')){select(Number(row.dataset.candidateSelect),true);host.scrollIntoView({block:'nearest',behavior:'smooth'});}}));
+ document.querySelectorAll('[data-accordion]').forEach(btn=>btn.addEventListener('click',()=>accordion(Number(btn.dataset.accordion))));
+ if(key==='final'){const first=document.querySelector('[data-accordion]');if(first)accordion(Number(first.dataset.accordion));}
  resize();
 }
+function accordion(index){
+ const btn=document.querySelector('[data-accordion="'+index+'"]');if(!btn)return;
+ const opening=btn.getAttribute('aria-expanded')!=='true';
+ document.querySelectorAll('[data-accordion]').forEach(b=>{
+  b.setAttribute('aria-expanded','false');const panel=document.getElementById(b.getAttribute('aria-controls'));panel.hidden=true;panel.innerHTML='';
+ });
+ if(opening){btn.setAttribute('aria-expanded','true');const panel=document.getElementById(btn.getAttribute('aria-controls'));panel.innerHTML=data.cards[index];panel.hidden=false;}
+ resize();
+}
+document.querySelectorAll('[data-conclusion]').forEach(b=>b.addEventListener('click',()=>{
+ showMetric('final');const i=Number(b.dataset.conclusion);const target=document.querySelector('[data-accordion="'+i+'"]');
+ if(target&&target.getAttribute('aria-expanded')!=='true')accordion(i);
+}));
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showMetric(b.dataset.tab)));
 showMetric('final');
 document.addEventListener('toggle',resize,true);
 let initial=0;try{initial=Number(sessionStorage.getItem('keiba-ui:'+data.race_key)||0);}catch(e){}
-select(Number.isInteger(initial)&&initial>=0&&initial<data.cards.length?initial:0);
+// The final-candidate accordion owns initial selection; the all-runner panel opens on demand.
 window.gameResizeObserver=new ResizeObserver(resize);window.gameResizeObserver.observe(document.body);
 window.addEventListener('load',resize);
 })();
