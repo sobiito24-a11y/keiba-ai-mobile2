@@ -45,7 +45,8 @@ def predict_nar(
     from .nar_top5_order import attach
     from .axis_confidence_v2 import attach as attach_axis
     from .race_development import attach as attach_development
-    result = attach_axis(attach(attach_material_reconsideration(result)))
+    from .nar_f2_formal import attach_new as attach_f2
+    result = attach_axis(attach_f2(attach(attach_material_reconsideration(result)), html_files))
     from .independent_ai import attach as attach_independent
     from .game_ui_frames import attach_saved_frames
     return attach_saved_frames(attach_independent(attach_development(result, html_files)), html_files)

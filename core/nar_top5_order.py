@@ -9,7 +9,8 @@ ABILITY_COEF = 0.01180085
 CORNER4_COEF = -0.22088414
 FIELDS = ('pure_ability_top5_group', 'nar_final_rank', 'nar_final_mark',
           'nar_top5_order_score', 'nar_top5_order_version', 'nar_top5_order_status',
-          'nar_top5_order_pure', 'nar_top5_order_corner4', 'nar_top5_order_rank_change')
+          'nar_top5_order_pure', 'nar_top5_order_corner4', 'nar_top5_order_rank_change',
+          'nar_formal_top5_member', 'nar_original_pure_top5_group', 'nar_f2_score', 'nar_f2_version')
 
 def number(value):
     if isinstance(value, bool): return None
@@ -83,7 +84,7 @@ def snapshot(result):
                 coefficients=dict(ability=ABILITY_COEF,corner4=CORNER4_COEF),
                 pure_ability_top5_group=[horse_no(r) for r in rows if r['pure_ability_top5_group']],
                 final_group=[horse_no(r) for r in sorted(rows,key=sort_key) if r['pure_ability_top5_group']],
-                horses=[dict(horse_no=horse_no(r),pure_ability_rank=canonical_nar_ability_rank(r),actual_finish=None,**{k:r[k] for k in FIELDS}) for r in rows])
+                horses=[dict(horse_no=horse_no(r),pure_ability_rank=canonical_nar_ability_rank(r),actual_finish=None,**{k:r.get(k) for k in FIELDS}) for r in rows])
 
 def attach(result):
     if result.race_mode=='nar':
@@ -107,7 +108,7 @@ def comparison_fields(rows, source_rows):
         row['nar_submark']=submark(extra) or submark(row)
         row['nar_top5_mark']=row['nar_final_mark']
         row['nar_top5_role']={'◎':'中心','○':'本線','▲':'本線','✔︎':'狙い','△':'押さえ'}.get(row['nar_top5_mark'],'')
-        row['nar_top5_reason']='純能力Top5圏を保護し、圏内だけ能力＋4角で再順位'
+        row['nar_top5_reason']='実コース統計F2・全頭からTop5選出' if str(extra.get('nar_top5_order_version','')).startswith('nar_f2_') else '純能力Top5圏を保護し、圏内だけ能力＋4角で再順位'
     from .nar_check_selection import select
     rows[:] = select(rows, source_rows)
     return rows
