@@ -49,3 +49,39 @@ def snapshot(result):
     return {'model_version': VERSION, 'horses': [
         dict(horse_no=horse_no(r), **{k: v for k, v in r.items() if k.startswith('nar_check_')})
         for r in selected]}
+
+
+def resolve_saved(rows, source_rows):
+    """Restore saved decisions before using today's fallback selection.
+
+    This is a read/save projection, not a change to select() for new predictions.
+    Explicit saved selection fields override older text marks, including False.
+    """
+    out = select(rows, source_rows)
+    sources = {horse_no(r): r for r in source_rows}
+    saved = []
+    for row in out:
+        source = sources.get(horse_no(row), {})
+        if row.get('pure_ability_top5_group'):
+            row['nar_check_selected'] = False
+            continue
+        explicit = source.get('nar_check_selected')
+        if isinstance(explicit, bool):
+            row['nar_check_selected'] = explicit
+            row['nar_check_source'] = 'saved_nar_check_selected'
+        elif str(source.get('表示印', '')).strip() == '✓':
+            row['nar_check_selected'] = True
+            row['nar_check_source'] = 'saved_overall_display_mark'
+        else:
+            row['nar_check_source'] = 'current_rule_fallback'
+        if row['nar_check_selected']:
+            saved.append(row)
+    # Frozen selections take priority within the unchanged race-wide cap.
+    saved.sort(key=lambda r: (r['nar_check_source'] == 'current_rule_fallback',
+                             r.get('nar_check_pure_rank') or 999, int(horse_no(r))))
+    limit = 1 if len(out) <= 9 else 2
+    selected = {horse_no(r) for r in saved[:limit]}
+    for row in out:
+        row['nar_check_selected'] = horse_no(row) in selected
+        row['nar_submark'] = '✓' if row['nar_check_selected'] else ''
+    return out

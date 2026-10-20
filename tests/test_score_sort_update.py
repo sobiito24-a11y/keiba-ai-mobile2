@@ -21,7 +21,7 @@ def test_jra_top5_only_missing_marks_filled_and_reason_preserved():
  for table in [p.overall_table,p.horse_evaluation]:table.loc[table.馬番==5,'v1_final_mark']=''
  before=deepcopy(p)
  rows=official_jra_result_rows(p,p.overall_table.to_dict('records'));by={h['馬番']:h for h in rows}
- assert by[5]['_display_jra_final_mark']=='△' and '正式Top5補完' in by[5]['_display_jra_mark_reasons']
+ assert by[5]['_display_jra_final_mark']=='△' and '正式順位に基づく本印' in by[5]['_display_jra_mark_reasons']
  assert by[6]['_display_jra_final_mark']=='✔︎' and by[8]['_display_jra_final_mark']=='✓'
  assert p.overall_table.equals(before.overall_table)
 

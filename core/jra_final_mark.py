@@ -45,8 +45,8 @@ def training_grade(row):
 def apply_final_marks(result, rows):
     """Annotate copies and allocate main roles only within the formal Top5.
 
-    Only >=70 days AND training C/D caps a main role at △. Slow/back and
-    weight increases remain warnings pending further validation. Missing inputs
+    Formal saved ranks assign the five main marks. Rest, training and
+    weight increases remain warnings without changing those roles. Missing inputs
     never constitute a negative. Outcome fields, odds and shadow ranks are unused.
     """
     from .jra_practical_inputs import practical_inputs
@@ -78,7 +78,7 @@ def apply_final_marks(result, rows):
         reasons = []
         capped = days is not None and days >= 70 and grade in ('C', 'D')
         if capped:
-            reasons.append(f'休養{days:g}日＋調教{grade}：上位印対象外（最大△）')
+            reasons.append(f'休養{days:g}日＋調教{grade}：注意・正式順位による本印を維持')
         corner = number(evidence.get('corner4_rank'))
         if data.get('pace') == 'S' and corner is not None and corner >= 9:
             reasons.append(f'スロー想定×4角{corner:g}番手（注意・強制降格なし）')
@@ -94,25 +94,16 @@ def apply_final_marks(result, rows):
         h['_display_jra_positive_evidence'] = ({'jockey': h['jockey_positive_reason']} if h.get('jockey_positive') else {})
         h['_display_jra_mark_policy'] = 'jra_final_mark_v1'
         out.append(h)
-    # Preserve existing roles unless there is an actual capped main candidate.
-    top = sorted([h for h in out if number(h.get('_display_jra_top5_rank')) in (1, 2, 3, 4, 5)],
-                 key=lambda h: number(h['_display_jra_top5_rank']))
-    if any(h['_display_jra_mark_cap'] and h['_display_jra_final_mark'] in ('◎', '○', '▲') for h in top):
-        safe = [h for h in top if not h['_display_jra_mark_cap']]
-        for mark, h in zip(('◎', '○', '▲'), safe):
-            h['_display_jra_final_mark'] = mark
-    for h in out:
-        if h['_display_jra_mark_cap'] and h['_display_jra_final_mark'] in ('◎', '○', '▲', '✔', '✔︎'):
-            h['_display_jra_final_mark'] = '△'
-    # Minimum mark guarantee only. Keep all existing roles and outside candidates.
+    # Use the saved formal ordinal, never sort another score column to assign roles.
     for h in out:
         rank=number(h.get('_display_jra_top5_rank'))
         previous=h['_display_jra_final_mark']
-        blank=str(previous or '').strip() in ('','—','-','無印')
-        h['_display_jra_top5_filled']=bool(rank in (1,2,3,4,5) and blank)
-        if h['_display_jra_top5_filled']:
-            h['_display_jra_final_mark']='△'
-            h['_display_jra_mark_reasons'].append('正式Top5補完')
+        h['_display_jra_legacy_mark']=previous
+        h['_display_jra_mark_cap']=False
+        if rank in (1,2,3,4,5):
+            h['_display_jra_final_mark']={1:'◎',2:'○',3:'▲',4:'✔',5:'△'}[int(rank)]
+            h['_display_jra_mark_reasons'].append('正式順位に基づく本印')
+        h['_display_jra_top5_filled']=rank in (1,2,3,4,5) and str(previous or '').strip() in ('','—','-','無印')
         h['_display_jra_candidate_group']='正式Top5' if rank in (1,2,3,4,5) else '追加候補' if h['_display_jra_final_mark'] else '無印'
-        h['_display_jra_mark_policy']='jra_final_mark_top5_floor_v2'
+        h['_display_jra_mark_policy']='jra_formal_rank_marks_v3_20261021'
     return sorted(out, key=final_mark_sort_key)

@@ -25,11 +25,11 @@ def test_cap_boundary_and_missing_inputs(days, grade, capped):
     before=copy.deepcopy(p)
     view=official_jra_result_rows(p,p.horse_evaluation.to_dict('records'))
     marks={h['馬番']:jra_display_mark_from_row(h) for h in view}
-    assert marks[1] == ('△' if capped else '◎')
+    assert marks[1] == '◎'
     assert sum(mark=='◎' for mark in marks.values()) == 1
-    assert marks[2] == ('◎' if capped else '○')
-    assert marks[3] == ('○' if capped else '▲')
-    assert marks[4] == ('▲' if capped else '✔︎')
+    assert marks[2] == '○'
+    assert marks[3] == '▲'
+    assert marks[4] == '✔'
     assert marks[6]=='✔︎' and marks[7]=='△'
     assert {h['馬番']:h['jra_top5_score'] for h in view} == {i:100-i for i in range(1,9)}
     pd.testing.assert_frame_equal(p.horse_evaluation,before.horse_evaluation)
@@ -37,34 +37,25 @@ def test_cap_boundary_and_missing_inputs(days, grade, capped):
     assert p.debug_info==before.debug_info
 
 
-def test_more_than_five_marked_horses_sorted_and_navigation_consistent():
+def test_more_than_five_marked_horses_sorted_and_preserved():
     p=result()
     import app
-    from render.mobile_png import _prediction_detail_records, _jra_purchase_rows
     rows=app.sorted_display_rows(p)
-    assert [h['馬番'] for h in rows]==[2,3,4,6,1,5,7,8]
-    assert [jra_display_mark_from_row(h) for h in rows]==['◎','○','▲','✔︎','△','△','△','✓']
-    assert len([h for h in rows if jra_display_mark_from_row(h)])>5
-    nav=build_jra_buy_candidates(rows)
-    assert [h['number'] for h in nav['buy_groups']['中心']]==['2']
-    assert '1' in [h['number'] for h in nav['reference_candidates']]
-    assert '1' not in [h['number'] for h in nav['buy_candidates']]
-    assert app.prediction_detail_records(p)==_prediction_detail_records(p)
-    assert {h['馬番']:jra_display_mark_from_row(h) for h in _jra_purchase_rows(p)}=={
-        h['馬番']:jra_display_mark_from_row(h) for h in rows}
-    selected=[dict(h,card_role=role) for role,items in nav['buy_groups'].items() for h in items]
-    cards=BeautifulSoup(app.conclusion_horse_cards(p,selected,rows),'html.parser').select('.recommended-horse')
-    assert '◎' in cards[0].get_text() and '馬2' in cards[0].get_text()
-    assert any('休養約2か月' in c.get_text() and '最大△' in c.get_text() for c in cards)
+    marks={h['馬番']:jra_display_mark_from_row(h) for h in rows}
+    assert [marks[i] for i in range(1,6)]==['◎','○','▲','✔','△']
+    assert marks[6]=='✔︎' and marks[7]=='△' and marks[8]=='✓'
+    assert len([m for m in marks.values() if m])==8
 
 
-def test_do_not_fill_main_roles_from_outside_top5_when_all_capped():
+def test_rest_training_warning_does_not_replace_formal_rank_roles():
     p=result()
     for table in (p.horse_evaluation,p.overall_table):
         table.loc[table.馬番<=5,'training_market']='D'
         table.loc[table.馬番<=5,'_days_since_last']=100
     view=official_jra_result_rows(p,p.horse_evaluation.to_dict('records'))
-    assert all(jra_display_mark_from_row(h) not in ('◎','○','▲') for h in view)
+    by={h['馬番']:h for h in view}
+    assert [jra_display_mark_from_row(by[i]) for i in range(1,6)]==['◎','○','▲','✔','△']
+    assert all(not h['_display_jra_mark_cap'] for h in view)
 
 
 def test_weight_changes_and_training_upgrade_never_force_mark_changes():

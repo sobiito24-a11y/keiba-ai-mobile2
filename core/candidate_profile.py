@@ -24,7 +24,7 @@ def facts(row,info):
         matches=[r for r in raw if isinstance(r,dict) and day(r.get('race_date',r.get('date')))==d]
         extra=matches[0] if len(matches)==1 else {}
         rid=str(extra.get('race_id',''))
-        runs.append({k:text(run.get(k)) for k in ('label','date','venue','surface','distance','finish','passing_order','race_name')}|dict(
+        runs.append({k:text(run.get(k)) for k in ('label','date','venue','surface','distance','turn','finish','passing_order','race_name')}|dict(
             time_index=number(run.get('time_index')),race_id=rid if re.fullmatch(r'20\d{10}',rid) else None,
             class_raw=text(extra.get('race_data2') or extra.get('class_raw_text') or (run.get('race_name') if run.get('race_name') not in ('映像を見る','レース映像','動画') else ''))))
     runs.sort(key=lambda r:day(r['date']),reverse=True);runs=runs[:3]
@@ -43,7 +43,9 @@ def facts(row,info):
     for run in runs:
         ctx=conservative_class(dict(venue=run['venue'],surface=run['surface'],race_name=run['class_raw']))
         if not comparison_blockers(current_context,ctx) and class_change(current_context,ctx)=='同級':same.append(run)
-    return dict(version=VERSION,runs=runs,excluded=excluded,state=state,stability_stars=stars,stability_sd=sd,
+    from .recent_condition_facts import evaluate
+    conditions=evaluate(row,info,runs)
+    return dict(condition_facts=conditions,version=VERSION,runs=runs,excluded=excluded,state=state,stability_stars=stars,stability_sd=sd,
         state_reason='同じ保存タイム指数の直近3走を比較。連続3点以上増=上向き、連続3点以上減=注意、それ以外=横ばい。状態全般の保証ではありません。' if valid else '発走日前と確認できる3走の指数が不足',
         rest_days=(current-day(runs[0]['date'])).days if runs else None,
         body_weight=text(pick(row,'馬体重','body_weight')),body_weight_change=text(pick(row,'馬体重増減','body_weight_change')),
@@ -53,7 +55,18 @@ def facts(row,info):
 
 def enrich(view,sources,info):
     """Called on the UI projection, never on the source prediction rows."""
-    for h in view:h['profile']=facts(sources.get(h['no'],{}),info)
+    for h in view:
+        h['profile']=facts(sources.get(h['no'],{}),info)
+        from .recent_condition_facts import materials, STATES
+        data=h['profile']['condition_facts']
+        tags=materials(data)
+        h['plus']=' / '.join([v for v in [h.get('plus',''),*tags] if v and v!='—'])
+        ev=h.get('candidate_evidence',{})
+        ev.setdefault('plus',[]).extend(tags)
+        if h.get('mark') in ('◎','○','▲'):
+            ev.setdefault('neutral',[]).extend(label+'：'+STATES[data['conditions'][key]['state']]+'（近3走・減点なし）' for key,label in [('venue','同会場'),('turn','同回り')] if data['conditions'][key]['state']!='placed')
+        if h.get('mode')=='nar' and h.get('mark') in ('','—','-') and 0<(number(h.get('ability_rank')) or 999)<=8 and data['conditions']['venue']['top3']:
+            ev.setdefault('neutral',[]).append('再確認材料：純能力8位以内＋近走同会場好走（✓の追加なし）')
     for h in view:
         for r in h['profile']['runs']:
             if not r['race_id']:continue
@@ -84,7 +97,8 @@ def profile_html(h):
     for label in ('3走前','2走前','前走'):
         r=by.get(label,{})
         body+='<section class="recent-run"><small>'+label+'</small><strong'+(' class="missing-finish"' if not r.get('finish') else '')+'>'+e(r.get('finish'))+'</strong><p>'+e(r.get('date'))+' '+e(r.get('venue'))+'</p><p>'+e(r.get('surface'))+e(r.get('distance'))+'</p><p>'+e(r.get('class_raw'))+'</p><p>タイム指数 '+e(r.get('time_index'))+'</p><small>通過 '+e(r.get('passing_order'))+'</small></section>'
-    body+='</div><div class="facts"><span>指数推移：<b>'+e(p.get('state','判定不可'))+'</b></span><span>近走安定度 '+('★'*p['stability_stars']+'☆'*(5-p['stability_stars']) if p.get('stability_stars') else '判定不可')+'</span><span>休養 '+e(p.get('rest_days'))+'日</span></div>'
+    from .recent_condition_facts import html as condition_html
+    body+='</div>'+condition_html(p['condition_facts'])+'<div class="facts"><span>指数推移：<b>'+e(p.get('state','判定不可'))+'</b></span><span>近走安定度 '+('★'*p['stability_stars']+'☆'*(5-p['stability_stars']) if p.get('stability_stars') else '判定不可')+'</span><span>休養 '+e(p.get('rest_days'))+'日</span></div>'
     body+='<p class="help">'+e(p.get('state_reason'))+' 安定度は指数の標準偏差（≤3/5/8/12/それ以上）で5〜1段階。勝率ではありません。</p>'
     body+='<p>今回クラス：'+e(p.get('current_class'))+'／変動：'+e(p.get('class_shift'))+'</p>'
     body+='<p>同級の直近実績：'+e(p.get('same_class_top3'))+'回の3着以内／'+e(p.get('same_class_n'))+'走（直近3走内のみ）</p><p>保存ペース：'+e(p.get('pace'))+'／脚質コース複勝率：'+e(p.get('style_rate'))+'／母数：'+e(p.get('style_n'))+'。母数不明は評価への加点なし。</p>'

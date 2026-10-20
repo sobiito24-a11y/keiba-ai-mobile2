@@ -109,8 +109,8 @@ def comparison_fields(rows, source_rows):
         row['nar_top5_mark']=row['nar_final_mark']
         row['nar_top5_role']={'◎':'中心','○':'本線','▲':'本線','✔︎':'狙い','△':'押さえ'}.get(row['nar_top5_mark'],'')
         row['nar_top5_reason']='実コース統計F2・全頭からTop5選出' if str(extra.get('nar_top5_order_version','')).startswith('nar_f2_') else '純能力Top5圏を保護し、圏内だけ能力＋4角で再順位'
-    from .nar_check_selection import select
-    rows[:] = select(rows, source_rows)
+    from .nar_check_selection import resolve_saved
+    rows[:] = resolve_saved(rows, source_rows)
     return rows
 
 

@@ -98,6 +98,13 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
         h['research_inputs']={'jockey_n':number(source.get('_jockey_course_starts')), 'jockey_rate':number(source.get('_jockey_course_place_rate'))}
     from .candidate_profile import enrich
     enrich(out,evidence_sources,race_info or {})
+    from .evidence_identity import material_items, text as evidence_text
+    for h in out:
+        h['material_items'] = material_items([h['plus'], h['caution']])
+        h['plus'] = evidence_text([h['plus']])
+        h['caution'] = evidence_text([h['caution']])
+        for key in ('plus','minus','neutral'):
+            h['candidate_evidence'][key] = [x['text'] for x in material_items(h['candidate_evidence'][key])]
     mixed=any(re.fullmatch(r'[牡牝セセン]+[4-9]\d*',h['age']) for h in out)
     for h in out:
         src=evidence_sources[h['no']]
@@ -175,10 +182,12 @@ def card_html(h):
     if h['mode'] == 'jra': tags += [('展開有利',h['development']),('調教',h['training'] or '—'),('厩舎評価',h['stable'])]
     if h['rest']: tags.append(('休養',h['rest']))
     raw = f'<article class="horse-detail" data-card="{e(h["no"])}"><div class="card-heading">{frame_html(h["frame"])}<div><span class="eyebrow">{e(designation)}</span><h3>{mark_html(h["mark"])} {e(h["no"])} <span>{name_html(h)}</span></h3></div></div>'
-    raw += '<p class="candidate-category">'+e(h.get('candidate_group',''))+' '+e(' / '.join(h.get('mark_reasons',[])))+'</p>'
+    raw += '<p class="candidate-category">'+e(h.get('candidate_group',''))+' '+e(' / '.join(r for r in h.get('mark_reasons',[]) if not r.startswith('斤量')))+'</p>'
     if h.get('display_scale'):
         ds=h['display_scale'];raw += '<p class="help">'+e(ds['method'])+' 表示は小数2桁、並び替えは丸め前の内部値。</p><details><summary>内部スコア・取得状態</summary><p>'+e(str(ds['raw']))+' / '+e({'available':'計算済み','missing':'スコア未取得','not_calculated':'計算対象外','error':'データ取得・解析エラー'}[ds['status']])+'</p></details>'
     raw += f'<div class="identity">{e(h["age"])} <span>{e(h["weight"])}</span> <span>{e(h["jockey"])}</span></div><div class="stats">{blocks}</div>'+missing_html
+    from .candidate_profile import profile_html
+    raw += profile_html(h)
     raw += '<div class="facts">'+''.join(f'<span><small>{e(k)}</small> {training_html(v) if k=="調教" else e(v)}</span>' for k,v in tags)+'</div>'
     raw += '<div class="stars">'+metric_html(h.get('star',{}),'★')+metric_html(h.get('away',{}),'☆')+'</div>'
     raw += '<div class="materials">'
@@ -188,15 +197,16 @@ def card_html(h):
     raw += '</div>'
     if h.get('candidate_evidence'):
         ev=h['candidate_evidence']
+        from .evidence_identity import material_items
+        visible_keys={i['key'] for i in material_items([h['plus'],h['caution']])}
         raw += '<details><summary>最終印候補の好走根拠・不安材料</summary>'
         for key,label in [('plus','＋好走根拠'),('minus','−不安材料'),('neutral','中立の参考情報')]:
-            raw += '<p><b>'+label+'</b>：'+e(' / '.join(ev[key]) or '—')+'</p>'
+            remaining=[i['text'] for i in material_items(ev[key]) if i['key'] not in visible_keys]
+            raw += '<p><b>'+label+'</b>：'+e(' / '.join(remaining) or '上記材料を参照')+'</p>'
         raw += '<details><summary>根拠の元数値・情報源</summary><div class="past">'+e(json.dumps(ev['audit'],ensure_ascii=False,indent=2))+'</div></details></details>'
-    from .candidate_profile import profile_html
-    raw += profile_html(h)
     if h['mode'] == 'jra': raw += '<details><summary>厩舎コメント原文</summary><p>'+e(h['comment'] or '未取得')+'</p></details>'
     raw += '<details><summary>材料の全文・騎手実績・過去走</summary><p>騎手の過去実績：'+e(h['jockey_stats'])+'</p>'
-    for key,label in [('plus','今回プラス'),('caution','今回注意'),('reference','研究用参考注目'),('check_reason','追加✓の対象確認')]:
+    for key,label in [('reference','研究用参考注目'),('check_reason','追加✓の対象確認')]:
         if h[key] and h[key] != '—': raw += f'<p><b>{label}</b>：{e(h[key])}</p>'
     raw += '</details></article>'
     return raw

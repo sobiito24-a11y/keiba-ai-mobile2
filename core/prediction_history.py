@@ -145,6 +145,13 @@ def build_prediction_snapshot(result: PredictionResult, investment_decision: Any
     copy_frame_metadata(result, payload)
     from .newspaper_stable_rating import snapshot_metadata
     snapshot_metadata(result, payload)
+    from .resolved_marks import resolve
+    resolved = resolve(result)
+    for horse in payload['horses']:
+        item = resolved.get(str(horse.get('horse_no')))
+        if item:
+            horse.setdefault('prediction', {})['mark'] = item['mark']
+            horse['resolved_mark'] = item
     return payload
 
 
