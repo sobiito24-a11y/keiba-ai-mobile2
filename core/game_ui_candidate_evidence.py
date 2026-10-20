@@ -15,12 +15,12 @@ def candidates(view, label):
     def order(i):
         h = view[i]
         rank, score, no = number(h.get('rank')), number(h.get('score')), number(h.get('no'))
-        return (MARK_ORDER[normalized_mark(h.get('mark'))],
+        return (MARK_ORDER.get(normalized_mark(h.get('mark')),7),
                 rank if rank is not None else float('inf'),
                 -score if score is not None else float('inf'),
                 no if no is not None else float('inf'), i)
     rows = sorted((i for i, h in enumerate(view)
-                   if normalized_mark(h.get('mark')) in MARK_ORDER), key=order)
+                   if normalized_mark(h.get('mark')) in MARK_ORDER or h.get('additional_reference')), key=order)
     return dict(key='final', label=label, kind='candidates', rows=rows, cards=[],
                 eligible=len(rows), total=len(view),
                 note='＋／−は参考材料です。横・縦にスクロールして全候補を確認できます。馬名を選ぶと根拠の全文を表示します。')

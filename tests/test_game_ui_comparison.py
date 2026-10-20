@@ -19,7 +19,7 @@ def test_tabs_keep_formal_marks_order_and_input(mode,count):
  assert all(len(t['cards'])<=5 for t in tabs)
  final=tabs[0]
  from core.game_ui_candidate_evidence import normalized_mark,MARK_ORDER
- assert set(final['rows'])=={i for i,h in enumerate(view) if normalized_mark(h['mark']) in MARK_ORDER}
+ assert set(final['rows'])=={i for i,h in enumerate(view) if normalized_mark(h['mark']) in MARK_ORDER or h.get('additional_reference')}
  assert final['kind']=='candidates' and final['cards']==[]
  for key in ['corner','distance','course','star','away']:
   t=next(t for t in tabs if t['key']==key)

@@ -104,4 +104,15 @@ def apply_final_marks(result, rows):
     for h in out:
         if h['_display_jra_mark_cap'] and h['_display_jra_final_mark'] in ('◎', '○', '▲', '✔', '✔︎'):
             h['_display_jra_final_mark'] = '△'
+    # Minimum mark guarantee only. Keep all existing roles and outside candidates.
+    for h in out:
+        rank=number(h.get('_display_jra_top5_rank'))
+        previous=h['_display_jra_final_mark']
+        blank=str(previous or '').strip() in ('','—','-','無印')
+        h['_display_jra_top5_filled']=bool(rank in (1,2,3,4,5) and blank)
+        if h['_display_jra_top5_filled']:
+            h['_display_jra_final_mark']='△'
+            h['_display_jra_mark_reasons'].append('正式Top5補完')
+        h['_display_jra_candidate_group']='正式Top5' if rank in (1,2,3,4,5) else '追加候補' if h['_display_jra_final_mark'] else '無印'
+        h['_display_jra_mark_policy']='jra_final_mark_top5_floor_v2'
     return sorted(out, key=final_mark_sort_key)

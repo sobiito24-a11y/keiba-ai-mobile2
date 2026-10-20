@@ -79,7 +79,7 @@ def enrich(view,sources,info):
 
 def profile_html(h):
     p=h.get('profile') or {};e=lambda v:escape(str(v if v is not None and v!='' else 'データなし'))
-    runs=p.get('runs',[]);body='<section class="profile-facts"><h4>過去3走 · 発走日前を確認した情報</h4><div class="recent-three">'
+    runs=p.get('runs',[]);body='<section class="profile-facts"><h4>過去3走 · 開催日を確認した情報</h4><div class="recent-three">'
     by={r['label']:r for r in runs}
     for label in ('3走前','2走前','前走'):
         r=by.get(label,{})

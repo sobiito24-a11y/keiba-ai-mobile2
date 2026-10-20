@@ -1794,9 +1794,11 @@ def render_game_prediction(result):
     with st.expander("買い目検討用・手動オッズ取込", expanded=False):
         view = render_prices(result, view)
     from core.paper_betting_ui import current_decision
-    render_component(view, rid, current_decision(result,view))
+    from core.game_race_ui import decision_view
+    buying_view = decision_view(view)
+    render_component(view, rid, current_decision(result,buying_view))
     from core.paper_betting_ui import render as render_paper_betting
-    render_paper_betting(result, view)
+    render_paper_betting(result, buying_view)
 
 
 def render_game_commentary(result):

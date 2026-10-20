@@ -23,7 +23,7 @@ def test_submarks_not_formal_and_all_horses_in_detail():
  a=select(annotate(data));assert display_mark(a[5])=='✓' and display_mark(a[6])==''
  assert len(summary_rows(a))==6 and not a[6]['pure_ability_top5_group'] and a[6]['nar_final_mark']==''
  records=app.prediction_detail_records(p);assert len(records)==8 and records==_prediction_detail_records(p)
- assert all(r['NAR最終順位']=='—' for r in records if r['純能力順位'] in ('6','7','8'))
+ assert all(r['NAR最終順位']==r['純能力順位'] for r in records if r['純能力順位'] in ('6','7','8'))
  c=app.nar_comparison_from_result(p);assert len(c['nar_top5_recommendations'])==5
  assert app.nar_display_mark_from_row(next(h for h in c['rows'] if h['number']=='7'))==''
  html=app.nar_purchase_judgement_html(c);assert '狙い' in html

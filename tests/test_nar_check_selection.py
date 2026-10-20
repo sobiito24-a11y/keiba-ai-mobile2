@@ -100,7 +100,7 @@ def test_selected_checks_in_conclusion_table_and_cards(monkeypatch):
     view=build_view(app.sorted_display_rows(result),app.prediction_detail_records(result),rows,'nar',{})
     checks=[c for c in view if c['mark']=='✓']
     assert [c['no'] for c in checks]==['6','7']
-    assert all(c['member'] is False and c['rank']=='—' for c in checks)
+    assert all(c['member'] is False and c['rank'] in ('6','7') and c['_decision_rank']=='—' for c in checks)
     assert all('正式Top5圏外' in card_html(c) for c in checks)
     assert all(c['mark']!='✓' for c in view[:5])
     table=app.prediction_detail_records(result)
