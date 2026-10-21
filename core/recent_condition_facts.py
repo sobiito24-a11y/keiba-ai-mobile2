@@ -4,7 +4,7 @@ from html import escape
 from .condition_fit import _current_condition, _venue_key, _turn_key, _distance_int
 
 VERSION = 'recent_condition_facts_v1'
-LABELS = {'venue': '同会場', 'turn': '同回り', 'venue_distance': '同会場・同距離'}
+LABELS = {'venue': '同会場', 'turn': '同回り', 'venue_distance': '同会場・同距離', 'distance': '同距離'}
 STATES = {'placed': '好走歴あり', 'started': '出走経験あり・好走歴なし',
           'absent': '過去3走に該当出走なし', 'missing': '過去走データ不足'}
 
@@ -22,7 +22,7 @@ def evaluate(row, info, runs):
     result = {'version': VERSION, 'current': current, 'window': '開催日前の保存過去3走',
               'capture_status': '取得時点の証明は別途必要', 'conditions': {}}
     for key in LABELS:
-        required = ('surface', 'turn') if key == 'turn' else ('surface', 'venue', 'distance') if key == 'venue_distance' else ('surface', 'venue')
+        required = ('surface', 'distance') if key == 'distance' else ('surface', 'turn') if key == 'turn' else ('surface', 'venue', 'distance') if key == 'venue_distance' else ('surface', 'venue')
         matches, unknown = [], 0
         for run in runs:
             facts = dict(venue=_venue_key(run.get('venue')), surface=surface(run.get('surface')),

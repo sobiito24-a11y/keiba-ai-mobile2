@@ -25,17 +25,31 @@ function selectHorse(no){
 function select(index){const h=data.horses[index];if(h)selectHorse(h.no);}
 buttons.forEach(btn=>btn.addEventListener('click',()=>selectHorse(btn.dataset.select)));
 document.querySelectorAll('[data-row]').forEach(row=>row.addEventListener('click',e=>{if(!e.target.closest('button'))selectHorse(row.dataset.horse);}));
+function compareHorses(a,b,key,sign){
+ const av=a.sort[key],bv=b.sort[key];
+ const am=typeof av!=='number'||!Number.isFinite(av),bm=typeof bv!=='number'||!Number.isFinite(bv);
+ if(am!==bm)return am?1:-1;
+ if(!am&&av!==bv)return sign*(av-bv);
+ if(am&&bm&&key==='score'){const ar=Number.isFinite(a.rank)?a.rank:Infinity,br=Number.isFinite(b.rank)?b.rank:Infinity;if(ar!==br)return ar-br;}
+ return Number(a.no)-Number(b.no);
+}
+function sortCandidates(){
+ const control=document.getElementById('candidate-sort');if(!control)return;
+ const key=control.value,sign=key==='score'?-1:1;
+ for(const container of document.querySelectorAll('.candidate-accordion,.other-candidates')){
+  const rows=[...container.children].filter(r=>r.classList.contains('candidate-item'));
+  rows.sort((a,b)=>compareHorses(data.horses[Number(a.querySelector('[data-accordion]').dataset.accordion)],data.horses[Number(b.querySelector('[data-accordion]').dataset.accordion)],key,sign));
+  const before=container.querySelector(':scope > .other-candidates');
+  rows.forEach(r=>container.insertBefore(r,before));
+ }
+ resize();
+}
 function sortLineup(){
  const key=document.getElementById('lineup-sort').value;
  const sign=document.getElementById('lineup-direction').value==='asc'?1:-1;
  const body=document.querySelector('.table-scroll tbody');
  const rows=[...body.querySelectorAll('tr[data-horse]')];
- rows.sort((a,b)=>{
-  const av=horseMap.get(a.dataset.horse).sort[key],bv=horseMap.get(b.dataset.horse).sort[key];
-  const am=typeof av!=='number'||!Number.isFinite(av),bm=typeof bv!=='number'||!Number.isFinite(bv);
-  if(am!==bm)return am?1:-1;
-  return (!am&&av!==bv)?sign*(av-bv):Number(a.dataset.horse)-Number(b.dataset.horse);
- });
+ rows.sort((a,b)=>compareHorses(horseMap.get(a.dataset.horse),horseMap.get(b.dataset.horse),key,sign));
  rows.forEach(r=>{body.appendChild(r);const detail=body.querySelector('[data-detail-horse="'+r.dataset.horse+'"]');if(detail)body.appendChild(detail);});
  resize();
 }
@@ -53,6 +67,7 @@ function showMetric(key){
  document.getElementById('metric-note').textContent=key==='final'?'行をタップして詳細を開閉。参考材料は正式スコアへ加点しません。':group.note;
  document.querySelectorAll('[data-top-select]').forEach(b=>b.addEventListener('click',()=>{select(Number(b.dataset.topSelect));}));
  document.querySelectorAll('[data-accordion]').forEach(btn=>btn.addEventListener('click',()=>accordion(Number(btn.dataset.accordion))));
+ const candidateSort=document.getElementById('candidate-sort');if(candidateSort)candidateSort.addEventListener('change',sortCandidates);
  if(key==='final'){const first=document.querySelector('[data-accordion]');if(first)accordion(Number(first.dataset.accordion));}
  resize();
 }

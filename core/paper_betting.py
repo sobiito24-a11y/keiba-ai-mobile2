@@ -86,7 +86,7 @@ def settle(record,results):
  known=[r for r in outcomes if r['returned'] is not None];cost=sum(r['stake'] for r in known);returns=sum(r['returned'] for r in known)
  return dict(evaluation_scope='user_tickets' if record.get('schema_version')==2 else 'legacy_ai_tickets',user_choice=record.get('user_choice'),record_hash=record['record_hash'],race_id=record['race_id'],settled_at=datetime.now(timezone.utc).isoformat(),outcomes=outcomes,unknown=len(outcomes)-len(known),cost=cost,returns=returns,roi=returns/cost*100 if cost else None,source=results.get('source'),note='未取得は0円扱いしない。元判断は変更しない')
 def html(decision):
- e=lambda v:escape(str(v));parts=['<details style="padding:12px;background:#102239;border:1px solid #355273;border-radius:10px;margin:12px 0"><summary>馬券判断（検証版）</summary><p>紙上検証・未校正。購入推奨や利益保証ではありません。全候補は要確認です。</p>']
+ e=lambda v:escape(str(v));parts=['<details style="padding:12px;background:#f5f7fa;color:#182638;border:1px solid #c8d2df;border-radius:10px;margin:12px 0"><summary>馬券判断（検証版）</summary><p>紙上検証・未校正。購入推奨や利益保証ではありません。全候補は要確認です。</p>']
  for key,label in [('strong','強軸候補'),('value','妙味候補')]:
   parts.append('<h3>'+label+'</h3>')
   if not decision[key]:parts.append('<p>該当なし・見送り</p>')
