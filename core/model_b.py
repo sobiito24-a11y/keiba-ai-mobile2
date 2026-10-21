@@ -2,10 +2,11 @@
 from copy import deepcopy
 from hashlib import sha256
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 from zoneinfo import ZoneInfo
 import json
 import math
+import re
 from .model_b_features import transform, extract, RAW_FIELDS, TRANSFORM_VERSION, finite
 
 VERSION='research_b_frozen_20261021_v1'
@@ -31,7 +32,7 @@ def predict(rows,mode,artifact=None,method='SELECTED'):
     inputs.sort(key=lambda h:int(h['no']))
     report=dict(engine_version=VERSION,mode=mode,method=method,input_sha256=digest(inputs),horses=[],status='unavailable',fallback_reason='研究Bの凍結モデル未取得')
     if not artifact:return report
-    model=artifact['models'][mode.upper()][method]
+    model=(dict(version=VERSION+'_'+mode.upper()+'_B0',features=['ability_raw'],coefficients=[1.0],intercept=0.0,coefficient_status='B0：純能力の原値・学習なし') if method=='B0' else artifact['models'][mode.upper()][method])
     report.update(model_version=model['version'],config_sha256=artifact['artifact_sha256'],config=deepcopy(model),train_end=artifact['train_end'])
     if len({h['no'] for h in inputs})!=len(inputs):raise ValueError('研究Bの馬番が重複')
     try: transformed=transform(inputs)
@@ -39,6 +40,7 @@ def predict(rows,mode,artifact=None,method='SELECTED'):
     cols=model['features'];weights=model['coefficients']
     if len(cols)!=len(weights) or not all(math.isfinite(float(v)) for v in weights+[model['intercept']]):raise ValueError('研究B係数が不正')
     for raw,h in zip(inputs,transformed):
+        if method=='B0':h['features']['ability_raw']=float(raw['ability'])
         terms={k:float(w)*h['features'][k] for k,w in zip(cols,weights)}
         score=float(model['intercept'])+sum(terms.values())
         report['horses'].append(dict(no=h['no'],score=score,rank=None,mark='',contributions=terms,intercept=model['intercept'],features=h['features'],raw_features=raw,missing=h['missing']))
@@ -85,12 +87,39 @@ def resolve(result):
     info=result.race_info or {}
     race_day=str(info.get('race_date') or info.get('date') or '').replace('/','-')[:10]
     report['default_allowed']=report.get('status')=='ready' and not report['historical_recalculation'] and len(race_day)==10 and race_day>str(report.get('train_end','9999'))
+    report['prediction_at']=datetime.now(ZoneInfo('Asia/Tokyo')).isoformat()
     return report
+
+def capture_context(result, now):
+    info=result.race_info or {}
+    date=str(info.get('race_date') or info.get('date') or '').replace('/','-')[:10]
+    start=None
+    value=info.get('start_at') or info.get('start_datetime')
+    try:
+        start=datetime.fromisoformat(str(value)) if value else None
+        if start is not None and start.tzinfo is None:start=None
+    except ValueError:pass
+    if start is None and re.fullmatch(r'20\d{2}-\d{2}-\d{2}',date):
+        clock=re.search(r'(\d{1,2}):(\d{2})',str(info.get('start_time') or info.get('post_time') or info.get('race_data') or ''))
+        if clock:
+            try:start=datetime.fromisoformat(date).replace(hour=int(clock[1]),minute=int(clock[2]),tzinfo=ZoneInfo('Asia/Tokyo'))
+            except ValueError:pass
+    restored=any(getattr(result,k,False) for k in ('_jra_snapshot_restored','_material_snapshot_restored','_race_insight_restored'))
+    retrospective=restored or (start is not None and now>=start) or (len(date)==10 and date<now.date().isoformat())
+    return dict(prediction_origin='retrospective_recalculation' if retrospective else 'new_prediction',scheduled_start_at=start.isoformat() if start else None,generated_before_start=bool(start and now<start),prestart_inputs_verified=False,timing_status='事後再計算・当時の予測ではありません' if retrospective else '発走前計算・入力の取得時点未確認' if start and now<start else '発走予定時刻または入力取得時点未確認')
 
 def freeze(result):
     saved=(result.debug_info or {}).get(KEY)
     if isinstance(saved,dict):return deepcopy(saved)
     report=resolve(result)
-    report.update(race_id=str((result.race_info or {}).get('race_id','')),race_date=(result.race_info or {}).get('race_date'),saved_at=datetime.now(ZoneInfo('Asia/Tokyo')).isoformat(),timing_status='取得時点の証明は未確認。保存時刻だけでは発走前性を証明しない')
+    now=datetime.now(ZoneInfo('Asia/Tokyo'))
+    report.update(race_id=str((result.race_info or {}).get('race_id','')),race_date=(result.race_info or {}).get('race_date') or (result.race_info or {}).get('date'),saved_at=now.isoformat())
+    report.update(capture_context(result,now))
+    report.setdefault('prediction_at',now.isoformat())
+    # Fresh parsers can contain date objects; normalize BEFORE the hash.
+    def encode_date(value):
+        if isinstance(value,(date,datetime)):return value.isoformat()
+        raise TypeError('Unsupported research metadata: '+type(value).__name__)
+    report=json.loads(json.dumps(report,ensure_ascii=False,allow_nan=False,default=encode_date))
     report['prediction_sha256']=digest(report)
     return report

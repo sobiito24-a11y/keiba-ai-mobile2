@@ -28,6 +28,8 @@ def render(view, race_id, result=None):
     import streamlit as st
     mode=view[0]['mode'] if view else 'jra'
     report=resolve(result) if result is not None else dict(status='unavailable',fallback_reason='元の予想データ未取得')
+    if report.get('status')=='ready':
+        st.caption('研究B：全'+str(len(report['horses']))+'頭を計算済み / '+report['model_version']+' / 係数ID '+report['config_sha256'][:12])
     # No unverified model is made the default merely because it can compute.
     options=['現行A：従来の正式評価','研究B：4角補正なし']
     selected=st.radio('表示モデル',options,horizontal=True,key='prediction_model_'+race_id,index=1 if report.get('default_allowed') else 0)

@@ -54,3 +54,32 @@ def test_new_future_race_default_and_historical_safety():
  assert resolve(result)['default_allowed']
  result._material_snapshot_restored=True
  assert not resolve(result)['default_allowed']
+
+def test_b0_keeps_raw_ability_not_clipped_standardized_values():
+ rows=inputs()+[dict(inputs()[0],no='8',ability=10000)]
+ r=predict(rows,'jra',method='B0')
+ assert r['status']=='ready' and r['top5'][0]=='8'
+ assert next(h['score'] for h in r['horses'] if h['no']=='8')==10000
+
+def test_prediction_timing_never_backdates_recalculation():
+ from core.model_b import capture_context
+ from datetime import datetime
+ from zoneinfo import ZoneInfo
+ result=SimpleNamespace(race_info={'race_date':'2026-10-22','start_time':'15:00'})
+ now=datetime(2026,10,22,10,tzinfo=ZoneInfo('Asia/Tokyo'))
+ r=capture_context(result,now)
+ assert r['generated_before_start'] and not r['prestart_inputs_verified'] and r['prediction_origin']=='new_prediction'
+ result._material_snapshot_restored=True
+ assert capture_context(result,now)['prediction_origin']=='retrospective_recalculation'
+ del result._material_snapshot_restored
+ result.race_info['race_date']='2026-10-21'
+ assert capture_context(result,now)['prediction_origin']=='retrospective_recalculation'
+
+def test_fresh_parser_date_can_be_frozen_and_verified():
+ from datetime import date
+ rows=[dict(馬番=i,馬名='馬'+str(i),ver3_ability_core=90-i,_jockey_course_place_rate=30,_jockey_course_starts=20) for i in range(1,8)]
+ result=SimpleNamespace(overall_table=pd.DataFrame(rows),debug_info={},race_info={'race_id':'202650102201','race_date':date(2026,10,22)},race_mode='nar')
+ b=freeze(result)
+ assert b['race_date']=='2026-10-22' and b['status']=='ready'
+ result.debug_info[KEY]=b
+ assert resolve(result)==b
