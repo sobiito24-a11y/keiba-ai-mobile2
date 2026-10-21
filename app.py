@@ -1797,7 +1797,7 @@ def render_game_prediction(result):
     from core.game_race_ui import decision_view
     buying_view = decision_view(view)
     from core.model_b_ui import render as render_model_choice
-    shown_view = render_model_choice(view, rid)
+    shown_view = render_model_choice(view, rid, result)
     render_component(shown_view, rid, current_decision(result,buying_view))
     from core.paper_betting_ui import render as render_paper_betting
     with st.expander("馬券判断の記録・結果照合（研究機能）", expanded=False):

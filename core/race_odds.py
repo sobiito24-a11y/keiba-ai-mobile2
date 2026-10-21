@@ -66,6 +66,10 @@ def validate(raw, identity):
         if key in seen and seen[key] != (lo, hi):
             raise ValueError('同じ券種・組み合わせに競合価格があります')
         seen[key] = (lo, hi)
+    popularity = q.get('popularity', {})
+    if not isinstance(popularity,dict) or any(str(k) not in names or type(v) is not int or not 1<=v<=len(expected) for k,v in popularity.items()):
+        raise ValueError('人気順位・馬番が不正です')
+    q['popularity']={str(k):v for k,v in popularity.items()}
     withdrawn = q.get('withdrawn', [])
     if not isinstance(withdrawn, list) or any(type(n) is not int or str(n) not in names for n in withdrawn):
         raise ValueError('取消・除外馬を照合できません')
@@ -86,7 +90,7 @@ def validate(raw, identity):
                               if all(v['count'] == v['expected'] for v in q['coverage'].values()) else 'partial')
     # Transport time is deliberately excluded: reimporting never refreshes prices.
     q['observation_id'] = digest({k: q.get(k) for k in ('race_id', 'mode', 'source', 'observed_at',
-                                    'price_status', 'identities', 'withdrawn', 'prices')})
+                                    'price_status', 'identities', 'withdrawn', 'prices', 'popularity')})
     q['schema_version'] = 1
     return q
 
@@ -286,8 +290,13 @@ def overlay(view, quote, label):
         ns = (int(h['no']),)
         h['odds'] = price_text(prices.get(('win', ns)))
         h['place_odds'] = price_text(prices.get(('place', ns)))
+        h['popularity'] = (quote or {}).get('popularity',{}).get(str(ns[0]))
+        h['odds_source'] = (quote or {}).get('source','未取込')
+        h['odds_received_at'] = format_time((quote or {}).get('received_at'))
         h['odds_label'] = label
         h['odds_time'] = format_time((quote or {}).get('observed_at'))
         if ns[0] in (quote or {}).get('withdrawn', []):
             h['odds'] = h['place_odds'] = '取消・除外'
+            h['popularity'] = None
+        h.setdefault('sort_values',{}).update(odds=prices.get(('win',ns),{}).get('low') if ns[0] not in (quote or {}).get('withdrawn',[]) else None,popularity=h['popularity'])
     return out

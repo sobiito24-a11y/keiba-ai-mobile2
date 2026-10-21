@@ -1,0 +1,236 @@
+{
+  "transform_version": "research_b_transform_20261021_v1",
+  "train_end": "2026-10-18",
+  "training_sha256": "f7e9efa942a740ca8c9be76d8c7bfedb0ce06e85b567354d142a4acab3404bae",
+  "library_version": "1.9.1",
+  "status": "exploratory_post_hoc_selection_not_forward_proof",
+  "models": {
+    "JRA": {
+      "B1": {
+        "version": "research_b_frozen_20261021_v1_JRA_B1",
+        "features": [
+          "ability_z",
+          "jockey_signal"
+        ],
+        "coefficients": [
+          0.7099937628786058,
+          0.9465426322642965
+        ],
+        "intercept": -1.363327322598282,
+        "training_races": 104,
+        "training_horses": 1404,
+        "coefficient_status": "提供研究の固定C=.12でオフライン学習・以後凍結"
+      },
+      "B2": {
+        "version": "research_b_frozen_20261021_v1_JRA_B2",
+        "features": [
+          "ability_z",
+          "jockey_signal",
+          "class_signal"
+        ],
+        "coefficients": [
+          0.7180052202135854,
+          0.9296951950265694,
+          0.13113977576332386
+        ],
+        "intercept": -1.404062819964105,
+        "training_races": 104,
+        "training_horses": 1404,
+        "coefficient_status": "提供研究の固定C=.12でオフライン学習・以後凍結"
+      },
+      "B3": {
+        "version": "research_b_frozen_20261021_v1_JRA_B3",
+        "features": [
+          "ability_z",
+          "jockey_signal",
+          "class_signal",
+          "weight_signal",
+          "long_layoff_70",
+          "long_layoff_180",
+          "train_signal",
+          "low_train_layoff"
+        ],
+        "coefficients": [
+          0.6741705482440697,
+          0.7943406726303501,
+          0.10760972667873897,
+          -0.1330884855963169,
+          0.0855318104451786,
+          -0.3145317662516638,
+          0.6465590051069701,
+          -0.2707578955411021
+        ],
+        "intercept": -1.515853342465238,
+        "training_races": 104,
+        "training_horses": 1404,
+        "coefficient_status": "提供研究の固定C=.12でオフライン学習・以後凍結"
+      },
+      "B4": {
+        "version": "research_b_frozen_20261021_v1_JRA_B4",
+        "features": [
+          "ability_z",
+          "jockey_signal",
+          "class_signal",
+          "weight_signal",
+          "long_layoff_70",
+          "long_layoff_180",
+          "train_signal",
+          "low_train_layoff",
+          "venue_good_feature",
+          "exact_good_feature",
+          "age3_mixed"
+        ],
+        "coefficients": [
+          0.6849234201332024,
+          0.7836998449270218,
+          0.1221992090126235,
+          -0.14618233294822655,
+          0.09219867298693647,
+          -0.3161020481073493,
+          0.6312126108054141,
+          -0.2740797460157944,
+          -0.024964973460310923,
+          -0.07590411873297893,
+          0.25665952776679307
+        ],
+        "intercept": -1.5743267783922479,
+        "training_races": 104,
+        "training_horses": 1404,
+        "coefficient_status": "提供研究の固定C=.12でオフライン学習・以後凍結"
+      },
+      "SELECTED": {
+        "version": "research_b_frozen_20261021_v1_JRA_SELECTED",
+        "features": [
+          "ability_z",
+          "jockey_signal",
+          "train_signal",
+          "low_train_layoff",
+          "long_layoff_70",
+          "long_layoff_180",
+          "weight_signal"
+        ],
+        "coefficients": [
+          0.6669829448192519,
+          0.8081994689433407,
+          0.6492686194947725,
+          -0.2686759594567078,
+          0.07652650815453652,
+          -0.3273663117961527,
+          -0.13986872657212168
+        ],
+        "intercept": -1.478987161944208,
+        "training_races": 104,
+        "training_horses": 1404,
+        "coefficient_status": "提供研究の固定C=.12でオフライン学習・以後凍結"
+      }
+    },
+    "NAR": {
+      "B1": {
+        "version": "research_b_frozen_20261021_v1_NAR_B1",
+        "features": [
+          "ability_z",
+          "jockey_signal"
+        ],
+        "coefficients": [
+          1.1003411264327598,
+          0.9227629876036603
+        ],
+        "intercept": -1.281470266472388,
+        "training_races": 229,
+        "training_horses": 2379,
+        "coefficient_status": "提供研究の固定C=.12でオフライン学習・以後凍結"
+      },
+      "B2": {
+        "version": "research_b_frozen_20261021_v1_NAR_B2",
+        "features": [
+          "ability_z",
+          "jockey_signal",
+          "class_signal"
+        ],
+        "coefficients": [
+          1.100663021246309,
+          0.9245550365194954,
+          -0.023353080205159537
+        ],
+        "intercept": -1.2801142812202342,
+        "training_races": 229,
+        "training_horses": 2379,
+        "coefficient_status": "提供研究の固定C=.12でオフライン学習・以後凍結"
+      },
+      "B3": {
+        "version": "research_b_frozen_20261021_v1_NAR_B3",
+        "features": [
+          "ability_z",
+          "jockey_signal",
+          "class_signal",
+          "weight_signal",
+          "long_layoff_70",
+          "long_layoff_180",
+          "body_signal"
+        ],
+        "coefficients": [
+          1.1202043826642112,
+          0.9586801091402752,
+          -0.0340930577510977,
+          -0.31522738050460614,
+          -0.3855093513256981,
+          -0.08347749744816135,
+          0.0
+        ],
+        "intercept": -1.2642269787743572,
+        "training_races": 229,
+        "training_horses": 2379,
+        "coefficient_status": "提供研究の固定C=.12でオフライン学習・以後凍結"
+      },
+      "B4": {
+        "version": "research_b_frozen_20261021_v1_NAR_B4",
+        "features": [
+          "ability_z",
+          "jockey_signal",
+          "class_signal",
+          "weight_signal",
+          "long_layoff_70",
+          "long_layoff_180",
+          "body_signal",
+          "venue_good_feature",
+          "exact_good_feature"
+        ],
+        "coefficients": [
+          1.0951216289206505,
+          0.9054536147886121,
+          -0.024938185751884993,
+          -0.3171070630420728,
+          -0.3479877796852584,
+          -0.082163016227733,
+          0.0,
+          0.3384178956500601,
+          -0.007623844410867627
+        ],
+        "intercept": -1.4147026672315914,
+        "training_races": 229,
+        "training_horses": 2379,
+        "coefficient_status": "提供研究の固定C=.12でオフライン学習・以後凍結"
+      },
+      "SELECTED": {
+        "version": "research_b_frozen_20261021_v1_NAR_SELECTED",
+        "features": [
+          "ability_z",
+          "jockey_signal",
+          "venue_good_feature",
+          "exact_good_feature"
+        ],
+        "coefficients": [
+          1.0746589739854682,
+          0.8696408747480175,
+          0.3423155618601395,
+          0.007383982671701209
+        ],
+        "intercept": -1.4352127361121485,
+        "training_races": 229,
+        "training_horses": 2379,
+        "coefficient_status": "提供研究の固定C=.12でオフライン学習・以後凍結"
+      }
+    }
+  },
+  "artifact_sha256": "1129776d5ba707d7045a9e4259db94d9e05bc5a5362732785c935dde52fed9f7"
+}

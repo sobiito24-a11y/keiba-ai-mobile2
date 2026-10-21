@@ -113,6 +113,9 @@ def restore_race(race):
         table=data.get(key) or {}
         data[key]=pd.DataFrame(table.get('records',[]),columns=table.get('columns')) if isinstance(table,dict) else pd.DataFrame(table)
     result=PredictionResult(**{k:v for k,v in data.items() if k in {f.name for f in fields(PredictionResult)}})
+    from .model_b import KEY as model_b_key
+    if isinstance(race.get(model_b_key),dict):
+        result.debug_info[model_b_key]=copy.deepcopy(race[model_b_key])
     result._material_snapshot_restored=True
     if result.race_mode=='jra':result._jra_snapshot_restored=True
     result.debug_info[KEY]=copy.deepcopy(race.get(KEY,[]))

@@ -18,7 +18,7 @@ import unicodedata
 from PIL import Image, ImageOps
 from . import race_odds as odds
 
-FIELDS = ('馬番', '馬名', '単勝', '複勝下限', '複勝上限')
+FIELDS = ('馬番', '馬名', '単勝', '人気', '複勝下限', '複勝上限')
 
 
 def normalize(value):
@@ -125,7 +125,7 @@ def parse_words(words):
         if not no.isdigit() or not name: continue
         win=value('win');place=value('place')
         match=re.fullmatch(r'(\d+(?:\.\d+)?)[〜～~\-–](\d+(?:\.\d+)?)',place)
-        rows.append({'馬番':no,'馬名':name,'単勝':win,
+        rows.append({'馬番':no,'馬名':name,'単勝':win,'人気':value('popularity') if 'popularity' in cells else '',
                      '複勝下限':match[1] if match else '', '複勝上限':match[2] if match else '',
                      '読取注意':'原画像と全項目を確認' if min(w['confidence'] for w in line)>=80 else '低信頼の文字あり・要確認'})
     return rows, [] if rows else ['価格行を識別できませんでした。手入力で確認してください。']
@@ -222,7 +222,7 @@ def draft(files, identity):
     # Exact overlap duplicates only; conflicting readings remain for correction.
     unique=[];seen=set()
     for row in rows:
-        key=tuple(row[k] for k in FIELDS)
+        key=tuple(row.get(k,'') for k in FIELDS)
         if key not in seen: unique.append(row);seen.add(key)
     present={str(r['馬番']) for r in unique}
     for row in unique:
@@ -287,12 +287,16 @@ def confirmed_quote(rows, identity, draft_data, confirmed=False):
         raise ValueError('読取時と対象レースが異なります。対象レースで再読取してください')
     if not confirmed: raise ValueError('画像と全項目を確認してから確定してください')
     expected={str(h['horse_no']):odds.norm(h['name']) for h in identity['horses']}
-    names={};prices=[];missing=0
+    names={};prices=[];popularity={};missing=0
     for row in rows:
         no=normalize(row.get('馬番'));name=normalize(row.get('馬名'))
         if no not in expected or no in names or name != expected[no]:
             raise ValueError('全頭の馬番・馬名を照合してください。重複・別馬・未読取は確定できません。')
         names[no]=str(row['馬名'])
+        pop=normalize(row.get('人気')).removesuffix('人気')
+        if pop not in ('','—','-'):
+            if not pop.isdigit() or not 1<=int(pop)<=len(expected):raise ValueError('人気順位を確認してください')
+            popularity[no]=int(pop)
         values=[]
         for key in ('単勝','複勝下限','複勝上限'):
             text=normalize(row.get(key))
@@ -308,7 +312,7 @@ def confirmed_quote(rows, identity, draft_data, confirmed=False):
         if any(v is None for v in values): missing+=1
     if set(names)!=set(expected): raise ValueError('レース名の有無にかかわらず、全出走馬の照合が必要です')
     if not prices: raise ValueError('有効な単勝・複勝価格がありません')
-    q=odds.validate(dict(race_id=identity['race_id'],mode=identity['mode'],identities=names,prices=prices,
+    q=odds.validate(dict(race_id=identity['race_id'],mode=identity['mode'],identities=names,prices=prices,popularity=popularity,
                         source='user_confirmed_screenshot',acquisition_method='manual_screenshot',
                         received_at=draft_data['imported_at'],observed_at=None,price_status='timestamp_unknown',
                         screenshot_audit=dict(version=draft_data['version'],images=draft_data['sources'],

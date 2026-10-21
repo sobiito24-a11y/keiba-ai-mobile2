@@ -1,89 +1,96 @@
-"""Independent no-corner model B engine. No production coefficients are invented.
-
-The approved coefficient registry deliberately starts empty until the original
-B0-B4 configuration and data provenance can be reproduced.
-"""
+"""Frozen, outcome-free research B inference. Training lives in an offline tool."""
 from copy import deepcopy
 from hashlib import sha256
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import json
 import math
+from .model_b_features import transform, extract, RAW_FIELDS, TRANSFORM_VERSION, finite
 
-VERSION = 'independent_research_b_v1'
-CONFIGS = {}  # mode -> audited configuration; absence must keep model A active.
-FEATURES = ('pure','jockey_rate','jockey_n','training','rest_days','weight_delta','venue_top3','distance_top3')
-MARKS = ('◎','○','▲','✔','△')
+VERSION='research_b_frozen_20261021_v1'
+KEY='model_b_prediction'
+MARKS=('◎','○','▲','✔','△')
+MODEL_PATH=Path(__file__).with_name('model_b_frozen.json')
 
 def digest(value):
     return sha256(json.dumps(value,sort_keys=True,ensure_ascii=False,allow_nan=False,separators=(',',':')).encode()).hexdigest()
 
-def num(value):
-    if isinstance(value,bool):return None
-    try:
-        n=float(value)
-        return n if math.isfinite(n) else None
-    except (ValueError,TypeError):return None
+def load_artifact():
+    if not MODEL_PATH.exists():return None
+    value=json.loads(MODEL_PATH.read_text(encoding='utf-8-sig'))
+    content={k:v for k,v in value.items() if k!='artifact_sha256'}
+    if digest(content)!=value.get('artifact_sha256') or value.get('transform_version')!=TRANSFORM_VERSION:
+        raise ValueError('研究Bモデルのハッシュ・特徴量版が一致しません')
+    return value
 
-def compute(rows, mode, config=None):
-    """Only explicit allowlisted, pre-race feature values enter the score/hash."""
-    config=deepcopy(config if config is not None else CONFIGS.get(mode))
-    inputs=[dict(no=str(h['no']),**{k:h.get(k) for k in FEATURES}) for h in rows]
-    report=dict(engine_version=VERSION,mode=mode,input_sha256=digest(inputs),status='unavailable',horses=[],fallback_reason='研究Bの元係数・計算式が未確認',config=config)
-    if not config:return report
-    if config.get('mode')!=mode or config.get('coefficient_status') not in ('exploratory','validated'):
-        raise ValueError('モデル区分・係数の検証状態が不正')
-    allowed={'mode','version','coefficient_status','source','jockey_weight','jockey_prior','jockey_strength','training_points','rest_training_points','rest_threshold','weight_delta_weight','venue_points','distance_points'}
-    if set(config)-allowed or not config.get('version') or not config.get('source'):raise ValueError('未対応係数または出典不足')
-    for k in ('jockey_weight','jockey_prior','jockey_strength','rest_threshold','weight_delta_weight','venue_points','distance_points'):
-        if num(config.get(k)) is None:raise ValueError('係数不足: '+k)
-    if not 0<=config['jockey_prior']<=1 or config['jockey_strength']<=0 or config['rest_threshold']<0:raise ValueError('縮小補正・休養閾値が不正')
-    for k in ('training_points','rest_training_points'):
-        if not isinstance(config.get(k),dict) or set(config[k])-set('ABCD') or any(num(v) is None for v in config[k].values()):raise ValueError('調教係数が不正')
-    report.update(config_sha256=digest(config),model_version=config['version'],fallback_reason='')
-    seen=set()
-    for h in inputs:
-        if h['no'] in seen:raise ValueError('馬番重複')
-        seen.add(h['no']);missing=[];terms={};pure=num(h['pure'])
-        if pure is None:missing.append('純能力')
-        else:terms['pure']=pure
-        if config['jockey_weight']:
-            rate,n=num(h['jockey_rate']),num(h['jockey_n'])
-            if rate is None or not 0<=rate<=100 or n is None or n<=0 or not n.is_integer():missing.append('騎手複勝率・出走母数')
-            else:terms['jockey']=config['jockey_weight']*(n*(rate/100-config['jockey_prior'])/(n+config['jockey_strength']))
-        if config['training_points']:
-            if h['training'] not in config['training_points']:missing.append('調教')
-            else:terms['training']=config['training_points'][h['training']]
-        if config['rest_training_points']:
-            days=num(h['rest_days'])
-            if days is None or days<0 or h['training'] not in config['rest_training_points']:missing.append('休養・調教組合せ')
-            else:terms['rest_training']=config['rest_training_points'][h['training']] if days>=config['rest_threshold'] else 0
-        if config['weight_delta_weight']:
-            v=num(h['weight_delta'])
-            if v is None:missing.append('斤量増減')
-            else:terms['weight']=v*config['weight_delta_weight']
-        # One conditional achievement term prevents the same run being counted twice.
-        condition=[]
-        for field,key in [('venue_top3','venue_points'),('distance_top3','distance_points')]:
-            if config[key]:
-                value=h[field]
-                if value is not True and value is not False:missing.append(field)
-                else:condition.append(config[key] if value else 0)
-        if condition:terms['condition']=max(condition)
-        report['horses'].append(dict(no=h['no'],score=None if missing else sum(terms.values()),rank=None,mark='',contributions=terms,missing=missing,features=h))
-    if not inputs or any(h['missing'] for h in report['horses']):
-        report['fallback_reason']='全頭に共通の研究B評価を計算できないためAを表示';report['status']='incomplete';return report
+def predict(rows,mode,artifact=None,method='SELECTED'):
+    """Raw-score logistic margin, not a calibrated win probability."""
+    artifact=artifact if artifact is not None else load_artifact()
+    inputs=[{k:h.get(k) for k in RAW_FIELDS} for h in rows]
+    inputs.sort(key=lambda h:int(h['no']))
+    report=dict(engine_version=VERSION,mode=mode,method=method,input_sha256=digest(inputs),horses=[],status='unavailable',fallback_reason='研究Bの凍結モデル未取得')
+    if not artifact:return report
+    model=artifact['models'][mode.upper()][method]
+    report.update(model_version=model['version'],config_sha256=artifact['artifact_sha256'],config=deepcopy(model),train_end=artifact['train_end'])
+    if len({h['no'] for h in inputs})!=len(inputs):raise ValueError('研究Bの馬番が重複')
+    try: transformed=transform(inputs)
+    except ValueError as e:report.update(status='incomplete',fallback_reason=str(e));return report
+    cols=model['features'];weights=model['coefficients']
+    if len(cols)!=len(weights) or not all(math.isfinite(float(v)) for v in weights+[model['intercept']]):raise ValueError('研究B係数が不正')
+    for raw,h in zip(inputs,transformed):
+        terms={k:float(w)*h['features'][k] for k,w in zip(cols,weights)}
+        score=float(model['intercept'])+sum(terms.values())
+        report['horses'].append(dict(no=h['no'],score=score,rank=None,mark='',contributions=terms,intercept=model['intercept'],features=h['features'],raw_features=raw,missing=h['missing']))
+    # Neutral imputation follows source research. All supplementary evidence absent
+    # for a runner is a major input failure, rather than an invented last-place score.
+    unavailable=[]
+    if method=='SELECTED':
+        for h in inputs:
+            p,n=finite(h.get('jockey_p')),finite(h.get('jockey_n'))
+            valid_jockey=p is not None and 0<=p<=100 and n is not None and n>=0 and n.is_integer()
+            if mode.lower()=='nar':
+                known=valid_jockey or h.get('venue_good') is not None
+            else:known=valid_jockey or h.get('gr') in ('A','B','C','D') or h.get('daygap') is not None or h.get('weightdiff') is not None
+            if not known:unavailable.append(h['no'])
+    if unavailable:
+        report.update(status='incomplete',fallback_reason='補助材料が全て未取得の馬：'+','.join(map(str,unavailable)));return report
     order=sorted(report['horses'],key=lambda h:(-h['score'],int(h['no'])))
-    for i,h in enumerate(order,1):h.update(rank=i,mark=MARKS[i-1] if i<=5 else '')
-    report.update(status='ready',top5=[h['no'] for h in order[:5]])
+    for rank,h in enumerate(order,1):h.update(rank=rank,mark=MARKS[rank-1] if rank<=5 else '')
+    report.update(status='ready',fallback_reason='',top5=[h['no'] for h in order[:5]],missing_policy='補助特徴の欠損は研究原式の中立変換。欠損状態を別記。純能力欠損・重大欠損はレース全体をAへ復帰')
     return report
 
+def resolve(result):
+    saved=(result.debug_info or {}).get(KEY)
+    if isinstance(saved,dict):
+        content={k:v for k,v in saved.items() if k!='prediction_sha256'}
+        if digest(content)!=saved.get('prediction_sha256'):
+            return dict(status='unavailable',fallback_reason='保存研究Bの整合性エラー',horses=[])
+        if saved.get('race_id') and saved['race_id']!=str((result.race_info or {}).get('race_id','')):
+            return dict(status='unavailable',fallback_reason='保存BのレースIDが一致しません',horses=[])
+        try:
+            current=sorted(({k:h.get(k) for k in RAW_FIELDS} for h in extract(result)),key=lambda h:int(h['no']))
+        except (ValueError,KeyError,TypeError):
+            return dict(status='unavailable',fallback_reason='固定保存Bの入力を照合できません',horses=[])
+        if digest(current)!=saved.get('input_sha256'):
+            return dict(status='unavailable',fallback_reason='固定保存後に入力が変化しています。保存Bを上書きせずAを表示します',horses=[])
+        return deepcopy(saved)
+    try:
+        raw=extract(result)
+        report=predict(raw,result.race_mode)
+        report['evidence']={h['no']:h.get('evidence',{}) for h in raw}
+    except (ValueError,KeyError,TypeError,OSError) as e:
+        report=dict(status='unavailable',fallback_reason='研究Bを計算できません：'+str(e),horses=[])
+    report['historical_recalculation']=any(getattr(result,k,False) for k in ('_jra_snapshot_restored','_material_snapshot_restored','_race_insight_restored'))
+    info=result.race_info or {}
+    race_day=str(info.get('race_date') or info.get('date') or '').replace('/','-')[:10]
+    report['default_allowed']=report.get('status')=='ready' and not report['historical_recalculation'] and len(race_day)==10 and race_day>str(report.get('train_end','9999'))
+    return report
 
-def features_from_view(view):
-    rows=[]
-    for h in view:
-        p=h.get('profile') or {};conditions=(p.get('condition_facts') or {}).get('conditions',{})
-        j=((h.get('candidate_evidence') or {}).get('audit') or {}).get('jockey') or {}
-        def placed(key):
-            state=(conditions.get(key) or {}).get('state')
-            return True if state=='placed' else False if state in ('started','absent') else None
-        rows.append(dict(no=h['no'],pure=num(h.get('ability')),jockey_rate=j.get('current_jockey_place_rate'),jockey_n=j.get('current_jockey_sample_size'),training=h.get('training'),rest_days=p.get('rest_days'),weight_delta=h.get('weight_delta'),venue_top3=placed('venue'),distance_top3=placed('distance')))
-    return rows
+def freeze(result):
+    saved=(result.debug_info or {}).get(KEY)
+    if isinstance(saved,dict):return deepcopy(saved)
+    report=resolve(result)
+    report.update(race_id=str((result.race_info or {}).get('race_id','')),race_date=(result.race_info or {}).get('race_date'),saved_at=datetime.now(ZoneInfo('Asia/Tokyo')).isoformat(),timing_status='取得時点の証明は未確認。保存時刻だけでは発走前性を証明しない')
+    report['prediction_sha256']=digest(report)
+    return report

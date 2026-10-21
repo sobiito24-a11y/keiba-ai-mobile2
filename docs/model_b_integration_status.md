@@ -1,28 +1,40 @@
-# Research B integration status
+# 研究B・NAR参考スコア・手動オッズ表示（2026-10-21）
 
-The legacy model A and all saved predictions remain authoritative. The original
-B0–B4 coefficient configuration has not been located. `core/model_b.py.CONFIGS`
-is intentionally empty: B selection falls back to A with a visible reason.
-No synthetic test coefficient is used in live predictions.
+## 使い方
+通常どおり予想データを読み込み、表示モデルで現行A／研究Bを切り替えます。手動オッズは「買い目検討用・手動オッズ取込」から同じレースのHTML・JSON、または画像の確認表を取り込みます。更新は今回の結論、最終印候補、全頭一覧、馬別詳細に反映します。画像の人気は明示的に読み取れた列または利用者の確認入力のみ使用します。
 
-Implemented independently of coefficients:
-- An allowlisted, deterministic B computation scaffold; corner, pace, odds,
-  popularity, formal A score and target-race outcomes are not score inputs.
-- Separate A/B UI projections and explicit fallback; buying logic retains A.
-- Candidate summary reuses existing stability stars and training labels.
-- Separate same-distance + surface last-three-start facts; unknown history is
-  distinct from known absence. This display fact is not automatically scored.
-- Calendar-week interval presentation; NAR short intervals retain actual days.
-- Candidate sorting preserves the selected horse and uses the same comparator
-  as all-runner sorting; missing scores remain last, then saved rank/horse number.
-- Legacy research panels are collapsed; the old research tab is hidden; paper
-  betting panel contrast is corrected without changing betting decisions.
+全頭一覧は単勝・人気順にも並び替えできます。欠損は末尾です。スコア欠損同士は正式順位順です。枠／馬番・馬名／単勝・人気を固定し、スマホでは固定部分を228pxに抑えています。単勝・人気・複勝・取込時刻・提供元更新時刻は予測スコアとは別情報です。人気をオッズから推定しません。取消馬の価格は表示しません。
 
-Pending the source configuration: exact B0–B4 reproduction, approved coefficient
-registration, pre-race B snapshot persistence, historical A/B outcome comparison,
-new-race B default activation, and full production rollout. The scaffold is not
-claimed to reproduce the user's historical B model or its reported results.
+## NAR現行Aの参考スコア
+旧版 `nar_top5_corner_order_v1_20261006` の式は `0.01180085 × 保存純能力 − 0.22088414 × 4角想定` です。Top5外だけに同式を表示用に適用し、正式スコアと同じ固定平均・標準偏差で換算します。レース内の最大最小による引き延ばし、研究Bによる穴埋めはありません。
 
-The optional coefficient schema is provisional until original formulas are
-inspected. It supports one shrunken jockey term, training and rest interaction,
-weight difference, and one condition term; it does not imply adoption or efficacy.
+保存された正式値は読み取りのみ。参考スコアを正式順位・印・✓・買い目判断には渡しません。式の版、入力、正式値との一致を確認できない場合は理由を表示します。
+
+10/17・18の65R・663頭を実際の表示経路で監査：正式値320頭、参考算出335頭、未算出8頭。64RでTop5外の参考値を表示可能。佐賀 `202655101701` の7頭、金沢 `202646101804` の1頭は入力不足です。元.keibaは上書きしていません。F2版は既存全頭スコアをそのまま表示します。
+
+## 研究B
+提供スクリプトのB0–B4順位20,418行、集計12行、追加探索9,639行を再実行し、提供CSVと一致しました。
+
+採用した表示用研究モデル：
+- JRA：純能力のレース内標準化、騎手、調教、休養、斤量変化。
+- NAR：純能力のレース内標準化、騎手、同会場・同会場同距離の過去好走有無。
+
+騎手信号は `((複勝率/100−0.25) × 出走数/(出走数+50) × 4)`。その他の変換は `model_b_features.py` に固定。係数は提供研究と同じLogisticRegression(C=0.12)で2026-10-18までのデータからオフライン学習し、全精度係数と切片を凍結しました。オンライン予測中の学習・係数調整・外部DB参照はありません。スコアは切片＋各特徴の寄与の合計で、勝率ではありません。4角、オッズ、人気、対象レースの着順を入力しません。
+
+純能力が1頭でも欠損、または重要な補助材料が全くない馬がいる場合はレース全体をAへ戻します。部分欠損の中立変換は研究原式を踏襲し、欠損項目を保存します。
+
+新規レースで学習終了日より後の日付を確認でき、全頭計算可能な場合のみ初期表示をBにします。過去の復元データはAを初期表示とし、Bへの切替は探索的な再計算です。買い目判断は引き続きAです。
+
+新規.keibaには任意項目 `model_b_prediction` としてモデル版、係数・入力のハッシュ、全頭スコア・順位・印・寄与・欠損・根拠を追加します。既存のprediction_resultとschema_versionは維持します。PC/mobileとも固定済みBを読み取り、入力不一致や保存破損はAへ戻します。既存固定値は黙って上書きしません。
+
+## 検証の解釈
+追加探索のJRA86RでTop5内3着以内馬162→167頭、NAR196Rで447→473頭を再現しました。NARの比較元Aは提供資料の過去保存順位であり、現在のF2版Aとは同一ではありません。選択後の探索結果で、将来の改善の証明ではありません。
+
+現行保存ファイルとの特徴量比較19,300件ではJRAの選択特徴は一致。NARは19Rで差があり、純能力標準化155件・会場好走84件・同会場同距離59件が異なりました。研究CSV側で結果照合対象から落ちた馬があると標準化の母集団が異なり、コースCSV未収録レースでは研究側が中立補完されていました。実装では発走前の全出走馬・保存過去走を使い、研究CSVへ合わせるための結果依存の除外は行いません。このため当該過去日の実運用再計算を研究表の完全再現とは主張しません。
+
+426保存レースの読取・計算・固定保存復元監査：JRA126/127R、NAR291/299Rで計算可能。残りはAへ復帰。過去日の計算は全て探索用です。
+
+## テスト・保護
+PCとmobileのJRA/NAR画面（1280px/390px）で、手動取込・再取込・A/B切替、18通りの並び替え、左固定、詳細選択の維持、ページ横はみ出しなし、Aの順位・スコア不変を確認。390pxはブラウザでのiPhone相当幅検証であり、実機Safariの確認ではありません。
+
+旧HTML・結果CSV・.keiba・画像・SQLiteは公開リポジトリに含めません。外部取得処理、既存BAT、Aのスコア計算・順位・本印・✓選出・買い目計算は変更していません。今後は発走前固定データと未使用開催日の結果でBを検証してください。

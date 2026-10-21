@@ -71,6 +71,12 @@ def parse(raw,prediction,captured_at=None,now=None):
         if key in seen and seen[key]!=(lo,hi):raise ValueError('同じ券種・馬番に異なる価格が含まれます')
         if key not in seen:prices.append(dict(kind=kind,horses=list(sorted(ns)),low=lo,high=hi))
         seen[key]=(lo,hi)
+    popularity={}
+    def add_popularity(no, value):
+        raw_pop=norm(value).removesuffix('人気')
+        if raw_pop.isdigit() and 1<=int(raw_pop)<=len(expected) and str(no) in identities:
+            if str(no) in popularity and popularity[str(no)]!=int(raw_pop):raise ValueError('人気順位が競合しています')
+            popularity[str(no)]=int(raw_pop)
     # Verified newspaper DOM: odds-1_NN belongs to Horse02 in the same dl.
     for node in soup.select('[id^="odds-1_"]'):
         match=re.fullmatch(r'odds-1_(\d+)',node.get('id',''))
@@ -88,6 +94,8 @@ def parse(raw,prediction,captured_at=None,now=None):
         for prefix,kind in [('odds-1_', 'win'),('odds-2_', 'place')]:
             node=tr.select_one('[id^="'+prefix+'"]')
             if node:add(kind,[no],[name],node.get_text(' ',strip=True))
+        pop=tr.select_one('.Popular, .Popularity, [id^="ninki-1_"]')
+        if pop:add_popularity(no,pop.get_text(' ',strip=True))
     # Explicit tabular exports only; never infer column positions or execute JS.
     for table in soup.select('table'):
         header=table.find('tr');heads=[norm(x.get_text()) for x in header.find_all(['th','td'],recursive=False)] if header else []
@@ -100,6 +108,8 @@ def parse(raw,prediction,captured_at=None,now=None):
                 no=int(norm(row['馬番']))
                 for label,kind in [('単勝','win'),('単勝オッズ','win'),('複勝','place'),('複勝オッズ','place')]:
                     if label in row:add(kind,[no],[row['馬名']],row[label])
+                for label in ('単勝人気','人気','人気順位'):
+                    if label in row:add_popularity(no,row[label])
             elif all(k in row for k in ('馬番1','馬名1','馬番2','馬名2','ワイド')):
                 if norm(row['馬番1']).isdigit() and norm(row['馬番2']).isdigit():
                     ns=[int(norm(row['馬番1'])),int(norm(row['馬番2']))]
@@ -121,7 +131,7 @@ def parse(raw,prediction,captured_at=None,now=None):
         race_id=rid,mode=mode,source='netkeiba_user_saved_html',source_url=url,
         authorization_reference='user-provided private-session file; not permission for public redistribution',
         received_at=now.isoformat(),observed_at=observed,user_reported_captured_at=captured_at,
-        html_sha256=hashlib.sha256(raw).hexdigest(),identities=identities,withdrawn=sorted(withdrawn),prices=prices,
+        html_sha256=hashlib.sha256(raw).hexdigest(),popularity=popularity,identities=identities,withdrawn=sorted(withdrawn),prices=prices,
         price_status='predicted_odds' if predicted else 'timestamp_unknown' if not observed else 'saved_observation',
         parser_scope='verified newspaper win DOM; explicit named tables; other structures unsupported',
         warnings=['予想オッズは実売価格ではありません'] if predicted else ['HTML内の価格時刻が不明。アップロード時刻で補完しません'] if not observed else [],
