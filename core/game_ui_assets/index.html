@@ -8,6 +8,7 @@ window.addEventListener('message',event=>{
  const doc=new DOMParser().parseFromString(html,'text/html');
  document.head.querySelectorAll('style').forEach(x=>x.remove());
  doc.querySelectorAll('style').forEach(x=>document.head.appendChild(x.cloneNode(true)));
+ document.body.className=doc.body.className;
  document.body.innerHTML=doc.body.innerHTML;
  const source=document.body.querySelector('script:not([type])');
  if(source){const script=document.createElement('script');script.textContent=source.textContent;source.remove();document.body.appendChild(script);}

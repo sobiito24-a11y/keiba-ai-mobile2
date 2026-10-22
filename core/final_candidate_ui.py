@@ -82,8 +82,8 @@ def render(view, label=''):
     jra = bool(view and view[0].get('mode') == 'jra')
     calculated=any((view[i].get('final_metrics') or {}).get('average_calculated') for i in indices)
     headers = [('馬番', ''), ('馬名・騎手', ''), ('最終評価スコア', 'final-score'),
-               ('純能力', ''), ('距離指数', ''), ('コース指数', ''), ('前走', ''),
-               ('2走前', ''), ('3走前', ''), ('3走平均', ''), ('★最高指数', ''),
+               ('純能力', ''), ('距離指数', ''), ('コース指数', ''), ('3走前', ''),
+               ('2走前', ''), ('前走', ''), ('3走平均', ''), ('★最高指数', ''),
                ('想定脚質・4角', '')]
     if jra:
         headers.append(('調教', ''))
@@ -124,6 +124,6 @@ def render(view, label=''):
     return ('<section class="final-candidates" data-order="no"><div class="final-toolbar"><label for="candidate-sort">表示順</label>'+\
             '<select id="candidate-sort"><option value="no" selected>馬番順</option><option value="score">スコア順</option></select>'+\
             '<span class="final-order-note">馬番順では最終評価スコアを表示しません</span></div>'+\
-            '<p class="final-footnote">過去走は前走 → 2走前 → 3走前。★最高指数と近走安定度は別の情報です。'+('3走平均の保存値がない馬は、確認できた3走の指数の平均を表示します。' if calculated else '')+'</p>'+\
+            '<p class="final-footnote">過去走は3走前 → 2走前 → 前走。★最高指数と近走安定度は別の情報です。'+('3走平均の保存値がない馬は、確認できた3走の指数の平均を表示します。' if calculated else '')+'</p>'+\
             '<div class="final-table-scroll" tabindex="0" aria-label="最終候補の指数比較・横スクロール"><table class="final-table"><thead><tr>'+head+\
             '</tr></thead><tbody>'+''.join(desktop)+'</tbody></table></div><div class="final-mobile">'+''.join(mobile)+'</div></section>')

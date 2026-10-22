@@ -11,7 +11,7 @@ from .game_ui_information import reasons
 from .recent_condition_facts import STATES
 
 
-RUN_LABELS = ("前走", "2走前", "3走前")
+RUN_LABELS = ("3走前", "2走前", "前走")
 AVERAGE_KEYS = ("3走平均", "近3走平均", "recent3_avg", "recent3_mean")
 MAXIMUM_KEYS = ("★最高指数", "★最高", "star_max_index", "_star_high")
 MISSING = "未取得"

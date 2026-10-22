@@ -32,15 +32,15 @@ def horse(row=None, mode="nar"):
     )
 
 
-def test_dated_runs_are_previous_first_and_indices_are_not_finishes():
+def test_dated_runs_are_oldest_first_and_indices_are_not_finishes():
     row = source()
     h = horse(row)
     before = deepcopy((h, row))
     m = project(h, row)
-    assert [r["label"] for r in m["runs"]] == ["前走", "2走前", "3走前"]
-    assert [r["time_index"] for r in m["runs"]] == [8, 15, 12]
+    assert [r["label"] for r in m["runs"]] == ["3走前", "2走前", "前走"]
+    assert [r["time_index"] for r in m["runs"]] == [12, 15, 8]
     assert [r["is_maximum"] for r in m["runs"]] == [False, True, False]
-    assert m["runs"][0]["condition"] == "門別・ダ1100m・右"
+    assert m["runs"][0]["condition"] == "門別・ダ1000m・右"
     assert (h, row) == before
 
 
@@ -75,7 +75,7 @@ def test_current_and_future_starts_never_enter_comparison():
     row["_past_runs"][1]["race_date"] = "2026-10-18"
     row["_past_runs"][2]["race_date"] = "2026-11-01"
     m = project(horse(row), row)
-    assert [r["time_index"] for r in m["runs"]] == [None, None, 12]
+    assert [r["time_index"] for r in m["runs"]] == [12, None, None]
     assert m["stability"]["stars"] is None
     row.pop("3走平均")
     assert project(horse(row), row)["average"] is None

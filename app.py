@@ -1796,12 +1796,15 @@ def render_game_prediction(result):
     from core.paper_betting_ui import current_decision
     from core.game_race_ui import decision_view
     buying_view = decision_view(view)
-    from core.model_b_ui import render as render_model_choice
-    shown_view = render_model_choice(view, rid, result)
-    render_component(shown_view, rid, current_decision(result,buying_view))
+    render_component(view, rid, current_decision(result,buying_view))
     from core.paper_betting_ui import render as render_paper_betting
     with st.expander("馬券判断の記録・結果照合（研究機能）", expanded=False):
         render_paper_betting(result, buying_view)
+    with st.expander("研究Bの検証（通常予想とは別）", expanded=False):
+        if st.checkbox("研究Bの比較画面を開く", value=False, key='open_research_b_'+rid):
+            from core.model_b_ui import render as render_model_choice
+            research_view = render_model_choice(view, rid+'_research', result)
+            render_component(research_view, rid+'_research', current_decision(result,buying_view))
 
 
 def render_game_commentary(result):
@@ -1817,7 +1820,8 @@ def render_colab_style_result(result: PredictionResult) -> Any:
     st.markdown(theme_css(), unsafe_allow_html=True)
     st.markdown(race_header(result), unsafe_allow_html=True)
     render_game_prediction(result)
-    render_game_commentary(result)
+    with st.expander("展開・レース考察の詳細", expanded=False):
+        render_game_commentary(result)
     with st.expander("研究・監査情報", expanded=False):
         from core.material_reconsideration import render_reconsideration
         render_reconsideration(result)
