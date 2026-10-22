@@ -56,10 +56,10 @@ def test_default_number_order_has_no_marks_or_formal_rank_and_scores_are_hidden(
 def test_recent_indices_are_chronological_peak_and_stability_are_distinct():
     doc=BeautifulSoup(candidate_html(horses(),{}),'html.parser')
     header=[th.get_text() for th in doc.select('.final-table thead th')]
-    assert header[header.index('前走'):header.index('前走')+3]==['前走','2走前','3走前']
+    assert header[header.index('3走前'):header.index('3走前')+3]==['3走前','2走前','前走']
     runs=doc.select_one('.final-mobile-card').select('.final-recent section')
-    assert [r.h4.text for r in runs]==['前走','2走前','3走前']
-    assert [r.b.get_text(strip=True).replace('★','') for r in runs]==['8','15','12']
+    assert [r.h4.text for r in runs]==['3走前','2走前','前走']
+    assert [r.b.get_text(strip=True).replace('★','') for r in runs]==['12','15','8']
     assert not runs[0].select('.maximum-match') and runs[1].select('.maximum-match')
     assert '門別・ダ1100m・右' in runs[0].text
     assert '4/5（指数のばらつき）' in doc.text and '11.7' in doc.text

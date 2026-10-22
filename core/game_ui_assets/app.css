@@ -2,7 +2,7 @@
 :root{--game-bg:#080f1d;--game-panel:#101e34;--game-line:#2c4160;--game-text:#eef4fc;--game-muted:#adbed6;--game-gold:#efcb75}
 [data-testid="stAppViewContainer"],.stApp,[data-testid="stMain"]{background:var(--game-bg);color:var(--game-text)}
 [data-testid="stHeader"]{background:#080f1de8;color:var(--game-text)}
-.block-container{max-width:1500px!important;padding:1rem 1.25rem 3rem!important}
+.block-container{max-width:1800px!important;width:100%!important;padding:1rem 1.25rem 3rem!important}
 h1,h2,h3,h4,h5,h6,[data-testid="stMarkdownContainer"]{color:var(--game-text)}
 [data-testid="stSidebar"]{background:#101e34;color:var(--game-text)}
 [data-testid="stExpander"]{border-color:var(--game-line);background:#101b2c;color:var(--game-text)}

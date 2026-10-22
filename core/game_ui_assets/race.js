@@ -7,24 +7,54 @@ let selected=-1;
 function resize(){parent.postMessage({isStreamlitMessage:true,type:'streamlit:setFrameHeight',height:Math.ceil(document.documentElement.getBoundingClientRect().height)},'*');}
 const horseMap=new Map((data.horses||data.names.map((n,i)=>({no:n.split(' ')[0],sort:{}}))).map((h,i)=>[String(h.no),{...h,index:i}]));
 let selectedHorse=null;
+const manualKey='keiba-manual-comparison:'+data.race_key;
+let manualSelection=new Set();
+if(data.experience==='race-comparison'){
+ try{const saved=JSON.parse(sessionStorage.getItem(manualKey)||'[]');if(Array.isArray(saved))manualSelection=new Set(saved.map(String).filter(no=>horseMap.has(no)));}catch(e){}
+}
+function persistManual(){try{sessionStorage.setItem(manualKey,JSON.stringify([...manualSelection]));}catch(e){}}
+function applyManualFilter(){
+ const filter=document.getElementById('lineup-filter');if(!filter)return;
+ const onlySelected=filter.value==='selected';let visible=0;
+ document.querySelectorAll('tr[data-horse]').forEach(row=>{
+  const checked=manualSelection.has(row.dataset.horse);row.hidden=onlySelected&&!checked;row.classList.toggle('user-selected',checked);
+  const input=row.querySelector('[data-user-check]');if(input)input.checked=checked;
+  const detail=[...document.querySelectorAll('[data-detail-horse]')].find(e=>e.dataset.detailHorse===row.dataset.horse);if(detail)detail.hidden=row.hidden;
+  if(!row.hidden)visible++;
+ });
+ document.getElementById('selection-count').textContent='自分の✓ '+manualSelection.size+'頭 / 表示 '+visible+'頭';
+ document.getElementById('lineup-empty').hidden=visible>0;
+ resize();
+}
 function selectHorse(no){
  no=String(no);const h=horseMap.get(no);if(!h)return;
+ const row=[...document.querySelectorAll('tr[data-horse]')].find(e=>e.dataset.horse===no);if(!row)return;
+ const wasHidden=row.hidden;
  const old=document.querySelector('.lineup-detail');if(old)old.remove();
  document.querySelectorAll('[data-accordion]').forEach(b=>{b.setAttribute('aria-expanded','false');const p=document.getElementById(b.getAttribute('aria-controls'));p.hidden=true;p.innerHTML='';});
  document.getElementById('selected-section').hidden=true;
  document.querySelectorAll('[data-row]').forEach(r=>r.classList.toggle('selected',r.dataset.horse===no));
- if(selectedHorse===no){selectedHorse=null;resize();return;}
+ document.querySelectorAll('[data-horse-open]').forEach(b=>b.setAttribute('aria-expanded','false'));
+ if(selectedHorse===no&&!wasHidden){selectedHorse=null;row.classList.remove('selected');document.getElementById('selection-status').textContent='詳細を閉じました';resize();return;}
  selectedHorse=no;
- const row=document.querySelector('[data-horse="'+no+'"]');if(!row)return;
+ if(row.hidden){const filter=document.getElementById('lineup-filter');if(filter){filter.value='all';applyManualFilter();}}
  const detail=document.createElement('tr');detail.className='lineup-detail';detail.dataset.detailHorse=no;
- const td=document.createElement('td');td.colSpan=row.children.length;td.innerHTML=data.cards[h.index];detail.appendChild(td);row.after(detail);
+ const td=document.createElement('td');td.colSpan=row.children.length;td.innerHTML='<div class="shared-horse-detail">'+data.cards[h.index]+'</div>';detail.appendChild(td);detail.id='horse-detail-'+no;row.after(detail);
+ document.querySelectorAll('[data-horse-open]').forEach(b=>b.setAttribute('aria-expanded',String(b.dataset.horseOpen===no)));
  document.getElementById('selection-status').textContent=data.names[h.index]+'を表示中';
  try{sessionStorage.setItem('keiba-ui:'+data.race_key,no);}catch(e){}
- resize();
+ resize();if(data.experience==='race-comparison')row.scrollIntoView({block:'nearest'});
 }
 function select(index){const h=data.horses[index];if(h)selectHorse(h.no);}
 buttons.forEach(btn=>btn.addEventListener('click',()=>selectHorse(btn.dataset.select)));
-document.querySelectorAll('[data-row]').forEach(row=>row.addEventListener('click',e=>{if(!e.target.closest('button'))selectHorse(row.dataset.horse);}));
+document.querySelectorAll('[data-horse-open]').forEach(btn=>btn.addEventListener('click',()=>selectHorse(btn.dataset.horseOpen)));
+document.querySelectorAll('[data-row]').forEach(row=>row.addEventListener('click',e=>{if(!e.target.closest('button,input,label,a,summary'))selectHorse(row.dataset.horse);}));
+document.querySelectorAll('[data-user-check]').forEach(input=>input.addEventListener('change',()=>{
+ const no=input.dataset.userCheck;if(input.checked)manualSelection.add(no);else manualSelection.delete(no);
+ persistManual();applyManualFilter();
+}));
+const filterControl=document.getElementById('lineup-filter');if(filterControl)filterControl.addEventListener('change',applyManualFilter);
+const clearControl=document.getElementById('clear-user-selection');if(clearControl)clearControl.addEventListener('click',()=>{manualSelection.clear();persistManual();applyManualFilter();});
 function compareHorses(a,b,key,sign){
  const av=a.sort[key],bv=b.sort[key];
  const am=typeof av!=='number'||!Number.isFinite(av),bm=typeof bv!=='number'||!Number.isFinite(bv);
@@ -58,12 +88,16 @@ function sortLineup(){
  const body=document.querySelector('.table-scroll tbody');
  const rows=[...body.querySelectorAll('tr[data-horse]')];
  rows.sort((a,b)=>compareHorses(horseMap.get(a.dataset.horse),horseMap.get(b.dataset.horse),key,sign));
- rows.forEach(r=>{body.appendChild(r);const detail=body.querySelector('[data-detail-horse="'+r.dataset.horse+'"]');if(detail)body.appendChild(detail);});
+ rows.forEach(r=>{body.appendChild(r);const detail=[...body.querySelectorAll('[data-detail-horse]')].find(e=>e.dataset.detailHorse===r.dataset.horse);if(detail)body.appendChild(detail);});
  resize();
 }
-document.getElementById('lineup-sort').addEventListener('change',sortLineup);
+document.getElementById('lineup-sort').addEventListener('change',()=>{
+ if(data.experience==='race-comparison')document.getElementById('lineup-direction').value=['score','distance','course'].includes(document.getElementById('lineup-sort').value)?'desc':'asc';
+ sortLineup();
+});
 document.getElementById('lineup-direction').addEventListener('change',sortLineup);
 sortLineup();
+applyManualFilter();
 function showMetric(key){
  const group=data.tabs.find(t=>t.key===key);if(!group)return;
  document.getElementById('selected-section').hidden=true;
@@ -86,6 +120,8 @@ function showMetric(key){
 }
 function accordion(index){
  const detail=document.querySelector('.lineup-detail');if(detail)detail.remove();selectedHorse=null;
+ document.querySelectorAll('[data-horse-open]').forEach(b=>b.setAttribute('aria-expanded','false'));
+ document.querySelectorAll('[data-row]').forEach(r=>r.classList.remove('selected'));
  const btn=document.querySelector('[data-accordion="'+index+'"]');if(!btn)return;
  const opening=btn.getAttribute('aria-expanded')!=='true';
  document.querySelectorAll('[data-accordion]').forEach(b=>{

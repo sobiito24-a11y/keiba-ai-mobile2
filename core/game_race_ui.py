@@ -19,11 +19,25 @@ MARK_CLASSES = {'◎': 'honmei', '○': 'taiko', '▲': 'tanana', '✔': 'target
                 '✓': 'check', '△': 'osae', '☆': 'star'}
 
 
+def _frame_facts(row):
+    """Distinguish missing entry metadata from conflicting or invalid metadata."""
+    values, invalid = set(), False
+    for key in ('枠', '枠番', 'frame_number', 'frame_no', 'waku'):
+        raw = row.get(key)
+        if not text(raw) or text(raw) in ('—', '―', '－', '-', '未取得', '不明', '<NA>'):
+            continue
+        candidate = number(raw)
+        if candidate is None or not candidate.is_integer() or not 1 <= candidate <= 8:
+            invalid = True
+        else:
+            values.add(int(candidate))
+    conflict = invalid or len(values) > 1
+    return (next(iter(values)) if len(values) == 1 and not conflict else None), conflict
+
+
 def frame_number(row):
     """Use explicit current-entry fields only; conflicts stay uncoloured."""
-    values = {number(row[k]) for k in ('枠', '枠番', 'frame_number', 'frame_no', 'waku')
-              if k in row and number(row[k]) is not None and 1 <= number(row[k]) <= 8 and number(row[k]).is_integer()}
-    return int(next(iter(values))) if len(values) == 1 else None
+    return _frame_facts(row)[0]
 
 
 def index_display(cell):
@@ -51,8 +65,12 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
         a = row.get(KEY) or {}
         idx=indices.get(no,{})
         source=sources.get(no,row)
-        frame = frame_number(sources.get(no, {})) or frame_number(row)
-        if frame is None and frames and no in frames:
+        saved_frame, saved_conflict = _frame_facts(sources.get(no, {}))
+        current_frame, current_conflict = _frame_facts(row)
+        frame_conflict = saved_conflict or current_conflict or (
+            saved_frame is not None and current_frame is not None and saved_frame != current_frame)
+        frame = None if frame_conflict else saved_frame or current_frame
+        if frame is None and not frame_conflict and frames and no in frames:
             from .game_ui_frames import normalize_name
             item = frames[no]
             if normalize_name(item['name']) == normalize_name(name): frame = item['frame']
@@ -128,8 +146,11 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
         h['sort_values']=dict(no=number(h['no']),frame=h['frame'],score=h['internal_score'],ability=number(h['ability_rank']),distance=h['distance']['value'],course=h['course']['value'],mark=mark_sort_value(h))
     from .jra_focus import annotate as focus_annotate
     from .final_candidate_metrics import project as candidate_metrics
+    from .race_explorer_facts import project as explorer_facts
     for h in out:
         h['final_metrics']=candidate_metrics(h,evidence_sources[h['no']])
+        h['explorer_facts']=explorer_facts(h,sources.get(h['no'],{}),race_info or {})
+        h['race_context']=dict(race_info or {})
     return focus_annotate(out)
 
 
@@ -247,7 +268,7 @@ def corner4_shadow_html(view, race_key=''):
     return html(view, race_key)
 
 
-def document(view, race_key='', paper_decision=None, portable=None):
+def _legacy_document(view, race_key='', paper_decision=None, portable=None):
     from .final_candidate_selection import formal_score
     css = (ASSETS/'race.css').read_text(encoding='utf-8')
     script = (ASSETS/'race.js').read_text(encoding='utf-8')
@@ -273,6 +294,15 @@ def document(view, race_key='', paper_decision=None, portable=None):
             +'<p class="legend">距離・コースの記号は指数順位：◎1位 · ○2〜3位 · △4〜5位 · —6位以下。枠番未取得は無色。</p>'
             +'<section id="selected-section" hidden><div class="section-heading"><div><span class="eyebrow">HORSE PROFILE</span><h2>馬別サマリーカード</h2></div></div><p id="selection-status" class="sr-only" aria-live="polite"></p><div id="selected-card"></div></section>'
             +'<noscript>馬別カードを表示するにはJavaScriptを有効にしてください。</noscript></main><script type="application/json" id="race-data">'+data+'</script><script>'+script+'</script></body></html>')
+
+
+def document(view, race_key='', paper_decision=None, portable=None):
+    # B remains available only through the explicit research route. Ordinary
+    # predictions reach this function with their unchanged A projection.
+    if view and view[0].get('active_model')=='B':
+        return _legacy_document(view,race_key,paper_decision,portable)
+    from .race_explorer_ui import document as comparison_document
+    return comparison_document(view,race_key,paper_decision,portable)
 
 
 def theme_css():
@@ -376,7 +406,7 @@ def comparison_data(view,mode,race_key="",portable=None):
 
 def comparison_html(view,mode):
     from .game_ui_comparison import TABS
-    buttons=''.join('<button role="tab" aria-selected="'+('true' if k=='final' else 'false')+'" data-tab="'+k+'">'+escape(label)+'</button>' for k,label in TABS if k!='research')
+    buttons=''.join('<button role="tab" aria-selected="'+('true' if k=='final' else 'false')+'" data-tab="'+k+'">'+escape(label)+'</button>' for k,label in TABS)
     return '<section class="metric-comparison"><div class="metric-tabs" role="tablist" aria-label="比較指標">'+buttons+'</div><div id="metric-count"></div><div id="top-horses" class="top-horses" role="tabpanel" tabindex="0" aria-label="選択指標の比較・横縦スクロール"></div><p id="metric-note"></p></section>'
 
 

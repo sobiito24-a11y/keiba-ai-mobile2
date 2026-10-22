@@ -94,7 +94,7 @@ def profile_html(h):
     p=h.get('profile') or {};e=lambda v:escape(str(v if v is not None and v!='' else 'データなし'))
     runs=p.get('runs',[]);body='<section class="profile-facts"><h4>過去3走 · 開催日を確認した情報</h4><div class="recent-three">'
     by={r['label']:r for r in runs}
-    for label in ('前走','2走前','3走前'):
+    for label in ('3走前','2走前','前走'):
         r=by.get(label,{})
         body+='<section class="recent-run"><small>'+label+'</small><strong'+(' class="missing-finish"' if not r.get('finish') else '')+'>'+e(r.get('finish'))+'</strong><p>'+e(r.get('date'))+' '+e(r.get('venue'))+'</p><p>'+e(r.get('surface'))+e(r.get('distance'))+'</p><p>'+e(r.get('class_raw'))+'</p><p>タイム指数 '+e(r.get('time_index'))+'</p><small>通過 '+e(r.get('passing_order'))+'</small></section>'
     from .recent_condition_facts import html as condition_html
