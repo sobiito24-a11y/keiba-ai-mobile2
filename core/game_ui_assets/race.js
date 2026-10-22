@@ -35,12 +35,20 @@ function compareHorses(a,b,key,sign){
 }
 function sortCandidates(){
  const control=document.getElementById('candidate-sort');if(!control)return;
- const key=control.value,sign=key==='score'?-1:1;
- for(const container of document.querySelectorAll('.candidate-accordion,.other-candidates')){
-  const rows=[...container.children].filter(r=>r.classList.contains('candidate-item'));
-  rows.sort((a,b)=>compareHorses(data.horses[Number(a.querySelector('[data-accordion]').dataset.accordion)],data.horses[Number(b.querySelector('[data-accordion]').dataset.accordion)],key,sign));
-  const before=container.querySelector(':scope > .other-candidates');
-  rows.forEach(r=>container.insertBefore(r,before));
+ const score=control.value==='score',key=score?'final_score':'no',sign=score?-1:1;
+ const section=document.querySelector('.final-candidates');if(!section)return;
+ section.dataset.order=control.value;
+ section.querySelectorAll('.final-score').forEach(cell=>cell.hidden=!score);
+ section.querySelector('.final-order-note').textContent=score?'選択中モデルの正式スコアが高い順。未取得は最後に表示します':'馬番順では最終評価スコアを表示しません';
+ for(const container of section.querySelectorAll('.final-table tbody,.final-mobile')){
+  const rows=[...container.children].filter(r=>r.hasAttribute('data-candidate-index'));
+  rows.sort((a,b)=>compareHorses(data.horses[Number(a.dataset.candidateIndex)],data.horses[Number(b.dataset.candidateIndex)],key,sign));
+  rows.forEach(row=>{
+   container.appendChild(row);
+   if(row.classList.contains('final-candidate-row')){
+    const detail=container.querySelector('#final-desktop-detail-'+row.dataset.candidateIndex);if(detail)container.appendChild(detail);
+   }
+  });
  }
  resize();
 }
@@ -60,15 +68,20 @@ function showMetric(key){
  const group=data.tabs.find(t=>t.key===key);if(!group)return;
  document.getElementById('selected-section').hidden=true;
  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===key)));
- document.getElementById('metric-count').textContent=(key==='final'?'最終印候補 '+group.eligible:group.label+' · 該当'+group.eligible)+'頭／全'+group.total+'頭';
+ document.getElementById('metric-count').textContent=(key==='final'?'最終候補 '+group.eligible:group.label+' · 該当'+group.eligible)+'頭／全'+group.total+'頭';
  document.getElementById('top-horses').classList.toggle('information',['information','candidates'].includes(group.kind));
  document.getElementById('top-horses').classList.toggle('candidate-layout',group.kind==='candidates');
  document.getElementById('top-horses').innerHTML=group.html;
- document.getElementById('metric-note').textContent=key==='final'?'行をタップして詳細を開閉。参考材料は正式スコアへ加点しません。':group.note;
+ document.getElementById('metric-note').textContent=key==='final'?'馬名を選ぶと詳細を開閉します。候補の選出・表示順で予想データは変わりません。':group.note;
  document.querySelectorAll('[data-top-select]').forEach(b=>b.addEventListener('click',()=>{select(Number(b.dataset.topSelect));}));
  document.querySelectorAll('[data-accordion]').forEach(btn=>btn.addEventListener('click',()=>accordion(Number(btn.dataset.accordion))));
  const candidateSort=document.getElementById('candidate-sort');if(candidateSort)candidateSort.addEventListener('change',sortCandidates);
- if(key==='final'){const first=document.querySelector('[data-accordion]');if(first)accordion(Number(first.dataset.accordion));}
+ document.querySelectorAll('[data-final-toggle]').forEach(btn=>btn.addEventListener('click',()=>{
+  const panel=document.getElementById(btn.getAttribute('aria-controls'));
+  if(!panel)return;
+  panel.hidden=!panel.hidden;btn.setAttribute('aria-expanded',String(!panel.hidden));resize();
+ }));
+ if(key==='final')sortCandidates();
  resize();
 }
 function accordion(index){
