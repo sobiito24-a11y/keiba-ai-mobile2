@@ -112,6 +112,9 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
         h['mark_reasons']=src.get('_display_jra_mark_reasons',[])
         h['candidate_group']='正式Top5' if h['formal_member'] else '参考注意馬' if h.get('additional_reference') else '追加候補' if h['mark'] not in ('','—','-') else '無印'
         h['internal_score']=number(pick(src,'_display_jra_top5_score','jra_top5_score')) if mode=='jra' else number(src.get('nar_top5_order_score'))
+        h['candidate_formal_score']=h['internal_score']
+        h['reference_selection']=dict(source=src.get('nar_check_source'),pure_rank=src.get('nar_check_pure_rank'),
+                                      corner4_rank=src.get('nar_check_corner4_rank'),jockey_place_rate=src.get('nar_check_jockey_place_rate'))
         if mode=='nar':
             from .nar_display_score import project
             from .nar_reference_score import reference
@@ -124,6 +127,9 @@ def build_view(rows, records, source_rows=(), mode='jra', race_info=None, materi
             if h['reference_score']['kind']=='reference':h['score_label']+='（参考）'
         h['sort_values']=dict(no=number(h['no']),frame=h['frame'],score=h['internal_score'],ability=number(h['ability_rank']),distance=h['distance']['value'],course=h['course']['value'],mark=mark_sort_value(h))
     from .jra_focus import annotate as focus_annotate
+    from .final_candidate_metrics import project as candidate_metrics
+    for h in out:
+        h['final_metrics']=candidate_metrics(h,evidence_sources[h['no']])
     return focus_annotate(out)
 
 
@@ -242,6 +248,7 @@ def corner4_shadow_html(view, race_key=''):
 
 
 def document(view, race_key='', paper_decision=None, portable=None):
+    from .final_candidate_selection import formal_score
     css = (ASSETS/'race.css').read_text(encoding='utf-8')
     script = (ASSETS/'race.js').read_text(encoding='utf-8')
     mode = view[0]['mode'] if view else 'jra'
@@ -258,7 +265,7 @@ def document(view, race_key='', paper_decision=None, portable=None):
         if mode == 'jra': cells += [escape(h['development']), training_html(h['training'])]
         cells += [escape(h['rest']) or '—', index_html(h['distance']), index_html(h['course']), metric_html(h['star'],'★'), metric_html(h['away'],'☆'), evidence_html(h['plus'],True), evidence_html(h['caution'],False)]
         rows.append(f'<tr data-row="{escape(h["no"])}" data-horse="{escape(h["no"])}">'+''.join(f'<td>{c}</td>' for c in cells)+'</tr>')
-    data = json.dumps(dict(active_model=view[0].get('active_model','A') if view else 'A',horses=[dict(no=h['no'],rank=number(h['rank']),sort=h.get('sort_values',{})) for h in view],tabs=comparison_data(view,mode,race_key,portable),cards=[card_html(h) for h in view], names=[h['no']+' '+h['name'] for h in view], race_key=race_key),ensure_ascii=False).replace('<','\\u003c').replace('>','\\u003e').replace('&','\\u0026')
+    data = json.dumps(dict(active_model=view[0].get('active_model','A') if view else 'A',horses=[dict(no=h['no'],rank=number(h['rank']),sort={**h.get('sort_values',{}),'final_score':formal_score(h)}) for h in view],tabs=comparison_data(view,mode,race_key,portable),cards=[card_html(h) for h in view], names=[h['no']+' '+h['name'] for h in view], race_key=race_key),ensure_ascii=False).replace('<','\\u003c').replace('>','\\u003e').replace('&','\\u0026')
     return ('<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             +'<style>'+css+'</style><body><main>'+odds_status(view)+conclusion_html(view)+comparison_html(view,mode)+'<details class="advanced-research"><summary>詳細設定・旧研究機能</summary>'+nar_watch_html(view,portable)+paper_html(view,race_key,paper_decision)+'</details>'+'<div class="section-heading"><div><span class="eyebrow">RACE LINEUP</span><h2>全頭予想一覧</h2></div><span class="count">'+str(len(view))+'頭</span></div>'
             +'<p class="help">行をタップすると直下に詳細を表示します。未取得値は並び替え時も最後に表示します。</p>'
@@ -400,31 +407,15 @@ def candidate_summary_html(h):
 
 
 def candidate_html(view, group):
-    if not group['rows']:return '<p class="no-data">最終印候補なし</p>'
-    from .jra_focus import partition
-    main, other=partition(view,group['rows'])
-    rows=[]
-    for i in main+other:
-        if other and i==other[0]: rows.append('<details class="other-candidates"><summary>その他の参考候補'+str(len(other))+'頭を表示</summary>')
-        h=view[i];profile=h.get('profile') or {}
-        rows.append('<div class="candidate-item"><button class="candidate-summary" data-accordion="'+str(i)+'" aria-expanded="false" aria-controls="candidate-panel-'+str(i)+'">'+candidate_badge(h)+frame_html(h['frame'])+
-            '<b class="horse-number">'+escape(h['no'])+'</b><strong class="candidate-name">'+name_html(h)+'</strong><span class="candidate-meta">'+candidate_summary_html(h)+'</span><span class="candidate-score">'+escape(h['score'])+'<small>正式'+escape(h['rank'])+'位 / 純能力'+escape(h['ability_rank'])+'位</small></span><span class="toggle-icon">⌄</span></button><div id="candidate-panel-'+str(i)+'" class="candidate-panel" hidden></div></div>')
-    if other: rows.append('</details>')
-    legend='<p class="candidate-legend">正式Top5の◎○▲✔△は本印。注目は既存追加✔の正式6〜8位から最大2頭、参考はその他の保存候補です。緑✓は従来の参考判定を保持します。表示整理による予測変更はありません。</p>' if view and view[0].get('mode')=='jra' else ''
-    controls='<label class="candidate-sort-label">表示順：<select id="candidate-sort"><option value="mark">最終印順</option><option value="score">総合スコア順</option><option value="no">馬番順</option><option value="ability">純能力順位順</option></select></label>'
-    return legend+controls+'<div class="candidate-accordion">'+''.join(rows)+'</div>'
+    from .final_candidate_ui import render
+    return render(view,group.get('label',''))
 
 
 def conclusion_html(view):
-    from .game_ui_candidate_evidence import candidates
-    from .jra_focus import partition
-    pool,other=partition(view,candidates(view,'')['rows']);cards=[]
-    for i in pool:
-        h=view[i];p=h.get('profile') or {}
-        cards.append('<button class="medal-card" data-conclusion="'+str(i)+'">'+candidate_badge(h)+frame_html(h['frame'])+'<b class="horse-number">'+escape(h['no'])+'</b><strong>'+name_html(h)+'</strong><span class="medal-score">'+escape(h['score'])+'</span><small>'+escape(h['score_label'])+'</small><small>'+escape(h['jockey'])+' · 純能力'+escape(h['ability_rank'])+'位</small><small>'+escape(style_label(h['style']))+' · 指数推移 '+escape(p.get('state','判定不可'))+'</small>'+odds_html(h,True)+'</button>')
-    reference=''
-    if other: reference='<p class="muted">その他の参考候補'+str(len(other))+'頭は、最終印候補タブの折りたたみ内で確認できます。</p>'
-    return '<section class="conclusion"><h2>今回の結論</h2><div class="medal-cards">'+''.join(cards)+'</div>'+reference+'</section>'
+    from .final_candidate_selection import select_indices
+    count=len(select_indices(view))
+    model='研究B' if view and view[0].get('active_model')=='B' else '現行A'
+    return '<section class="conclusion"><div class="final-heading"><h2>最終候補</h2><span>'+model+' · '+str(count)+'頭</span></div><p class="help">候補の指数と状態を比較して、購入する馬と買い目を選べます。</p></section>'
 
 
 def paper_html(view,race_key,paper_decision=None):

@@ -1,7 +1,7 @@
 """Read-only metric comparisons; never written to formal predictions."""
 from .prediction_table_ui import number,fmt
 
-TABS=[('final','① 最終印候補'),('corner','② 展開・4角'),('ability','③ 純能力'),
+TABS=[('final','① 最終候補'),('corner','② 展開・4角'),('ability','③ 純能力'),
       ('course','④ コース'),('distance','⑤ 距離'),('training','⑥ 調教・状態'),
       ('star','⑦ ★指数'),('away','⑧ ☆指数'),('average','⑨ 3走平均'),('materials','⑩ 今回＋／−'),('changes','⑪ 斤量／騎手'),('research','⑫ 新AI総合（研究）')]
 NOTICE='※該当する実績・有効な指数がある馬のみを対象に抽出しています。未取得馬は対象外です。'
@@ -24,7 +24,7 @@ def comparisons(view,mode):
             groups.append(information(view,key,label))
             continue
         if key=='final':
-            from .game_ui_candidate_evidence import candidates
+            from .final_candidate_selection import candidates
             groups.append(candidates(view,label))
             continue
         elif key=='corner':
