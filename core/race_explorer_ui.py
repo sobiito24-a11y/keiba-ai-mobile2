@@ -3,7 +3,7 @@ import json
 
 from .prediction_table_ui import number
 from .final_candidate_selection import formal_score
-from .race_explorer_common import number_badge, plain, value
+from .race_explorer_common import comparison_index_html, number_badge, plain, value
 from .race_explorer_cards import detail_html, pickup_html
 from .race_explorer_columns import columns, records
 from .race_explorer_visuals import ability_html, development_html
@@ -18,6 +18,13 @@ def _cell(horse, cells, key):
     if key == 'name':
         no = plain(horse.get('no'))
         return '<button type="button" class="horse-select" data-horse-open="'+no+'" aria-expanded="false" aria-controls="horse-detail-'+no+'"><strong>'+value(item)+'</strong></button>'
+    if key in ('score', 'ability', 'distance', 'course', 'star', 'away'):
+        rank_key = 'rank' if key == 'score' else key + '_rank'
+        return comparison_index_html(item, cells.get(rank_key))
+    if key in ('average', 'maximum', 'reference_score'):
+        return comparison_index_html(item, ranked=False)
+    if key == 'corner':
+        return value(item)+'番手' if item is not None else '<span class="missing-cell">未取得</span>'
     if key in ('run_old','run_middle','run_latest'):
         star = ' <span class="maximum-match" title="保存された最高指数と一致">★</span>' if cells.get(key+'_is_maximum') else ''
         return '<b class="metric-number">'+value(item)+star+'</b><small class="run-condition">'+value(cells.get(key+'_condition'))+'</small><small>'+value(cells.get(key+'_date'))+'</small>'
@@ -47,13 +54,21 @@ def _options(schema, first=None):
 
 def lineup_html(view):
     schema, cells = columns(view), records(view)
+    shown_schema = [spec for spec in schema if not spec.get('table_hidden')]
     widths = dict(user=42, frame=36, no=44, name=190, age=56, jockey=85, score=120,
                   rank=70, popularity=70, style=70, corner=70, training=60,
                   run_old=134, run_middle=134, run_latest=134, jockey_change=160,
                   record_venue=190, record_distance=190, record_venue_distance=190, materials=220)
-    table_width = sum(widths.get(spec['key'], 88) for spec in schema)
+    mobile_widths = dict(user=34, frame=28, no=34, name=118, age=44, jockey=68,
+                         score=100, reference_score=110, popularity=56, style=56,
+                         corner=62, training=48, run_old=108, run_middle=108,
+                         run_latest=108, jockey_change=128, record_venue=156,
+                         record_distance=156, record_venue_distance=156, materials=176)
+    widths['reference_score'] = 120
+    table_width = sum(widths.get(spec['key'], 88) for spec in shown_schema)
+    mobile_width = sum(mobile_widths.get(spec['key'], 72) for spec in shown_schema)
     headers = []
-    for spec in schema:
+    for spec in shown_schema:
         key, label = spec['key'], spec['label']
         cls = 'col-'+key+(' col-number' if key == 'no' else '')
         headers.append('<th scope="col" class="'+cls+'" data-column="'+key+'" aria-sort="none"><button type="button" class="column-sort" data-column-sort="'+key+'" aria-label="'+plain(label)+'で並び替え"><span class="column-label">'+plain(label)+'</span></button><button type="button" class="column-filter" data-column-filter="'+key+'" aria-label="'+plain(label)+'で絞り込む" title="'+plain(label)+'で絞り込む"></button></th>')
@@ -62,7 +77,7 @@ def lineup_html(view):
         no = str(horse.get('no', ''))
         row = cells[no]
         content = []
-        for spec in schema:
+        for spec in shown_schema:
             key = spec['key']
             cls = 'col-'+key+(' col-number' if key == 'no' else '')
             tooltip = str(row.get(key) if row.get(key) is not None else '未取得')
@@ -84,8 +99,8 @@ def lineup_html(view):
             '<p class="help">複数の列を組み合わせられます。間隔は日数、過去走は指数範囲と開催条件で指定できます。未取得は並び順にかかわらず末尾です。</p></details>'
             '<div id="active-column-filters" aria-label="適用中の絞り込み"></div>'
             '<p id="lineup-empty" class="no-data" hidden>条件に合う馬がいません。絞り込みを解除するか、全頭表示に切り替えてください。</p>'
-            '<div class="table-scroll explorer-table-scroll" tabindex="0" aria-label="全頭比較・縦横スクロール"><table class="explorer-table" style="--comparison-width:'+str(table_width)+'px;--comparison-mobile-width:'+str(table_width-80)+'px"><thead><tr>'+''.join(headers)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div>'
-            '<p class="help">項目は横へ、全頭は縦へスクロールできます。過去走は3走前 → 2走前 → 前走。★は保存された最高指数との一致です。</p></section>')
+            '<div class="table-scroll explorer-table-scroll" tabindex="0" aria-label="全頭比較・縦横スクロール"><table class="explorer-table" style="--comparison-width:'+str(table_width)+'px;--comparison-mobile-width:'+str(mobile_width)+'px"><thead><tr>'+''.join(headers)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div>'
+            '<p class="help">下段は各指数の順位です。上位3位の記号は正式印とは別で、順位でも並び替え・絞り込みができます。過去走は3走前 → 2走前 → 前走。★は保存された最高指数との一致です。</p></section>')
 
 
 def _accordion(panel_id, title, description, body):
@@ -100,7 +115,7 @@ def document(view, race_key='', paper_decision=None, portable=None):
     for horse in view:
         sort = dict(horse.get('sort_values') or {})
         sort['score'] = sort['final_score'] = formal_score(horse)
-        horses.append(dict(no=horse['no'], rank=number(horse.get('rank')), sort=sort, values=cells[str(horse['no'])]))
+        horses.append(dict(no=horse['no'], rank=cells[str(horse['no'])]['rank'], sort=sort, values=cells[str(horse['no'])]))
     payload = dict(experience='race-comparison', active_model='A', race_key=race_key, columns=schema, horses=horses,
                    names=[str(h['no'])+' '+str(h['name']) for h in view], cards=[detail_html(h) for h in view],
                    tabs=comparison_data(view, view[0].get('mode', 'jra') if view else 'jra', race_key, portable))
