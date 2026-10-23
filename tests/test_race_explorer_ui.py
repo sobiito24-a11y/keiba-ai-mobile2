@@ -8,6 +8,7 @@ from core.final_candidate_selection import formal_score
 from core.game_race_ui import build_view, document, frame_number
 from core.prediction_table_ui import prediction_table_records
 from core.race_explorer_common import index_html, number_badge, value
+from core.race_explorer_columns import columns
 from core.race_explorer_ui import lineup_html
 
 
@@ -35,7 +36,7 @@ def field(mode='jra', count=9):
     return rows, records, info, build_view(rows, records, rows, mode, info)
 
 
-@pytest.mark.parametrize('mode,count', [('jra', 7), ('jra', 18), ('nar', 7), ('nar', 18)])
+@pytest.mark.parametrize('mode,count', [(mode, count) for mode in ('jra','nar') for count in (12,16,18)])
 def test_normal_layout_full_field_manual_checks_and_source_nonmutation(mode, count):
     rows, records, info, view = field(mode, count)
     saved = deepcopy((rows, records, info, view))
@@ -44,8 +45,17 @@ def test_normal_layout_full_field_manual_checks_and_source_nonmutation(mode, cou
     doc = BeautifulSoup(document(shown, info['race_id']), 'html.parser')
     assert (rows, records, info, view) == saved
     section_order = [heading.text for heading in doc.select(
-        '#race-pickup h2, .development-panel h2, .ability-panel h2, #lineup-workspace h2')]
-    assert section_order == ['レースピックアップ', 'レース展開予測', '純能力の見える化', '全頭予想・比較一覧']
+        '.overview-accordion > summary .overview-title, #lineup-workspace h2')]
+    assert section_order == ['レースピックアップ', 'レース展開予想', '純能力の見える化', '全頭予想・比較一覧']
+    overviews=doc.select('details.overview-accordion')
+    assert [panel['id'] for panel in overviews]==['race-pickup','race-development','race-ability']
+    for panel in overviews:
+        assert not panel.has_attr('open') and not panel.has_attr('name')
+        assert panel.has_attr('data-persist-panel')
+        summary=panel.select_one('summary')
+        assert summary.select_one('.overview-description').text.strip()
+        assert not summary.select('[data-horse-open], .number-badge, .metric-number')
+        assert all(horse['name'] not in summary.text for horse in view)
     lineup = doc.select_one('#lineup-workspace')
     runners = lineup.select('tbody tr[data-horse]')
     assert [row['data-horse'] for row in runners] == [str(i) for i in range(1, count + 1)]
@@ -53,16 +63,30 @@ def test_normal_layout_full_field_manual_checks_and_source_nonmutation(mode, cou
     assert len(checks) == count
     assert all(not check.has_attr('checked') and check.has_attr('aria-label') for check in checks)
     assert [option['value'] for option in lineup.select('#lineup-filter option')] == ['all', 'selected']
-    assert lineup.select_one('#clear-user-selection').text == '全選択解除'
+    assert lineup.select_one('#clear-user-selection').text == '選択クリア'
     assert not lineup.select_one('#lineup-sort option').has_attr('disabled')
     assert lineup.select_one('#lineup-sort option')['value'] == 'no'
     assert lineup.select_one('.explorer-table-scroll')['tabindex'] == '0'
     for row in runners:
         assert len(row.select('.col-user,.col-number,.col-name')) == 3
         assert row.select_one('.col-name button[data-horse-open]')['data-horse-open'] == row['data-horse']
-    headers = [header.text for header in lineup.select('th')]
-    assert headers[7:12] == ['3走前', '2走前', '前走', '3走平均', '★最高指数']
+    headers = [header.select_one('.column-label').text for header in lineup.select('th')]
+    assert headers[headers.index('3走前'):headers.index('3走前')+5] == ['3走前', '2走前', '前走', '3走平均', '★最高指数']
     assert ('調教' in headers) == (mode == 'jra')
+    specs=columns(view)
+    keys=[spec['key'] for spec in specs]
+    assert [header['data-column'] for header in lineup.select('th')]==keys
+    assert [button['data-column-sort'] for button in lineup.select('[data-column-sort]')]==keys
+    assert [button['data-column-filter'] for button in lineup.select('[data-column-filter]')]==keys
+    assert [option['value'] for option in lineup.select('#filter-column option')]==keys
+    assert {option['value'] for option in lineup.select('#lineup-sort option')}==set(keys)
+    assert len(headers)==(32 if mode=='jra' else 31)
+    assert all(len(row.select('td'))==len(headers) for row in runners)
+    assert lineup.select_one('#filter-min')['type']=='number'
+    assert lineup.select_one('#filter-max')['type']=='number'
+    assert lineup.select_one('#filter-text')['type']=='search'
+    assert lineup.select_one('#clear-column-filters') and lineup.select_one('#active-column-filters')
+    assert not lineup.select_one('#lineup-filters').has_attr('open')
 
 
 @pytest.mark.parametrize('mode', ['jra', 'nar'])
@@ -80,6 +104,9 @@ def test_normal_workspace_has_formal_a_values_and_retains_twelve_collapsed_analy
     assert payload['active_model'] == 'A'
     assert payload['experience'] == 'race-comparison'
     assert [horse['sort']['score'] for horse in payload['horses']] == [formal_score(horse) for horse in view]
+    assert payload['columns']==columns(view)
+    assert all(horse['values']['user'] is False for horse in payload['horses'])
+    assert [horse['values']['score'] for horse in payload['horses']]==[formal_score(horse) for horse in view]
     table_rows = doc.select('#lineup-workspace tr[data-horse]')
     assert [float(row.select_one('.col-score b').text) for row in table_rows] == [float(f'{formal_score(horse):g}') for horse in view]
     analyses = doc.select_one('details#detail-analysis')

@@ -1,0 +1,31 @@
+/* Compact pickup cards and acquired-value emphasis, independent of prediction. */
+.race-explorer .pickup-card{padding:12px;gap:7px;border-radius:10px;box-shadow:0 1px 5px #273c540b}
+.race-explorer .pickup-header{gap:9px;align-items:center}
+.race-explorer .pickup-header .number-badge{width:30px;height:32px;font-size:17px}
+.race-explorer .pickup-identity{gap:2px}.race-explorer .pickup-identity strong{font-size:16px;line-height:1.45}
+.race-explorer .pickup-basics{font-size:11px;line-height:1.4}
+.race-explorer .pickup-position{font-size:11px;gap:4px 13px;line-height:1.45}
+.race-explorer .pickup-state{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:0;border:0}
+.race-explorer .pickup-state-nar{grid-template-columns:repeat(3,minmax(0,1fr))}
+.race-explorer .pickup-state-item,.race-explorer .pickup-state-item:last-child{grid-column:auto;display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:49px;padding:7px;background:#f0f5f8;border:1px solid #e2eaf0;border-radius:6px;font-size:12px;line-height:1.4}
+.race-explorer .pickup-state-item small{font-size:9px;color:#627c91;line-height:1.25}
+.race-explorer .pickup-ability{margin:0}.race-explorer .pickup-ability b{font-size:17px;line-height:1.1;font-weight:700}
+.race-explorer .pickup-changes{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:11px;line-height:1.55;color:#415f77;overflow-wrap:anywhere}
+.race-explorer .pickup-features{gap:4px;margin:0}
+.race-explorer .pickup-features>span{padding:2px 5px;font-size:10px;line-height:1.4;border-radius:4px}
+.race-explorer .pickup-prices{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 13px;border-top:1px solid #e4ebf1;padding-top:7px;margin-top:auto;line-height:1.45;font-size:12px;color:#2b4d66}
+.race-explorer .pickup-win{font-weight:650}.race-explorer .pickup-popularity{font-size:11px}
+.race-explorer .pickup-price-time{display:block;flex:1 0 100%;font-size:9px;color:#678095;overflow-wrap:anywhere}
+.race-explorer .pickup-open{font-size:10px;line-height:1.4}
+.race-explorer .detail-missing-metrics{font-size:12px;color:#6b7f91;line-height:1.7;margin:10px 0 0;background:#f7f9fb;padding:7px 10px;border-radius:6px}
+.race-explorer .detail-stats:empty{display:none}
+@media(max-width:700px){
+ .race-explorer .pickup-grid{gap:9px}.race-explorer .pickup-card{padding:10px;gap:6px}
+ .race-explorer .pickup-identity strong{font-size:16px}.race-explorer .pickup-state{gap:4px}
+ .race-explorer .pickup-state-item{padding:6px;min-height:46px;font-size:12px}
+ .race-explorer .pickup-changes{font-size:11px;gap:1px 9px}.race-explorer .pickup-open{font-size:11px}
+}
+@media(min-width:480px) and (max-width:700px){
+ .race-explorer .pickup-state{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .race-explorer .pickup-state-nar{grid-template-columns:repeat(3,minmax(0,1fr))}
+}

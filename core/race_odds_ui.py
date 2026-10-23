@@ -18,6 +18,20 @@ def render(result, view):
         return view
     key = 'race_prices_' + odds.digest(dict(identity=identity, saved=initial))
     state = st.session_state.setdefault(key, initial)
+    # Session-only display state is deliberately separate from archive odds.
+    # History restored from .keiba is available for an explicit choice, but it
+    # does not prove that the user has imported current prices in this session.
+    runtime_key = key + '_observation_runtime_v3'
+    runtime = st.session_state.setdefault(runtime_key, dict(
+        seen_history_ids=[q['observation_id'] for q in state['history']],
+        active_observation=None, revision=0))
+
+    def activate_observation(quote):
+        runtime['active_observation'] = quote['observation_id']
+        runtime['seen_history_ids'] = [q['observation_id'] for q in state['history']]
+        # A duplicate import is still an explicit request to display that
+        # observation, even though merge correctly retains its original clock.
+        runtime['revision'] += 1
     try:
         config = dict(st.secrets.get('race_odds', st.secrets.get('independent_ai_odds', {})))
     except Exception:
@@ -42,6 +56,7 @@ def render(result, view):
                     history = odds.merge(state['history'], [quote], identity)
                 count = len(history)-len(state['history'])
                 state['history'] = history
+                activate_observation(quote)
                 st.session_state[key+'_status'] = (
                     f"取得：{quote['horse_count']}／{quote['expected_horses']}頭。" +
                     ('有効価格未取得。' if not quote['prices'] else '全頭対象の照合完了。') +
@@ -53,6 +68,10 @@ def render(result, view):
         caption('オンライン更新は未設定です。取得・転送・表示が許諾された提供元の接続設定が必要です。HTML・JSONを一括取込できます。')
     from .race_odds_screenshot_ui import render as render_screenshot
     render_screenshot(identity, state, key)
+    unseen = [q for q in state['history']
+              if q['observation_id'] not in runtime['seen_history_ids']]
+    if unseen:
+        activate_observation(unseen[-1])
     with st.expander('オッズファイルを一括取込・履歴を保存', expanded=False):
         files = st.file_uploader('同じレースのオッズHTML／JSON', type=['html','htm','json'],
                                  accept_multiple_files=True, key=key+'_files')
@@ -62,6 +81,8 @@ def render(result, view):
                 history = odds.merge(state['history'], incoming, identity)
                 added = len(history)-len(state['history'])
                 state['history'] = history
+                if incoming:
+                    activate_observation(incoming[-1])
                 st.session_state[key+'_status'] = f'照合済み観測を{added}件追加。有効価格なしの観測は未取得として記録します。'
             except (ValueError, TypeError, KeyError, UnicodeError):
                 st.session_state[key+'_status'] = '取込失敗：レースID・馬番・馬名・価格・日時形式を確認してください。全ファイルの反映を中止しました。'
@@ -78,14 +99,24 @@ def render(result, view):
                            file_name=identity['race_id']+'_odds.json', key=key+'_json')
     if st.session_state.get(key+'_status'):
         st.info(st.session_state[key+'_status'])
-    choices = [('保存時オッズ', q) for q in state['saved']] + [('更新オッズ', q) for q in state['history']]
-    if not choices:
-        return odds.overlay(view, None, 'オッズ未取得')
-    # Explicit observation selection: never silently mix different price clocks.
-    index = st.selectbox('表示するオッズ観測', range(len(choices)), index=len(choices)-1,
-                         format_func=lambda i: f"{i+1}. {choices[i][0]} · 取得 {odds.format_time(choices[i][1].get('received_at'))}",
-                         key=key+'_observation_'+str(len(choices)))
+    choices = [('未取得：新しいHTMLを取り込んでください', None)]
+    choices += [('保存時オッズ', q) for q in state['saved']] + [('更新オッズ', q) for q in state['history']]
+    # A saved prediction's price is not the current pre-race observation.
+    # Keep it selectable, but require an explicit choice until new data exists.
+    def observation_label(i):
+        label, quote = choices[i]
+        return label if quote is None else (
+            f"{i}. {label} · {odds.received_label(quote)} {odds.format_time(quote.get('received_at'))}")
+    active_index = next((i for i in range(len(choices)-1, 0, -1)
+                         if choices[i][1]['observation_id'] == runtime['active_observation']), 0)
+    index = st.selectbox('表示するオッズ観測', range(len(choices)),
+                         index=active_index,
+                         format_func=observation_label,
+                         key=key+'_observation_v3_'+str(runtime['revision'])+'_'+str(len(choices)))
     label, quote = choices[index]
+    runtime['active_observation'] = quote['observation_id'] if quote is not None else None
+    if quote is None:
+        return odds.overlay(view, None, 'オッズ未取得')
     start_at = odds.start_from_result(result)
     caption(f"{label}｜{odds.received_label(quote)}：{odds.format_time(quote.get('received_at'))}｜提供元更新：{odds.format_time(quote.get('observed_at'))}｜情報源：{quote['source']}")
     if quote.get('acquisition_method') == 'manual_html':
