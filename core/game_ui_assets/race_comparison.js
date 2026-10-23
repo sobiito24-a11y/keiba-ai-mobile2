@@ -198,7 +198,7 @@
     persist();
     resize();
   }
-  const defaultDirection = key => ['score', 'ability', 'distance', 'course', 'average', 'maximum'].includes(key) ? 'desc' : 'asc';
+  const defaultDirection = key => ['score', 'ability', 'distance', 'course', 'star', 'away', 'reference_score', 'average', 'maximum'].includes(key) ? 'desc' : 'asc';
   function sortBy(key, toggle = false) {
     if (!specs.has(key)) return;
     state.direction = toggle && state.sort === key ? state.direction === 'asc' ? 'desc' : 'asc' : defaultDirection(key);

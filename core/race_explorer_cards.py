@@ -2,9 +2,10 @@
 from collections.abc import Mapping
 import re
 
-from .final_candidate_selection import formal_score, select_indices
+from .final_candidate_selection import select_indices
 from .prediction_table_ui import number
-from .race_explorer_common import index_html, number_badge, plain, value
+from .race_explorer_common import comparison_index_html, number_badge, plain, value
+from .race_explorer_columns import records
 
 
 RUN_LABELS = ("3走前", "2走前", "前走")
@@ -123,8 +124,8 @@ def _definition_list(items, css_class):
         for label, content in items) + '</dl>'
 
 
-def _stat(label, content):
-    return '<div class="detail-stat"><small>' + plain(label) + '</small>' + content + '</div>'
+def _stat(label, content, key):
+    return '<div class="detail-stat" data-metric="' + plain(key) + '"><small>' + plain(label) + '</small>' + content + '</div>'
 
 
 def _runs_html(facts):
@@ -182,6 +183,7 @@ def detail_html(horse):
     """Render the one shared detail body for pickup and all-runner navigation."""
     facts = _facts(horse)
     metrics = _metrics(horse, facts)
+    cells = records([horse])[str(horse.get("no", ""))]
     basic = [
         ("性齢", horse.get("age")),
         ("今回騎手", facts.get("current_jockey")),
@@ -190,28 +192,36 @@ def detail_html(horse):
         ("現在の斤量", facts.get("weight_label")),
         ("前走比", facts.get("weight_delta_label")),
         ("前走間隔", facts.get("rest_label")),
-        ("想定脚質", _unmarked(metrics.get("style", horse.get("style")))),
+        ("想定脚質", _unmarked(cells.get("style"))),
     ]
     if horse.get("mode") == "jra":
         basic.append(("調教評価", facts.get("training")))
+    formal_label = "JRA正式評価スコア" if horse.get("mode") == "jra" else "NAR最終評価スコア"
     metric_values = [
-        ("A正式評価スコア", "A正式評価", dict(value=formal_score(horse), rank=horse.get("rank"))),
-        ("純能力指数", "純能力", _ability(horse, metrics)),
-        ("距離指数", "距離", _mapping(metrics.get("distance")) or _mapping(horse.get("distance"))),
-        ("コース指数", "コース", _mapping(metrics.get("course")) or _mapping(horse.get("course"))),
-        ("3走平均指数", "3走平均", dict(value=metrics.get("average"))),
-        ("★最高指数", "★最高", dict(value=metrics.get("maximum"))),
+        (formal_label, "正式評価", "score", "rank"),
+        ("純能力指数", "純能力", "ability", "ability_rank"),
+        ("距離指数", "距離", "distance", "distance_rank"),
+        ("コース指数", "コース", "course", "course_rank"),
+        ("3走平均指数", "3走平均", "average", None),
+        ("★最高指数", "★最高", "maximum", None),
     ]
+    for key, label in (("star", "同場同距離指数"), ("away", "別場同距離指数")):
+        if cells.get(key) is not None:
+            metric_values.append((label, label, key, key + "_rank"))
+    if cells.get("reference_score") is not None:
+        metric_values.append(("参考スコア（正式評価外）", "参考スコア", "reference_score", None))
     stats, missing = [], []
-    for label, short, cell in metric_values:
-        if number(cell.get("value")) is None:
+    for label, short, key, rank_key in metric_values:
+        if cells.get(key) is None:
             missing.append(short)
         else:
-            stats.append(_stat(label, index_html(cell)))
-    if _corner(horse, metrics) == '未取得':
+            stats.append(_stat(label, comparison_index_html(cells[key], cells.get(rank_key),
+                                                            ranked=rank_key is not None), key))
+    corner = cells.get("corner")
+    if corner is None:
         missing.append('4角想定')
     else:
-        stats.append(_stat("4角想定", '<b>' + _corner(horse, metrics) + '</b>'))
+        stats.append(_stat("4角想定", '<b>' + value(corner) + '番手</b>', "corner"))
     changes = ''.join('<li>' + value(_unmarked(item)) + '</li>'
                       for item in _items(facts.get("changes")))
     states = [("前走間隔", facts.get("rest_label")),
@@ -228,6 +238,7 @@ def detail_html(horse):
         _definition_list(basic, "detail-basic") +
         '<section class="detail-evaluation"><h4>評価・指数</h4><div class="detail-stats">' +
         ''.join(stats) + '</div>' +
+        '<p class="detail-note">下段は各指数の順位です。上位3位の記号は正式印とは別で、参考スコアは正式評価・順位の対象外です。</p>' +
         ('<p class="detail-missing-metrics">未取得：' + '・'.join(plain(label) for label in missing) + '</p>' if missing else '') +
         ('<p class="detail-note">3走平均は確認できた過去3走のタイム指数から算出した表示値です。</p>'
          if metrics.get("average_calculated") else '') + '</section>' +

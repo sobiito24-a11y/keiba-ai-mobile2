@@ -96,6 +96,8 @@ def test_detail_keeps_oldest_first_distinguishes_finish_and_index_and_preserves_
     assert "2戦1回3着以内" in doc.select_one(".detail-conditions").text
     assert "近3走の範囲" in doc.select_one(".detail-conditions").text
     assert "45.25" in doc.select_one(".detail-evaluation").text
+    for rank in doc.select('.metric-rank'):
+        rank.extract()  # The new index-rank glyphs are not formal AI marks.
     assert not any(mark in doc.get_text() for mark in "◎○▲✔✓△")
     assert h == before
 
@@ -146,7 +148,7 @@ def test_missing_detail_indices_are_compact_without_hiding_zero_or_negative_valu
     stats = doc.select(".detail-stat")
     assert not any("未取得" in stat.text for stat in stats)
     by_label = {stat.small.text: stat for stat in stats}
-    assert set(by_label) == {"A正式評価スコア", "純能力指数", "3走平均指数", "4角想定"}
+    assert set(by_label) == {"JRA正式評価スコア", "純能力指数", "3走平均指数", "4角想定"}
     assert by_label["3走平均指数"].b.text == "0"
     assert by_label["純能力指数"].b.text == "-2.5"
     assert h == before
@@ -159,4 +161,4 @@ def test_fully_missing_detail_has_one_small_summary_and_keeps_formal_rank_out_of
     assert not doc.select(".detail-stat")
     missing = doc.select(".detail-missing-metrics")
     assert len(missing) == 1
-    assert missing[0].text == "未取得：A正式評価・純能力・距離・コース・3走平均・★最高・4角想定"
+    assert missing[0].text == "未取得：正式評価・純能力・距離・コース・3走平均・★最高・4角想定"

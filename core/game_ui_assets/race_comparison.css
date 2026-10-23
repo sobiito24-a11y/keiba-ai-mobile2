@@ -43,6 +43,7 @@
 .race-explorer .explorer-table th.col-user,.race-explorer .explorer-table th.col-frame,.race-explorer .explorer-table th.col-number,.race-explorer .explorer-table th.col-name{z-index:6}
 .race-explorer .explorer-table .col-age{width:56px}.race-explorer .explorer-table .col-jockey{width:85px}
 .race-explorer .explorer-table .col-score{width:120px}
+.race-explorer .explorer-table .col-reference_score{width:120px}
 .race-explorer .explorer-table .col-rank,.race-explorer .explorer-table .col-popularity,.race-explorer .explorer-table .col-style,.race-explorer .explorer-table .col-corner{width:70px}
 .race-explorer .explorer-table .col-training{width:60px}
 .race-explorer .explorer-table .col-run_old,.race-explorer .explorer-table .col-run_middle,.race-explorer .explorer-table .col-run_latest{width:134px}
@@ -50,9 +51,12 @@
 .race-explorer .explorer-table .col-record_venue,.race-explorer .explorer-table .col-record_distance,.race-explorer .explorer-table .col-record_venue_distance{width:190px;text-align:left}
 .race-explorer .explorer-table .col-materials{width:220px;min-width:0;text-align:left}
 .race-explorer .explorer-table .metric-number{font-size:16px;line-height:1.4;font-weight:650}
+.race-explorer .explorer-table .comparison-metric{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:0;font-variant-numeric:tabular-nums}
+.race-explorer .explorer-table .comparison-metric .metric-value{display:block;font-size:16px;font-weight:650;line-height:1.25;white-space:nowrap}
+.race-explorer .explorer-table .comparison-metric .metric-rank{display:block;margin:0;font-size:11px;line-height:1.3;font-weight:500;white-space:nowrap;color:#506c82}
 .race-explorer .explorer-table .col-frame .metric-number{font-size:13px}
 .race-explorer .explorer-table td small{display:block;font-size:10px;color:#6e8495;margin:3px 0 0;line-height:1.4}
-.race-explorer .explorer-table td .run-condition{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;max-height:2.8em}
+.race-explorer .explorer-table td .run-condition{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible;max-height:none;overflow-wrap:anywhere}
 .race-explorer .explorer-table .horse-select{display:flex;align-items:flex-start;justify-content:center;flex-direction:column;min-height:42px;padding:2px 0;gap:0;color:#203f56;background:transparent;border:0;width:100%;text-align:left}
 .race-explorer .explorer-table .horse-select strong{font-size:13px;line-height:1.5;overflow-wrap:anywhere;white-space:normal}
 .race-explorer .explorer-table .number-badge{width:30px;height:32px;font-size:16px;border-radius:5px}
@@ -84,13 +88,27 @@
  #filter-number-fields{flex:1 1 100%;min-width:0}#filter-number-fields input{width:100%}.column-filter-editor button{flex:1 1 125px}
  .race-explorer .explorer-table-scroll{max-height:76vh;border-radius:6px}
  .race-explorer .explorer-table{width:var(--comparison-mobile-width);min-width:var(--comparison-mobile-width)}
- .race-explorer .explorer-table th,.race-explorer .explorer-table td{font-size:12px;padding:6px 5px}
- .race-explorer .explorer-table th.col-user,.race-explorer .explorer-table td.col-user{left:0;width:34px;min-width:34px;padding:3px 0}
- .race-explorer .explorer-table th.col-frame,.race-explorer .explorer-table td.col-frame{left:34px;width:30px;min-width:30px;padding:4px 2px}
- .race-explorer .explorer-table th.col-number,.race-explorer .explorer-table td.col-number{left:64px;width:38px;min-width:38px;padding:4px 2px}
- .race-explorer .explorer-table th.col-name,.race-explorer .explorer-table td.col-name{left:102px;width:130px;min-width:130px;padding:5px 6px}
- .race-explorer .explorer-table .horse-select strong{font-size:13px}.race-explorer .explorer-table .metric-number{font-size:15px}
- .race-explorer .explorer-table .number-badge{width:29px;height:31px;font-size:16px}.race-explorer .explorer-table .user-horse-check{width:25px;height:25px;min-width:25px;margin:7px 3px}
- .column-sort{font-size:11px;padding:4px 0;min-height:34px}.column-filter{display:none}
+ .race-explorer .explorer-table th,.race-explorer .explorer-table td{width:72px;font-size:11px;padding:3px 4px;line-height:1.3}
+ .race-explorer .explorer-table th.col-user,.race-explorer .explorer-table td.col-user{left:0;width:34px;min-width:34px;padding:0}
+ .race-explorer .explorer-table th.col-frame,.race-explorer .explorer-table td.col-frame{left:34px;width:28px;min-width:28px;padding:3px 1px}
+ .race-explorer .explorer-table th.col-number,.race-explorer .explorer-table td.col-number{left:62px;width:34px;min-width:34px;padding:3px 1px}
+ .race-explorer .explorer-table th.col-name,.race-explorer .explorer-table td.col-name{left:96px;width:118px;min-width:118px;padding:3px 4px}
+ .race-explorer .explorer-table .col-age{width:44px}.race-explorer .explorer-table .col-jockey{width:68px}
+ .race-explorer .explorer-table .col-score{width:100px}
+ .race-explorer .explorer-table .col-reference_score{width:110px}
+ .race-explorer .explorer-table .col-rank,.race-explorer .explorer-table .col-popularity,.race-explorer .explorer-table .col-style{width:56px}
+ .race-explorer .explorer-table .col-corner{width:62px}.race-explorer .explorer-table .col-training{width:48px}
+ .race-explorer .explorer-table .col-run_old,.race-explorer .explorer-table .col-run_middle,.race-explorer .explorer-table .col-run_latest{width:108px}
+ .race-explorer .explorer-table .col-jockey_change{width:128px}
+ .race-explorer .explorer-table .col-record_venue,.race-explorer .explorer-table .col-record_distance,.race-explorer .explorer-table .col-record_venue_distance{width:156px}
+ .race-explorer .explorer-table .col-materials{width:176px}
+ .race-explorer .explorer-table .horse-select{min-height:44px;padding:0;gap:0}
+ .race-explorer .explorer-table .horse-select strong{font-size:12px;line-height:1.35;overflow-wrap:anywhere;white-space:normal}
+ .race-explorer .explorer-table .metric-number,.race-explorer .explorer-table .comparison-metric .metric-value{font-size:15px;line-height:1.15}
+ .race-explorer .explorer-table .comparison-metric{gap:1px}.race-explorer .explorer-table .comparison-metric .metric-rank{font-size:10.5px;line-height:1.25;margin:0}
+ .race-explorer .explorer-table td small{font-size:9.5px;line-height:1.25;margin:1px 0 0}
+ .race-explorer .explorer-table .comparison-snippet{font-size:10px;line-height:1.3;max-height:2.6em}
+ .race-explorer .explorer-table .number-badge{width:28px;height:29px;font-size:15px}.race-explorer .explorer-table .user-horse-check{width:25px;height:25px;min-width:25px;margin:0}
+ .column-sort{font-size:10.5px;padding:3px 0;min-height:32px;line-height:1.25}.column-filter{display:none}
  .race-explorer .shared-horse-detail{position:sticky;width:calc(100vw - 26px);left:0}.race-explorer .explorer-table .lineup-detail td{padding:7px!important}
 }

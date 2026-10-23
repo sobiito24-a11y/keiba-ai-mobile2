@@ -75,12 +75,14 @@ def test_normal_layout_full_field_manual_checks_and_source_nonmutation(mode, cou
     assert ('調教' in headers) == (mode == 'jra')
     specs=columns(view)
     keys=[spec['key'] for spec in specs]
-    assert [header['data-column'] for header in lineup.select('th')]==keys
-    assert [button['data-column-sort'] for button in lineup.select('[data-column-sort]')]==keys
-    assert [button['data-column-filter'] for button in lineup.select('[data-column-filter]')]==keys
+    table_keys=[spec['key'] for spec in specs if not spec.get('table_hidden')]
+    assert [header['data-column'] for header in lineup.select('th')]==table_keys
+    assert [button['data-column-sort'] for button in lineup.select('[data-column-sort]')]==table_keys
+    assert [button['data-column-filter'] for button in lineup.select('[data-column-filter]')]==table_keys
     assert [option['value'] for option in lineup.select('#filter-column option')]==keys
     assert {option['value'] for option in lineup.select('#lineup-sort option')}==set(keys)
-    assert len(headers)==(32 if mode=='jra' else 31)
+    assert not {'rank','ability_rank','distance_rank','course_rank'}.intersection(table_keys)
+    assert {'rank','ability_rank','distance_rank','course_rank'}.issubset(keys)
     assert all(len(row.select('td'))==len(headers) for row in runners)
     assert lineup.select_one('#filter-min')['type']=='number'
     assert lineup.select_one('#filter-max')['type']=='number'
@@ -119,6 +121,8 @@ def test_normal_workspace_has_formal_a_values_and_retains_twelve_collapsed_analy
     assert all(detail.find_parent(id='detail-analysis') is not None for detail in doc.select('.metric-comparison'))
     for section in (doc.select_one('#lineup-workspace'), doc.select_one('#race-pickup')):
         assert not section.select('.mark,.focus-badge,.medal-card,.candidate-group')
+        for rank in section.select('.metric-rank'):
+            rank.extract()  # Index ranks are distinct from hidden formal marks.
         assert not any(mark in section.text for mark in ('◎', '○', '▲', '✔', '△'))
     assert '保存済みの距離実績' in doc.select_one('#lineup-workspace').text
     assert not doc.select('input[name="research-model"], [data-model-switch]')

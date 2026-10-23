@@ -33,6 +33,25 @@ def index_html(cell):
     return '<b class="metric-number">'+value(n)+'</b>'+('<small class="metric-rank">'+value(rank)+'位</small>' if n is not None and rank is not None and rank>0 and rank.is_integer() else '')
 
 
+def comparison_index_html(index, rank=None, *, ranked=True):
+    """Pair an existing index and its own saved rank; never calculate a rank.
+
+    These glyphs describe this index's rank, not the predictor's formal marks.
+    Unranked observations such as the recent-three mean remain unranked.
+    """
+    n = None if isinstance(index, bool) else number(index)
+    order = None if isinstance(rank, bool) else number(rank)
+    order = int(order) if (n is not None and order is not None and
+                           order > 0 and order.is_integer()) else None
+    rank_text = ({1: '◎', 2: '○', 3: '▲'}.get(order, '') + str(order) + '位'
+                 if order is not None else '―')
+    return ('<span class="comparison-metric" data-value="' + plain(n) +
+            '" data-rank="' + plain(order if ranked else None) + '">'
+            '<b class="metric-number metric-value">' + value(n) + '</b>' +
+            ('<small class="metric-rank" title="この指数の順位（正式印とは別）">' +
+             rank_text + '</small>' if ranked else '') + '</span>')
+
+
 def material_text(item):
     """Remove old judgement glyphs in summaries, never the stored wording."""
     return re.sub(r'[◎○▲✔✓△][\ufe0e\ufe0f]?\s*','',str(item or '')).strip()

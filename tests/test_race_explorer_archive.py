@@ -53,6 +53,8 @@ def _render_comparison(view):
         assert opener["data-horse-open"] == row["data-horse"]
         assert opener["aria-controls"] == "horse-detail-" + row["data-horse"]
         assert not row.select(".mark,.focus-badge,.candidate-badge,[data-ai-candidate]")
+        for rank in row.select('.metric-rank'):
+            rank.extract()  # Permit index-only ranks, never the formal marks.
         assert not any(mark in row.get_text(" ") for mark in "◎○▲✔△✓")
     headers = [cell.get_text(" ", strip=True) for cell in table.select("thead th")]
     assert headers.index("3走前") < headers.index("2走前") < headers.index("前走")
