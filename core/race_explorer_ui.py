@@ -17,7 +17,7 @@ def _cell(horse, cells, key):
         return number_badge(horse)
     if key == 'name':
         no = plain(horse.get('no'))
-        return '<button type="button" class="horse-select" data-horse-open="'+no+'" aria-expanded="false" aria-controls="horse-detail-'+no+'"><strong>'+value(item)+'</strong></button>'
+        return '<button type="button" class="horse-select" data-horse-open="'+no+'" aria-expanded="false" aria-controls="horse-detail-'+no+'"><span class="horse-name-age"><strong>'+value(item)+'</strong><span class="horse-age" title="性齢">'+value(cells.get('age'), '―')+'</span></span></button>'
     if key in ('score', 'ability', 'distance', 'course', 'star', 'away'):
         rank_key = 'rank' if key == 'score' else key + '_rank'
         return comparison_index_html(item, cells.get(rank_key))
@@ -55,11 +55,11 @@ def _options(schema, first=None):
 def lineup_html(view):
     schema, cells = columns(view), records(view)
     shown_schema = [spec for spec in schema if not spec.get('table_hidden')]
-    widths = dict(user=42, frame=36, no=44, name=190, age=56, jockey=85, score=120,
+    widths = dict(user=42, frame=36, no=44, name=190, jockey=85, score=120,
                   rank=70, popularity=70, style=70, corner=70, training=60,
                   run_old=134, run_middle=134, run_latest=134, jockey_change=160,
                   record_venue=190, record_distance=190, record_venue_distance=190, materials=220)
-    mobile_widths = dict(user=34, frame=28, no=34, name=118, age=44, jockey=68,
+    mobile_widths = dict(user=34, frame=28, no=34, name=118, jockey=68,
                          score=100, reference_score=110, popularity=56, style=56,
                          corner=62, training=48, run_old=108, run_middle=108,
                          run_latest=108, jockey_change=128, record_venue=156,

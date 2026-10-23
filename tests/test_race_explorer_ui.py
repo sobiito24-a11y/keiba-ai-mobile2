@@ -82,6 +82,7 @@ def test_normal_layout_full_field_manual_checks_and_source_nonmutation(mode, cou
     assert [option['value'] for option in lineup.select('#filter-column option')]==keys
     assert {option['value'] for option in lineup.select('#lineup-sort option')}==set(keys)
     assert not {'rank','ability_rank','distance_rank','course_rank'}.intersection(table_keys)
+    assert 'age' not in table_keys and 'age' in keys
     assert {'rank','ability_rank','distance_rank','course_rank'}.issubset(keys)
     assert all(len(row.select('td'))==len(headers) for row in runners)
     assert lineup.select_one('#filter-min')['type']=='number'

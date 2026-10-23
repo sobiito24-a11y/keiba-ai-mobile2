@@ -192,8 +192,9 @@ def test_rank_controls_remain_available_without_duplicate_table_columns():
     schema, table = columns([h]), dom(lineup_html([h]))
     shown = [spec["key"] for spec in schema if not spec.get("table_hidden")]
     hidden = [spec for spec in schema if spec.get("table_hidden")]
-    assert {spec["key"] for spec in hidden} == {"rank", "ability_rank", "distance_rank", "course_rank", "star_rank", "away_rank"}
-    assert all(spec["type"] == "rank" for spec in hidden)
+    assert {spec["key"] for spec in hidden} == {"age", "rank", "ability_rank", "distance_rank", "course_rank", "star_rank", "away_rank"}
+    assert all(spec["type"] == "rank" for spec in hidden if spec["key"] != "age")
+    assert next(spec for spec in hidden if spec["key"] == "age")["type"] == "text"
     assert [th["data-column"] for th in table.select("th[data-column]")] == shown
     assert {option["value"] for option in table.select("#lineup-sort option")} == {spec["key"] for spec in schema}
     assert {option["value"] for option in table.select("#filter-column option")} == {spec["key"] for spec in schema}
@@ -277,7 +278,8 @@ def test_compact_table_and_detail_keep_names_and_original_comments_escaped():
     assert not table.select("script,img,[onclick],[onerror]")
     assert not detail.select("script,img,[onclick],[onerror]")
     assert table.select_one("td.col-name [data-horse-open]")["data-horse-open"] == h["no"]
-    assert table.select_one("td.col-name").text == h["name"]
+    assert table.select_one("td.col-name strong").text == h["name"]
+    assert table.select_one("td.col-name .horse-age").text == h["age"]
     assert detail.select_one(".detail-comment-original").text == h["explorer_facts"]["stable_comment_raw"]
     assert not dom(comparison_index_html('<img src=x onerror="bad()">', 1)).select("img,[onerror]")
     assert h == original
