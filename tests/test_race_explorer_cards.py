@@ -130,3 +130,33 @@ def test_missing_facts_remain_missing_and_never_create_features_or_condition_cla
     assert "初ダート" not in detail.text and "初ブリンカー" not in detail.text
     assert all("未取得" in run.text for run in detail.select(".detail-run"))
     assert h == before
+
+
+@pytest.mark.parametrize("missing_value", [None, float("nan"), float("inf"), "未取得"])
+def test_missing_detail_indices_are_compact_without_hiding_zero_or_negative_values(missing_value):
+    h = horse()
+    metrics = h["explorer_facts"]["metrics"]
+    metrics["distance"] = dict(value=missing_value, rank=1)
+    metrics["course"] = dict(value=missing_value, rank=1)
+    metrics["maximum"] = missing_value
+    metrics["average"] = 0
+    before = deepcopy(h)
+    doc = BeautifulSoup(detail_html(h), "html.parser")
+    assert doc.select_one(".detail-missing-metrics").text == "未取得：距離・コース・★最高"
+    stats = doc.select(".detail-stat")
+    assert not any("未取得" in stat.text for stat in stats)
+    by_label = {stat.small.text: stat for stat in stats}
+    assert set(by_label) == {"A正式評価スコア", "純能力指数", "3走平均指数", "4角想定"}
+    assert by_label["3走平均指数"].b.text == "0"
+    assert by_label["純能力指数"].b.text == "-2.5"
+    assert h == before
+
+
+def test_fully_missing_detail_has_one_small_summary_and_keeps_formal_rank_out_of_stats():
+    h = dict(no="1", name="未取得馬", mode="nar", formal_member=True, rank=1,
+             candidate_formal_score=None)
+    doc = BeautifulSoup(detail_html(h), "html.parser")
+    assert not doc.select(".detail-stat")
+    missing = doc.select(".detail-missing-metrics")
+    assert len(missing) == 1
+    assert missing[0].text == "未取得：A正式評価・純能力・距離・コース・3走平均・★最高・4角想定"

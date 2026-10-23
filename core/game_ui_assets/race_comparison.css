@@ -1,0 +1,96 @@
+/* The comparison table remains one row per horse at every viewport width. */
+.race-explorer .overview-accordion{background:#fff;border:1px solid #d5e1eb;border-radius:9px;padding:0;margin:8px 0}
+.race-explorer .overview-accordion>summary{padding:12px 16px;list-style:none;position:relative;min-height:65px;color:#284b64;cursor:pointer}
+.race-explorer .overview-accordion>summary::-webkit-details-marker{display:none}
+.overview-title{display:block;font-weight:650;font-size:17px;padding-right:25px;line-height:1.5}
+.overview-description{display:block;font-size:11px;font-weight:400;color:#697f92;margin-top:3px;line-height:1.5}
+.overview-accordion>summary::after{content:'＋';position:absolute;right:16px;top:20px;color:#66849a}
+.overview-accordion[open]>summary::after{content:'−'}
+.overview-accordion[open]>summary{border-bottom:1px solid #e1e9f0}
+.overview-body{padding:12px}
+.race-explorer .overview-body .development-panel,.race-explorer .overview-body .ability-panel{border:0;padding:0;background:transparent}
+.race-explorer .overview-body .development-panel>h2,.race-explorer .overview-body .ability-panel>h2{font-size:16px}
+.race-explorer .lineup-workspace{margin:18px 0}
+.race-explorer .lineup-toolbar{gap:9px 14px;padding:10px;margin:10px 0}
+.race-explorer .lineup-toolbar select,.race-explorer .lineup-toolbar button{min-height:40px;padding:7px;font-size:12px}
+.column-filters{background:#fff;border:1px solid #d4e0e9;border-radius:8px;padding:8px 12px;margin:8px 0}
+.column-filters>summary{color:#315670;font-size:13px;min-height:28px}
+#filter-count{margin-left:12px;color:#74889a;font-size:11px;font-weight:400}
+.column-filter-editor{display:flex;flex-wrap:wrap;align-items:end;gap:10px 14px;padding:12px 0}
+.column-filter-editor label{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#547087;min-width:95px}
+.column-filter-editor select,.column-filter-editor input,.column-filter-editor button{font:inherit;color:#24465f;background:#fff;border:1px solid #bacdda;border-radius:6px;padding:9px;min-height:42px;max-width:100%;font-size:13px}
+.column-filter-editor button{background:#eff5f8;cursor:pointer}
+#filter-number-fields{display:flex;gap:8px}#filter-number-fields input{width:110px}
+#filter-text-fields{flex:1 1 190px}#filter-text{min-width:0;width:100%}
+#column-filter-error{color:#9b3c34;font-size:12px}#column-filter-error:empty{display:none}
+#active-column-filters{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0}
+#active-column-filters button{font:inherit;font-size:11px;background:#eaf2f7;border:1px solid #b9cfdf;border-radius:20px;color:#2c5672;padding:7px 10px;cursor:pointer;overflow-wrap:anywhere;max-width:100%}
+.race-explorer .explorer-table-scroll{max-height:78vh;overflow:auto;max-width:100%;border:1px solid #d5e1eb;border-radius:9px;scrollbar-color:#8ba9bd #edf3f7;position:relative}
+.race-explorer .explorer-table{display:table;width:var(--comparison-width);min-width:var(--comparison-width);max-width:none;table-layout:fixed;text-align:center}
+.race-explorer .explorer-table tbody{display:table-row-group;width:auto;min-width:0;max-width:none}
+.race-explorer .explorer-table thead{display:table-header-group}
+.race-explorer .explorer-table tr,.race-explorer .explorer-table tr[data-horse]{display:table-row;padding:0;margin:0;border:0;border-radius:0;background:transparent}
+.race-explorer .explorer-table th,.race-explorer .explorer-table td{display:table-cell;position:static;left:auto;min-width:0;max-width:none;width:88px;padding:8px 7px;height:auto;border-bottom:1px solid #dee7ee;border-right:1px solid #e5ecf2;background:#fff!important;vertical-align:middle;text-align:center;line-height:1.5;white-space:normal;box-shadow:none;font-size:12px;overflow-wrap:anywhere}
+.race-explorer .explorer-table th{position:sticky;top:0;z-index:4;background:#eaf1f6!important;padding:5px 4px;font-size:11px;font-weight:600}
+.race-explorer .explorer-table td::before{display:none!important}
+.race-explorer .explorer-table tbody tr:nth-child(even) td{background:#f7fafc!important}
+.race-explorer .explorer-table tbody tr.selected td{background:#eaf3f9!important}
+.race-explorer .explorer-table tbody tr:hover td{background:#eef5f9!important}
+.race-explorer .explorer-table th.col-user,.race-explorer .explorer-table td.col-user{position:sticky;left:0;width:42px;min-width:42px;padding:4px 1px;z-index:3}
+.race-explorer .explorer-table th.col-frame,.race-explorer .explorer-table td.col-frame{position:sticky;left:42px;width:36px;min-width:36px;z-index:3}
+.race-explorer .explorer-table th.col-number,.race-explorer .explorer-table td.col-number{position:sticky;left:78px;width:44px;min-width:44px;z-index:3;padding:5px 3px}
+.race-explorer .explorer-table th.col-name,.race-explorer .explorer-table td.col-name{position:sticky;left:122px;width:190px;min-width:190px;text-align:left;z-index:3;box-shadow:4px 0 6px #294c6317}
+.race-explorer .explorer-table th.col-user,.race-explorer .explorer-table th.col-frame,.race-explorer .explorer-table th.col-number,.race-explorer .explorer-table th.col-name{z-index:6}
+.race-explorer .explorer-table .col-age{width:56px}.race-explorer .explorer-table .col-jockey{width:85px}
+.race-explorer .explorer-table .col-score{width:120px}
+.race-explorer .explorer-table .col-rank,.race-explorer .explorer-table .col-popularity,.race-explorer .explorer-table .col-style,.race-explorer .explorer-table .col-corner{width:70px}
+.race-explorer .explorer-table .col-training{width:60px}
+.race-explorer .explorer-table .col-run_old,.race-explorer .explorer-table .col-run_middle,.race-explorer .explorer-table .col-run_latest{width:134px}
+.race-explorer .explorer-table .col-jockey_change{width:160px}
+.race-explorer .explorer-table .col-record_venue,.race-explorer .explorer-table .col-record_distance,.race-explorer .explorer-table .col-record_venue_distance{width:190px;text-align:left}
+.race-explorer .explorer-table .col-materials{width:220px;min-width:0;text-align:left}
+.race-explorer .explorer-table .metric-number{font-size:16px;line-height:1.4;font-weight:650}
+.race-explorer .explorer-table .col-frame .metric-number{font-size:13px}
+.race-explorer .explorer-table td small{display:block;font-size:10px;color:#6e8495;margin:3px 0 0;line-height:1.4}
+.race-explorer .explorer-table td .run-condition{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;max-height:2.8em}
+.race-explorer .explorer-table .horse-select{display:flex;align-items:flex-start;justify-content:center;flex-direction:column;min-height:42px;padding:2px 0;gap:0;color:#203f56;background:transparent;border:0;width:100%;text-align:left}
+.race-explorer .explorer-table .horse-select strong{font-size:13px;line-height:1.5;overflow-wrap:anywhere;white-space:normal}
+.race-explorer .explorer-table .number-badge{width:30px;height:32px;font-size:16px;border-radius:5px}
+.race-explorer .explorer-table .user-horse-check{width:24px;height:24px;min-width:24px;margin:8px 3px}
+.user-check-target{display:flex;align-items:center;justify-content:center;min-height:44px;width:100%;cursor:pointer}
+.missing-cell{font-size:11px;color:#8392a0;font-weight:400}
+.comparison-snippet{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;max-height:3em;overflow:hidden;font-size:11px;line-height:1.5}
+.column-sort,.column-filter{border:0;background:transparent;color:#365a73;cursor:pointer;font:inherit;padding:5px 1px}
+.column-sort{min-height:34px;max-width:100%;line-height:1.4}
+.column-sort-indicator{font-size:10px;color:#16708c;white-space:nowrap}
+.column-filter{display:inline-block;min-width:22px;min-height:24px;vertical-align:middle;margin-left:3px;border-radius:3px}
+.column-filter::before{content:'⌕';font-size:16px}.column-filter:hover,.column-filter[data-active=true]{background:#cbdfea;color:#205370}
+.race-explorer .explorer-table .lineup-detail{display:table-row}
+.race-explorer .explorer-table .lineup-detail td{display:table-cell;position:static!important;width:auto;max-width:none;min-width:0;padding:12px!important;background:#eef4f8!important;text-align:left;box-shadow:none;margin:0}
+#lineup-workspace .explorer-table th{background:#eaf1f6!important;border-radius:0}
+#lineup-workspace .explorer-table td{background:#fff!important;border-radius:0}
+#lineup-workspace .explorer-table tr:nth-child(even) td{background:#f7fafc!important}
+#lineup-workspace .explorer-table tr.selected td,#lineup-workspace .explorer-table tr:hover td{background:#eaf3f9!important}
+#lineup-workspace .explorer-table .lineup-detail td{background:#eef4f8!important}
+.race-explorer .shared-horse-detail{position:sticky;left:0;width:min(1500px,calc(100vw - 52px));max-width:100%;white-space:normal}
+@media(max-width:700px){
+ .race-explorer main{padding:0 0 12px}.race-explorer .lineup-workspace{margin-top:14px}
+ .race-explorer .overview-accordion{margin:6px 0}.race-explorer .overview-accordion>summary{padding:10px 12px;min-height:60px}
+ .overview-title{font-size:15px}.overview-description{font-size:10px}.overview-body{padding:9px}
+ .race-explorer .lineup-toolbar{padding:8px;gap:8px}.race-explorer .lineup-toolbar label{flex:1 1 115px;justify-content:space-between;font-size:11px}
+ .race-explorer .lineup-toolbar label:nth-child(2){flex-basis:170px}.race-explorer #selection-count{font-size:11px;flex:1 1 160px}
+ .race-explorer .explorer-section-heading h2{font-size:20px}.race-explorer .lineup-workspace>.help{font-size:11px;line-height:1.6}
+ .column-filter-editor{gap:9px}.column-filter-editor label{flex:1 1 125px;min-width:0}.column-filter-editor input,.column-filter-editor select{font-size:16px;min-width:0;width:100%}
+ #filter-number-fields{flex:1 1 100%;min-width:0}#filter-number-fields input{width:100%}.column-filter-editor button{flex:1 1 125px}
+ .race-explorer .explorer-table-scroll{max-height:76vh;border-radius:6px}
+ .race-explorer .explorer-table{width:var(--comparison-mobile-width);min-width:var(--comparison-mobile-width)}
+ .race-explorer .explorer-table th,.race-explorer .explorer-table td{font-size:12px;padding:6px 5px}
+ .race-explorer .explorer-table th.col-user,.race-explorer .explorer-table td.col-user{left:0;width:34px;min-width:34px;padding:3px 0}
+ .race-explorer .explorer-table th.col-frame,.race-explorer .explorer-table td.col-frame{left:34px;width:30px;min-width:30px;padding:4px 2px}
+ .race-explorer .explorer-table th.col-number,.race-explorer .explorer-table td.col-number{left:64px;width:38px;min-width:38px;padding:4px 2px}
+ .race-explorer .explorer-table th.col-name,.race-explorer .explorer-table td.col-name{left:102px;width:130px;min-width:130px;padding:5px 6px}
+ .race-explorer .explorer-table .horse-select strong{font-size:13px}.race-explorer .explorer-table .metric-number{font-size:15px}
+ .race-explorer .explorer-table .number-badge{width:29px;height:31px;font-size:16px}.race-explorer .explorer-table .user-horse-check{width:25px;height:25px;min-width:25px;margin:7px 3px}
+ .column-sort{font-size:11px;padding:4px 0;min-height:34px}.column-filter{display:none}
+ .race-explorer .shared-horse-detail{position:sticky;width:calc(100vw - 26px);left:0}.race-explorer .explorer-table .lineup-detail td{padding:7px!important}
+}

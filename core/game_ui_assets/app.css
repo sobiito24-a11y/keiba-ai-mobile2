@@ -31,3 +31,4 @@ h1,h2,h3,h4,h5,h6,[data-testid="stMarkdownContainer"]{color:var(--game-text)}
 [data-testid="stHeader"],[data-testid="stSidebar"],[data-testid="stExpander"],.game-race-header,.game-conclusion-details{background:#fff;color:#17283d}
 .game-race-header h2{color:#17283d!important}.game-eyebrow{color:#126174}.game-race-meta>span{background:#edf2f7;border-color:#d4dce7}.game-race-meta small{color:#53647a}
 .ka-chip,.development-horse{background:#edf2f7!important;color:#17283d!important;border-color:#d4dce7!important}
+@media(max-width:700px){.block-container{padding-left:.35rem!important;padding-right:.35rem!important}}

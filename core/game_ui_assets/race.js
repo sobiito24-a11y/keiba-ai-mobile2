@@ -7,6 +7,8 @@ let selected=-1;
 function resize(){parent.postMessage({isStreamlitMessage:true,type:'streamlit:setFrameHeight',height:Math.ceil(document.documentElement.getBoundingClientRect().height)},'*');}
 const horseMap=new Map((data.horses||data.names.map((n,i)=>({no:n.split(' ')[0],sort:{}}))).map((h,i)=>[String(h.no),{...h,index:i}]));
 let selectedHorse=null;
+const comparison=data.experience==='race-comparison'?window.keibaComparison:null;
+if(!comparison&&window.keibaComparison){window.keibaComparison.dispose();delete window.keibaComparison;}
 const manualKey='keiba-manual-comparison:'+data.race_key;
 let manualSelection=new Set();
 if(data.experience==='race-comparison'){
@@ -26,7 +28,7 @@ function applyManualFilter(){
  document.getElementById('lineup-empty').hidden=visible>0;
  resize();
 }
-function selectHorse(no){
+function selectHorse(no,restoring=false){
  no=String(no);const h=horseMap.get(no);if(!h)return;
  const row=[...document.querySelectorAll('tr[data-horse]')].find(e=>e.dataset.horse===no);if(!row)return;
  const wasHidden=row.hidden;
@@ -35,26 +37,29 @@ function selectHorse(no){
  document.getElementById('selected-section').hidden=true;
  document.querySelectorAll('[data-row]').forEach(r=>r.classList.toggle('selected',r.dataset.horse===no));
  document.querySelectorAll('[data-horse-open]').forEach(b=>b.setAttribute('aria-expanded','false'));
- if(selectedHorse===no&&!wasHidden){selectedHorse=null;row.classList.remove('selected');document.getElementById('selection-status').textContent='詳細を閉じました';resize();return;}
+ if(selectedHorse===no&&!wasHidden&&!restoring){selectedHorse=null;if(comparison)comparison.setOpenHorse(null);row.classList.remove('selected');document.getElementById('selection-status').textContent='詳細を閉じました';resize();return;}
  selectedHorse=no;
- if(row.hidden){const filter=document.getElementById('lineup-filter');if(filter){filter.value='all';applyManualFilter();}}
- const detail=document.createElement('tr');detail.className='lineup-detail';detail.dataset.detailHorse=no;
+ if(row.hidden&&!restoring){if(comparison)comparison.prepareOpen(no);else{const filter=document.getElementById('lineup-filter');if(filter){filter.value='all';applyManualFilter();}}}
+ const detail=document.createElement('tr');detail.className='lineup-detail';detail.dataset.detailHorse=no;detail.hidden=row.hidden;
  const td=document.createElement('td');td.colSpan=row.children.length;td.innerHTML='<div class="shared-horse-detail">'+data.cards[h.index]+'</div>';detail.appendChild(td);detail.id='horse-detail-'+no;row.after(detail);
  document.querySelectorAll('[data-horse-open]').forEach(b=>b.setAttribute('aria-expanded',String(b.dataset.horseOpen===no)));
  document.getElementById('selection-status').textContent=data.names[h.index]+'を表示中';
+ if(comparison)comparison.setOpenHorse(no);
  try{sessionStorage.setItem('keiba-ui:'+data.race_key,no);}catch(e){}
- resize();if(data.experience==='race-comparison')row.scrollIntoView({block:'nearest'});
+ resize();if(data.experience==='race-comparison'&&!restoring)row.scrollIntoView({block:'nearest'});
 }
 function select(index){const h=data.horses[index];if(h)selectHorse(h.no);}
 buttons.forEach(btn=>btn.addEventListener('click',()=>selectHorse(btn.dataset.select)));
 document.querySelectorAll('[data-horse-open]').forEach(btn=>btn.addEventListener('click',()=>selectHorse(btn.dataset.horseOpen)));
 document.querySelectorAll('[data-row]').forEach(row=>row.addEventListener('click',e=>{if(!e.target.closest('button,input,label,a,summary'))selectHorse(row.dataset.horse);}));
+if(!comparison){
 document.querySelectorAll('[data-user-check]').forEach(input=>input.addEventListener('change',()=>{
  const no=input.dataset.userCheck;if(input.checked)manualSelection.add(no);else manualSelection.delete(no);
  persistManual();applyManualFilter();
 }));
 const filterControl=document.getElementById('lineup-filter');if(filterControl)filterControl.addEventListener('change',applyManualFilter);
 const clearControl=document.getElementById('clear-user-selection');if(clearControl)clearControl.addEventListener('click',()=>{manualSelection.clear();persistManual();applyManualFilter();});
+}
 function compareHorses(a,b,key,sign){
  const av=a.sort[key],bv=b.sort[key];
  const am=typeof av!=='number'||!Number.isFinite(av),bm=typeof bv!=='number'||!Number.isFinite(bv);
@@ -91,6 +96,7 @@ function sortLineup(){
  rows.forEach(r=>{body.appendChild(r);const detail=[...body.querySelectorAll('[data-detail-horse]')].find(e=>e.dataset.detailHorse===r.dataset.horse);if(detail)body.appendChild(detail);});
  resize();
 }
+if(!comparison){
 document.getElementById('lineup-sort').addEventListener('change',()=>{
  if(data.experience==='race-comparison')document.getElementById('lineup-direction').value=['score','distance','course'].includes(document.getElementById('lineup-sort').value)?'desc':'asc';
  sortLineup();
@@ -98,6 +104,7 @@ document.getElementById('lineup-sort').addEventListener('change',()=>{
 document.getElementById('lineup-direction').addEventListener('change',sortLineup);
 sortLineup();
 applyManualFilter();
+}
 function showMetric(key){
  const group=data.tabs.find(t=>t.key===key);if(!group)return;
  document.getElementById('selected-section').hidden=true;
@@ -120,6 +127,7 @@ function showMetric(key){
 }
 function accordion(index){
  const detail=document.querySelector('.lineup-detail');if(detail)detail.remove();selectedHorse=null;
+ if(comparison)comparison.setOpenHorse(null);
  document.querySelectorAll('[data-horse-open]').forEach(b=>b.setAttribute('aria-expanded','false'));
  document.querySelectorAll('[data-row]').forEach(r=>r.classList.remove('selected'));
  const btn=document.querySelector('[data-accordion="'+index+'"]');if(!btn)return;
@@ -136,7 +144,11 @@ document.querySelectorAll('[data-conclusion]').forEach(b=>b.addEventListener('cl
 }));
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showMetric(b.dataset.tab)));
 showMetric('final');
-document.addEventListener('toggle',resize,true);
+if(window.keibaDetailRestoreHandler)document.removeEventListener('keiba:restore-detail',window.keibaDetailRestoreHandler);
+window.keibaDetailRestoreHandler=event=>{if(comparison&&event.detail)selectHorse(event.detail.no,true);};
+document.addEventListener('keiba:restore-detail',window.keibaDetailRestoreHandler);
+if(window.keibaToggleResizeHandler)document.removeEventListener('toggle',window.keibaToggleResizeHandler,true);
+window.keibaToggleResizeHandler=resize;document.addEventListener('toggle',resize,true);
 let initial=0;try{initial=Number(sessionStorage.getItem('keiba-ui:'+data.race_key)||0);}catch(e){}
 // The final-candidate accordion owns initial selection; the all-runner panel opens on demand.
 window.gameResizeObserver=new ResizeObserver(resize);window.gameResizeObserver.observe(document.body);

@@ -39,12 +39,35 @@ def _ability(horse, metrics):
 
 def _corner(horse, metrics):
     corner = number(metrics.get("corner", horse.get("corner")))
-    return value(corner) + "番手" if corner is not None else "未取得"
+    return value(corner) + "番手" if corner is not None and corner >= 1 and corner.is_integer() else "未取得"
 
 
 def _state_item(label, content):
     return ('<span class="pickup-state-item"><small>' + plain(label) +
             '</small><span>' + value(content) + '</span></span>')
+
+
+def _prices_html(horse):
+    """Present the selected existing price batch; never infer popularity or time."""
+    sort = _mapping(horse.get("sort_values"))
+    # An explicit missing price in the selected batch must not revive a stale
+    # saved horse price. The race-wide overlay owns the numerical price cell.
+    win = number(sort.get("odds") if "odds" in sort else horse.get("odds"))
+    withdrawn = str(horse.get("odds")).strip() in ("取消", "除外", "取消・除外")
+    odds_text = '単勝 ' + ('取消・除外' if withdrawn else
+                          value(win) + '倍' if win is not None and win >= 1 else '未取得')
+    popularity = number(horse.get("popularity"))
+    pop_text = (value(popularity) + '番人気' if not withdrawn and
+                not isinstance(horse.get("popularity"), bool) and
+                popularity is not None and popularity >= 1 and popularity.is_integer()
+                else '人気 未取得')
+    observed = horse.get("odds_time")
+    if observed is None or str(observed).strip() in ('', '—', '―', '-', '時刻不明', '未取得'):
+        observed = None
+    return ('<span class="pickup-prices" title="単勝は観測値であり確定配当ではありません">'
+            '<span class="pickup-win">' + odds_text + '</span>'
+            '<span class="pickup-popularity">' + pop_text + '</span>'
+            '<small class="pickup-price-time">提供元更新 ' + value(observed) + '</small></span>')
 
 
 def pickup_html(view):
@@ -67,10 +90,10 @@ def pickup_html(view):
             state.append(_state_item("調教", facts.get("training")))
         state.extend(_state_item(label, content) for label, content in (
             ("前走間隔", facts.get("rest_label")),
-            ("斤量", facts.get("weight_label")),
             ("前走比", facts.get("weight_delta_label")),
-            ("騎手", facts.get("jockey_change")),
         ))
+        state.append('<span class="pickup-state-item pickup-ability"><small>純能力</small><b>' +
+                     value(_ability(horse, metrics).get("value")) + '</b></span>')
         features = ''.join('<span>' + value(_unmarked(item)) + '</span>'
                            for item in _items(facts.get("features"))[:3])
         cards.append(
@@ -84,11 +107,12 @@ def pickup_html(view):
             '<span class="pickup-position"><span>想定脚質 ' +
             value(_unmarked(metrics.get("style", horse.get("style")))) +
             '</span><span>4角想定 ' + _corner(horse, metrics) + '</span></span>'
-            '<span class="pickup-state">' + ''.join(state) + '</span>' +
+            '<span class="pickup-state pickup-state-' + ('jra' if horse.get("mode") == "jra" else 'nar') + '">' + ''.join(state) + '</span>' +
+            '<span class="pickup-changes"><span>今回斤量 ' + value(facts.get("weight_label")) +
+            '</span><span>騎手 ' + value(_unmarked(facts.get("jockey_change"))) + '</span></span>' +
             ('<span class="pickup-features">' + features + '</span>' if features else '') +
-            '<span class="pickup-ability"><small>純能力指数</small><b>' +
-            value(_ability(horse, metrics).get("value")) + '</b></span>'
-            '<span class="pickup-open">詳細を開く <span aria-hidden="true">↗</span></span>'
+            _prices_html(horse) +
+            '<span class="pickup-open">詳細を見る <span aria-hidden="true">↗</span></span>'
             '</button>')
     return '<div class="pickup-grid">' + ''.join(cards) + '</div>'
 
@@ -170,15 +194,24 @@ def detail_html(horse):
     ]
     if horse.get("mode") == "jra":
         basic.append(("調教評価", facts.get("training")))
-    stats = [
-        _stat("A正式評価スコア", index_html(dict(value=formal_score(horse), rank=horse.get("rank")))),
-        _stat("純能力指数", index_html(_ability(horse, metrics))),
-        _stat("距離指数", index_html(_mapping(metrics.get("distance")) or _mapping(horse.get("distance")))),
-        _stat("コース指数", index_html(_mapping(metrics.get("course")) or _mapping(horse.get("course")))),
-        _stat("3走平均指数", '<b>' + value(metrics.get("average")) + '</b>'),
-        _stat("★最高指数", '<b>' + value(metrics.get("maximum")) + '</b>'),
-        _stat("4角想定", '<b>' + _corner(horse, metrics) + '</b>'),
+    metric_values = [
+        ("A正式評価スコア", "A正式評価", dict(value=formal_score(horse), rank=horse.get("rank"))),
+        ("純能力指数", "純能力", _ability(horse, metrics)),
+        ("距離指数", "距離", _mapping(metrics.get("distance")) or _mapping(horse.get("distance"))),
+        ("コース指数", "コース", _mapping(metrics.get("course")) or _mapping(horse.get("course"))),
+        ("3走平均指数", "3走平均", dict(value=metrics.get("average"))),
+        ("★最高指数", "★最高", dict(value=metrics.get("maximum"))),
     ]
+    stats, missing = [], []
+    for label, short, cell in metric_values:
+        if number(cell.get("value")) is None:
+            missing.append(short)
+        else:
+            stats.append(_stat(label, index_html(cell)))
+    if _corner(horse, metrics) == '未取得':
+        missing.append('4角想定')
+    else:
+        stats.append(_stat("4角想定", '<b>' + _corner(horse, metrics) + '</b>'))
     changes = ''.join('<li>' + value(_unmarked(item)) + '</li>'
                       for item in _items(facts.get("changes")))
     states = [("前走間隔", facts.get("rest_label")),
@@ -195,6 +228,7 @@ def detail_html(horse):
         _definition_list(basic, "detail-basic") +
         '<section class="detail-evaluation"><h4>評価・指数</h4><div class="detail-stats">' +
         ''.join(stats) + '</div>' +
+        ('<p class="detail-missing-metrics">未取得：' + '・'.join(plain(label) for label in missing) + '</p>' if missing else '') +
         ('<p class="detail-note">3走平均は確認できた過去3走のタイム指数から算出した表示値です。</p>'
          if metrics.get("average_calculated") else '') + '</section>' +
         '<section class="detail-history"><h4>過去3走</h4>' + _runs_html(facts) + '</section>' +
