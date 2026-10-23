@@ -7,6 +7,17 @@ VERSION='paper_candidates_v2_20261016'
 KINDS=('win','place','wide','quinella')
 LABELS=dict(win='単勝',place='複勝',wide='ワイド',quinella='馬連')
 def digest(v):return hashlib.sha256(json.dumps(v,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+def _input_json(v):
+ """Copy missing nonfinite metadata to JSON null for the input hash only.
+
+ Pandas can restore an optional saved null as NaN. Keep the original input
+ and candidate calculations intact; record hashing/verification stay strict.
+ """
+ if isinstance(v,float) and not math.isfinite(v):return None
+ if isinstance(v,dict):return {k:_input_json(item) for k,item in v.items()}
+ if isinstance(v,list):return [_input_json(item) for item in v]
+ if isinstance(v,tuple):return tuple(_input_json(item) for item in v)
+ return v
 def num(v):
  try:
   n=float(str(v).removesuffix('位'));return n if math.isfinite(n) else None
@@ -62,7 +73,7 @@ def build(horses,mode,identity,observation=None):
    price=next((p for p in (observation or {}).get('prices',[]) if p['kind']==kind and sorted(p['horses'])==ns),None)
    choices.append(dict(horses=ns,stake=100,reason=reason,partner=partner,price=price,status='要確認',warnings=f['minus']+(['実オッズ未取得'] if not price else []),relative_payout_score=math.sqrt(float(h['odds'])*float(partner['odds'])) if partner and num(h.get('odds')) and num(partner.get('odds')) else None))
   tickets.append(dict(kind=kind,status='要確認' if choices else '見送り',choices=choices[:2],reason='未校正の紙上候補。価格鮮度・注意材料を確認' if choices else '券種に必要な本人・相手の根拠が不足'))
- return dict(version=VERSION,race_id=identity['race_id'],mode=mode,input_hash=digest(dict(horses=source,identity=identity)),runner_numbers=[h['no'] for h in source],strong=strong,value=value,classification='A' if strong else 'B' if value else 'C',tickets=tickets,odds=deepcopy(observation),unvalidated=True)
+ return dict(version=VERSION,race_id=identity['race_id'],mode=mode,input_hash=digest(_input_json(dict(horses=source,identity=identity))),runner_numbers=[h['no'] for h in source],strong=strong,value=value,classification='A' if strong else 'B' if value else 'C',tickets=tickets,odds=deepcopy(observation),unvalidated=True)
 def freeze(decision,before_result=False):
  r=deepcopy(decision);r.update(fixed_at=datetime.now(timezone.utc).isoformat(),user_declared_before_result=bool(before_result),prospective_eligible=False,persistence='download_required')
  r['record_hash']=digest(r);return r

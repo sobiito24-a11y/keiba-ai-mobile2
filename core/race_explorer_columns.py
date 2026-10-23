@@ -70,7 +70,7 @@ def columns(view):
     result = [
         _spec("user", "自分の✓", "boolean"),
         _spec("frame", "枠番", "number"), _spec("no", "馬番", "number"),
-        _spec("name", "馬名", "text"), _spec("age", "性齢", "text"),
+        _spec("name", "馬名・性齢", "text"), _spec("age", "性齢", "text", table_hidden=True),
         _spec("jockey", "騎手", "text"), _spec("odds", "単勝", "number"),
         _spec("popularity", "人気", "rank"),
         _spec("score", "JRA正式評価スコア" if jra else "NAR最終評価スコア", "number", rank_key="rank"),

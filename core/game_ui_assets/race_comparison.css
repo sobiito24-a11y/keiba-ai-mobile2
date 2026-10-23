@@ -41,7 +41,7 @@
 .race-explorer .explorer-table th.col-number,.race-explorer .explorer-table td.col-number{position:sticky;left:78px;width:44px;min-width:44px;z-index:3;padding:5px 3px}
 .race-explorer .explorer-table th.col-name,.race-explorer .explorer-table td.col-name{position:sticky;left:122px;width:190px;min-width:190px;text-align:left;z-index:3;box-shadow:4px 0 6px #294c6317}
 .race-explorer .explorer-table th.col-user,.race-explorer .explorer-table th.col-frame,.race-explorer .explorer-table th.col-number,.race-explorer .explorer-table th.col-name{z-index:6}
-.race-explorer .explorer-table .col-age{width:56px}.race-explorer .explorer-table .col-jockey{width:85px}
+.race-explorer .explorer-table .col-jockey{width:85px}
 .race-explorer .explorer-table .col-score{width:120px}
 .race-explorer .explorer-table .col-reference_score{width:120px}
 .race-explorer .explorer-table .col-rank,.race-explorer .explorer-table .col-popularity,.race-explorer .explorer-table .col-style,.race-explorer .explorer-table .col-corner{width:70px}
@@ -59,6 +59,9 @@
 .race-explorer .explorer-table td .run-condition{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible;max-height:none;overflow-wrap:anywhere}
 .race-explorer .explorer-table .horse-select{display:flex;align-items:flex-start;justify-content:center;flex-direction:column;min-height:42px;padding:2px 0;gap:0;color:#203f56;background:transparent;border:0;width:100%;text-align:left}
 .race-explorer .explorer-table .horse-select strong{font-size:13px;line-height:1.5;overflow-wrap:anywhere;white-space:normal}
+.race-explorer .explorer-table .horse-name-age{display:flex;align-items:baseline;gap:4px;width:100%;min-width:0;max-width:100%}
+.race-explorer .explorer-table .horse-name-age strong{flex:0 1 auto;min-width:0}
+.race-explorer .explorer-table .horse-age{flex:0 0 auto;font-size:10px;font-weight:400;color:#6e8495;line-height:1.25;white-space:nowrap}
 .race-explorer .explorer-table .number-badge{width:30px;height:32px;font-size:16px;border-radius:5px}
 .race-explorer .explorer-table .user-horse-check{width:24px;height:24px;min-width:24px;margin:8px 3px}
 .user-check-target{display:flex;align-items:center;justify-content:center;min-height:44px;width:100%;cursor:pointer}
@@ -93,7 +96,7 @@
  .race-explorer .explorer-table th.col-frame,.race-explorer .explorer-table td.col-frame{left:34px;width:28px;min-width:28px;padding:3px 1px}
  .race-explorer .explorer-table th.col-number,.race-explorer .explorer-table td.col-number{left:62px;width:34px;min-width:34px;padding:3px 1px}
  .race-explorer .explorer-table th.col-name,.race-explorer .explorer-table td.col-name{left:96px;width:118px;min-width:118px;padding:3px 4px}
- .race-explorer .explorer-table .col-age{width:44px}.race-explorer .explorer-table .col-jockey{width:68px}
+ .race-explorer .explorer-table .col-jockey{width:68px}
  .race-explorer .explorer-table .col-score{width:100px}
  .race-explorer .explorer-table .col-reference_score{width:110px}
  .race-explorer .explorer-table .col-rank,.race-explorer .explorer-table .col-popularity,.race-explorer .explorer-table .col-style{width:56px}
@@ -104,6 +107,7 @@
  .race-explorer .explorer-table .col-materials{width:176px}
  .race-explorer .explorer-table .horse-select{min-height:44px;padding:0;gap:0}
  .race-explorer .explorer-table .horse-select strong{font-size:12px;line-height:1.35;overflow-wrap:anywhere;white-space:normal}
+ .race-explorer .explorer-table .horse-name-age{gap:3px}.race-explorer .explorer-table .horse-age{font-size:9.5px}
  .race-explorer .explorer-table .metric-number,.race-explorer .explorer-table .comparison-metric .metric-value{font-size:15px;line-height:1.15}
  .race-explorer .explorer-table .comparison-metric{gap:1px}.race-explorer .explorer-table .comparison-metric .metric-rank{font-size:10.5px;line-height:1.25;margin:0}
  .race-explorer .explorer-table td small{font-size:9.5px;line-height:1.25;margin:1px 0 0}
