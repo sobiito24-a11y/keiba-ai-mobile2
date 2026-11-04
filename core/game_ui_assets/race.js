@@ -139,11 +139,11 @@ function accordion(index){
  resize();
 }
 document.querySelectorAll('[data-conclusion]').forEach(b=>b.addEventListener('click',()=>{
- showMetric('final');const i=Number(b.dataset.conclusion);const target=document.querySelector('[data-accordion="'+i+'"]');
+ showMetric('ability');const i=Number(b.dataset.conclusion);const target=document.querySelector('[data-accordion="'+i+'"]');
  if(target&&target.getAttribute('aria-expanded')!=='true')accordion(i);
 }));
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showMetric(b.dataset.tab)));
-showMetric('final');
+showMetric('ability');
 if(window.keibaDetailRestoreHandler)document.removeEventListener('keiba:restore-detail',window.keibaDetailRestoreHandler);
 window.keibaDetailRestoreHandler=event=>{if(comparison&&event.detail)selectHorse(event.detail.no,true);};
 document.addEventListener('keiba:restore-detail',window.keibaDetailRestoreHandler);
