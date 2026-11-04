@@ -109,11 +109,11 @@ function showMetric(key){
  const group=data.tabs.find(t=>t.key===key);if(!group)return;
  document.getElementById('selected-section').hidden=true;
  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===key)));
- document.getElementById('metric-count').textContent=(key==='final'?'最終候補 '+group.eligible:group.label+' · 該当'+group.eligible)+'頭／全'+group.total+'頭';
+ document.getElementById('metric-count').textContent=group.label+' · 該当'+group.eligible+'頭／全'+group.total+'頭';
  document.getElementById('top-horses').classList.toggle('information',['information','candidates'].includes(group.kind));
  document.getElementById('top-horses').classList.toggle('candidate-layout',group.kind==='candidates');
  document.getElementById('top-horses').innerHTML=group.html;
- document.getElementById('metric-note').textContent=key==='final'?'馬名を選ぶと詳細を開閉します。候補の選出・表示順で予想データは変わりません。':group.note;
+ document.getElementById('metric-note').textContent=group.note;
  document.querySelectorAll('[data-top-select]').forEach(b=>b.addEventListener('click',()=>{select(Number(b.dataset.topSelect));}));
  document.querySelectorAll('[data-accordion]').forEach(btn=>btn.addEventListener('click',()=>accordion(Number(btn.dataset.accordion))));
  const candidateSort=document.getElementById('candidate-sort');if(candidateSort)candidateSort.addEventListener('change',sortCandidates);
@@ -150,7 +150,7 @@ document.addEventListener('keiba:restore-detail',window.keibaDetailRestoreHandle
 if(window.keibaToggleResizeHandler)document.removeEventListener('toggle',window.keibaToggleResizeHandler,true);
 window.keibaToggleResizeHandler=resize;document.addEventListener('toggle',resize,true);
 let initial=0;try{initial=Number(sessionStorage.getItem('keiba-ui:'+data.race_key)||0);}catch(e){}
-// The final-candidate accordion owns initial selection; the all-runner panel opens on demand.
+// The all-runner panel opens horse details on demand.
 window.gameResizeObserver=new ResizeObserver(resize);window.gameResizeObserver.observe(document.body);
 window.addEventListener('load',resize);
 })();
