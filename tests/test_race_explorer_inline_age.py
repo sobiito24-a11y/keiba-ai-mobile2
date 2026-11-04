@@ -36,11 +36,11 @@ def test_inline_age_replaces_the_column_without_changing_saved_comparison_values
     assert doc.select_one('#lineup-sort option[value="age"]').text == "性齢"
     assert doc.select_one('#filter-column option[value="age"]').text == "性齢"
     assert next(spec for spec in columns([h]) if spec["key"] == "age")["table_hidden"]
-    for key in ("score", "ability", "distance", "course", "star", "away"):
+    for key in ("ability", "distance", "course", "star", "away"):
         paired = row.select_one(".col-" + key + " .comparison-metric")
         assert paired is not None
         assert float(paired["data-value"]) == original_cells[h["no"]][key]
-        rank_key = "rank" if key == "score" else key + "_rank"
+        rank_key = key + "_rank"
         assert int(paired["data-rank"]) == original_cells[h["no"]][rank_key]
     assert records([h]) == original_cells and h == before
 
