@@ -196,9 +196,7 @@ def detail_html(horse):
     ]
     if horse.get("mode") == "jra":
         basic.append(("調教評価", facts.get("training")))
-    formal_label = "JRA正式評価スコア" if horse.get("mode") == "jra" else "NAR最終評価スコア"
     metric_values = [
-        (formal_label, "正式評価", "score", "rank"),
         ("純能力指数", "純能力", "ability", "ability_rank"),
         ("距離指数", "距離", "distance", "distance_rank"),
         ("コース指数", "コース", "course", "course_rank"),
@@ -208,8 +206,6 @@ def detail_html(horse):
     for key, label in (("star", "同場同距離指数"), ("away", "別場同距離指数")):
         if cells.get(key) is not None:
             metric_values.append((label, label, key, key + "_rank"))
-    if cells.get("reference_score") is not None:
-        metric_values.append(("参考スコア（正式評価外）", "参考スコア", "reference_score", None))
     stats, missing = [], []
     for label, short, key, rank_key in metric_values:
         if cells.get(key) is None:
@@ -238,7 +234,7 @@ def detail_html(horse):
         _definition_list(basic, "detail-basic") +
         '<section class="detail-evaluation"><h4>評価・指数</h4><div class="detail-stats">' +
         ''.join(stats) + '</div>' +
-        '<p class="detail-note">下段は各指数の順位です。上位3位の記号は正式印とは別で、参考スコアは正式評価・順位の対象外です。</p>' +
+        '<p class="detail-note">指数の順位は各指標ごとに独立して表示しています。総合点や最終印による順位付けは行いません。</p>' +
         ('<p class="detail-missing-metrics">未取得：' + '・'.join(plain(label) for label in missing) + '</p>' if missing else '') +
         ('<p class="detail-note">3走平均は確認できた過去3走のタイム指数から算出した表示値です。</p>'
          if metrics.get("average_calculated") else '') + '</section>' +
@@ -257,5 +253,5 @@ def detail_html(horse):
         _material_html(facts.get("plus", metrics.get("plus"))) + '</section>' +
         '<section class="detail-caution"><h4>注意材料</h4>' +
         _material_html(facts.get("caution", metrics.get("caution"))) + '</section></div>' +
-        '<p class="detail-note">材料は比較のための情報です。正式スコア・順位や候補選定には反映しません。</p>'
+        '<p class="detail-note">材料は比較のための情報で、購入判断を自動確定するものではありません。</p>'
         '</section>')
