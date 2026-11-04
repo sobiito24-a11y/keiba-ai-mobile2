@@ -42,12 +42,12 @@ def test_schema_covers_every_comparison_cell_and_has_no_ai_mark_or_membership(mo
     specs=columns(view)
     keys=[item["key"] for item in specs]
     assert len(keys)==len(set(keys))
-    assert keys[:10]==["user", "frame", "no", "name", "age", "jockey", "odds", "popularity", "score", "rank"]
+    assert keys[:10]==["user", "frame", "no", "name", "age", "jockey", "odds", "popularity", "ability", "ability_rank"]
     assert keys[keys.index("run_old"):keys.index("run_old")+5]==[
         "run_old", "run_middle", "run_latest", "average", "maximum"]
     assert ("training" in keys)==(mode=="jra")
     assert all(item["type"] in ("number", "rank", "text", "grade", "boolean") for item in specs)
-    assert not set(keys).intersection(("mark", "formal_member", "candidate", "pickup", "focus_label"))
+    assert not set(keys).intersection(("score", "rank", "reference_score", "mark", "formal_member", "candidate", "pickup", "focus_label"))
     assert keys[-4:]==["record_venue", "record_distance", "record_venue_distance", "materials"]
     record=records(view)["7"]
     assert all(key in record for key in keys)
@@ -153,7 +153,7 @@ def test_missing_malformed_display_substructures_stay_renderable_and_uninvented(
     assert item["name"]=="</script>保存馬"  # Escaping belongs to HTML/JSON renderer.
     assert all(item[key] is None for key in ("score","ability","distance","maximum","run_old","record_venue","training"))
     assert h==before
-    assert records([])=={} and len(columns([]))==31
+    assert records([])=={} and len(columns([]))==29
 
 
 def test_malformed_optional_peak_and_condition_metadata_do_not_hide_the_field():
@@ -168,3 +168,13 @@ def test_malformed_optional_peak_and_condition_metadata_do_not_hide_the_field():
     assert item["score"]==92.123456789
     assert not item["withdrawn"]
     json.dumps(item,allow_nan=False)
+
+
+def test_removed_final_and_reference_scores_are_not_available_as_columns():
+    h=horse(mode="nar")
+    h["reference_score"]=dict(kind="reference",value=91.9)
+    labels=[spec["label"] for spec in columns([h])]
+    assert "NAR最終評価スコア" not in labels
+    assert "参考スコア（正式評価外）" not in labels
+    assert "純能力指数" in labels and "コース指数" in labels
+    assert records([h])["7"]["reference_score"]==91.9  # audit data preserved
