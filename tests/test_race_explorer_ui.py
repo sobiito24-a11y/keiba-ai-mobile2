@@ -83,7 +83,8 @@ def test_normal_layout_full_field_manual_checks_and_source_nonmutation(mode, cou
     assert {option['value'] for option in lineup.select('#lineup-sort option')}==set(keys)
     assert not {'rank','ability_rank','distance_rank','course_rank'}.intersection(table_keys)
     assert 'age' not in table_keys and 'age' in keys
-    assert {'rank','ability_rank','distance_rank','course_rank'}.issubset(keys)
+    assert {'ability_rank','distance_rank','course_rank'}.issubset(keys)
+    assert not {'score','rank','reference_score'}.intersection(keys)
     assert all(len(row.select('td'))==len(headers) for row in runners)
     assert lineup.select_one('#filter-min')['type']=='number'
     assert lineup.select_one('#filter-max')['type']=='number'
@@ -93,7 +94,7 @@ def test_normal_layout_full_field_manual_checks_and_source_nonmutation(mode, cou
 
 
 @pytest.mark.parametrize('mode', ['jra', 'nar'])
-def test_normal_workspace_has_formal_a_values_and_retains_twelve_collapsed_analyses(mode):
+def test_normal_workspace_hides_final_scores_and_shows_ten_independent_analyses(mode):
     _, _, info, view = field(mode)
     # Retaining saved B data must never make it the normal displayed model.
     for horse in view:
@@ -111,14 +112,17 @@ def test_normal_workspace_has_formal_a_values_and_retains_twelve_collapsed_analy
     assert all(horse['values']['user'] is False for horse in payload['horses'])
     assert [horse['values']['score'] for horse in payload['horses']]==[formal_score(horse) for horse in view]
     table_rows = doc.select('#lineup-workspace tr[data-horse]')
-    assert [float(row.select_one('.col-score b').text) for row in table_rows] == [float(f'{formal_score(horse):g}') for horse in view]
+    assert not doc.select('.col-score,.col-rank,.col-reference_score')
+    assert not doc.select('#lineup-sort option[value="score"],#filter-column option[value="reference_score"]')
+    assert all('最終評価' not in row.get_text() for row in table_rows)
     analyses = doc.select_one('details#detail-analysis')
     assert not analyses.has_attr('open')
-    assert len(analyses.select('[role="tab"]')) == 12
+    assert len(analyses.select('[role="tab"]')) == 10
     assert [tab['data-tab'] for tab in analyses.select('[role="tab"]')] == [
-        'final', 'corner', 'ability', 'course', 'distance', 'training',
-        'star', 'away', 'average', 'materials', 'changes', 'research']
-    assert len(payload['tabs']) == 12
+        'corner', 'ability', 'course', 'distance', 'training',
+        'star', 'away', 'average', 'materials', 'changes']
+    assert len(payload['tabs']) == 10
+    assert '最終候補' not in analyses.get_text() and '新AI総合' not in analyses.get_text()
     assert all(detail.find_parent(id='detail-analysis') is not None for detail in doc.select('.metric-comparison'))
     for section in (doc.select_one('#lineup-workspace'), doc.select_one('#race-pickup')):
         assert not section.select('.mark,.focus-badge,.medal-card,.candidate-group')
