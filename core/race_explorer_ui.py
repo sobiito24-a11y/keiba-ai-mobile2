@@ -100,7 +100,7 @@ def lineup_html(view):
             '<div id="active-column-filters" aria-label="適用中の絞り込み"></div>'
             '<p id="lineup-empty" class="no-data" hidden>条件に合う馬がいません。絞り込みを解除するか、全頭表示に切り替えてください。</p>'
             '<div class="table-scroll explorer-table-scroll" tabindex="0" aria-label="全頭比較・縦横スクロール"><table class="explorer-table" style="--comparison-width:'+str(table_width)+'px;--comparison-mobile-width:'+str(mobile_width)+'px"><thead><tr>'+''.join(headers)+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div>'
-            '<p class="help">下段は各指数の順位です。上位3位の記号は正式印とは別で、順位でも並び替え・絞り込みができます。過去走は3走前 → 2走前 → 前走。★は保存された最高指数との一致です。</p></section>')
+            '<p class="help">下段は各指数の順位です。上位3位の記号は各指数の順位表示で、総合評価や印ではありません。過去走は3走前 → 2走前 → 前走。★は保存された最高指数との一致です。</p></section>')
 
 
 def _accordion(panel_id, title, description, body):
@@ -127,7 +127,7 @@ def document(view, race_key='', paper_decision=None, portable=None):
             +_accordion('race-development', 'レース展開予想', '保存されたペース・脚質・4角想定を確認できます。', development_html(view, context).replace('レース展開予測', 'レース展開予想'))
             +_accordion('race-ability', '純能力の見える化', '全出走馬の指数を共通の尺度で比較できます。', ability_html(view))
             +odds_status(view)+lineup_html(view)
-            +'<details class="detail-analysis" id="detail-analysis" data-persist-panel><summary>詳細分析・研究機能 <span>既存の12項目</span></summary>'+comparison_html(view, view[0].get('mode', 'jra') if view else 'jra')+'</details>'
+            +'<details class="detail-analysis" id="detail-analysis" data-persist-panel><summary>詳細分析・研究機能 <span>独立指標10項目</span></summary>'+comparison_html(view, view[0].get('mode', 'jra') if view else 'jra')+'</details>'
             +'<details class="advanced-research" id="saved-research" data-persist-panel><summary>買い目・保存済み研究情報</summary>'+nar_watch_html(view, portable)+paper_html(view, race_key, paper_decision)+'</details>'
             +'<section id="selected-section" hidden><div id="selected-card"></div></section><p id="selection-status" class="sr-only" role="status" aria-live="polite"></p>'
             +'<noscript>比較する馬の選択や詳細表示にはJavaScriptを有効にしてください。</noscript></main><script type="application/json" id="race-data">'+data+'</script><script>'+script+'</script></body></html>')

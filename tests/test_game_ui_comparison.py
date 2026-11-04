@@ -10,23 +10,18 @@ def field(mode):
  records=prediction_table_records(rows,rows,{'racecourse':'京都','distance':1400},mode)
  return rows,build_view(rows,records,rows,mode,{'racecourse':'京都','distance':1400})
 
-@pytest.mark.parametrize('mode,count',[('jra',12),('nar',12)])
+@pytest.mark.parametrize('mode,count',[('jra',10),('nar',10)])
 def test_tabs_keep_formal_marks_order_and_input(mode,count):
  rows,view=field(mode);before=copy.deepcopy(view)
  tabs=comparisons(view,mode)
- assert len(tabs)==count and tabs[0]['key']=='final'
+ assert len(tabs)==count and tabs[0]['key']=='corner'
  assert view==before
  assert all(len(t['cards'])<=5 for t in tabs)
- final=tabs[0]
- from core.final_candidate_selection import select_indices
- assert final['rows']==select_indices(view)
- assert {i for i,h in enumerate(view) if h['formal_member']}<=set(final['rows'])
- assert final['eligible']<=6
- assert final['kind']=='candidates' and final['cards']==[]
+ assert not {'final','research'}.intersection({t['key'] for t in tabs})
  for key in ['corner','distance','course','star','away']:
   t=next(t for t in tabs if t['key']==key)
   assert [view[x['index']]['no'] for x in t['cards']]==['10','9','8','7','6']
- assert '最終候補' in document(view)
+ assert '最終候補' not in document(view)
 
 
 def test_missing_indices_not_filled_and_zero_valid():
@@ -46,13 +41,16 @@ def test_training_order_missing_excluded():
  assert [x['value'] for x in t['cards']]==['A','B','B','C','D']
 
 
-def test_six_formal_candidates_not_reclassified():
+def test_formal_rank_and_mark_do_not_change_independent_metric_order():
  _,view=field('nar')
- for h in view:h['mark']='△'
- view[5]['formal_member']=False;view[5]['rank']='6';view[5]['mark']='✓'
- t=comparisons(view,'nar')[0]
- assert t['eligible']==6 and len(t['rows'])==6 and view[5]['formal_member'] is False
- assert {view[i]['no'] for i in t['rows']}=={'1','2','3','4','5','6'}
+ baseline=[(t['key'], [(c['index'],c['value']) for c in t['cards']]) for t in comparisons(view,'nar')]
+ for h in view:
+  h['mark']='✓'
+  h['formal_member']=False
+  h['rank']='1'
+  h['score']='99999'
+ updated=[(t['key'], [(c['index'],c['value']) for c in t['cards']]) for t in comparisons(view,'nar')]
+ assert updated==baseline
 
 
 def test_frame_attachment_only_adds_fact_and_roundtrips():
@@ -76,4 +74,4 @@ def test_tab_switch_does_not_mutate_table_or_rerun_python():
     source=(Path(__file__).parents[1]/'core/game_ui_assets/race.js').read_text(encoding='utf-8')
     part=source.split('function showMetric(key){',1)[1].split("document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener",1)[0]
     assert 'tbody' not in part and 'setComponentValue' not in source
-    assert "showMetric('final')" in source
+    assert "showMetric('ability')" in source

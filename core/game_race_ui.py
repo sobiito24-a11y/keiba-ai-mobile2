@@ -397,7 +397,7 @@ def comparison_data(view,mode,race_key="",portable=None):
         for c in group['cards']:
             h=view[c['index']]
             html.append('<button class="top-horse" data-top-select="'+str(c['index'])+'">'+
-                        '<span class="top-identity">'+frame_html(h['frame'])+candidate_badge(h)+'<b>'+escape(h['no'])+'</b></span>'+
+                        '<span class="top-identity">'+frame_html(h['frame'])+'<b>'+escape(h['no'])+'</b></span>'+
                         '<span class="top-name">'+name_html(h)+'</span>'+
                         '<span class="top-value">'+escape(c['value'])+'</span><span class="top-rank">'+escape(c['rank'])+'</span></button>')
         group['html']=''.join(html) or '<p class="no-data">該当データなし</p>'
@@ -406,18 +406,18 @@ def comparison_data(view,mode,race_key="",portable=None):
 
 def comparison_html(view,mode):
     from .game_ui_comparison import TABS
-    buttons=''.join('<button role="tab" aria-selected="'+('true' if k=='final' else 'false')+'" data-tab="'+k+'">'+escape(label)+'</button>' for k,label in TABS)
+    buttons=''.join('<button role="tab" aria-selected="'+('true' if k=='ability' else 'false')+'" data-tab="'+k+'">'+escape(label)+'</button>' for k,label in TABS)
     return '<section class="metric-comparison"><div class="metric-tabs" role="tablist" aria-label="比較指標">'+buttons+'</div><div id="metric-count"></div><div id="top-horses" class="top-horses" role="tabpanel" tabindex="0" aria-label="選択指標の比較・横縦スクロール"></div><p id="metric-note"></p></section>'
 
 
 def information_html(view, group):
     from .game_ui_information import reasons
     if not group['rows']:return '<p class="no-data">該当馬なし</p>'
-    headers=['枠','馬番・馬名','正式印']+(['今回＋','今回−'] if group['key']=='materials' else ['斤量増減','騎手'])
+    headers=['枠','馬番・馬名']+(['今回＋','今回−'] if group['key']=='materials' else ['斤量増減','騎手'])
     html=[]
     for i in group['rows']:
         h=view[i]
-        cells=[frame_html(h['frame']),'<button class="horse-select" data-top-select="'+str(i)+'"><b>'+escape(h['no'])+'</b><span>'+name_html(h)+'</span></button>',candidate_badge(h)]
+        cells=[frame_html(h['frame']),'<button class="horse-select" data-top-select="'+str(i)+'"><b>'+escape(h['no'])+'</b><span>'+name_html(h)+'</span></button>']
         if group['key']=='materials':
             for k,c in [('plus','positive'),('caution','caution')]:
                 value=' / '.join(reasons(h.get(k)))

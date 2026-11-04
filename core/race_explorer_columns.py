@@ -73,8 +73,6 @@ def columns(view):
         _spec("name", "馬名・性齢", "text"), _spec("age", "性齢", "text", table_hidden=True),
         _spec("jockey", "騎手", "text"), _spec("odds", "単勝", "number"),
         _spec("popularity", "人気", "rank"),
-        _spec("score", "JRA正式評価スコア" if jra else "NAR最終評価スコア", "number", rank_key="rank"),
-        _spec("rank", "正式順位", "rank", table_hidden=True),
         _spec("ability", "純能力指数", "number", rank_key="ability_rank"),
         _spec("ability_rank", "純能力順位", "rank", table_hidden=True),
         _spec("distance", "距離指数", "number", rank_key="distance_rank"),
@@ -86,8 +84,6 @@ def columns(view):
         if any(_number(_mapping(_mapping(horse).get(key)).get("value")) is not None for horse in view or ()):
             result.extend((_spec(key, label, "number", rank_key=key + "_rank"),
                            _spec(key + "_rank", label + "順位", "rank", table_hidden=True)))
-    if any(_reference_score(_mapping(horse)) is not None for horse in view or ()):
-        result.append(_spec("reference_score", "参考スコア（正式評価外）", "number"))
     result.extend([
         *(_spec(key, label, "number", text_key=key + "_condition")
           for key, label in _RUNS),

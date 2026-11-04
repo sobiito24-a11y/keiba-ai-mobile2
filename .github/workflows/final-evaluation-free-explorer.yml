@@ -1,0 +1,22 @@
+name: Final-evaluation-free race explorer
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  race-explorer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python syntax
+        run: python -m compileall -q core app.py tests
+      - name: Dependencies
+        run: python -m pip install -r requirements.txt -r requirements-test.txt
+      - name: Race explorer regression tests
+        run: |
+          python -m pytest -q tests/test_race_explorer_columns.py tests/test_race_explorer_ui.py tests/test_race_explorer_cards.py tests/test_race_explorer_inline_age.py tests/test_game_ui_comparison.py tests/test_race_explorer_archive.py tests/test_race_comparison_interactions.py tests/test_race_explorer_display_errors.py tests/test_race_explorer_visuals.py tests/test_game_race_ui.py
