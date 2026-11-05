@@ -80,6 +80,12 @@ def columns(view):
         _spec("course", "コース指数", "number", rank_key="course_rank"),
         _spec("course_rank", "コース順位", "rank", table_hidden=True),
     ]
+    if not jra:
+        # New research-only column next to pure ability. No formal rank, no marks.
+        position = next(i for i, spec in enumerate(result) if spec["key"] == "ability_rank") + 1
+        result.insert(position, _spec("nar_form_rank", "NAR前走参考順位", "rank"))
+        result.append(_spec("nar_form_reason", "前走参考根拠", "text", table_hidden=True))
+        result.append(_spec("nar_form_flag", "前走再確認材料", "text", table_hidden=True))
     for key, label in (("star", "同場同距離指数"), ("away", "別場同距離指数")):
         if any(_number(_mapping(_mapping(horse).get(key)).get("value")) is not None for horse in view or ()):
             result.extend((_spec(key, label, "number", rank_key=key + "_rank"),
@@ -185,6 +191,9 @@ def records(view):
             jockey=_text(facts.get("current_jockey", horse.get("jockey"))),
             odds=odds, popularity=popularity, score=score, rank=rank,
             ability=ability, ability_rank=ability_rank,
+            nar_form_rank=_integer(horse.get("nar_form_ref_rank")) if horse.get("mode") == "nar" else None,
+            nar_form_reason=_text(horse.get("nar_form_ref_reason")) if horse.get("mode") == "nar" else None,
+            nar_form_flag=_text(horse.get("nar_form_ref_flag")) if horse.get("mode") == "nar" else None,
             distance=distance, distance_rank=distance_rank,
             course=course, course_rank=course_rank,
             star=star, star_rank=star_rank, away=away, away_rank=away_rank,
