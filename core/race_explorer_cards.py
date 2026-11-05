@@ -196,6 +196,21 @@ def detail_html(horse):
     ]
     if horse.get("mode") == "jra":
         basic.append(("調教評価", facts.get("training")))
+    form_html = ""
+    if horse.get("mode") == "nar":
+        rank = cells.get("nar_form_rank")
+        reason = cells.get("nar_form_reason")
+        flag = cells.get("nar_form_flag")
+        past_corner = horse.get("nar_form_ref_prior_corner")
+        form_html = (
+            '<section class="detail-nar-form"><h4>NAR前走参考順位（研究）</h4>'
+            '<p><b>' + (value(rank) + '位' if rank is not None else '未取得') + '</b>'
+            '｜前走4角 ' + (value(past_corner) + '番手' if past_corner is not None else '未取得') + '</p>'
+            '<p>評価根拠：' + value(reason) + '</p>'
+            '<p>再確認材料：' + value(flag) + '</p>'
+            '<p class="detail-note">純能力や最終評価の置き換えではなく、回収率改善は未検証です。</p>'
+            '</section>'
+        )
     metric_values = [
         ("純能力指数", "純能力", "ability", "ability_rank"),
         ("距離指数", "距離", "distance", "distance_rank"),
@@ -232,6 +247,7 @@ def detail_html(horse):
         '<section class="explorer-detail"><header class="detail-header">' + number_badge(horse) +
         '<div><h3>' + value(horse.get("name")) + '</h3><p>馬別詳細</p></div></header>' +
         _definition_list(basic, "detail-basic") +
+        form_html +
         '<section class="detail-evaluation"><h4>評価・指数</h4><div class="detail-stats">' +
         ''.join(stats) + '</div>' +
         '<p class="detail-note">指数の順位は各指標ごとに独立して表示しています。総合点や最終印による順位付けは行いません。</p>' +

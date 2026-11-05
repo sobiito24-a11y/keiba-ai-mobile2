@@ -23,6 +23,8 @@ def _cell(horse, cells, key):
         return comparison_index_html(item, cells.get(rank_key))
     if key in ('average', 'maximum', 'reference_score'):
         return comparison_index_html(item, ranked=False)
+    if key == 'nar_form_rank':
+        return '<b class="metric-number">'+value(item)+'位</b>' if item is not None else '<span class="missing-cell">未取得</span>'
     if key == 'corner':
         return value(item)+'番手' if item is not None else '<span class="missing-cell">未取得</span>'
     if key in ('run_old','run_middle','run_latest'):
@@ -55,12 +57,12 @@ def _options(schema, first=None):
 def lineup_html(view):
     schema, cells = columns(view), records(view)
     shown_schema = [spec for spec in schema if not spec.get('table_hidden')]
-    widths = dict(user=42, frame=36, no=44, name=190, jockey=85, score=120,
+    widths = dict(user=42, frame=36, no=44, name=190, jockey=85, score=120, nar_form_rank=115,
                   rank=70, popularity=70, style=70, corner=70, training=60,
                   run_old=134, run_middle=134, run_latest=134, jockey_change=160,
                   record_venue=190, record_distance=190, record_venue_distance=190, materials=220)
     mobile_widths = dict(user=34, frame=28, no=34, name=118, jockey=68,
-                         score=100, reference_score=110, popularity=56, style=56,
+                         score=100, reference_score=110, nar_form_rank=93, popularity=56, style=56,
                          corner=62, training=48, run_old=108, run_middle=108,
                          run_latest=108, jockey_change=128, record_venue=156,
                          record_distance=156, record_venue_distance=156, materials=176)
@@ -83,8 +85,12 @@ def lineup_html(view):
             tooltip = str(row.get(key) if row.get(key) is not None else '未取得')
             content.append('<td class="'+cls+'" data-label="'+plain(spec['label'])+'" title="'+plain(tooltip)+'">'+_cell(horse, row, key)+'</td>')
         rows.append('<tr data-row="'+plain(no)+'" data-horse="'+plain(no)+'">'+''.join(content)+'</tr>')
+    nar_help = ('<p class="help">NAR前走参考順位は過去走・4角による研究用の全頭参考順位。'
+                '純能力・購入判断は変更しません。回収率改善は未検証です。</p>'
+                if view and view[0].get("mode") == "nar" else '')
     return ('<section class="lineup-workspace" id="lineup-workspace"><div class="explorer-section-heading"><div><span class="eyebrow">COMPARE ALL RUNNERS</span><h2>全頭予想・比較一覧</h2></div><span class="count">全'+str(len(view))+'頭</span></div>'
             '<p class="help">自分の✓は何頭でも選べます。予測・保存・買い目には反映しません。列見出しで並び替え、馬名から詳細を開けます。</p>'
+            +nar_help+
             '<div class="lineup-toolbar"><label>表示 <select id="lineup-filter"><option value="all">全頭表示</option><option value="selected">自分の✓だけ表示</option></select></label>'
             '<label>並び順 <select id="lineup-sort">'+_options(schema, 'no')+'</select></label>'
             '<label>方向 <select id="lineup-direction"><option value="asc">昇順</option><option value="desc">降順</option></select></label>'
