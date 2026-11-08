@@ -66,6 +66,34 @@ def render(result, view):
                 st.session_state[key+'_status'] = '更新失敗：現在オッズ取得不可。以前の履歴と保存時オッズは保持しています。'
     if not connection.available:
         caption('オンライン更新は未設定です。取得・転送・表示が許諾された提供元の接続設定が必要です。HTML・JSONを一括取込できます。')
+    with st.expander("直前オッズを数行で手入力（外部サイトを見ながら）", expanded=False):
+        st.caption("例：『単勝 3 5.2』『馬連 3-7 14.8』『ワイド 3-7 4.5-5.8』。"
+                   "複勝・ワイドは範囲を指定可能。同じレースの馬番と馬名、表示倍率を確認してください。")
+        with st.form(key + "_manual_form"):
+            source_name = st.text_input("確認元のサイト名", value="外部サイト", key=key+"_manual_source")
+            typed = st.text_area("表示オッズを1行ずつ入力",
+                                 placeholder="単勝 3 5.2\\nワイド 3-7 4.5-5.8\\n馬連 3-7 14.8",
+                                 key=key+"_manual_text", height=100)
+            checked = st.checkbox(
+                "対象レース・馬番・馬名・倍率を今この外部サイトで目視確認した",
+                value=False, key=key+"_manual_checked")
+            submit_manual = st.form_submit_button("確認したオッズを反映")
+        if submit_manual:
+            from .race_odds_manual import build_observation
+            try:
+                quote = build_observation(typed, identity, source=source_name,
+                                          seen_now=checked)
+                state['history'] = odds.merge(state['history'], [quote], identity)
+                activate_observation(quote)
+                st.session_state[key+'_status'] = (
+                    f"入力 {len(quote['prices'])}点。"
+                    "確認時刻は利用者の目視確認時刻で、提供元の価格更新時刻ではありません。"
+                    "新しい入力に古い価格を補完しません。"
+                )
+            except (ValueError, TypeError, KeyError) as exc:
+                st.error(str(exc))
+        st.caption("券種ごとの正確な表示オッズを入力してください。馬連の倍率をワイドへ転用しません。"
+                   "オッズは締切まで動くので、購入直前に再確認してください。")
     from .race_odds_screenshot_ui import render as render_screenshot
     render_screenshot(identity, state, key)
     unseen = [q for q in state['history']
