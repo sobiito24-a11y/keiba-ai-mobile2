@@ -63,10 +63,10 @@ def test_past_finish_does_not_stand_in_for_missing_nar_corner():
 
 
 def test_jra_evidence_rest_training_and_surface_or_distance():
-    a = horse(rank=3, grade="B", rest=21, course=2)
-    b = horse(rank=4, grade="D", rest=90)
-    c = horse(rank=2, grade="B", rest=None)
-    d = horse(rank=5, grade="B", rest=21, course=9, distance=9)
+    a = horse(no="3", rank=3, grade="B", rest=21, course=2)
+    b = horse(no="4", rank=4, grade="D", rest=90)
+    c = horse(no="2", rank=2, grade="B", rest=None)
+    d = horse(no="5", rank=5, grade="B", rest=21, course=9, distance=9)
     reviewed = with_frozen_reviews([a, b, c, d])
     assert reviewed[0]["frozen_review_candidate"] is True
     assert reviewed[0]["frozen_review_label"] == "相手比較材料"
