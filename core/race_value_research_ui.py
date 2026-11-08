@@ -13,7 +13,7 @@ def current_observation(result, session_state):
     try:
         ident = race_odds.identity_from_result(result)
         saved = race_odds.state_for(result)
-    except (ValueError, TypeError, KeyError):
+    except (ValueError, TypeError, KeyError, AttributeError):
         return None
     key = "race_prices_" + race_odds.digest(dict(identity=ident,saved=saved))
     state = session_state.get(key, saved)
