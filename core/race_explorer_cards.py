@@ -128,8 +128,9 @@ def _stat(label, content, key):
     return '<div class="detail-stat" data-metric="' + plain(key) + '"><small>' + plain(label) + '</small>' + content + '</div>'
 
 
-def _runs_html(facts):
+def _runs_html(facts, notes=None):
     by_label = {}
+    notes = notes if isinstance(notes, Mapping) else {}
     for run in _items(facts.get("runs")):
         if isinstance(run, Mapping) and run.get("label") in RUN_LABELS:
             by_label.setdefault(run["label"], run)
@@ -145,7 +146,9 @@ def _runs_html(facts):
              if run.get("is_maximum") else '') + '</b></span></div>' +
             _definition_list((("開催日", run.get("date")),
                               ("開催条件", run.get("condition")),
-                              ("クラス", run.get("class_raw"))), "detail-run-facts") + '</article>')
+                              ("クラス", run.get("class_raw"))), "detail-run-facts") +
+            ('<p class="detail-run-short-review"><b>競馬新聞短評</b>：' + value(notes[label]) + '</p>'
+             if notes.get(label) else '') + '</article>')
     return '<div class="detail-runs">' + ''.join(cards) + '</div>'
 
 
@@ -243,6 +246,28 @@ def detail_html(horse):
     raw = facts.get("stable_comment_raw")
     source = facts.get("stable_comment_source")
     original = plain(raw) if isinstance(raw, str) and raw.strip() else '未取得'
+    career_html = ""
+    if horse.get("mode") == "jra":
+        career = horse.get("jra_career_performance")
+        career = career if isinstance(career, list) else []
+        entries = []
+        for item in career[:36]:
+            if not isinstance(item, Mapping):
+                continue
+            counts = [item.get(key) for key in ("wins", "seconds", "thirds", "other")]
+            if not all(isinstance(n, int) and n >= 0 for n in counts):
+                continue
+            entries.append(
+                '<li><span>' + value(item.get("label")) + '</span><b>'
+                + '-'.join(str(n) for n in counts) + '</b></li>'
+            )
+        career_html = (
+            '<section class="detail-jra-career"><h4>競馬新聞・通算戦績</h4>'
+            + ('<p>数値は順に1着－2着－3着－4着以下。新聞保存時点の全戦績です。</p>'
+               '<ul class="career-performance-list">' + ''.join(entries) + '</ul>'
+               if entries else '<p class="no-data">全戦績は未取得（過去の保存データには新聞原文がありません）。</p>')
+            + '</section>'
+        )
     return (
         '<section class="explorer-detail"><header class="detail-header">' + number_badge(horse) +
         '<div><h3>' + value(horse.get("name")) + '</h3><p>馬別詳細</p></div></header>' +
@@ -259,7 +284,9 @@ def detail_html(horse):
         ('<p class="detail-missing-metrics">未取得：' + '・'.join(plain(label) for label in missing) + '</p>' if missing else '') +
         ('<p class="detail-note">3走平均は確認できた過去3走のタイム指数から算出した表示値です。</p>'
          if metrics.get("average_calculated") else '') + '</section>' +
-        '<section class="detail-history"><h4>過去3走</h4>' + _runs_html(facts) + '</section>' +
+        '<section class="detail-history"><h4>過去3走・競馬新聞短評</h4>' +
+        _runs_html(facts, horse.get("jra_past_short_notes")) + '</section>' +
+        career_html +
         '<section class="detail-conditions"><h4>コース・距離実績</h4>' +
         _conditions_html(facts) + '</section>' +
         '<section class="detail-changes"><h4>状態・変更情報</h4>' +
