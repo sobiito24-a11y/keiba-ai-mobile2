@@ -1,0 +1,91 @@
+{
+  "version": "jra_newspaper_history_source_audit_v1_20261108",
+  "development_dates": [
+    "2026-11-07",
+    "2026-11-08"
+  ],
+  "holdout_first_allowed": "2026-11-14",
+  "history_source": "JRA netkeiba pre-race newspaper HTML: dl.HorseList > .Past_Wrapper li.Past .Data24 and dd.Performance",
+  "old_snapshot_source_status": "JRA Nov 7-8 .keiba contains last-three past runs but no raw Data24 and no full-career Performance; cannot reconstruct lifetime record or exact race-short-note returns",
+  "development_three_run_proxy": {
+    "races": 62,
+    "runners": 854,
+    "same_course_good_run": {
+      "definition": "last three starts contain a same venue, same surface, same distance finish <=3",
+      "observed": {
+        "runners": 113,
+        "top3": 37,
+        "top3_rate_pct": 32.7
+      },
+      "not_observed": {
+        "runners": 741,
+        "top3": 150,
+        "top3_rate_pct": 20.2
+      }
+    },
+    "ability_rank_4_to_8_same_venue_surface_good_run": {
+      "observed": {
+        "runners": 53,
+        "top3": 19,
+        "top3_rate_pct": 35.8
+      },
+      "not_observed": {
+        "runners": 254,
+        "top3": 63,
+        "top3_rate_pct": 24.8
+      }
+    },
+    "limitations": [
+      "In-sample association only; course familiarity correlates with horse quality and campaign selection",
+      "Not full career; nonmatches also include missing or zero exposure",
+      "No valid return-on-stake gain for actual lifetime records or Data24 remarks can be claimed from archived 7/8 snapshots",
+      "No automatic mark, bonus, buy list, or betting system should be generated from exploratory associations"
+    ]
+  },
+  "prospective_conditions": {
+    "race_window": "2026-11-14 onward; pre-race snapshots with verifiable saved time before post only",
+    "career": {
+      "feature": "exact current racecourse, surface and distance pre-race total",
+      "groups": [
+        "no historic starts",
+        "1-2 historic starts",
+        "3 or more historic starts"
+      ],
+      "signal": "observed >=1 third-or-better finish with >=1 start; always retain sample count",
+      "caution": "Never convert 0 starts into poor performance, never synthesize missing"
+    },
+    "remarks": {
+      "source": "Only literal past Data24 with date and horse id matched",
+      "token_search": [
+        "詰ま",
+        "不利",
+        "進路",
+        "挟ま",
+        "出遅",
+        "接触",
+        "躓"
+      ],
+      "denominator": "all horses with source remarks available",
+      "no_horse_ranking_impact": true
+    },
+    "performance": {
+      "labels": [
+        "win_rate",
+        "top3_rate",
+        "winner_in_top3_by_pure_ability_rank",
+        "track",
+        "surface",
+        "distance",
+        "number_of_source_covered_horses"
+      ],
+      "strata": [
+        "pure ability 1-3",
+        "pure ability 4-8",
+        "pure ability 9+",
+        "unknown ability"
+      ],
+      "compare_to": "same ability strata with matched pre-race source coverage, plus original pure ability rank 1 and top3 baseline",
+      "no_deployment_until": "Holdout replication across 2+ weekends and clear return improvement, not post-hoc on development data"
+    }
+  }
+}
