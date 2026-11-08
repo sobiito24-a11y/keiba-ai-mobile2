@@ -86,6 +86,11 @@ def columns(view):
         "frozen_review", "JRA相手比較" if jra else "NAR見直し", "text",
     ))
     result.append(_spec("frozen_review_reason", "研究チェック根拠", "text", table_hidden=True))
+    if jra:
+        # All-career course records are only shown when an actual saved
+        # newspaper Performance row matches the current course exactly.
+        insert_at = next(i for i, spec in enumerate(result) if spec["key"] == "course_rank") + 1
+        result.insert(insert_at, _spec("career_course", "同コース全戦績", "text"))
     if not jra:
         # New research-only column next to pure ability. No formal rank, no marks.
         position = next(i for i, spec in enumerate(result) if spec["key"] == "ability_rank") + 1
@@ -202,6 +207,15 @@ def records(view):
             nar_form_flag=_text(horse.get("nar_form_ref_flag")) if horse.get("mode") == "nar" else None,
             frozen_review=_text(horse.get("frozen_review_label")),
             frozen_review_reason=_text(horse.get("frozen_review_reason")),
+            career_course=(
+                "-".join(str(int(horse["jra_career_current_course"][key]))
+                         for key in ("wins", "seconds", "thirds", "other"))
+                if (horse.get("mode") == "jra"
+                    and isinstance(horse.get("jra_career_current_course"), Mapping)
+                    and all(isinstance(horse["jra_career_current_course"].get(key), int)
+                            for key in ("wins", "seconds", "thirds", "other")))
+                else None
+            ),
             distance=distance, distance_rank=distance_rank,
             course=course, course_rank=course_rank,
             star=star, star_rank=star_rank, away=away, away_rank=away_rank,
@@ -230,8 +244,10 @@ def records(view):
         if not isinstance(raw_runs, (list, tuple)):
             raw_runs = metrics.get("runs")
         runs = {run.get("label"): run for run in raw_runs if isinstance(run, Mapping)} if isinstance(raw_runs, (list, tuple)) else {}
+        notes = _mapping(horse.get("jra_past_short_notes")) if horse.get("mode") == "jra" else {}
         for key, label in _RUNS:
             run = _mapping(runs.get(label))
+            item[key + "_note"] = _text(notes.get(label))
             item[key] = _number(run.get("time_index"))
             item[key + "_condition"] = _text(run.get("condition"))
             item[key + "_date"] = _text(run.get("date"))
