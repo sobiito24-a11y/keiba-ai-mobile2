@@ -1,0 +1,48 @@
+{
+  "version": "jra_nar_frozen_review_20261108_v1",
+  "frozen_at": "2026-11-08",
+  "development_dates": [
+    "2026-10-17",
+    "2026-10-18",
+    "2026-11-07",
+    "2026-11-08"
+  ],
+  "prospective_holdout_starts": "2026-11-14",
+  "user_interface": "Research checks, not new marks or formal score",
+  "nar": {
+    "flag": "pure_ability_rank>=6 && recorded_previous_4c_rank<=3 && predicted_current_4c_rank<=3",
+    "missing_previous_corner": "NO FLAG, NEVER substitute previous finishing position",
+    "goal": "Find otherwise overlooked contenders and compare to ability baseline",
+    "evidence": "Nov 7-8: 17 horses/6 wins; Oct 17-18: 22 horses/1 win (hypothesis unstable)",
+    "production": "No ability changes, no additional purchases, no recommendation"
+  },
+  "jra": {
+    "review": "Pure ability ranks 2-5, training A/B, verified rest_days<70, and course_rank<=3 OR distance_rank<=3",
+    "warning": "70+ day rest with training C/D is a strong caution, not an automatic exclusion",
+    "research_three": "Retain pure ability rank #1, prefer two qualifying horses among ranks 2-5 by pure ability order; fill remaining places by pure ability rank. Missing #1 means no picks",
+    "missing_ability": "Never extrapolate. Mark unavailable, including jump races",
+    "production": "No formal scores or betting purchases changed"
+  },
+  "pace": {
+    "observed_missing": "Do not treat default H as observed pace; show 未取得 unless provider value grounded",
+    "predicted_pace": "Keep a separate source/type from observed lap measurement"
+  },
+  "validation": {
+    "policy": "No use of Nov 7-8 in prospective metrics. Retain archived predictions made before post time. Require matching race IDs",
+    "prospective_dates_start": "2026-11-14",
+    "minimum_separate_weekends": 2,
+    "minimum_jra_races": 80,
+    "minimum_nar_races": 80,
+    "comparisons": [
+      "winner_top3_capture",
+      "winner_top5_capture",
+      "wide_3horse_box_roi",
+      "quinella_3horse_box_roi",
+      "win_roi",
+      "roi_excluding_two_largest_returns",
+      "by_track",
+      "by_date"
+    ],
+    "decision": "Only propose changing a formal predictor after a meaningful out-of-sample improvement, never automatically merge"
+  }
+}

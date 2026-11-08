@@ -153,7 +153,7 @@ def test_missing_malformed_display_substructures_stay_renderable_and_uninvented(
     assert item["name"]=="</script>保存馬"  # Escaping belongs to HTML/JSON renderer.
     assert all(item[key] is None for key in ("score","ability","distance","maximum","run_old","record_venue","training"))
     assert h==before
-    assert records([])=={} and len(columns([]))==32
+    assert records([])=={} and len(columns([]))==34
 
 
 def test_malformed_optional_peak_and_condition_metadata_do_not_hide_the_field():

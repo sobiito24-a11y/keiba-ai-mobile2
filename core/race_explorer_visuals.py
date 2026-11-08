@@ -74,6 +74,16 @@ def _style(horse):
 
 def _pace(view, race_info):
     """Require agreement across recorded pace fields; never use style counts."""
+    # Older NAR snapshots may contain a default H even where the original
+    # netkeiba HTML explicitly had no lap value. A research provenance check
+    # is attached to the real game view before this renderer runs.
+    if view and all(horse.get("mode") == "nar" for horse in view):
+        pace_evidence = [
+            str(horse.get("nar_form_ref_pace") or "")
+            for horse in view if horse.get("nar_form_ref_pace")
+        ]
+        if pace_evidence and any(value not in ("S", "M", "H") for value in pace_evidence):
+            return ""
     sources = [_mapping(race_info)]
     for horse in view:
         audit = _mapping(_mapping(horse.get('candidate_evidence')).get('audit'))

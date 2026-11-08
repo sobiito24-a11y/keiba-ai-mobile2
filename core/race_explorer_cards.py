@@ -248,6 +248,11 @@ def detail_html(horse):
         '<div><h3>' + value(horse.get("name")) + '</h3><p>馬別詳細</p></div></header>' +
         _definition_list(basic, "detail-basic") +
         form_html +
+        ('<section class="detail-frozen-review"><h4>検証用チェック（2026/11/08条件固定）</h4>'
+         '<p><b>' + value(cells.get("frozen_review")) + '</b></p>'
+         '<p>' + value(cells.get("frozen_review_reason")) + '</p>'
+         '<p class="detail-note">検証用の比較材料であり、最終順位・印・購入推奨には反映しません。</p>'
+         '</section>' if horse.get("frozen_review_version") else '') +
         '<section class="detail-evaluation"><h4>評価・指数</h4><div class="detail-stats">' +
         ''.join(stats) + '</div>' +
         '<p class="detail-note">指数の順位は各指標ごとに独立して表示しています。総合点や最終印による順位付けは行いません。</p>' +
