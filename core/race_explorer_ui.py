@@ -29,7 +29,13 @@ def _cell(horse, cells, key):
         return value(item)+'番手' if item is not None else '<span class="missing-cell">未取得</span>'
     if key in ('run_old','run_middle','run_latest'):
         star = ' <span class="maximum-match" title="保存された最高指数と一致">★</span>' if cells.get(key+'_is_maximum') else ''
-        return '<b class="metric-number">'+value(item)+star+'</b><small class="run-condition">'+value(cells.get(key+'_condition'))+'</small><small>'+value(cells.get(key+'_date'))+'</small>'
+        note = cells.get(key+'_note')
+        # Only dated, horse-matched pre-race Data24 text; AI-generated text
+        # must not be mistaken for a newspaper short review.
+        note_html = ('<small class="run-short-review">短評：'+value(note)+'</small>') if note else ''
+        return ('<b class="metric-number">'+value(item)+star+'</b>'
+                '<small class="run-condition">'+value(cells.get(key+'_condition'))+'</small>'
+                '<small>'+value(cells.get(key+'_date'))+'</small>'+note_html)
     if key == 'odds':
         return '<b class="metric-number">'+value(item)+'倍</b>' if item is not None else '<span class="missing-cell">'+('取消・除外' if cells.get('withdrawn') is True else '未取得')+'</span>'
     if key == 'popularity':
@@ -57,12 +63,12 @@ def _options(schema, first=None):
 def lineup_html(view):
     schema, cells = columns(view), records(view)
     shown_schema = [spec for spec in schema if not spec.get('table_hidden')]
-    widths = dict(user=42, frame=36, no=44, name=190, jockey=85, score=120, nar_form_rank=115, frozen_review=128,
+    widths = dict(user=42, frame=36, no=44, name=190, jockey=85, score=120, nar_form_rank=115, frozen_review=128, career_course=142,
                   rank=70, popularity=70, style=70, corner=70, training=60,
                   run_old=134, run_middle=134, run_latest=134, jockey_change=160,
                   record_venue=190, record_distance=190, record_venue_distance=190, materials=220)
     mobile_widths = dict(user=34, frame=28, no=34, name=118, jockey=68,
-                         score=100, reference_score=110, nar_form_rank=93, frozen_review=104, popularity=56, style=56,
+                         score=100, reference_score=110, nar_form_rank=93, frozen_review=104, career_course=112, popularity=56, style=56,
                          corner=62, training=48, run_old=108, run_middle=108,
                          run_latest=108, jockey_change=128, record_venue=156,
                          record_distance=156, record_venue_distance=156, materials=176)

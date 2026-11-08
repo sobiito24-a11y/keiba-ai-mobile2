@@ -1794,6 +1794,9 @@ def render_game_prediction(result):
     # Outcome-free, frozen 2026-11-08 comparisons. Never overwrite the model.
     from core.frozen_research_review import with_frozen_reviews
     view = with_frozen_reviews(view)
+    if result_race_mode(result) == "jra":
+        from core.jra_newspaper_horse_history import with_jra_history_context
+        view = with_jra_history_context(view, sources, result.race_info)
     by = {horse_key(h): h for h in sources}
     display_by = {horse_key(h): h for h in rows}
     for horse in view:
