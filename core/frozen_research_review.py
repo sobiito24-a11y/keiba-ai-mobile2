@@ -67,7 +67,14 @@ def _jra_evidence(horse: Mapping[str, Any]) -> tuple[str, str, bool]:
         supports.append("コース指数3位以内")
     if grade in ("A", "B"):
         supports.append("調教A/B")
+    weight_delta = _number(facts.get("weight_delta"))
+    if weight_delta is not None and weight_delta <= -2:
+        supports.append(f"斤量{weight_delta:g}kg（前走比）")
+    if "乗替" in str(facts.get("jockey_change") or ""):
+        supports.append("騎手乗替（強化かは未判定）")
     concerns = []
+    if weight_delta is not None and weight_delta >= 2:
+        concerns.append(f"斤量+{weight_delta:g}kg（前走比）")
     if days is None:
         concerns.append("休養間隔が未確認")
     elif days >= 70:
