@@ -1806,6 +1806,9 @@ def render_game_prediction(result):
     from core.race_odds_ui import render as render_prices
     with st.expander("買い目検討用・手動オッズ取込", expanded=False):
         view = render_prices(result, view)
+    with st.expander("勝率・3着内率 × 直前オッズ（研究／購入価値は未検証）", expanded=False):
+        from core.race_value_research_ui import render as render_value_research
+        render_value_research(result)
     from core.paper_betting_ui import current_decision
     from core.game_race_ui import decision_view
     buying_view = decision_view(view)
