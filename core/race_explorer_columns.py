@@ -80,6 +80,12 @@ def columns(view):
         _spec("course", "コース指数", "number", rank_key="course_rank"),
         _spec("course_rank", "コース順位", "rank", table_hidden=True),
     ]
+    # Evidence-only prospective research label; no final score or mark.
+    position = next(i for i, spec in enumerate(result) if spec["key"] == "ability_rank") + 1
+    result.insert(position, _spec(
+        "frozen_review", "JRA相手比較" if jra else "NAR見直し", "text",
+    ))
+    result.append(_spec("frozen_review_reason", "研究チェック根拠", "text", table_hidden=True))
     if not jra:
         # New research-only column next to pure ability. No formal rank, no marks.
         position = next(i for i, spec in enumerate(result) if spec["key"] == "ability_rank") + 1
@@ -194,6 +200,8 @@ def records(view):
             nar_form_rank=_integer(horse.get("nar_form_ref_rank")) if horse.get("mode") == "nar" else None,
             nar_form_reason=_text(horse.get("nar_form_ref_reason")) if horse.get("mode") == "nar" else None,
             nar_form_flag=_text(horse.get("nar_form_ref_flag")) if horse.get("mode") == "nar" else None,
+            frozen_review=_text(horse.get("frozen_review_label")),
+            frozen_review_reason=_text(horse.get("frozen_review_reason")),
             distance=distance, distance_rank=distance_rank,
             course=course, course_rank=course_rank,
             star=star, star_rank=star_rank, away=away, away_rank=away_rank,
