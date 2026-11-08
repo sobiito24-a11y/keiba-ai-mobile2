@@ -23,7 +23,7 @@ def parse_lines(value: str, identity: Mapping[str, Any]) -> list[dict[str, Any]]
         raise ValueError("入力は10,000文字以内のテキストにしてください")
     valid = {int(h["horse_no"]) for h in identity["horses"]}
     prices, seen = [], set()
-    lines = [unicodedata.normalize("NFKC", x).strip().replace("倍", "").replace("～", "~").replace("−", "-").replace("–", "-") for x in value.splitlines()]
+    lines = [unicodedata.normalize("NFKC", x).strip().replace("倍", "").replace("～", "~").replace("〜", "~").replace("−", "-").replace("–", "-") for x in value.splitlines()]
     lines = [x for x in lines if x and not x.startswith("#")]
     if not lines or len(lines) > 120:
         raise ValueError("1〜120行の券種・馬番・表示オッズを入力してください")
