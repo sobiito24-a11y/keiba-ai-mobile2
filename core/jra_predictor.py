@@ -33,4 +33,10 @@ def predict_jra(
     from .independent_ai import attach as attach_independent
     from .newspaper_stable_rating import attach as attach_stable_rating
     from .game_ui_frames import attach_saved_frames
-    return attach_saved_frames(attach_stable_rating(attach_independent(attach_development(result, html_files)), html_files), html_files)
+    from .jra_newspaper_horse_history import attach_jra_newspaper_history
+    result = attach_saved_frames(
+        attach_stable_rating(attach_independent(attach_development(result, html_files)), html_files),
+        html_files,
+    )
+    # Read-only source facts. Not used by any formal ranking/score calculation.
+    return attach_jra_newspaper_history(result, html_files)
