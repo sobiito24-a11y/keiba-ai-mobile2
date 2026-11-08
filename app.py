@@ -1791,6 +1791,9 @@ def render_game_prediction(result):
         view = with_nar_form_reference(
             view, sources, result.race_info, getattr(result, "debug_info", None),
         )
+    # Outcome-free, frozen 2026-11-08 comparisons. Never overwrite the model.
+    from core.frozen_research_review import with_frozen_reviews
+    view = with_frozen_reviews(view)
     by = {horse_key(h): h for h in sources}
     display_by = {horse_key(h): h for h in rows}
     for horse in view:
