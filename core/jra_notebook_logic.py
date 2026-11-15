@@ -324,6 +324,14 @@ def extract_class_text_candidates(soup):
             unique.append(text)
     return unique
 def race_class_info_from_soup(soup, *fallback_texts):
+    """Read the named race's class, never turf course rail A/B as NAR class.
+
+    The race header contains both the JRA class description (RaceData02) and
+    a course label such as "芝1800m 右 A" (RaceData01). The old broad
+    \\bA\\b / \\bB\\b rules incorrectly classified the latter as
+    A級/B級 before reaching the actual "1勝/3勝クラス" text. Race grades
+    still take precedence over the generic "オープン" race description.
+    """
     candidates = extract_class_text_candidates(soup)
     candidates += [norm_text(str(text)) for text in fallback_texts if text]
     major_labels = {"G1", "G2", "G3", "Jpn1", "Jpn2", "Jpn3", "重賞", "準重賞", "L"}
@@ -331,12 +339,35 @@ def race_class_info_from_soup(soup, *fallback_texts):
         rank, label = race_class_info(text)
         if rank is not None and label in major_labels:
             return rank, label
-    for text in candidates:
-        rank, label = race_class_info(text)
-        if rank is not None:
+
+    # Actual race-condition text outranks a course lane letter, on current
+    # netkeiba pages and on historical db.netkeiba race result pages.
+    explicit = []
+    if soup is not None:
+        for selector in (".RaceData02", ".data_intro .smalltxt"):
+            node = soup.select_one(selector)
+            if node is not None:
+                explicit.append(text_of(node))
+    explicit.extend(str(text) for text in fallback_texts if text)
+    for value in explicit:
+        rank, label = race_class_info(value)
+        if label in {"新馬", "未勝利", "1勝", "2勝", "3勝", "OP", "L"}:
             return rank, label
-    compact_fallback = " ".join(norm_text(str(text)) for text in fallback_texts if text)
-    return race_class_info(compact_fallback)
+
+    # NAR class names (A級, B2, C1 etc.) remain valid when explicitly stated.
+    # A bare A/B/C in "芝... A/B" is a rail setting, not a race class.
+    def _verified_local_class(value, label):
+        if label not in {"A級", "B級", "C級"}:
+            return True
+        return bool(re.search(r"[ABC]\s*級", value, flags=re.I))
+
+    for value in candidates:
+        rank, label = race_class_info(value)
+        if rank is not None and _verified_local_class(value, label):
+            return rank, label
+    compact_fallback = " ".join(norm_text(str(value)) for value in fallback_texts if value)
+    rank, label = race_class_info(compact_fallback)
+    return (rank, label) if _verified_local_class(compact_fallback, label) else (None, "")
 
 
 def class_shift_label(current_rank, past_rank):
