@@ -449,8 +449,13 @@ def conclusion_html(view):
 
 
 def paper_html(view,race_key,paper_decision=None):
-    from .paper_betting import build,html
-    return html(paper_decision or build(decision_view(view),view[0]['mode'] if view else 'jra',dict(race_id=race_key)))
+    from .paper_betting import html
+    # Never create a paper decision from an unverified fallback race key.
+    # The optional module must abstain when the exact identity is missing.
+    if paper_decision is None:
+        return ('<p class="help">馬券判断の記録：レースID・出走馬を照合できないため'
+                '表示を保留しています。予想・SABCDには影響しません。</p>')
+    return html(paper_decision)
 
 
 def nar_watch_html(view,portable=None):
