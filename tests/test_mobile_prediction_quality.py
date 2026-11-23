@@ -27,13 +27,14 @@ def sample_view(*, ability=None, grade=None, frame=None):
 def test_entire_source_without_ability_explains_why_blank_rank_is_correct():
     result = sample_result(prediction={"status": "insufficient",
                                        "reason": "能力入力の欠損が多く確率を表示できません"})
+    result._jra_live_display = True
     view = sample_view()
     before = (deepcopy(result.overall_table), deepcopy(result.debug_info), deepcopy(view))
     notes = diagnose(result, view)
     assert len(notes) == 3
     assert notes[0][0] == "error"
     assert "すべての純能力指数" in notes[0][1]
-    assert "タイム指数・競馬新聞・脚質分析HTML" in notes[0][1]
+    assert "タイム指数HTMLを保存し直し" in notes[0][1]
     assert "統合SABCDは判定不可" in notes[1][1]
     assert "能力入力" in notes[1][1]
     assert "枠番が全頭未取得" in notes[2][1]
