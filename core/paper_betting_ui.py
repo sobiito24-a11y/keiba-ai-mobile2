@@ -5,7 +5,14 @@ from . import race_odds as o
 
 def current_decision(result,view):
  import streamlit as st
- identity=o.identity_from_result(result);initial=o.state_for(result)
+ # Incomplete archived/nonstandard races can have no verifiable 12-digit
+ # race ID or horse-name identities. This optional paper-bet feature must
+ # abstain instead of crashing the entire prediction workspace.
+ try:
+  identity=o.identity_from_result(result)
+  initial=o.state_for(result)
+ except (ValueError,TypeError,KeyError,AttributeError):
+  return None
  key='race_prices_'+o.digest(dict(identity=identity,saved=initial))
  state=st.session_state.get(key,initial)
  # Exact displayed observation only; never combine clocks or ticket markets.
@@ -18,6 +25,11 @@ def current_decision(result,view):
 def render(result,view):
  import streamlit as st
  decision=current_decision(result,view)
+ if decision is None:
+  st.info('馬券判断の記録は保留：レースIDまたは出走馬を照合できません。'
+          '予想一覧・SABCD・馬別詳細は引き続き利用できます。'
+          '別レースのオッズや馬番は補完しません。')
+  return None
  rid=str(decision['race_id']);bucket='paper_record_'+rid
  with st.expander('馬券判断の記録・結果照合',expanded=False):
   st.caption('セッションは永続保存ではありません。固定JSONをダウンロードしてください。価格取得時刻不明は発走前価格と保証できません。')
