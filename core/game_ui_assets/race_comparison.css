@@ -126,3 +126,14 @@
 .career-performance-list li span{overflow-wrap:anywhere}
 .career-performance-list li b{white-space:nowrap;font-variant-numeric:tabular-nums}
 @media(max-width:600px){.career-performance-list{grid-template-columns:1fr}}
+
+
+/* Dashboard-parity prestart SABCD: color only the grade cell, not the whole horse row. */
+.race-explorer .explorer-table .col-research_sabcd{width:86px;min-width:74px;text-align:center}
+.race-explorer .explorer-table .independent-sabcd{display:inline-block;min-width:28px;padding:3px 8px;border-radius:8px;font-size:14px;line-height:1.5;font-weight:750;letter-spacing:.02em}
+.race-explorer .explorer-table .research-tier-S .independent-sabcd{background:#d6f3e2;color:#105834}
+.race-explorer .explorer-table .research-tier-A .independent-sabcd{background:#e1f4e7;color:#1d6741}
+.race-explorer .explorer-table .research-tier-B .independent-sabcd{background:#e8f0fa;color:#285579}
+.race-explorer .explorer-table .research-tier-C .independent-sabcd{background:#f2f3f5;color:#626e78}
+.race-explorer .explorer-table .research-tier-D .independent-sabcd{background:#f6f6f6;color:#858b90}
+@media(max-width:700px){.race-explorer .explorer-table .col-research_sabcd{width:74px}}

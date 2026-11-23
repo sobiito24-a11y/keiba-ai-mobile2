@@ -73,6 +73,7 @@ def columns(view):
         _spec("name", "馬名・性齢", "text"), _spec("age", "性齢", "text", table_hidden=True),
         _spec("jockey", "騎手", "text"), _spec("odds", "単勝", "number"),
         _spec("popularity", "人気", "rank"),
+        _spec("research_sabcd", "統合SABCD", "grade", options=["S", "A", "B", "C", "D"]),
         _spec("ability", "純能力指数", "number", rank_key="ability_rank"),
         _spec("ability_rank", "純能力順位", "rank", table_hidden=True),
         _spec("distance", "距離指数", "number", rank_key="distance_rank"),
@@ -86,6 +87,12 @@ def columns(view):
         "frozen_review", "JRA相手比較" if jra else "NAR見直し", "text",
     ))
     result.append(_spec("frozen_review_reason", "研究チェック根拠", "text", table_hidden=True))
+    # Keep only one S/A/B/C/D in the main view; saved grades are never
+    # re-derived from odds, post-race data, formal marks or model B.
+    result.extend((
+        _spec("unified_sabcd_rank", "独立AI順位", "rank", table_hidden=True),
+        _spec("independent_ai_sabcd_score", "独立AI3着内参考値（未校正）", "number", table_hidden=True),
+    ))
     if jra:
         # All-career course records are only shown when an actual saved
         # newspaper Performance row matches the current course exactly.
@@ -195,12 +202,22 @@ def records(view):
         grade = _text(facts.get("training"))
         grade = grade if grade in ("A", "B", "C", "D") and horse.get("mode") == "jra" else None
         current_weight = _number(facts.get("current_weight"))
+        independent = _mapping(horse.get("independent_ai_sabcd"))
+        unified = _mapping(horse.get("unified_sabcd"))
+        # Only Dashboard-verified display grades are exposed.
+        display_grade = (independent.get("grade")
+                         if unified.get("grade") == independent.get("grade")
+                         and independent.get("source_model_id") ==
+                         "independent_ai_v3_20261012_beta1" else None)
         item = dict(
             user=False, frame=_integer(horse.get("frame"), maximum=8),
             no=_integer(horse.get("no")), name=_text(horse.get("name")),
             age=_text(horse.get("age")),
             jockey=_text(facts.get("current_jockey", horse.get("jockey"))),
             odds=odds, popularity=popularity, score=score, rank=rank,
+            research_sabcd=display_grade if display_grade in ("S", "A", "B", "C", "D") else None,
+            unified_sabcd_rank=_integer(unified.get("rank")) if display_grade else None,
+            independent_ai_sabcd_score=_number(independent.get("score")) if display_grade else None,
             ability=ability, ability_rank=ability_rank,
             nar_form_rank=_integer(horse.get("nar_form_ref_rank")) if horse.get("mode") == "nar" else None,
             nar_form_reason=_text(horse.get("nar_form_ref_reason")) if horse.get("mode") == "nar" else None,

@@ -15,8 +15,11 @@
     // Unknown values always remain last, including descending order.
     if (am !== bm) return am ? 1 : -1;
     if (am) return 0;
-    const order = numericType(type) || type === 'boolean'
-      ? (a === b ? 0 : a < b ? -1 : 1) : collator.compare(a, b);
+    const tiers = {S: 0, A: 1, B: 2, C: 3, D: 4};
+    const order = type === 'grade' && tiers[a] !== undefined && tiers[b] !== undefined
+      ? tiers[a] - tiers[b]
+      : numericType(type) || type === 'boolean'
+        ? (a === b ? 0 : a < b ? -1 : 1) : collator.compare(a, b);
     return (direction === 'desc' ? -1 : 1) * order;
   }
 
@@ -38,7 +41,7 @@
     if (spec.type === 'text' || spec.text_key) {
       if (typeof raw.text === 'string' && raw.text.trim()) result.text = raw.text.trim();
     }
-    if (spec.type === 'grade' && ['A', 'B', 'C', 'D'].includes(raw.choice)) result.choice = raw.choice;
+    if (spec.type === 'grade' && ['S', 'A', 'B', 'C', 'D'].includes(raw.choice)) result.choice = raw.choice;
     if (spec.type === 'boolean' && ['selected', 'unselected'].includes(raw.choice)) result.choice = raw.choice;
     return Object.keys(result).length > 1 || result.presence !== 'all' ? result : null;
   }
@@ -218,7 +221,7 @@
     byId('filter-text').value = filter.text || '';
     const choice = byId('filter-choice');
     choice.replaceChildren();
-    const options = [['', '指定なし'], ...(spec.type === 'grade' ? ['A', 'B', 'C', 'D'].map(grade => [grade, grade])
+    const options = [['', '指定なし'], ...(spec.type === 'grade' ? (spec.options || ['A', 'B', 'C', 'D']).map(grade => [grade, grade])
       : [['selected', 'チェック済み'], ['unselected', '未チェック']])];
     for (const [value, label] of options) {
       const option = document.createElement('option'); option.value = value; option.textContent = label; choice.appendChild(option);

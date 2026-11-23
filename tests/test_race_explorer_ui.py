@@ -194,3 +194,73 @@ def test_empty_main_table_has_controls_and_safe_header():
     assert not doc.select('tr[data-horse], input[data-user-check]')
     assert doc.select_one('#lineup-filter')
     assert '全0頭' in doc.text
+
+
+@pytest.mark.parametrize('mode', ['jra', 'nar'])
+def test_dashboard_sabcd_and_second_look_are_in_mobile_main_detail_only(mode):
+    from core.independent_ai_sabcd import annotate_view, MODEL_ID
+    _, _, info, view = field(mode, 8)
+    official = deepcopy([(h['no'], h['mark'], h['rank'], h['score'],
+                          h.get('candidate_formal_score')) for h in view])
+    source = {
+        'status': 'reference', 'origin': 'new_prediction',
+        'model_id': MODEL_ID, 'mode': mode, 'race_id': info['race_id'],
+        'generated_at': '2026-10-22T08:00:00+09:00',
+        'input': {
+            'race_id': info['race_id'],
+            'post_time': '2026-10-22T18:00:00+09:00',
+            'horses': [
+                dict(horse_no=int(h['no']), name=h['name'],
+                     pure=75, distance_index=70, course_index=71,
+                     recent3_mean=67, corner4=4, jockey_place_rate=25,
+                     jockey_sample_size=30, rest_days=14, load_change=0)
+                for h in view
+            ],
+        },
+        'horses': [
+            dict(horse_no=int(h['no']), name=h['name'], place=p)
+            for h, p in zip(view, [.72, .54, .35, .21, .18, .11, .08, .02])
+        ],
+    }
+    saved_source = deepcopy(source)
+    annotate_view(view, source, race_id=info['race_id'])
+    assert source == saved_source
+    assert [(h['no'], h['mark'], h['rank'], h['score'],
+             h.get('candidate_formal_score')) for h in view] == official
+    doc = BeautifulSoup(document(view, info['race_id']), 'html.parser')
+    headers = [t.text for t in doc.select('#lineup-workspace th .column-label')]
+    assert headers.count('統合SABCD') == 1
+    assert headers.index('統合SABCD') + 1 == headers.index('純能力指数')
+    assert [row.select_one('.col-research_sabcd').text.strip()
+            for row in doc.select('#lineup-workspace tr[data-horse]')] == list('SABCCDDD')
+    assert not doc.select('#lineup-workspace [data-second-look]')
+    payload = json.loads(doc.select_one('#race-data').string)
+    detail_c = BeautifulSoup(payload['cards'][3], 'html.parser')
+    detail_d = BeautifulSoup(payload['cards'][5], 'html.parser')
+    assert detail_c.select_one('[data-second-look="previous-top3"]')
+    assert detail_d.select_one('[data-second-look="previous-top3"]')
+    assert detail_c.select_one('.detail-input-quality')
+    assert '独立AI' in detail_c.select_one('.detail-model-grade').text
+    detail_s = BeautifulSoup(payload['cards'][0], 'html.parser')
+    assert not detail_s.select_one('[data-second-look="previous-top3"]')
+
+
+def test_unverified_independent_ai_never_manufactures_mobile_grade():
+    _, _, info, view = field('nar', 5)
+    from core.independent_ai_sabcd import annotate_view, MODEL_ID
+    source = {
+        'status': 'reference', 'origin': 'new_prediction',
+        'model_id': MODEL_ID, 'race_id': info['race_id'], 'mode': 'nar',
+        'generated_at': '2026-10-22T19:00:00+09:00',
+        'input': {'race_id': info['race_id'],
+                  'post_time': '2026-10-22T18:00:00+09:00'},
+        'horses': [
+            dict(horse_no=int(h['no']), name=h['name'], place=.5) for h in view
+        ],
+    }
+    before = deepcopy(view)
+    annotate_view(view, source, race_id=info['race_id'])
+    assert view == before
+    doc = BeautifulSoup(document(view, info['race_id']), 'html.parser')
+    assert all(t.text.strip() == '判定不可'
+               for t in doc.select('tr[data-horse] .col-research_sabcd'))
