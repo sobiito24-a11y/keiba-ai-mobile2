@@ -184,6 +184,7 @@ def _material_html(item):
 
 def detail_html(horse):
     """Render the one shared detail body for pickup and all-runner navigation."""
+    from .race_explorer_second_look import second_look_html, input_quality_html
     facts = _facts(horse)
     metrics = _metrics(horse, facts)
     cells = records([horse])[str(horse.get("no", ""))]
@@ -199,6 +200,17 @@ def detail_html(horse):
     ]
     if horse.get("mode") == "jra":
         basic.append(("調教評価", facts.get("training")))
+    grade = cells.get("research_sabcd")
+    grade_html = (
+        '<section class="detail-model-grade"><h4>統合SABCD（発走前独立AI）</h4>'
+        '<p>表示ランク：<b>' + value(grade) +
+        '</b>｜独立AI内の順位：' +
+        (value(cells.get("unified_sabcd_rank")) + '位' if cells.get("unified_sabcd_rank") is not None else '未取得') +
+        '｜3着以内参考値（未校正）：' +
+        (f'{cells["independent_ai_sabcd_score"]:.3f}' if cells.get("independent_ai_sabcd_score") is not None else '未取得') +
+        '</p><p class="detail-note">Dashboardと同じ保存済みの発走前独立AIによる分類。'
+        '参考値は校正済みの馬券内確率ではありません。正式Top5・印・買い目は不変。</p></section>'
+        if grade in ("S", "A", "B", "C", "D") else '')
     form_html = ""
     if horse.get("mode") == "nar":
         rank = cells.get("nar_form_rank")
@@ -271,8 +283,11 @@ def detail_html(horse):
     return (
         '<section class="explorer-detail"><header class="detail-header">' + number_badge(horse) +
         '<div><h3>' + value(horse.get("name")) + '</h3><p>馬別詳細</p></div></header>' +
+        second_look_html(horse) +
+        grade_html +
         _definition_list(basic, "detail-basic") +
         form_html +
+        input_quality_html(horse) +
         ('<section class="detail-frozen-review"><h4>検証用チェック（2026/11/08条件固定）</h4>'
          '<p><b>' + value(cells.get("frozen_review")) + '</b></p>'
          '<p>' + value(cells.get("frozen_review_reason")) + '</p>'
