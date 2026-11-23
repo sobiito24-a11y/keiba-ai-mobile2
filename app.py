@@ -1395,6 +1395,13 @@ def run_upload_prediction_with_progress(
         result = run_prediction(mode, html_files, file_names)
         step(65, "3. 結果整理中")
         validate_result(result)
+        # HTMLが3種類揃っていても、Safariでタイム指数の数値が
+        # 未表示のまま保存された場合は全頭「未取得」になり得る。
+        # 保存済みレースには遡及せず、今回のHTMLアップロードのみ検査する。
+        from core.mobile_live_html_readiness import require_live_jra_ability
+        readiness_notice = require_live_jra_ability(result)
+        if readiness_notice:
+            st.warning(readiness_notice)
         step(85, "4. PNG生成中")
         png_bytes = render_mobile_png(result)
         step(100, "5. 完了")
