@@ -74,3 +74,16 @@
  .race-explorer .pickup-state{grid-template-columns:repeat(2,minmax(0,1fr))}
  .race-explorer .pickup-state-nar{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+
+/* Only show the pre-race second-look evidence after deliberate horse-detail selection. */
+.race-explorer .detail-second-look{margin:12px 0;padding:12px;border:1px solid #bad9c5;border-radius:9px;background:#f4faf6}
+.race-explorer .detail-second-look h4{margin:0 0 5px;color:#205e40;font-size:13px}
+.race-explorer .detail-second-look p{margin:5px 0;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.race-explorer .detail-model-grade{margin:10px 0;padding:10px 12px;background:#f5f9fc;border:1px solid #d5e3ed;border-radius:8px}
+.race-explorer .detail-model-grade h4{margin:0 0 5px;font-size:13px}
+.race-explorer .detail-model-grade p{margin:5px 0;font-size:12px;line-height:1.65;overflow-wrap:anywhere}
+.race-explorer .detail-input-quality{margin:12px 0;padding:10px 12px;border:1px solid #d7e3eb;border-radius:8px}
+.race-explorer .detail-input-quality>summary{cursor:pointer;color:#325b77;font-size:12px;font-weight:650}
+.race-explorer .detail-input-quality dl{margin:10px 0 0}
+.race-explorer .detail-input-quality dt,.race-explorer .detail-input-quality dd{overflow-wrap:anywhere}
