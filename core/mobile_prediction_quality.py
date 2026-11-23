@@ -84,7 +84,7 @@ def diagnose(result, view):
             "error",
             f"入力不足：{n}頭すべての純能力指数を元の保存予測から確認できません。"
             "馬名・出走情報だけでは正しい新SABCDは計算できません。"
-            ("中央HTMLアップロードの場合は、netkeibaで指数が全頭表示された状態の"
+            + ("中央HTMLアップロードの場合は、netkeibaで指数が全頭表示された状態の"
              "タイム指数HTMLを保存し直し、同じレースの競馬新聞・脚質分析HTMLと"
              "一緒にアップロードしてください。"
              if getattr(result, "_jra_live_display", False) else
