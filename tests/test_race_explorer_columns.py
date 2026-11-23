@@ -42,7 +42,7 @@ def test_schema_covers_every_comparison_cell_and_has_no_ai_mark_or_membership(mo
     specs=columns(view)
     keys=[item["key"] for item in specs]
     assert len(keys)==len(set(keys))
-    assert keys[:10]==["user", "frame", "no", "name", "age", "jockey", "odds", "popularity", "ability", "ability_rank"]
+    assert keys[:11]==["user", "frame", "no", "name", "age", "jockey", "odds", "popularity", "research_sabcd", "ability", "ability_rank"]
     assert keys[keys.index("run_old"):keys.index("run_old")+5]==[
         "run_old", "run_middle", "run_latest", "average", "maximum"]
     assert ("training" in keys)==(mode=="jra")
